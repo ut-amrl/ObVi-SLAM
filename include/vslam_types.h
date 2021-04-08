@@ -47,7 +47,7 @@ struct VisionFeature {
   // overridden operator
   friend std::ostream& operator<<(std::ostream& o,
                                   const vslam_types::VisionFeature<T>& f) {
-    o << "feature_idx: " << f.feature_idx << "frame_idx: " << f.frame_idx
+    o << "feature_idx: " << f.feature_idx << "\tframe_idx: " << f.frame_idx
       << "\tdescriptor: " << f.descriptor << "\tpixel: " << f.pixel.x() << " "
       << f.pixel.y() << "\tpoint3d: " << f.point3d.x() << " " << f.point3d.y()
       << " " << f.point3d.z() << std::endl;
@@ -133,6 +133,21 @@ struct RobotPose {
       << p.angle.axis().y() << " " << p.angle.axis().z() << std::endl;
     return o;
   }
+};
+
+// Templated for the type of descriptor used
+template <typename T>
+struct UTSLAMProblem {
+  TrackDatabase<T> track_database;
+
+  std::vector<RobotPose> robot_poses;
+
+  // Default constructor: do nothing.
+  UTSLAMProblem() {}
+  // Convenience constructor: initialize everything.
+  UTSLAMProblem(TrackDatabase<T> track_database,
+                std::vector<RobotPose> robot_poses)
+      : track_database(track_database), robot_poses(robot_poses) {}
 };
 }  // namespace vslam_types
 
