@@ -58,7 +58,8 @@ struct VisionFeature {
 // Templated for the type of descriptor used
 template <typename T>
 struct VisionFeatureTrack {
-  // Index of this feature track - should never be changed once created
+  // Index of this feature track - should never be changed once created - each
+  // member feature will also have this redundantly
   uint64_t const feature_idx;
 
  private:
@@ -77,7 +78,7 @@ struct VisionFeatureTrack {
   std::vector<VisionFeature<T>> const& getTrack() const { return track; }
   // Default constructor: removed - must construct feature track with const
   // feature_idx
-  VisionFeatureTrack() = delete;
+  VisionFeatureTrack(uint64_t const feature_idx) : feature_idx(feature_idx) {}
   // Convenience constructor: initialize everything.
   VisionFeatureTrack(
       uint64_t const feature_idx,
@@ -100,6 +101,39 @@ struct TrackDatabase {
       : frame_idxs(frame_idxs), feature_tracks(feature_tracks){};
 };
 
+struct RobotPose {
+  // Index of the frame this feature was acquired in
+  uint64_t const frame_idx;
+  // Frame/robot location
+  Eigen::Vector3f loc;
+  // Frame/robot angle: rotates points from robot frame to global.
+  Eigen::AngleAxisf angle;
+  // Default constructor: initialize frame_idx
+  RobotPose(uint64_t const frame_idx) : frame_idx(frame_idx){};
+  // Convenience constructor: initialize everything.
+  RobotPose(uint64_t const frame_idx,
+            const Eigen::Vector3f& loc,
+            const Eigen::AngleAxisf& angle)
+      : frame_idx(frame_idx), loc(loc), angle(angle) {}
+
+  // Return a transform from the robot to the world frame for this pose.
+  Eigen::Affine3f RobotToWorldTF() const {
+    return (Eigen::Translation3f(loc) * angle);
+  }
+  // Return a transform from the world to the robot frame for this pose.
+  Eigen::Affine3f WorldToRobotTF() const {
+    return ((Eigen::Translation3f(loc) * angle).inverse());
+  }
+  // Convenience override of ostream
+  friend std::ostream& operator<<(std::ostream& o,
+                                  const vslam_types::RobotPose& p) {
+    o << "frame_idx: " << p.frame_idx << "\tloc: " << p.loc.x() << " "
+      << p.loc.y() << " " << p.loc.z() << "\tangle"
+      << " " << p.angle.angle() << " " << p.angle.axis().x() << " "
+      << p.angle.axis().y() << " " << p.angle.axis().z() << std::endl;
+    return o;
+  }
+};
 }  // namespace vslam_types
 
 #endif  // __VSLAM_TYPES_H__
