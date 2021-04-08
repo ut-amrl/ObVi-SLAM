@@ -1,6 +1,7 @@
 #ifndef __VSLAM_TYPES_H__
 #define __VSLAM_TYPES_H__
 
+#include <iostream>
 #include <utility>
 #include <vector>
 
@@ -15,6 +16,8 @@ struct VisionFeature {
   // Index of this feature - same as the index of the feature track of which
   // this is a part - stored here for redundancy
   uint64_t const feature_idx;
+  // Index of the frame this feature was acquired in
+  uint64_t const frame_idx;
   // The descriptor of the feature from the frame it was imaged in - the
   // descriptor will potentially change slightly over the course of the feature
   // track
@@ -30,11 +33,13 @@ struct VisionFeature {
   // except for the point3d location which we may use later/optimize
   VisionFeature() = delete;
   // Convenience constructor: initialize everything.
-  VisionFeature(const uint64_t feature_idx,
-                const T descriptor,
-                const Eigen::Vector2f& pixel,
-                const Eigen::Vector3f& point3d = Eigen::Vector3f())
+  VisionFeature(uint64_t const feature_idx,
+                uint64_t const frame_idx,
+                T const descriptor,
+                Eigen::Vector2f const& pixel,
+                Eigen::Vector3f const& point3d = Eigen::Vector3f())
       : feature_idx(feature_idx),
+        frame_idx(frame_idx),
         descriptor(descriptor),
         pixel(pixel),
         point3d(point3d) {}
@@ -42,10 +47,10 @@ struct VisionFeature {
   // overridden operator
   friend std::ostream& operator<<(std::ostream& o,
                                   const vslam_types::VisionFeature<T>& f) {
-    o << "feature_idx: " << f.feature_idx << "\tdescriptor: " << f.descriptor
-      << "\tpixel: " << f.pixel.x() << " " << f.pixel.y()
-      << "\tpoint3d: " << f.point3d.x() << " " << f.point3d.y() << " "
-      << f.point3d.z() << std::endl;
+    o << "feature_idx: " << f.feature_idx << "frame_idx: " << f.frame_idx
+      << "\tdescriptor: " << f.descriptor << "\tpixel: " << f.pixel.x() << " "
+      << f.pixel.y() << "\tpoint3d: " << f.point3d.x() << " " << f.point3d.y()
+      << " " << f.point3d.z() << std::endl;
     return o;
   }
 };
