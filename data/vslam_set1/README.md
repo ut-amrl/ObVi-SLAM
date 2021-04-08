@@ -20,6 +20,9 @@ k | x<sub>k</sub> | y<sub>k</sub> |
 
 The keypoints for each frame are stored in a text file. There are as many rows as there are picked keypoints. Each keypoint has a manually assigned integer ID that is consistent across all frames. The coordinates are given in pixel coordinates.
 
+## Data File
+The first entry in the data file is the frame ID, the second is the map frame pose, and the third is the table of labeled keypoints.
+
 ## Calibration 
 The images are 1024 x 1224 and their pinhole model calibration is given:  
 D = [-0.03008119897795957, 0.05868843892472479, 0.0004516554495703711, -0.0022084025311091475, 0.0]  
