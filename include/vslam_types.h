@@ -9,52 +9,50 @@
 
 namespace vslam_types {
 
+// Templated for the type of descriptor used
+template <typename T>
 struct VisionFeature {
-  // Index of this feature in the features vector for the node, stored here
-  // for redundancy.
-  uint64_t feature_idx;
+  // Index of this feature - same as the index of the feature track of which
+  // this is a part - stored here for redundancy
+  uint64_t const feature_idx;
+  // The descriptor of the feature from the frame it was imaged in - the
+  // descriptor will potentially change slightly over the course of the feature
+  // track
+  T const descriptor;
   // Camera pixel location of feature.
-  Eigen::Vector2f pixel;
-  // Estimated 3d location in the camera frame.
+  Eigen::Vector2f const pixel;
+  // Estimated 3d location in the camera frame - not used directly in
+  // structureless slam but left here for completeness and later use
   Eigen::Vector3f point3d;
-  // Default constructor: do nothing.
-  VisionFeature() {}
+  // Default constructor: removed - should only be constructed when all parts
+  // are available - allows us to enforce all parts of the feature being const -
+  // except for the point3d location which we may use later/optimize
+  VisionFeature() = delete;
   // Convenience constructor: initialize everything.
-  VisionFeature(uint64_t idx,
-                const Eigen::Vector2f& p,
+  VisionFeature(const uint64_t feature_idx,
+                const T descriptor,
+                const Eigen::Vector2f& pixel,
                 const Eigen::Vector3f& point3d)
-      : feature_idx(idx), pixel(p), point3d(point3d) {}
+      : feature_idx(feature_idx),
+        descriptor(descriptor),
+        pixel(pixel),
+        point3d(point3d) {}
 };
 
-struct FeatureMatch {
-  // Feature ID from the initial pose.
-  uint64_t feature_idx_initial;
-  // Feature ID from current pose.
-  uint64_t feature_idx_current;
-  // Default constructor: do nothing.
-  FeatureMatch() {}
+// Templated for the type of descriptor used
+template <typename T>
+struct VisionFeatureTrack {
+  // Index of this feature track - should never be changed once created
+  uint64_t const feature_idx;
+  // The track of feature matches
+  std::vector<VisionFeature<T>> track;
+  // Default constructor: removed - must construct feature track with const
+  // feature_idx
+  VisionFeatureTrack() = delete;
   // Convenience constructor: initialize everything.
-  FeatureMatch(uint64_t fid_initial, uint64_t fid_current)
-      : feature_idx_initial(fid_initial), feature_idx_current(fid_current) {}
-};
-
-struct VisionFactor {
-  // ID of the pose where the features were *first* observed.
-  uint64_t pose_idx_initial;
-  // ID of second pose.
-  uint64_t pose_idx_current;
-  // Pair of feature ID from first pose, and feature ID from second pose,
-  // and feature ID from initial pose.
-  std::vector<FeatureMatch> feature_matches;
-  // Default constructor: do nothing.
-  VisionFactor() {}
-  // Convenience constructor: initialize everything.
-  VisionFactor(uint64_t pose_initial,
-               uint64_t pose_current,
-               const std::vector<vslam_types::FeatureMatch>& feature_matches)
-      : pose_idx_initial(pose_initial),
-        pose_idx_current(pose_current),
-        feature_matches(feature_matches) {}
+  VisionFeatureTrack(uint64_t const feature_idx,
+                     std::vector<VisionFeature<T>> track)
+      : feature_idx(feature_idx), track(track){};
 };
 
 }  // namespace vslam_types
