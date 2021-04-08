@@ -85,6 +85,21 @@ struct VisionFeatureTrack {
       : feature_idx(feature_idx), track(track){};
 };
 
+// Templated for the type of descriptor used
+template <typename T>
+struct TrackDatabase {
+  // All frame IDs - each tracks individual frame IDs will be a subset of these
+  std::vector<uint64_t> frame_idxs;
+  // All feature tracks
+  std::vector<VisionFeatureTrack<T>> feature_tracks;
+  // Default constructor: do nothing.
+  TrackDatabase(){};
+  // Convenience constructor: initialize everything.
+  TrackDatabase(std::vector<uint64_t> frame_idxs,
+                std::vector<VisionFeatureTrack<T>> feature_tracks)
+      : frame_idxs(frame_idxs), feature_tracks(feature_tracks){};
+};
+
 }  // namespace vslam_types
 
 #endif  // __VSLAM_TYPES_H__
