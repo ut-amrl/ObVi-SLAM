@@ -32,8 +32,8 @@ int main(int argc, char** argv) {
   }
 
   // Print feature tracks to terminal for display
-  for (const auto& track : prob.track_database.feature_tracks) {
-    for (const auto& feature : track.getTrack()) {
+  for (const auto& ft : prob.track_database.feature_tracks) {
+    for (const auto& feature : ft.track) {
       cout << feature << endl;
     }
   }

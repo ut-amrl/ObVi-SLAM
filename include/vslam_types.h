@@ -71,25 +71,14 @@ struct VisionFeatureTrack {
   // member feature in the track will also have this redundantly
   uint64_t feature_idx;
 
- private:
   // The track of feature matches - private - only allow controlled feature
   // addition and no feature subtraction
   std::vector<VisionFeature<T>> track;
-
- public:
-  // Add feature to end of feature track
-  void addFeature(VisionFeature<T> feature) {
-    track.push_back(feature);
-    return;
-  };
   // Sort feature track so frame_idxs are in ascending order
   void sort() {
     std::sort(track.begin(), track.end());
     return;
   }
-  // Return reference to the feature track vector that doesn't allow you to
-  // edit the feature track
-  std::vector<VisionFeature<T>> const& getTrack() const { return track; }
   // Default constructor: removed - must construct feature track with const
   // feature_idx
   VisionFeatureTrack(uint64_t const feature_idx) : feature_idx(feature_idx) {}
@@ -118,11 +107,12 @@ struct TrackDatabase {
     // If feature track exists add the feature
     for (auto& ft : feature_tracks) {
       if (ft.feature_idx == feature.feature_idx) {
-        ft.addFeature(feature);
+        ft.track.push_back(feature);
         return;  // Exit early if we already found the track we were looking
                  // for
       }
     }
+
     // If feature track doesn't exist seed a new one with the feature
     feature_tracks.push_back(VisionFeatureTrack<int>(feature));
 
