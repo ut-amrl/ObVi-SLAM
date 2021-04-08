@@ -10,5 +10,8 @@ include_directories(include)
 
 set(LIBS glog gflags)
 
+add_library(vslam_io src/vslam_io.cpp)
+target_compile_features(vslam_io PRIVATE cxx_std_17)    # 17 required for file iteration 
+
 add_executable(main src/main.cpp)
-target_link_libraries(main ${LIBS})
+target_link_libraries(main vslam_io ${LIBS})
