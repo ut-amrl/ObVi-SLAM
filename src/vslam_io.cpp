@@ -2,11 +2,11 @@
 
 #include <glog/logging.h>
 
+#include <algorithm>
 #include <filesystem>  //c++ 17 file iteration
 #include <fstream>
 
 namespace vslam_io {
-
 using namespace vslam_types;
 
 namespace fs = std::filesystem;
@@ -23,8 +23,8 @@ void LoadUTSLAMProblem(const std::string data_path,
   // frames
   for (const auto& entry : fs::directory_iterator(fs::path(data_path))) {
     const auto file_extension = entry.path().extension().string();
-    // If it isn't a data file file skip it - we identify data files as "regular
-    // files" with a .txt extension in the dat_path directory
+    // If it isn't a data file file skip it - we identify data files as
+    // "regular files" with a .txt extension in the data_path directory
     if (!entry.is_regular_file() || file_extension != ".txt") {
       continue;
     }
@@ -43,6 +43,7 @@ void LoadUTSLAMProblem(const std::string data_path,
     std::stringstream ss_id(line);
     uint64_t frame_id;
     ss_id >> frame_id;
+    prob.track_database.frame_idxs.push_back(frame_id);
     // Read frame/robotpose from 2nd line
     std::getline(data_file_stream, line);
     std::stringstream ss_pose(line);
@@ -53,6 +54,7 @@ void LoadUTSLAMProblem(const std::string data_path,
     angle_q.normalize();
     Eigen::AngleAxisf angle(angle_q);
     RobotPose pose(frame_id, loc, angle);
+    prob.robot_poses.push_back(pose);
     // Read features from all other lines
     while (std::getline(data_file_stream, line)) {
       std::stringstream ss_feature(line);
@@ -61,8 +63,16 @@ void LoadUTSLAMProblem(const std::string data_path,
       ss_feature >> feature_id >> x >> y;
       VisionFeature<int> feature(
           feature_id, frame_id, 1111, Eigen::Vector2f(x, y));
-      std::cout << feature << std::endl;
+      prob.track_database.addFeature(feature);
     }
   }
+
+  // Sort all feature tracks so frame_idxs are in ascending order
+  for (auto& track : prob.track_database.feature_tracks) {
+    track.sort();
+  }
+
+  return;
 }
+
 }  // namespace vslam_io
