@@ -6,9 +6,9 @@ The sequence contains give images acquired in the AHG level 2 AMRL lab area. The
 ## Frame Coordinates
 Frame | #1 | #2 | #3 | #4 | #5 | 
 --- | --- | --- | --- |--- |--- |
-Coordinate | (0, 0, 0.13, 0, 0, 0) | (0.1524, 0, 0.13, 0, 0, 0) | (0.3048, 0, 0.13, 0, 0, 0) | (0.4572, 0, 0.13, 0, 0, 0) | (0.6096, 0, 0.13, 0, 0, 0)
+Coordinate | (0, 0, 0.13, 0, 0, 0, 1) | (0.1524, 0, 0.13, 0, 0, 0, 1) | (0.3048, 0, 0.13, 0, 0, 0, 1) | (0.4572, 0, 0.13, 0, 0, 0, 1) | (0.6096, 0, 0.13, 0, 0, 0, 1)
 
-Note: Coordinates given as (x, y, z, e<sub>x</sub>, e<sub>y</sub>, e<sub>z</sub>) where e<sub>i</sub> is the axis-angle representation where the magnitude of the rotation is encoded as the magnitude of the vector. Units in meter and radians.
+Note: Coordinates given as (x, y, z, q<sub>x</sub>, q<sub>y</sub>, q<sub>z</sub>, q<sub>w</sub>) where q<sub>i</sub> is quaternion representation of rotation. Units are in meters.
 
 ## Label Format
 ID | x | y | 
