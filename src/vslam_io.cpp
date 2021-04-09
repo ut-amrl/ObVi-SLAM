@@ -45,7 +45,6 @@ void LoadUTSLAMProblem(const std::string data_path,
     std::stringstream ss_id(line);
     uint64_t frame_id;
     ss_id >> frame_id;
-    prob.track_database.frame_idxs.push_back(frame_id);
 
     // Read frame/robot pose from 2nd line
     std::getline(data_file_stream, line);
@@ -66,13 +65,13 @@ void LoadUTSLAMProblem(const std::string data_path,
       float x, y;
       ss_feature >> feature_id >> x >> y;
       VisionFeature feature(feature_id, frame_id, Eigen::Vector2f(x, y));
-      prob.track_database.addFeature(feature);
+      prob.tracks[feature_id].track.push_back(feature);
     }
   }
 
   // Sort all feature tracks so frame_idxs are in ascending order
-  for (auto& track : prob.track_database.feature_tracks) {
-    track.sort();
+  for (auto& ft : prob.tracks) {
+    std::sort(ft.second.track.begin(), ft.second.track.end());
   }
 
   return;

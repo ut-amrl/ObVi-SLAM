@@ -4,6 +4,7 @@
 #include <assert.h>
 
 #include <iostream>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -23,8 +24,8 @@ struct VisionFeature {
   // Default constructor: do nothing.
   VisionFeature(){};
   // Convenience constructor: initialize everything.
-  VisionFeature(uint64_t const feature_idx,
-                uint64_t const frame_idx,
+  VisionFeature(uint64_t const& feature_idx,
+                uint64_t const& frame_idx,
                 Eigen::Vector2f const& pixel)
       : feature_idx(feature_idx), frame_idx(frame_idx), pixel(pixel) {}
   // Convenience override of ostream
@@ -49,17 +50,10 @@ struct VisionFeatureTrack {
   // Index of this feature track - should never be changed once created - each
   // member feature in the track will also have this redundantly
   uint64_t feature_idx;
-
   // The track of feature matches - private - only allow controlled feature
   // addition and no feature subtraction
   std::vector<VisionFeature> track;
-  // Sort feature track so frame_idxs are in ascending order
-  void sort() {
-    std::sort(track.begin(), track.end());
-    return;
-  }
-  // Default constructor: removed - must construct feature track with const
-  // feature_idx
+  // Default constructor: do nothing.
   VisionFeatureTrack() {}
   // Convenience constructor: initialize everything.
   VisionFeatureTrack(
@@ -71,36 +65,6 @@ struct VisionFeatureTrack {
       : feature_idx(feature.feature_idx) {
     track.push_back(feature);
   }
-};
-
-struct TrackDatabase {
-  // All frame IDs - each tracks individual frame IDs will be a subset of
-  // these
-  std::vector<uint64_t> frame_idxs;
-  // All feature tracks
-  std::vector<VisionFeatureTrack> feature_tracks;
-  // Add feature to track database
-  void addFeature(VisionFeature feature) {
-    // If feature track exists add the feature
-    for (auto& ft : feature_tracks) {
-      if (ft.feature_idx == feature.feature_idx) {
-        ft.track.push_back(feature);
-        return;  // Exit early if we already found the track we were looking
-                 // for
-      }
-    }
-
-    // If feature track doesn't exist seed a new one with the feature
-    feature_tracks.push_back(VisionFeatureTrack(feature));
-
-    return;
-  }
-  // Default constructor: do nothing.
-  TrackDatabase(){};
-  // Convenience constructor: initialize everything.
-  TrackDatabase(std::vector<uint64_t> frame_idxs,
-                std::vector<VisionFeatureTrack> feature_tracks)
-      : frame_idxs(frame_idxs), feature_tracks(feature_tracks){};
 };
 
 struct RobotPose {
@@ -138,16 +102,16 @@ struct RobotPose {
 };
 
 struct UTSLAMProblem {
-  TrackDatabase track_database;
-
+  // Unordered map representing the database of tracks
+  std::unordered_map<uint64_t, VisionFeatureTrack> tracks;
+  // Robot/frame poses of the entire trajectory
   std::vector<RobotPose> robot_poses;
-
   // Default constructor: do nothing.
   UTSLAMProblem() {}
   // Convenience constructor: initialize everything.
-  UTSLAMProblem(TrackDatabase track_database,
+  UTSLAMProblem(std::unordered_map<uint64_t, VisionFeatureTrack> tracks,
                 std::vector<RobotPose> robot_poses)
-      : track_database(track_database), robot_poses(robot_poses) {}
+      : tracks(tracks), robot_poses(robot_poses) {}
 };
 }  // namespace vslam_types
 

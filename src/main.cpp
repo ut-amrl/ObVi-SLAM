@@ -32,11 +32,11 @@ int main(int argc, char** argv) {
   }
 
   // Print feature tracks to terminal for display
-  for (const auto& ft : prob.track_database.feature_tracks) {
-    for (const auto& feature : ft.track) {
+  cout << prob.tracks.size() << endl;
+  for (const auto& ft : prob.tracks) {
+    for (const auto& feature : ft.second.track) {
       cout << feature << endl;
     }
   }
-
   return 0;
 }
