@@ -31,7 +31,7 @@ struct VisionFeature {
   // Convenience override of ostream
   friend std::ostream& operator<<(std::ostream& o, VisionFeature const& f) {
     o << "feature_idx: " << f.feature_idx << "\tframe_idx: " << f.frame_idx
-      << "\tpixel: " << f.pixel.x() << " " << f.pixel.y() << std::endl;
+      << "\tpixel: " << f.pixel.x() << " " << f.pixel.y();
     return o;
   }
   // Override of less than operator - compares two features based on the
@@ -77,9 +77,9 @@ struct RobotPose {
   // Default constructor: initialize frame_idx
   RobotPose(){};
   // Convenience constructor: initialize everything.
-  RobotPose(uint64_t const frame_idx,
-            const Eigen::Vector3f& loc,
-            const Eigen::AngleAxisf& angle)
+  RobotPose(uint64_t const& frame_idx,
+            Eigen::Vector3f const& loc,
+            Eigen::AngleAxisf const& angle)
       : frame_idx(frame_idx), loc(loc), angle(angle) {}
 
   // Return a transform from the robot to the world frame for this pose.
@@ -96,7 +96,7 @@ struct RobotPose {
     o << "frame_idx: " << p.frame_idx << "\tloc: " << p.loc.x() << " "
       << p.loc.y() << " " << p.loc.z() << "\tangle"
       << " " << p.angle.angle() << " " << p.angle.axis().x() << " "
-      << p.angle.axis().y() << " " << p.angle.axis().z() << std::endl;
+      << p.angle.axis().y() << " " << p.angle.axis().z();
     return o;
   }
 };
@@ -109,8 +109,8 @@ struct UTSLAMProblem {
   // Default constructor: do nothing.
   UTSLAMProblem() {}
   // Convenience constructor: initialize everything.
-  UTSLAMProblem(std::unordered_map<uint64_t, VisionFeatureTrack> tracks,
-                std::vector<RobotPose> robot_poses)
+  UTSLAMProblem(std::unordered_map<uint64_t, VisionFeatureTrack> cosnt& tracks,
+                std::vector<RobotPose> const& robot_poses)
       : tracks(tracks), robot_poses(robot_poses) {}
 };
 }  // namespace vslam_types

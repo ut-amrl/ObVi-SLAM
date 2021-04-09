@@ -11,7 +11,7 @@ using namespace vslam_types;
 
 namespace fs = std::filesystem;
 
-void LoadUTSLAMProblem(const std::string data_path,
+void LoadUTSLAMProblem(std::string const& data_path,
                        vslam_types::UTSLAMProblem& prob) {
   // Iterate over all files/folders in the data_path directory - i.e. over all
   // frames

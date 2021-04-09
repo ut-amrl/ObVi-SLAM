@@ -32,7 +32,6 @@ int main(int argc, char** argv) {
   }
 
   // Print feature tracks to terminal for display
-  cout << prob.tracks.size() << endl;
   for (const auto& ft : prob.tracks) {
     for (const auto& feature : ft.second.track) {
       cout << feature << endl;

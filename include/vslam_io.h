@@ -23,7 +23,7 @@ namespace vslam_io {
  *
  * \return        void
  */
-void LoadUTSLAMProblem(const std::string data_path,
+void LoadUTSLAMProblem(std::string const& data_path,
                        vslam_types::UTSLAMProblem& prob);
 }  // namespace vslam_io
 
