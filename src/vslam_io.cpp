@@ -25,7 +25,7 @@ void LoadUTSLAMProblem(std::string const& data_path,
     }
 
     // If we haven't skipped it lets load it into the UTSLAMProblem
-    std::ifstream data_file_stream(entry.path()    );
+    std::ifstream data_file_stream(    entry.path()    );
     if (data_file_stream.fail()) {
       LOG(FATAL) << "LoadUTSLAMProblem() failed to load: " <<      entry.path()
                  << " are you sure this a valid data file? ";
