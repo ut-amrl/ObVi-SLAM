@@ -12,13 +12,7 @@ using namespace vslam_types;
 namespace fs = std::filesystem;
 
 void LoadUTSLAMProblem(const std::string data_path,
-                       vslam_types::UTSLAMProblem* const prob_ptr) {
-  if (!prob_ptr) {
-    LOG(FATAL) << "LoadUTSLAMProblem() passed a bad pointer -_-";
-    return;  // Exit early
-  }
-  vslam_types::UTSLAMProblem& prob = *prob_ptr;
-
+                       vslam_types::UTSLAMProblem& prob) {
   // Iterate over all files/folders in the data_path directory - i.e. over all
   // frames
   for (const auto& entry : fs::directory_iterator(fs::path(data_path))) {

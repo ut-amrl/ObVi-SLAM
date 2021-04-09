@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
   // Make empty unstructured slam problem
   vslam_types::UTSLAMProblem prob;
   // Load unstructured slam problem
-  vslam_io::LoadUTSLAMProblem(FLAGS_data_path, &prob);
+  vslam_io::LoadUTSLAMProblem(FLAGS_data_path, prob);
 
   // Print poses to terminal for display
   for (const auto& pose : prob.robot_poses) {
