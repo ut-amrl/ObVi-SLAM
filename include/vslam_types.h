@@ -12,50 +12,31 @@
 
 namespace vslam_types {
 
-// Templated for the type of descriptor used
-template <typename T>
 struct VisionFeature {
   // Index of this feature - same as the index of the feature track of which
   // this is a part - stored here for redundancy
   uint64_t feature_idx;
   // Index of the frame this feature was acquired in
   uint64_t frame_idx;
-  // The descriptor of the feature from the frame it was imaged in - the
-  // descriptor will potentially change slightly over the course of the
-  // feature track
-  T descriptor;
   // Camera pixel location of feature.
   Eigen::Vector2f pixel;
-  // Estimated 3d location in the camera frame - not used directly in
-  // structureless slam but left here for completeness and later use
-  Eigen::Vector3f point3d;
   // Default constructor: do nothing.
-  VisionFeature();
+  VisionFeature(){};
   // Convenience constructor: initialize everything.
   VisionFeature(uint64_t const feature_idx,
                 uint64_t const frame_idx,
-                T const descriptor,
-                Eigen::Vector2f const& pixel,
-                Eigen::Vector3f const& point3d = Eigen::Vector3f())
-      : feature_idx(feature_idx),
-        frame_idx(frame_idx),
-        descriptor(descriptor),
-        pixel(pixel),
-        point3d(point3d) {}
-  // Convenience override of ostream - Each descriptor will need to have its
-  // own overridden operator
-  friend std::ostream& operator<<(std::ostream& o, const VisionFeature<T>& f) {
+                Eigen::Vector2f const& pixel)
+      : feature_idx(feature_idx), frame_idx(frame_idx), pixel(pixel) {}
+  // Convenience override of ostream
+  friend std::ostream& operator<<(std::ostream& o, VisionFeature const& f) {
     o << "feature_idx: " << f.feature_idx << "\tframe_idx: " << f.frame_idx
-      << "\tdescriptor: " << f.descriptor << "\tpixel: " << f.pixel.x() << " "
-      << f.pixel.y() << "\tpoint3d: " << f.point3d.x() << " " << f.point3d.y()
-      << " " << f.point3d.z() << std::endl;
+      << "\tpixel: " << f.pixel.x() << " " << f.pixel.y() << std::endl;
     return o;
   }
   // Override of less than operator - compares two features based on the
   // frame_idx - assumes that frame_idxs are sequential and always increasing-
   // this overload allows us to sort feature tracks
-  friend bool operator<(VisionFeature<T> const& lhs,
-                        VisionFeature<T> const& rhs) {
+  friend bool operator<(VisionFeature const& lhs, VisionFeature const& rhs) {
     // Assert that features being compared are in same track - comparing
     // features across tracks in this manner doesn't have a very intuitive
     // meaning
@@ -64,8 +45,6 @@ struct VisionFeature {
   }
 };
 
-// Templated for the type of descriptor used
-template <typename T>
 struct VisionFeatureTrack {
   // Index of this feature track - should never be changed once created - each
   // member feature in the track will also have this redundantly
@@ -73,7 +52,7 @@ struct VisionFeatureTrack {
 
   // The track of feature matches - private - only allow controlled feature
   // addition and no feature subtraction
-  std::vector<VisionFeature<T>> track;
+  std::vector<VisionFeature> track;
   // Sort feature track so frame_idxs are in ascending order
   void sort() {
     std::sort(track.begin(), track.end());
@@ -81,29 +60,27 @@ struct VisionFeatureTrack {
   }
   // Default constructor: removed - must construct feature track with const
   // feature_idx
-  VisionFeatureTrack(uint64_t const feature_idx) : feature_idx(feature_idx) {}
+  VisionFeatureTrack() {}
   // Convenience constructor: initialize everything.
   VisionFeatureTrack(
-      uint64_t const feature_idx,
-      std::vector<VisionFeature<T>> track = std::vector<VisionFeature<T>>())
+      uint64_t const& feature_idx,
+      std::vector<VisionFeature> const& track = std::vector<VisionFeature>())
       : feature_idx(feature_idx), track(track){};
   // Convenience constructor: initialize with new seed feature
-  VisionFeatureTrack(VisionFeature<T> feature)
+  VisionFeatureTrack(VisionFeature const& feature)
       : feature_idx(feature.feature_idx) {
     track.push_back(feature);
   }
 };
 
-// Templated for the type of descriptor used
-template <typename T>
 struct TrackDatabase {
   // All frame IDs - each tracks individual frame IDs will be a subset of
   // these
   std::vector<uint64_t> frame_idxs;
   // All feature tracks
-  std::vector<VisionFeatureTrack<T>> feature_tracks;
+  std::vector<VisionFeatureTrack> feature_tracks;
   // Add feature to track database
-  void addFeature(VisionFeature<T> feature) {
+  void addFeature(VisionFeature feature) {
     // If feature track exists add the feature
     for (auto& ft : feature_tracks) {
       if (ft.feature_idx == feature.feature_idx) {
@@ -114,7 +91,7 @@ struct TrackDatabase {
     }
 
     // If feature track doesn't exist seed a new one with the feature
-    feature_tracks.push_back(VisionFeatureTrack<int>(feature));
+    feature_tracks.push_back(VisionFeatureTrack(feature));
 
     return;
   }
@@ -122,19 +99,19 @@ struct TrackDatabase {
   TrackDatabase(){};
   // Convenience constructor: initialize everything.
   TrackDatabase(std::vector<uint64_t> frame_idxs,
-                std::vector<VisionFeatureTrack<T>> feature_tracks)
+                std::vector<VisionFeatureTrack> feature_tracks)
       : frame_idxs(frame_idxs), feature_tracks(feature_tracks){};
 };
 
 struct RobotPose {
   // Index of the frame this feature was acquired in
-  uint64_t const frame_idx;
+  uint64_t frame_idx;
   // Frame/robot location
   Eigen::Vector3f loc;
   // Frame/robot angle: rotates points from robot frame to global.
   Eigen::AngleAxisf angle;
   // Default constructor: initialize frame_idx
-  RobotPose(uint64_t const frame_idx) : frame_idx(frame_idx){};
+  RobotPose(){};
   // Convenience constructor: initialize everything.
   RobotPose(uint64_t const frame_idx,
             const Eigen::Vector3f& loc,
@@ -151,7 +128,7 @@ struct RobotPose {
   }
   // Convenience override of ostream
   friend std::ostream& operator<<(std::ostream& o,
-                                  const vslam_types::RobotPose& p) {
+                                  vslam_types::RobotPose const& p) {
     o << "frame_idx: " << p.frame_idx << "\tloc: " << p.loc.x() << " "
       << p.loc.y() << " " << p.loc.z() << "\tangle"
       << " " << p.angle.angle() << " " << p.angle.axis().x() << " "
@@ -160,17 +137,15 @@ struct RobotPose {
   }
 };
 
-// Templated for the type of descriptor used
-template <typename T>
 struct UTSLAMProblem {
-  TrackDatabase<T> track_database;
+  TrackDatabase track_database;
 
   std::vector<RobotPose> robot_poses;
 
   // Default constructor: do nothing.
   UTSLAMProblem() {}
   // Convenience constructor: initialize everything.
-  UTSLAMProblem(TrackDatabase<T> track_database,
+  UTSLAMProblem(TrackDatabase track_database,
                 std::vector<RobotPose> robot_poses)
       : track_database(track_database), robot_poses(robot_poses) {}
 };

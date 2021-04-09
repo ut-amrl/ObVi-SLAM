@@ -12,18 +12,19 @@ using namespace vslam_types;
 namespace fs = std::filesystem;
 
 void LoadUTSLAMProblem(const std::string data_path,
-                       vslam_types::UTSLAMProblem<int>* const prob_ptr) {
+                       vslam_types::UTSLAMProblem* const prob_ptr) {
   if (!prob_ptr) {
     LOG(FATAL) << "LoadUTSLAMProblem() passed a bad pointer -_-";
     return;  // Exit early
   }
-  vslam_types::UTSLAMProblem<int>& prob = *prob_ptr;
+  vslam_types::UTSLAMProblem& prob = *prob_ptr;
 
   // Iterate over all files/folders in the data_path directory - i.e. over all
   // frames
   for (const auto& entry : fs::directory_iterator(fs::path(data_path))) {
     const auto file_extension = entry.path().extension().string();
-    // If it isn't a data file file skip it - we identify data files as
+
+    // If it isn't a data file, skip it - we identify data files as
     // "regular files" with a .txt extension in the data_path directory
     if (!entry.is_regular_file() || file_extension != ".txt") {
       continue;
@@ -38,13 +39,15 @@ void LoadUTSLAMProblem(const std::string data_path,
     }
 
     std::string line;
+
     // Read frame ID from 1st line
     std::getline(data_file_stream, line);
     std::stringstream ss_id(line);
     uint64_t frame_id;
     ss_id >> frame_id;
     prob.track_database.frame_idxs.push_back(frame_id);
-    // Read frame/robotpose from 2nd line
+
+    // Read frame/robot pose from 2nd line
     std::getline(data_file_stream, line);
     std::stringstream ss_pose(line);
     float x, y, z, qx, qy, qz, qw;
@@ -55,14 +58,14 @@ void LoadUTSLAMProblem(const std::string data_path,
     Eigen::AngleAxisf angle(angle_q);
     RobotPose pose(frame_id, loc, angle);
     prob.robot_poses.push_back(pose);
+
     // Read features from all other lines
     while (std::getline(data_file_stream, line)) {
       std::stringstream ss_feature(line);
       uint64_t feature_id;
       float x, y;
       ss_feature >> feature_id >> x >> y;
-      VisionFeature<int> feature(
-          feature_id, frame_id, 1111, Eigen::Vector2f(x, y));
+      VisionFeature feature(feature_id, frame_id, Eigen::Vector2f(x, y));
       prob.track_database.addFeature(feature);
     }
   }
