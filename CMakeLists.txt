@@ -6,12 +6,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
+FIND_PACKAGE(Ceres REQUIRED)
+INCLUDE_DIRECTORIES(${CERES_INCLUDE_DIRS})
+
 include_directories(include)
 
-set(LIBS glog gflags)
+set(LIBS glog gflags ${CERES_LIBRARIES})
 
-add_library(vslam_io src/vslam_io.cpp)
+add_library(vslam_io src/vslam_io.cpp src/pairwise_2d_feature_cost_functor.cpp src/slam_backend_solver.cpp)
 target_compile_features(vslam_io PRIVATE cxx_std_17)    # 17 required for file iteration 
 
 add_executable(main src/main.cpp)
-target_link_libraries(main vslam_io ${LIBS})
+target_link_libraries(main vslam_io ${LIBS} stdc++fs)
