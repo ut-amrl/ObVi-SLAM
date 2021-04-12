@@ -2,7 +2,6 @@
 #define UT_VSLAM_SLAM_BACKEND_SOLVER_H
 
 #include <ceres/ceres.h>
-
 #include <slam_solver_optimizer_params.h>
 #include <vslam_types.h>
 
@@ -12,7 +11,6 @@ namespace vslam_solver {
  * SLAM Node that can be updated during optimization.
  */
 struct UpdatableSLAMNode {
-
   /**
    * Node index.
    */
@@ -66,7 +64,8 @@ UpdatableSLAMNode fromRobotPose(const vslam_types::RobotPose &robot_pose);
  *
  * @return Robot pose data structure.
  */
-vslam_types::RobotPose fromUpdatableSLAMNode(const UpdatableSLAMNode &slam_node);
+vslam_types::RobotPose fromUpdatableSLAMNode(
+    const UpdatableSLAMNode &slam_node);
 
 /**
  * Add nodes to the updatable nodes list that correspond to the information
@@ -87,9 +86,8 @@ void RobotPosesToUpdatableSLAMNodes(
  *                            optimization.
  * @param updated_poses[out]  Vector to update with optimized robot poses.
  */
-void SLAMNodesToRobotPoses(
-    const std::vector<UpdatableSLAMNode> &slam_nodes,
-    std::vector<vslam_types::RobotPose> &updated_poses);
+void SLAMNodesToRobotPoses(const std::vector<UpdatableSLAMNode> &slam_nodes,
+                           std::vector<vslam_types::RobotPose> &updated_poses);
 
 /**
  * Class for updating the robot poses given the SLAM problem constraints between
@@ -97,7 +95,6 @@ void SLAMNodesToRobotPoses(
  */
 class SLAMSolver {
  public:
-
   /**
    * SLAM Solver constructor.
    *
@@ -105,8 +102,8 @@ class SLAMSolver {
    *                                    any particular configuration of
    *                                    constraints).
    */
-  SLAMSolver(const SLAMSolverOptimizerParams &solver_optimization_params) :
-      solver_optimization_params_(solver_optimization_params) {};
+  SLAMSolver(const SLAMSolverOptimizerParams &solver_optimization_params)
+      : solver_optimization_params_(solver_optimization_params){};
 
   /**
    * Optimize the robot poses given the information about the SLAM problem.
@@ -126,8 +123,8 @@ class SLAMSolver {
                  const vslam_types::CameraExtrinsics &extrinsics,
                  const vslam_types::UTSLAMProblem &slam_problem,
                  std::vector<vslam_types::RobotPose> &updated_robot_poses);
- private:
 
+ private:
   /**
    * Solver optimization params.
    *
@@ -152,13 +149,12 @@ class SLAMSolver {
    *                                        but they will be tied to the ceres
    *                                        problem.
    */
-  void AddVisionFactors(
-      const vslam_types::UTSLAMProblem &slam_problem,
-      const vslam_types::CameraIntrinsics &intrinsics,
-      const vslam_types::CameraExtrinsics &extrinsics,
-      ceres::Problem *ceres_problem,
-      std::vector<UpdatableSLAMNode> *updated_solved_nodes);
+  void AddVisionFactors(const vslam_types::UTSLAMProblem &slam_problem,
+                        const vslam_types::CameraIntrinsics &intrinsics,
+                        const vslam_types::CameraExtrinsics &extrinsics,
+                        ceres::Problem *ceres_problem,
+                        std::vector<UpdatableSLAMNode> *updated_solved_nodes);
 };
-}
+}  // namespace vslam_solver
 
 #endif  // UT_VSLAM_SLAM_BACKEND_SOLVER_H

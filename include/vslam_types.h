@@ -125,7 +125,6 @@ struct UTSLAMProblem {
  * https://docs.opencv.org/2.4/doc/tutorials/calib3d/camera_calibration/camera_calibration.html
  */
 struct CameraIntrinsics {
-
   /**
    * Focal length x.
    */
@@ -152,9 +151,8 @@ struct CameraIntrinsics {
  * camera to the robot pose. That is, it consists of the translation and
  * rotation that takes a point from the camera frame to the robot frame.
  * In other words, provides the location of the camera in the robot frame.
-*/
+ */
 struct CameraExtrinsics {
-
   /**
    * 3D vector of translation.
    */
@@ -177,18 +175,18 @@ struct CameraExtrinsics {
  *
  * @return Eigen Affine transform for the rotation and translation.
  */
-template<typename T>
-Eigen::Transform<T, 3, Eigen::Affine> PoseArrayToAffine(
-    const T* rotation, const T* translation) {
-
-  const Eigen::Matrix<T, 3, 1> rotation_axis(rotation[0], rotation[1],
-                                             rotation[2]);
+template <typename T>
+Eigen::Transform<T, 3, Eigen::Affine> PoseArrayToAffine(const T* rotation,
+                                                        const T* translation) {
+  const Eigen::Matrix<T, 3, 1> rotation_axis(
+      rotation[0], rotation[1], rotation[2]);
   const T rotation_angle = rotation_axis.norm();
 
-  Eigen::AngleAxis<T> rotation_aa(rotation_angle, rotation_axis / rotation_angle);
+  Eigen::AngleAxis<T> rotation_aa(rotation_angle,
+                                  rotation_axis / rotation_angle);
   if (rotation_angle < T(1e-8)) {
-    rotation_aa = Eigen::AngleAxis<T>(T(0),
-                                      Eigen::Matrix<T, 3, 1>(T(0), T(0), T(1)));
+    rotation_aa =
+        Eigen::AngleAxis<T>(T(0), Eigen::Matrix<T, 3, 1>(T(0), T(0), T(1)));
   }
   const Eigen::Translation<T, 3> translation_tf(
       translation[0], translation[1], translation[2]);

@@ -18,6 +18,6 @@ struct SLAMSolverOptimizerParams {
   // TODO set this to a useful value
   double epipolar_error_std_dev = 1.0;
 };
-} // end vslam_solver
+}  // namespace vslam_solver
 
 #endif  // UT_VSLAM_SLAM_SOLVER_OPTIMIZER_PARAMS_H

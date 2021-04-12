@@ -12,9 +12,8 @@ void RobotPosesToUpdatableSLAMNodes(
   }
 }
 
-void SLAMNodesToRobotPoses(
-    const std::vector<UpdatableSLAMNode> &slam_nodes,
-    std::vector<vslam_types::RobotPose> &updated_poses) {
+void SLAMNodesToRobotPoses(const std::vector<UpdatableSLAMNode> &slam_nodes,
+                           std::vector<vslam_types::RobotPose> &updated_poses) {
   updated_poses.clear();
   for (const UpdatableSLAMNode &node : slam_nodes) {
     updated_poses.emplace_back(fromUpdatableSLAMNode(node));
@@ -39,10 +38,11 @@ vslam_types::RobotPose fromUpdatableSLAMNode(
   return vslam_types::RobotPose(slam_node.node_idx, transl, rotation_aa);
 }
 
-bool SLAMSolver::SolveSLAM(const vslam_types::CameraIntrinsics& intrinsics,
-               const vslam_types::CameraExtrinsics& extrinsics,
-               const vslam_types::UTSLAMProblem& slam_problem,
-               std::vector<vslam_types::RobotPose> &updated_robot_poses) {
+bool SLAMSolver::SolveSLAM(
+    const vslam_types::CameraIntrinsics &intrinsics,
+    const vslam_types::CameraExtrinsics &extrinsics,
+    const vslam_types::UTSLAMProblem &slam_problem,
+    std::vector<vslam_types::RobotPose> &updated_robot_poses) {
   ceres::Problem problem;
   ceres::Solver::Options options;
   ceres::Solver::Summary summary;
@@ -63,32 +63,35 @@ bool SLAMSolver::SolveSLAM(const vslam_types::CameraIntrinsics& intrinsics,
           summary.termination_type == ceres::USER_SUCCESS);
 }
 
-void SLAMSolver::AddVisionFactors(const vslam_types::UTSLAMProblem &slam_problem,
-                      const vslam_types::CameraIntrinsics &intrinsics,
-                      const vslam_types::CameraExtrinsics &extrinsics,
-                      ceres::Problem *ceres_problem,
-                      std::vector<UpdatableSLAMNode> *updated_solved_nodes) {
-
-  std::vector<UpdatableSLAMNode>& solution = *updated_solved_nodes;
+void SLAMSolver::AddVisionFactors(
+    const vslam_types::UTSLAMProblem &slam_problem,
+    const vslam_types::CameraIntrinsics &intrinsics,
+    const vslam_types::CameraExtrinsics &extrinsics,
+    ceres::Problem *ceres_problem,
+    std::vector<UpdatableSLAMNode> *updated_solved_nodes) {
+  std::vector<UpdatableSLAMNode> &solution = *updated_solved_nodes;
 
   for (const auto &feature_track_by_id : slam_problem.tracks) {
     for (int i = 0; i < feature_track_by_id.second.track.size() - 1; i++) {
       vslam_types::VisionFeature f1 = feature_track_by_id.second.track[i];
-      for (int j = i+1; j < feature_track_by_id.second.track.size(); j++) {
+      for (int j = i + 1; j < feature_track_by_id.second.track.size(); j++) {
         vslam_types::VisionFeature f2 = feature_track_by_id.second.track[i];
 
-        double* initial_pose_block = solution[f1.frame_idx].pose;
-        double* curr_pose_block = solution[f2.frame_idx].pose;
+        double *initial_pose_block = solution[f1.frame_idx].pose;
+        double *curr_pose_block = solution[f2.frame_idx].pose;
 
-          ceres_problem->AddResidualBlock(
-              Pairwise2dFeatureCostFunctor::create(
-                intrinsics, extrinsics, f1, f2,
+        ceres_problem->AddResidualBlock(
+            Pairwise2dFeatureCostFunctor::create(
+                intrinsics,
+                extrinsics,
+                f1,
+                f2,
                 solver_optimization_params_.epipolar_error_std_dev),
-              nullptr,
-              initial_pose_block,
-              curr_pose_block);
+            nullptr,
+            initial_pose_block,
+            curr_pose_block);
       }
     }
   }
 }
-} // end vslam_solver
+}  // namespace vslam_solver
