@@ -3,13 +3,13 @@
 #include <glog/logging.h>
 
 #include <algorithm>
-#include <filesystem>  //c++ 17 file iteration
+#include <experimental/filesystem>  //c++ 17 file iteration
 #include <fstream>
 
 namespace vslam_io {
 using namespace vslam_types;
 
-namespace fs = std::filesystem;
+namespace fs = std::experimental::filesystem;
 
 void LoadUTSLAMProblem(std::string const& data_path,
                        vslam_types::UTSLAMProblem& prob) {
@@ -20,7 +20,7 @@ void LoadUTSLAMProblem(std::string const& data_path,
 
     // If it isn't a data file, skip it - we identify data files as
     // "regular files" with a .txt extension in the data_path directory
-    if (!entry.is_regular_file() || file_extension != ".txt") {
+    if (!fs::is_regular_file(entry) || file_extension != ".txt") {
       continue;
     }
 

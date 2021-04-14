@@ -13,6 +13,11 @@
 
 namespace vslam_types {
 
+/**
+ * Threshold for a small angle when creating a axis-angle representation.
+ */
+const double kSmallAngleThreshold = 1e-8;
+
 struct VisionFeature {
   // Index of this feature - same as the index of the feature track of which
   // this is a part - stored here for redundancy
@@ -104,15 +109,99 @@ struct RobotPose {
 struct UTSLAMProblem {
   // Unordered map representing the database of tracks
   std::unordered_map<uint64_t, VisionFeatureTrack> tracks;
+
+  // TODO: I think it'd be good to either convert this to a map or make sure
+  //  the poses are stored in order of their indices so we can just do
+  //  robot_poses[index] to get the pose
   // Robot/frame poses of the entire trajectory
   std::vector<RobotPose> robot_poses;
   // Default constructor: do nothing.
   UTSLAMProblem() {}
   // Convenience constructor: initialize everything.
-  UTSLAMProblem(std::unordered_map<uint64_t, VisionFeatureTrack> cosnt& tracks,
+  UTSLAMProblem(std::unordered_map<uint64_t, VisionFeatureTrack> const& tracks,
                 std::vector<RobotPose> const& robot_poses)
       : tracks(tracks), robot_poses(robot_poses) {}
 };
+
+//
+/**
+ * Pinhole camera intrinsics parameters.
+ */
+struct CameraIntrinsics {
+  /**
+   * Camera matrix.
+   */
+  Eigen::Matrix3f camera_mat;
+};
+
+/**
+ * The camera extrinsics consists of the coordinate transform from the
+ * camera to the robot pose. That is, it consists of the translation and
+ * rotation that takes a point from the camera frame to the robot frame.
+ * In other words, provides the location of the camera in the robot frame.
+ */
+struct CameraExtrinsics {
+  /**
+   * 3D vector of translation.
+   */
+  Eigen::Vector3f translation;
+
+  /**
+   * Rotation Quaternion form.
+   */
+  Eigen::Quaternionf rotation;
+};
+
+/**
+ * Convert from a vector that stores the axis-angle representation (with
+ * angle as the magnitude of the vector) to the Eigen AxisAngle representation.
+ *
+ * @tparam T                Type of each field.
+ * @param axis_angle_vec    Vector encoding the axis of rotation (as the
+ *                          direction) and the angle as the magnitude of the
+ *                          vector.
+ *
+ * @return Eigen AxisAngle representation for the rotation.
+ */
+template <typename T>
+Eigen::AngleAxis<T> VectorToAxisAngle(
+    const Eigen::Matrix<T, 3, 1> axis_angle_vec) {
+  const T rotation_angle = axis_angle_vec.norm();
+  return Eigen::AngleAxis<T>(rotation_angle, axis_angle_vec / rotation_angle);
+}
+
+/**
+ * Create an Eigen Affine transform from the rotation and translation.
+ *
+ * @tparam T            Type to use in the matrix.
+ * @param rotation      Three entry array containing the axis-angle form of the
+ *                      rotation. Magnitude gives the angle of the rotation and
+ *                      the direction gives the axis of rotation.
+ * @param translation   Three entry array containing the translation.
+ *
+ * @return Eigen Affine transform for the rotation and translation.
+ */
+template <typename T>
+Eigen::Transform<T, 3, Eigen::Affine> PoseArrayToAffine(const T* rotation,
+                                                        const T* translation) {
+  const Eigen::Matrix<T, 3, 1> rotation_axis(
+      rotation[0], rotation[1], rotation[2]);
+  const T rotation_angle = rotation_axis.norm();
+
+  Eigen::AngleAxis<T> rotation_aa;
+  if (rotation_angle < T(kSmallAngleThreshold)) {
+    rotation_aa =
+        Eigen::AngleAxis<T>(T(0), Eigen::Matrix<T, 3, 1>(T(0), T(0), T(1)));
+  } else {
+    rotation_aa = VectorToAxisAngle(rotation_axis);
+  }
+
+  const Eigen::Translation<T, 3> translation_tf(
+      translation[0], translation[1], translation[2]);
+  const Eigen::Transform<T, 3, Eigen::Affine> transform =
+      translation_tf * rotation_aa;
+  return transform;
+}
 }  // namespace vslam_types
 
 #endif  // __VSLAM_TYPES_H__
