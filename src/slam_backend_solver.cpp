@@ -72,7 +72,7 @@ void SLAMSolver::AddVisionFactors(
     for (int i = 0; i < feature_track_by_id.second.track.size() - 1; i++) {
       vslam_types::VisionFeature f1 = feature_track_by_id.second.track[i];
       for (int j = i + 1; j < feature_track_by_id.second.track.size(); j++) {
-        vslam_types::VisionFeature f2 = feature_track_by_id.second.track[i];
+        vslam_types::VisionFeature f2 = feature_track_by_id.second.track[j];
 
         double *initial_pose_block = solution[f1.frame_idx].pose;
         double *curr_pose_block = solution[f2.frame_idx].pose;
