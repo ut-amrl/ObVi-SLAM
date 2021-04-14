@@ -19,13 +19,9 @@ namespace vslam_solver {
 static Eigen::Vector3f ConvertFromPixelToImage(
     const Eigen::Vector2f &pixel_coord,
     const vslam_types::CameraIntrinsics &intrinsics) {
-  Eigen::Matrix3f camera_mat;
-  camera_mat << intrinsics.fx, 0, intrinsics.cx, 0, intrinsics.fy,
-      intrinsics.cy, 0, 0, 1;
-
   Eigen::Vector3f pixel_coord_homogeneous(
       pixel_coord.x(), pixel_coord.y(), 1.0);
-  return camera_mat.inverse() * pixel_coord_homogeneous;
+  return intrinsics.camera_mat.inverse() * pixel_coord_homogeneous;
 }
 
 /**
@@ -86,7 +82,8 @@ class Pairwise2dFeatureCostFunctor {
     // Want to get rotation and translation of camera frame 1 relative to
     // camera frame 2 (pose of camera 2 in camera 1)
     // if T_r_c is the transformation matrix representing camera extrinsics
-    // (camera pose rel robot)
+    // (camera pose rel robot). We assume this is the same for both poses
+    // since the camera doesn't change relative to the robot as the robot moves
     // T_w_r1 is the robot's pose at frame 1 relative to the world
     // T_w_r2 is the robot's pose at frame 2 relative to the world, then camera
     // 2 relative to camera 1 is given by

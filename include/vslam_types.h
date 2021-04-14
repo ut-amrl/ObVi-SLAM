@@ -13,6 +13,11 @@
 
 namespace vslam_types {
 
+/**
+ * Threshold for a small angle when creating a axis-angle representation.
+ */
+const double kSmallAngleThreshold = 1e-8;
+
 struct VisionFeature {
   // Index of this feature - same as the index of the feature track of which
   // this is a part - stored here for redundancy
@@ -121,29 +126,12 @@ struct UTSLAMProblem {
 //
 /**
  * Pinhole camera intrinsics parameters.
- * The convention used here matches that of OpenCV:
- * https://docs.opencv.org/2.4/doc/tutorials/calib3d/camera_calibration/camera_calibration.html
  */
 struct CameraIntrinsics {
   /**
-   * Focal length x.
+   * Camera matrix.
    */
-  float fx;
-
-  /**
-   * Focal length y.
-   */
-  float fy;
-
-  /**
-   * Principal point x.
-   */
-  float cx;
-
-  /**
-   * Principal point y.
-   */
-  float cy;
+  Eigen::Matrix3f camera_mat;
 };
 
 /**
@@ -165,6 +153,24 @@ struct CameraExtrinsics {
 };
 
 /**
+ * Convert from a vector that stores the axis-angle representation (with
+ * angle as the magnitude of the vector) to the Eigen AxisAngle representation.
+ *
+ * @tparam T                Type of each field.
+ * @param axis_angle_vec    Vector encoding the axis of rotation (as the
+ *                          direction) and the angle as the magnitude of the
+ *                          vector.
+ *
+ * @return Eigen AxisAngle representation for the rotation.
+ */
+template <typename T>
+Eigen::AngleAxis<T> VectorToAxisAngle(
+    const Eigen::Matrix<T, 3, 1> axis_angle_vec) {
+  const T rotation_angle = axis_angle_vec.norm();
+  return Eigen::AngleAxis<T>(rotation_angle, axis_angle_vec / rotation_angle);
+}
+
+/**
  * Create an Eigen Affine transform from the rotation and translation.
  *
  * @tparam T            Type to use in the matrix.
@@ -182,12 +188,14 @@ Eigen::Transform<T, 3, Eigen::Affine> PoseArrayToAffine(const T* rotation,
       rotation[0], rotation[1], rotation[2]);
   const T rotation_angle = rotation_axis.norm();
 
-  Eigen::AngleAxis<T> rotation_aa(rotation_angle,
-                                  rotation_axis / rotation_angle);
-  if (rotation_angle < T(1e-8)) {
+  Eigen::AngleAxis<T> rotation_aa;
+  if (rotation_angle < T(kSmallAngleThreshold)) {
     rotation_aa =
         Eigen::AngleAxis<T>(T(0), Eigen::Matrix<T, 3, 1>(T(0), T(0), T(1)));
+  } else {
+    rotation_aa = VectorToAxisAngle(rotation_axis);
   }
+
   const Eigen::Translation<T, 3> translation_tf(
       translation[0], translation[1], translation[2]);
   const Eigen::Transform<T, 3, Eigen::Affine> transform =

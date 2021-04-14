@@ -10,7 +10,7 @@ namespace vslam_solver {
 /**
  * SLAM Node that can be updated during optimization.
  */
-struct UpdatableSLAMNode {
+struct SLAMNode {
   /**
    * Node index.
    */
@@ -25,7 +25,7 @@ struct UpdatableSLAMNode {
   /**
    * Default constructor.
    */
-  UpdatableSLAMNode() = default;
+  SLAMNode() = default;
 
   /**
    * Constructor that takes in index, translation, and rotation details for the
@@ -35,9 +35,9 @@ struct UpdatableSLAMNode {
    * @param pose_transl     Translation of the node.
    * @param pose_rot        Rotation of the node.
    */
-  UpdatableSLAMNode(const uint64_t &index,
-                    const Eigen::Vector3f &pose_transl,
-                    const Eigen::AngleAxisf &pose_rot) {
+  SLAMNode(const uint64_t &index,
+           const Eigen::Vector3f &pose_transl,
+           const Eigen::AngleAxisf &pose_rot) {
     node_idx = index;
     pose[0] = pose_transl.x();
     pose[1] = pose_transl.y();
@@ -49,44 +49,44 @@ struct UpdatableSLAMNode {
 };
 
 /**
- * Create an updatable SLAM node from a robot pose data structure.
+ * Create an SLAM node from a robot pose data structure.
  *
  * @param robot_pose Robot pose.
  *
- * @return Updatable SLAM node.
+ * @return SLAM node.
  */
-UpdatableSLAMNode fromRobotPose(const vslam_types::RobotPose &robot_pose);
+SLAMNode FromRobotPose(const vslam_types::RobotPose &robot_pose);
 
 /**
- * Create a robot pose from an updatable SLAM node.
+ * Create a robot pose from an SLAM node.
  *
- * @param slam_node Updatable SLAM node.
+ * @param slam_node SLAM node.
  *
  * @return Robot pose data structure.
  */
-vslam_types::RobotPose fromUpdatableSLAMNode(
-    const UpdatableSLAMNode &slam_node);
+vslam_types::RobotPose FromSLAMNode(const SLAMNode &slam_node);
 
 /**
- * Add nodes to the updatable nodes list that correspond to the information
- * in the robot poses. Will only add to the updatable_nodes vector.
+ * Add nodes to the nodes list that correspond to the information in the robot
+ * poses. Will only add to the nodes vector.
  *
- * @param robot_poses[in]         Robot poses that should have updatable slam
- *                                nodes created for them.
- * @param updatable_nodes[out]    Nodes list that now contains entries for
- *                                each robot pose in the robot poses vector.
+ * @param robot_poses[in]   Robot poses that should have slam nodes
+ *                          created for them.
+ * @param nodes[out]        Nodes list that now contains entries for each
+ *                          robot pose in the robot poses vector.
  */
-void RobotPosesToUpdatableSLAMNodes(
+void RobotPosesToSLAMNodes(
     const std::vector<vslam_types::RobotPose> &robot_poses,
-    std::vector<UpdatableSLAMNode> &updatable_nodes);
+    std::vector<SLAMNode> &nodes);
 
 /**
  * Clear the updated poses list and create new entries from the SLAM nodes.
+ *
  * @param slam_nodes[in]      SLAM nodes that contain the robot poses after
  *                            optimization.
  * @param updated_poses[out]  Vector to update with optimized robot poses.
  */
-void SLAMNodesToRobotPoses(const std::vector<UpdatableSLAMNode> &slam_nodes,
+void SLAMNodesToRobotPoses(const std::vector<SLAMNode> &slam_nodes,
                            std::vector<vslam_types::RobotPose> &updated_poses);
 
 /**
@@ -152,8 +152,8 @@ class SLAMSolver {
   void AddVisionFactors(const vslam_types::UTSLAMProblem &slam_problem,
                         const vslam_types::CameraIntrinsics &intrinsics,
                         const vslam_types::CameraExtrinsics &extrinsics,
-                        ceres::Problem *ceres_problem,
-                        std::vector<UpdatableSLAMNode> *updated_solved_nodes);
+                        ceres::Problem &ceres_problem,
+                        std::vector<SLAMNode> *updated_solved_nodes);
 };
 }  // namespace vslam_solver
 

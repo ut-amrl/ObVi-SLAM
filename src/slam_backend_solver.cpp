@@ -4,34 +4,31 @@
 
 namespace vslam_solver {
 
-void RobotPosesToUpdatableSLAMNodes(
+void RobotPosesToSLAMNodes(
     const std::vector<vslam_types::RobotPose> &robot_poses,
-    std::vector<UpdatableSLAMNode> &updatable_nodes) {
+    std::vector<SLAMNode> &nodes) {
   for (const vslam_types::RobotPose &robot_pose : robot_poses) {
-    updatable_nodes.emplace_back(fromRobotPose(robot_pose));
+    nodes.emplace_back(FromRobotPose(robot_pose));
   }
 }
 
-void SLAMNodesToRobotPoses(const std::vector<UpdatableSLAMNode> &slam_nodes,
+void SLAMNodesToRobotPoses(const std::vector<SLAMNode> &slam_nodes,
                            std::vector<vslam_types::RobotPose> &updated_poses) {
   updated_poses.clear();
-  for (const UpdatableSLAMNode &node : slam_nodes) {
-    updated_poses.emplace_back(fromUpdatableSLAMNode(node));
+  for (const SLAMNode &node : slam_nodes) {
+    updated_poses.emplace_back(FromSLAMNode(node));
   }
 }
 
-UpdatableSLAMNode fromRobotPose(const vslam_types::RobotPose &robot_pose) {
-  return UpdatableSLAMNode(
-      robot_pose.frame_idx, robot_pose.loc, robot_pose.angle);
+SLAMNode FromRobotPose(const vslam_types::RobotPose &robot_pose) {
+  return SLAMNode(robot_pose.frame_idx, robot_pose.loc, robot_pose.angle);
 }
 
-vslam_types::RobotPose fromUpdatableSLAMNode(
-    const UpdatableSLAMNode &slam_node) {
+vslam_types::RobotPose FromSLAMNode(const SLAMNode &slam_node) {
   Eigen::Vector3f rotation_axis(
       slam_node.pose[3], slam_node.pose[4], slam_node.pose[5]);
-  float rotation_angle = rotation_axis.norm();
 
-  Eigen::AngleAxisf rotation_aa(rotation_angle, rotation_axis / rotation_angle);
+  Eigen::AngleAxisf rotation_aa = vslam_types::VectorToAxisAngle(rotation_axis);
 
   Eigen::Vector3f transl(
       slam_node.pose[0], slam_node.pose[1], slam_node.pose[2]);
@@ -49,10 +46,10 @@ bool SLAMSolver::SolveSLAM(
 
   // TODO configure options
 
-  std::vector<UpdatableSLAMNode> slam_nodes;
-  RobotPosesToUpdatableSLAMNodes(updated_robot_poses, slam_nodes);
+  std::vector<SLAMNode> slam_nodes;
+  RobotPosesToSLAMNodes(updated_robot_poses, slam_nodes);
 
-  AddVisionFactors(slam_problem, intrinsics, extrinsics, &problem, &slam_nodes);
+  AddVisionFactors(slam_problem, intrinsics, extrinsics, problem, &slam_nodes);
 
   ceres::Solve(options, &problem, &summary);
   std::cout << summary.FullReport() << "\n";
@@ -67,9 +64,9 @@ void SLAMSolver::AddVisionFactors(
     const vslam_types::UTSLAMProblem &slam_problem,
     const vslam_types::CameraIntrinsics &intrinsics,
     const vslam_types::CameraExtrinsics &extrinsics,
-    ceres::Problem *ceres_problem,
-    std::vector<UpdatableSLAMNode> *updated_solved_nodes) {
-  std::vector<UpdatableSLAMNode> &solution = *updated_solved_nodes;
+    ceres::Problem &ceres_problem,
+    std::vector<SLAMNode> *updated_solved_nodes) {
+  std::vector<SLAMNode> &solution = *updated_solved_nodes;
 
   for (const auto &feature_track_by_id : slam_problem.tracks) {
     for (int i = 0; i < feature_track_by_id.second.track.size() - 1; i++) {
@@ -80,7 +77,7 @@ void SLAMSolver::AddVisionFactors(
         double *initial_pose_block = solution[f1.frame_idx].pose;
         double *curr_pose_block = solution[f2.frame_idx].pose;
 
-        ceres_problem->AddResidualBlock(
+        ceres_problem.AddResidualBlock(
             Pairwise2dFeatureCostFunctor::create(
                 intrinsics,
                 extrinsics,
