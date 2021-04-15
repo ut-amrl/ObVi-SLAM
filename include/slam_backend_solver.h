@@ -108,21 +108,38 @@ class SLAMSolver {
   /**
    * Optimize the robot poses given the information about the SLAM problem.
    *
+   * @tparam FeatureTrackType           Type of the vision feature information.
    * @param intrinsics[in]              Camera intrinsics.
    * @param extrinsics[in]              Camera extrinsics (camera pose relative
    *                                    to the robot).
    * @param slam_problem[in]            SLAM problem that provides constraints
    *                                    between poses.
+   * @param vision_constraint_adder     Function that adds vision constraints to
+   *                                    the ceres optimization problem.
    * @param updated_robot_poses[in/out] Robot poses to be updated. This contains
    *                                    initial estimates for the robot poses
    *                                    that will be updated after optimization.
    *
    * @return True if the SLAM solver converged, false if it didn't.
    */
-  bool SolveSLAM(const vslam_types::CameraIntrinsics &intrinsics,
-                 const vslam_types::CameraExtrinsics &extrinsics,
-                 const vslam_types::UTSLAMProblem &slam_problem,
-                 std::vector<vslam_types::RobotPose> &updated_robot_poses);
+  // TODO I'm wondering if we should have two different params data structures,
+  //  one for general params that apply to all variants of the solver
+  //  (basically Ceres params) and another that is dependent on the type of the
+  //  constraints that we're adding. For now I'm going to keep it as is, but
+  //  wanted to note it here
+  template <typename FeatureTrackType>
+  bool SolveSLAM(
+      const vslam_types::CameraIntrinsics &intrinsics,
+      const vslam_types::CameraExtrinsics &extrinsics,
+      const vslam_types::UTSLAMProblem<FeatureTrackType> &slam_problem,
+      const std::function<
+          void(const vslam_types::UTSLAMProblem<FeatureTrackType> &,
+               const vslam_types::CameraIntrinsics &,
+               const vslam_types::CameraExtrinsics &,
+               const SLAMSolverOptimizerParams &,
+               ceres::Problem &,
+               std::vector<SLAMNode> *)> vision_constraint_adder,
+      std::vector<vslam_types::RobotPose> &updated_robot_poses);
 
  private:
   /**
@@ -132,29 +149,32 @@ class SLAMSolver {
    * on any particular instantiation of a SLAM problem.
    */
   SLAMSolverOptimizerParams solver_optimization_params_;
-
-  /**
-   * Add vision factors to the ceres optimization problem.
-   *
-   * @param slam_problem                    SLAM problem defining constraints
-   *                                        between frames.
-   * @param intrinsics                      Camera intrinsics.
-   * @param extrinsics                      Camera extrinsics (camera pose
-   *                                        relative to the robot).
-   * @param ceres_problem[in/out]           Ceres problem that will have
-   *                                        residual blocks added to it.
-   * @param updated_solved_nodes[in/out]    Nodes in the SLAM problem that will
-   *                                        be updated during optimization.
-   *                                        The values will not change here,
-   *                                        but they will be tied to the ceres
-   *                                        problem.
-   */
-  void AddVisionFactors(const vslam_types::UTSLAMProblem &slam_problem,
-                        const vslam_types::CameraIntrinsics &intrinsics,
-                        const vslam_types::CameraExtrinsics &extrinsics,
-                        ceres::Problem &ceres_problem,
-                        std::vector<SLAMNode> *updated_solved_nodes);
 };
+
+/**
+ * Add vision factors to the ceres optimization problem.
+ *
+ * @param slam_problem                  SLAM problem defining constraints
+ *                                      between frames.
+ * @param intrinsics                    Camera intrinsics.
+ * @param extrinsics                    Camera extrinsics (camera pose relative
+ *                                      to the robot).
+ * @param solver_optimization_params    Solver optimization parameters
+ * @param ceres_problem[in/out]         Ceres problem that will have residual
+ *                                      blocks added to it.
+ * @param updated_solved_nodes[in/out]  Nodes in the SLAM problem that will be
+ *                                      updated during optimization. The values
+ *                                      will not change here, but they will be
+ *                                      tied to the ceres problem.
+ */
+void AddStructurelessVisionFactors(
+    const vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>
+        &slam_problem,
+    const vslam_types::CameraIntrinsics &intrinsics,
+    const vslam_types::CameraExtrinsics &extrinsics,
+    const SLAMSolverOptimizerParams &solver_optimization_params,
+    ceres::Problem &ceres_problem,
+    std::vector<SLAMNode> *updated_solved_nodes);
 }  // namespace vslam_solver
 
 #endif  // UT_VSLAM_SLAM_BACKEND_SOLVER_H

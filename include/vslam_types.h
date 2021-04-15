@@ -106,9 +106,10 @@ struct RobotPose {
   }
 };
 
+template <typename FeatureTrackType>
 struct UTSLAMProblem {
   // Unordered map representing the database of tracks
-  std::unordered_map<uint64_t, VisionFeatureTrack> tracks;
+  std::unordered_map<uint64_t, FeatureTrackType> tracks;
 
   // TODO: I think it'd be good to either convert this to a map or make sure
   //  the poses are stored in order of their indices so we can just do
@@ -118,7 +119,7 @@ struct UTSLAMProblem {
   // Default constructor: do nothing.
   UTSLAMProblem() {}
   // Convenience constructor: initialize everything.
-  UTSLAMProblem(std::unordered_map<uint64_t, VisionFeatureTrack> const& tracks,
+  UTSLAMProblem(std::unordered_map<uint64_t, FeatureTrackType> const& tracks,
                 std::vector<RobotPose> const& robot_poses)
       : tracks(tracks), robot_poses(robot_poses) {}
 };

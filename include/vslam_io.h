@@ -23,8 +23,9 @@ namespace vslam_io {
  *
  * \return        void
  */
-void LoadUTSLAMProblem(std::string const& data_path,
-                       vslam_types::UTSLAMProblem& prob);
+void LoadStructurelessUTSLAMProblem(
+    std::string const& data_path,
+    vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob);
 }  // namespace vslam_io
 
 #endif  // __VSLAM_IO_H__
