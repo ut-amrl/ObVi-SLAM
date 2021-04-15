@@ -11,8 +11,9 @@ using namespace vslam_types;
 
 namespace fs = std::experimental::filesystem;
 
-void LoadUTSLAMProblem(std::string const& data_path,
-                       vslam_types::UTSLAMProblem& prob) {
+void LoadStructurelessUTSLAMProblem(
+    std::string const& data_path,
+    vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob) {
   // Iterate over all files/folders in the data_path directory - i.e. over all
   // frames
   for (const auto& entry : fs::directory_iterator(fs::path(data_path))) {

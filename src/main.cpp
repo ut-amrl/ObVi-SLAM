@@ -22,9 +22,9 @@ int main(int argc, char** argv) {
   FLAGS_logtostderr = true;  // Don't log to disk - log to terminal
 
   // Make empty unstructured slam problem
-  vslam_types::UTSLAMProblem prob;
+  vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> prob;
   // Load unstructured slam problem
-  vslam_io::LoadUTSLAMProblem(FLAGS_data_path, prob);
+  vslam_io::LoadStructurelessUTSLAMProblem(FLAGS_data_path, prob);
 
   // Print poses to terminal for display
   for (const auto& pose : prob.robot_poses) {
