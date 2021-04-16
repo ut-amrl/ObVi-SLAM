@@ -11,6 +11,10 @@ Pairwise2dFeatureCostFunctor::Pairwise2dFeatureCostFunctor(
           ConvertFromPixelToImage(image_1_feature, intrinsics)),
       feature_2_image_coords_(
           ConvertFromPixelToImage(image_2_feature, intrinsics)),
-      epipolar_error_std_dev_(epipolar_error_std_dev) {}
+      epipolar_error_std_dev_(epipolar_error_std_dev) {
+  // Eigen affine
+  cam_to_robot_tf_ =
+      Eigen::Translation3f(extrinsics.translation) * extrinsics.rotation;
+}
 
 }  // namespace vslam_solver
