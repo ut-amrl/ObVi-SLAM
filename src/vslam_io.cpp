@@ -63,6 +63,9 @@ void LoadStructurelessUTSLAMProblem(
       prob.tracks[feature_id].track.push_back(feature);
       prob.tracks[feature_id].feature_idx =
           feature_id;  // TODO dont reset this every time
+
+      // TODO should the feature ID just be the ID in the map and not a part of
+      // the feature track/
     }
   }
 
