@@ -61,6 +61,8 @@ void LoadStructurelessUTSLAMProblem(
       ss_feature >> feature_id >> x >> y;
       VisionFeature feature(feature_id, frame_id, Eigen::Vector2f(x, y));
       prob.tracks[feature_id].track.push_back(feature);
+      prob.tracks[feature_id].feature_idx =
+          feature_id;  // TODO dont reset this every time
     }
   }
 
