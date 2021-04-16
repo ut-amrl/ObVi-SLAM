@@ -189,7 +189,11 @@ template <typename T>
 Eigen::AngleAxis<T> VectorToAxisAngle(
     const Eigen::Matrix<T, 3, 1> axis_angle_vec) {
   const T rotation_angle = axis_angle_vec.norm();
-  return Eigen::AngleAxis<T>(rotation_angle, axis_angle_vec / rotation_angle);
+  if (rotation_angle > kSmallAngleThreshold) {
+    return Eigen::AngleAxis<T>(rotation_angle, axis_angle_vec / rotation_angle);
+  } else {
+    return Eigen::AngleAxis<T>(T(0), Eigen::Matrix<T, 3, 1>{T(1), T(0), T(0)});
+  }
 }
 
 /**
