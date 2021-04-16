@@ -72,6 +72,29 @@ struct VisionFeatureTrack {
   }
 };
 
+struct StructuredVisionFeatureTrack {
+  // Index of this feature track - should never be changed once created - each
+  // member feature in the track will also have this redundantly
+  uint64_t feature_idx;
+  // 3D coordinate of the feature tracked by the feature track
+  Eigen::Vector3f point;
+  // The track of feature matches - private - only allow controlled feature
+  // addition and no feature subtraction
+  std::vector<VisionFeature> track;
+  // Default constructor: do nothing.
+  VisionFeatureTrack() {}
+  // Convenience constructor: initialize everything.
+  VisionFeatureTrack(
+      uint64_t const& feature_idx,
+      std::vector<VisionFeature> const& track = std::vector<VisionFeature>())
+      : feature_idx(feature_idx), track(track){};
+  // Convenience constructor: initialize with new seed feature
+  VisionFeatureTrack(VisionFeature const& feature)
+      : feature_idx(feature.feature_idx) {
+    track.push_back(feature);
+  }
+};
+
 struct RobotPose {
   // Index of the frame this feature was acquired in
   uint64_t frame_idx;
@@ -152,6 +175,8 @@ struct CameraExtrinsics {
    */
   Eigen::Quaternionf rotation;
 };
+
+// TODO  Move these functions to a util file
 
 /**
  * Convert from a vector that stores the axis-angle representation (with
