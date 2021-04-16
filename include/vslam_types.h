@@ -82,17 +82,13 @@ struct StructuredVisionFeatureTrack {
   // addition and no feature subtraction
   std::vector<VisionFeature> track;
   // Default constructor: do nothing.
-  VisionFeatureTrack() {}
+  StructuredVisionFeatureTrack() {}
   // Convenience constructor: initialize everything.
-  VisionFeatureTrack(
+  StructuredVisionFeatureTrack(
       uint64_t const& feature_idx,
+      Eigen::Vector3f point,
       std::vector<VisionFeature> const& track = std::vector<VisionFeature>())
-      : feature_idx(feature_idx), track(track){};
-  // Convenience constructor: initialize with new seed feature
-  VisionFeatureTrack(VisionFeature const& feature)
-      : feature_idx(feature.feature_idx) {
-    track.push_back(feature);
-  }
+      : feature_idx(feature_idx), point(point), track(track){};
 };
 
 struct RobotPose {
