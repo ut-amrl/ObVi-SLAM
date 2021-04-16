@@ -72,4 +72,27 @@ void LoadStructurelessUTSLAMProblem(
   return;
 }
 
+void LoadCameraCalibration(std::string const& calibration_path,
+                           Eigen::Matrix3f& camera_mat) {
+  std::ifstream calibration_file_stream;
+  calibration_file_stream.open(calibration_path);
+  if (calibration_file_stream.fail()) {
+    LOG(FATAL) << "LoadCameraCalibration() failed to load: " << calibration_path
+               << " are you sure this a valid path to the calibrationfile? ";
+    return;
+  }
+
+  std::string line;
+  std::getline(calibration_file_stream, line);
+  std::stringstream ss_calib(line);
+  float fx, fy, cx, cy;
+  ss_calib >> fx >> fy >> cx >> cy;
+  camera_mat.setIdentity();
+  camera_mat(0, 0) = fx;
+  camera_mat(1, 1) = fy;
+  camera_mat(0, 2) = cx;
+  camera_mat(1, 2) = cy;
+  return;
+}
+
 }  // namespace vslam_io

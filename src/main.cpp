@@ -12,6 +12,10 @@ DEFINE_string(
     "Path to folder containing the files with frames, poses, and labeled "
     "keypoints for each image");
 
+DEFINE_string(calibration_path,
+              "",
+              "Path to the file containing the calibration (K) for the camera");
+
 using std::cout;
 using std::endl;
 
@@ -25,6 +29,10 @@ int main(int argc, char** argv) {
   vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> prob;
   // Load unstructured slam problem
   vslam_io::LoadStructurelessUTSLAMProblem(FLAGS_data_path, prob);
+  // Make empty camera calibration matrix
+  Eigen::Matrix3f K;
+  // Load camera calibration matrix
+  vslam_io::LoadCameraCalibration(FLAGS_calibration_path, K);
 
   // Print poses to terminal for display
   for (const auto& pose : prob.robot_poses) {
@@ -37,5 +45,9 @@ int main(int argc, char** argv) {
       cout << feature << endl;
     }
   }
+
+  // Print camera intrinsics to terminal for display
+  cout << K << endl;
+
   return 0;
 }
