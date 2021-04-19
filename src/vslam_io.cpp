@@ -16,6 +16,7 @@ void LoadStructurelessUTSLAMProblem(
     vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob) {
   // Iterate over all files/folders in the data_path directory - i.e. over all
   // frames
+  std::unordered_map<uint64_t, RobotPose> poses_by_id;
   for (const auto& entry : fs::directory_iterator(fs::path(data_path))) {
     const auto file_extension = entry.path().extension().string();
 
@@ -41,6 +42,10 @@ void LoadStructurelessUTSLAMProblem(
     uint64_t frame_id;
     ss_id >> frame_id;
 
+    // Use 0 as the first index
+    // TODO We should maybe just fix our dataset so it is zero indexed instead
+    frame_id--;
+
     // Read frame/robot pose from 2nd line
     std::getline(data_file_stream, line);
     std::stringstream ss_pose(line);
@@ -51,7 +56,8 @@ void LoadStructurelessUTSLAMProblem(
     angle_q.normalize();
     Eigen::AngleAxisf angle(angle_q);
     RobotPose pose(frame_id, loc, angle);
-    prob.robot_poses.push_back(pose);
+
+    poses_by_id[frame_id] = pose;
 
     // Read features from all other lines
     while (std::getline(data_file_stream, line)) {
@@ -67,6 +73,15 @@ void LoadStructurelessUTSLAMProblem(
   // Sort all feature tracks so frame_idxs are in ascending order
   for (auto& ft : prob.tracks) {
     std::sort(ft.second.track.begin(), ft.second.track.end());
+  }
+
+  for (uint64_t frame_num = 0; frame_num < poses_by_id.size(); frame_num++) {
+    if (poses_by_id.find(frame_num) == poses_by_id.end()) {
+      LOG(ERROR) << "No pose found for frame num (after subtracting 1) "
+                 << frame_num;
+      return;
+    }
+    prob.robot_poses.emplace_back(poses_by_id[frame_num]);
   }
 
   return;
