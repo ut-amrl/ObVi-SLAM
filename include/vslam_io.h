@@ -19,7 +19,7 @@ namespace vslam_io {
  *
  */
 void LoadStructurelessUTSLAMProblem(
-    std::string const& data_path,
+    const std::string& data_path,
     vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob);
 
 /**
@@ -30,7 +30,7 @@ void LoadStructurelessUTSLAMProblem(
  * @param camera_mat[out]       Camera intrinsic calibration matrix K
  *
  */
-void LoadCameraCalibration(std::string const& calibration_path,
+void LoadCameraCalibration(const std::string& calibration_path,
                            Eigen::Matrix3f& camera_mat);
 }  // namespace vslam_io
 

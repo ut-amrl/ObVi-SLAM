@@ -44,14 +44,14 @@ struct VisionFeature {
   /**
    * Convenience constructor: initialize everything.
    */
-  VisionFeature(uint64_t const& feature_idx,
-                uint64_t const& frame_idx,
-                Eigen::Vector2f const& pixel)
+  VisionFeature(const uint64_t& feature_idx,
+                const uint64_t& frame_idx,
+                const Eigen::Vector2f& pixel)
       : feature_idx(feature_idx), frame_idx(frame_idx), pixel(pixel) {}
   /**
    * Convenience override of ostream.
    */
-  friend std::ostream& operator<<(std::ostream& o, VisionFeature const& f) {
+  friend std::ostream& operator<<(std::ostream& o, const VisionFeature& f) {
     o << "feature_idx: " << f.feature_idx << "\tframe_idx: " << f.frame_idx
       << "\tpixel: " << f.pixel.x() << " " << f.pixel.y();
     return o;
@@ -62,7 +62,7 @@ struct VisionFeature {
    * always increasing- this overload allows us to sort feature tracks using
    * std::sort
    */
-  friend bool operator<(VisionFeature const& lhs, VisionFeature const& rhs) {
+  friend bool operator<(const VisionFeature& lhs, const VisionFeature& rhs) {
     // Assert that features being compared are in same track - comparing
     // features across tracks in this manner doesn't have a very intuitive
     // meaning
@@ -92,14 +92,14 @@ struct VisionFeatureTrack {
    * Convenience constructor: initialize everything.
    */
   VisionFeatureTrack(
-      uint64_t const& feature_idx,
-      std::vector<VisionFeature> const& track = std::vector<VisionFeature>())
+      const uint64_t& feature_idx,
+      const std::vector<VisionFeature>& track = std::vector<VisionFeature>())
       : feature_idx(feature_idx), track(track){};
   /**
    *
    */
   // Convenience constructor: initialize with new seed feature
-  VisionFeatureTrack(VisionFeature const& feature)
+  VisionFeatureTrack(const VisionFeature& feature)
       : feature_idx(feature.feature_idx) {
     track.push_back(feature);
   }
@@ -134,9 +134,9 @@ struct StructuredVisionFeatureTrack {
    * Convenience constructor: initialize everything.
    */
   StructuredVisionFeatureTrack(
-      uint64_t const& feature_idx,
-      Eigen::Vector3f point,
-      std::vector<VisionFeature> const& track = std::vector<VisionFeature>())
+      const uint64_t& feature_idx,
+      const Eigen::Vector3f& point,
+      const std::vector<VisionFeature>& track = std::vector<VisionFeature>())
       : feature_idx(feature_idx), point(point), track(track){};
 };
 
@@ -165,9 +165,9 @@ struct RobotPose {
   /**
    * Convenience constructor: initialize everything.
    */
-  RobotPose(uint64_t const& frame_idx,
-            Eigen::Vector3f const& loc,
-            Eigen::AngleAxisf const& angle)
+  RobotPose(const uint64_t& frame_idx,
+            const Eigen::Vector3f& loc,
+            const Eigen::AngleAxisf& angle)
       : frame_idx(frame_idx), loc(loc), angle(angle) {}
   /**
    * Return a transform from the robot to the world frame for this pose.
@@ -185,7 +185,7 @@ struct RobotPose {
    * Convenience override of ostream.
    */
   friend std::ostream& operator<<(std::ostream& o,
-                                  vslam_types::RobotPose const& p) {
+                                  const vslam_types::RobotPose& p) {
     o << "frame_idx: " << p.frame_idx << "\tloc: " << p.loc.x() << " "
       << p.loc.y() << " " << p.loc.z() << "\tangle"
       << " " << p.angle.angle() << " " << p.angle.axis().x() << " "
@@ -220,7 +220,7 @@ struct UTSLAMProblem {
    * Convenience constructor: initialize everything.
    */
   UTSLAMProblem(std::unordered_map<uint64_t, FeatureTrackType> const& tracks,
-                std::vector<RobotPose> const& robot_poses)
+                const std::vector<RobotPose>& robot_poses)
       : tracks(tracks), robot_poses(robot_poses) {}
 };
 

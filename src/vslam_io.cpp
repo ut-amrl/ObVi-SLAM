@@ -12,7 +12,7 @@ using namespace vslam_types;
 namespace fs = std::experimental::filesystem;
 
 void LoadStructurelessUTSLAMProblem(
-    std::string const& data_path,
+    const std::string& data_path,
     vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob) {
   // Iterate over all files/folders in the data_path directory - i.e. over all
   // frames
@@ -77,7 +77,7 @@ void LoadStructurelessUTSLAMProblem(
   return;
 }
 
-void LoadCameraCalibration(std::string const& calibration_path,
+void LoadCameraCalibration(const std::string& calibration_path,
                            Eigen::Matrix3f& camera_mat) {
   std::ifstream calibration_file_stream;
   calibration_file_stream.open(calibration_path);
