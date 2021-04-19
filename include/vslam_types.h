@@ -112,32 +112,23 @@ struct VisionFeatureTrack {
 
 struct StructuredVisionFeatureTrack {
   /**
-   * Index of this feature track - should never be changed once created - each
-   * member feature in the track will also have this redundantly.
-
-   */
-  uint64_t feature_idx;
-  /**
    * 3D coordinate of the feature tracked by the feature track.
    */
   Eigen::Vector3f point;
   /**
-   * The track of feature matches.
-   */
-  std::vector<VisionFeature> track;
+   * Image feature track - same as the structureless feature track.
+   * */
+  VisionFeatureTrack feature_track;
   /**
-   * Default constructor: do nothing.
+   * Default constructor: Do nothing.
    */
-  //
   StructuredVisionFeatureTrack() {}
   /**
    * Convenience constructor: initialize everything.
    */
-  StructuredVisionFeatureTrack(
-      const uint64_t& feature_idx,
-      const Eigen::Vector3f& point,
-      const std::vector<VisionFeature>& track = std::vector<VisionFeature>())
-      : feature_idx(feature_idx), point(point), track(track){};
+  StructuredVisionFeatureTrack(const Eigen::Vector3f& point,
+                               const VisionFeatureTrack& feature_track)
+      : point(point), feature_track(feature_track){};
 };
 
 /**
