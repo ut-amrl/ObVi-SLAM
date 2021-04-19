@@ -95,7 +95,7 @@ class Pairwise2dFeatureCostFunctor {
 
     // Extract Tx and R from cam_1_to_cam_2_mat
     Eigen::Matrix<T, 3, 1> t_vec = cam_1_to_cam_2_mat.translation();
-    Eigen::Matrix<T, 3, 3> t_cross;
+    Eigen::Matrix<T, 3, 3> t_cross;  // skew symmetric
     t_cross << T(0.0), -t_vec(3), t_vec(2), t_vec(3), T(0.0), -t_vec(1),
         -t_vec(2), t_vec(1), T(0.0);
     Eigen::Matrix<T, 3, 3> rotation = cam_1_to_cam_2_mat.linear();

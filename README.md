@@ -8,6 +8,6 @@
 ### Run a Demo Program
 Run the following command from the base directory. 
 
-    ./bin/main --data_path=`pwd`/data/vslam_set1/
+    ./bin/main --data_path=`pwd`/data/vslam_set1/ --calibration_path=`pwd`/data/vslam_set1/calibration/camera_matrix.txt
 
 This will run a program that reads in the poses and feature tracks into a UTSLAMProblem structure and then prints both to the terminal.

@@ -35,6 +35,7 @@ vslam_types::RobotPose FromSLAMNode(const SLAMNode &slam_node) {
   return vslam_types::RobotPose(slam_node.node_idx, transl, rotation_aa);
 }
 
+// TODO make all class methods lower case ?
 template <typename FeatureTrackType>
 bool SLAMSolver::SolveSLAM(
     const vslam_types::CameraIntrinsics &intrinsics,

@@ -12,7 +12,7 @@ using namespace vslam_types;
 namespace fs = std::experimental::filesystem;
 
 void LoadStructurelessUTSLAMProblem(
-    std::string const& data_path,
+    const std::string& data_path,
     vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob) {
   // Iterate over all files/folders in the data_path directory - i.e. over all
   // frames
@@ -67,6 +67,11 @@ void LoadStructurelessUTSLAMProblem(
       ss_feature >> feature_id >> x >> y;
       VisionFeature feature(feature_id, frame_id, Eigen::Vector2f(x, y));
       prob.tracks[feature_id].track.push_back(feature);
+      prob.tracks[feature_id].feature_idx =
+          feature_id;  // TODO dont reset this every time
+
+      // TODO should the feature ID just be the ID in the map and not a part of
+      // the feature track/
     }
   }
 
@@ -84,6 +89,29 @@ void LoadStructurelessUTSLAMProblem(
     prob.robot_poses.emplace_back(poses_by_id[frame_num]);
   }
 
+  return;
+}
+
+void LoadCameraCalibration(const std::string& calibration_path,
+                           Eigen::Matrix3f& camera_mat) {
+  std::ifstream calibration_file_stream;
+  calibration_file_stream.open(calibration_path);
+  if (calibration_file_stream.fail()) {
+    LOG(FATAL) << "LoadCameraCalibration() failed to load: " << calibration_path
+               << " are you sure this a valid path to the calibrationfile? ";
+    return;
+  }
+
+  std::string line;
+  std::getline(calibration_file_stream, line);
+  std::stringstream ss_calib(line);
+  float fx, fy, cx, cy;
+  ss_calib >> fx >> fy >> cx >> cy;
+  camera_mat.setIdentity();
+  camera_mat(0, 0) = fx;
+  camera_mat(1, 1) = fy;
+  camera_mat(0, 2) = cx;
+  camera_mat(1, 2) = cy;
   return;
 }
 
