@@ -13,8 +13,8 @@ include_directories(include)
 
 set(LIBS glog gflags ${CERES_LIBRARIES})
 
-add_library(vslam_io src/vslam_io.cpp src/pairwise_2d_feature_cost_functor.cpp src/slam_backend_solver.cpp)
-target_compile_features(vslam_io PRIVATE cxx_std_17)    # 17 required for file iteration 
+add_library(ut_vslam src/vslam_io.cpp src/pairwise_2d_feature_cost_functor.cpp src/reprojection_cost_functor.cpp src/slam_backend_solver.cpp)
+target_compile_features(ut_vslam PRIVATE cxx_std_17)    # 17 required for file iteration 
 
 add_executable(main src/main.cpp)
-target_link_libraries(main vslam_io ${LIBS} stdc++fs)
+target_link_libraries(main ut_vslam ${LIBS} stdc++fs)
