@@ -25,7 +25,6 @@ class ReprojectionCostFunctor {
    *                                    error
    */
   ReprojectionCostFunctor(const Eigen::Vector2f &image_feature,
-                          const Eigen::Vector3f &point,
                           const vslam_types::CameraIntrinsics &intrinsics,
                           const vslam_types::CameraExtrinsics &extrinsics,
                           const double &reprojection_error_std_dev);
@@ -55,31 +54,30 @@ class ReprojectionCostFunctor {
    * @return True if the residual was computed successfully, false otherwise.
    */
   template <typename T>
-  bool operator()(const T *pose_init,
-                  const T *pose_current,
-                  const T *point,
-                  T *residual) const {
+  bool operator()(const T *pose, const T *point, T *residual) const {
     // Transform from world to current robot pose
     Eigen::Transform<T, 3, Eigen::Affine> world_to_robot_current =
-        vslam_types::PoseArrayToAffine(&(pose_current[3]), &(pose_current[0]))
-            .inverse();
+        vslam_types::PoseArrayToAffine(&(pose[3]), &(pose[0])).inverse();
 
     // Point in world frame
-    const Eigen::Vector3f point_world(point[0], point[1], point[2]);
+    Eigen::Matrix<T, 3, 1> point_world(point[0], point[1], point[2]);
 
     // Transform the point from global coordinates to frame of current pose.
-    const Eigen::Vector3f point_current =
-        cam_to_robot_tf_.inverse() * world_to_robot_current * point_world;
+    Eigen::Matrix<T, 3, 1> point_current =
+        cam_to_robot_tf_.inverse().cast<T>() * world_to_robot_current *
+        point_world;
 
     // Project the 3D point into the current image.
-    T p_x = T(intrinsics_(0, 0)) * point_current.x() / point_current.z() +
-            T(intrinsics(0, 2));
-    T p_y = T(intrinsics(1, 1)) * point_current.y() / point_current.z() +
-            T(intrinsics(1, 2));
+    T p_x = T(intrinsics_.camera_mat(0, 0)) * point_current.x() /
+                point_current.z() +
+            T(intrinsics_.camera_mat(0, 2));
+    T p_y = T(intrinsics_.camera_mat(1, 1)) * point_current.y() /
+                point_current.z() +
+            T(intrinsics_.camera_mat(1, 2));
 
     // Compute the residual.
-    residual[0] = p_x - T(image_feature.x());
-    residual[1] = p_y - T(image_feature.y());
+    residual[0] = p_x - T(image_feature_.x());
+    residual[1] = p_y - T(image_feature_.y());
 
     return true;
   }
@@ -97,21 +95,16 @@ class ReprojectionCostFunctor {
    *
    * @return Ceres cost function.
    */
-  static ceres::AutoDiffCostFunction<ReprojectionCostFunctor, 1, 6, 6> *create(
+  /*TODO should this be 2,9,9 ?*/
+  static ceres::AutoDiffCostFunction<ReprojectionCostFunctor, 2, 9, 9> *create(
       const vslam_types::CameraIntrinsics &intrinsics,
       const vslam_types::CameraExtrinsics &extrinsics,
-      const vslam_types::VisionFeature &frame_1_feature,
-      const vslam_types::VisionFeature &frame_2_feature,
-      const double &epipolar_error_std_dev) {
-    const Eigen::Vector2f &initial_pixel = frame_1_feature.pixel;
-    const Eigen::Vector2f &current_pixel = frame_2_feature.pixel;
-    ReprojectionCostFunctor *residual =
-        new ReprojectionCostFunctor(initial_pixel,
-                                    current_pixel,
-                                    intrinsics,
-                                    extrinsics,
-                                    epipolar_error_std_dev);
-    return new ceres::AutoDiffCostFunction<ReprojectionCostFunctor, 1, 6, 6>(
+      const vslam_types::VisionFeature &image_feature,
+      const double &reprojection_error_std_dev) {
+    const Eigen::Vector2f &feature_pixel = image_feature.pixel;
+    ReprojectionCostFunctor *residual = new ReprojectionCostFunctor(
+        feature_pixel, intrinsics, extrinsics, reprojection_error_std_dev);
+    return new ceres::AutoDiffCostFunction<ReprojectionCostFunctor, 2, 9, 9>(
         residual);
   }
 
@@ -120,11 +113,6 @@ class ReprojectionCostFunctor {
    * Pixel coordinate of the image feature
    */
   Eigen::Vector2f image_feature_;
-
-  /**
-   * Coordinate of the feature in the world frame
-   */
-  Eigen::Vector3f point_;
 
   /**
    * Camera intrinsic matrix
