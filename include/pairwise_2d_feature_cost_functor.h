@@ -96,13 +96,24 @@ class Pairwise2dFeatureCostFunctor {
     // Extract Tx and R from cam_1_to_cam_2_mat
     Eigen::Matrix<T, 3, 1> t_vec = cam_1_to_cam_2_mat.translation();
     Eigen::Matrix<T, 3, 3> t_cross;  // skew symmetric
-    t_cross << T(0.0), -t_vec(3), t_vec(2), t_vec(3), T(0.0), -t_vec(1),
-        -t_vec(2), t_vec(1), T(0.0);
+    t_cross << T(0.0), -t_vec(2), t_vec(1), t_vec(2), T(0.0), -t_vec(0),
+        -t_vec(1), t_vec(0), T(0.0);
     Eigen::Matrix<T, 3, 3> rotation = cam_1_to_cam_2_mat.linear();
 
-    residual[0] = (feature_2_image_coords_.transpose().cast<T>() * t_cross *
-                   rotation * feature_1_image_coords_.cast<T>())(0, 0) /
-                  T(epipolar_error_std_dev_);
+    Eigen::Matrix<T, 3, 3> essential_mat = t_cross * rotation;
+
+    Eigen::Matrix<T, 1, 1> epipolar_error_unscaled =
+        feature_2_image_coords_.transpose().cast<T>() * essential_mat *
+        feature_1_image_coords_.cast<T>();
+
+    Eigen::Matrix<T, 1, 1> essential_mat_scale =
+        feature_1_image_coords_.transpose().cast<T>() *
+        essential_mat.transpose() * essential_mat *
+        feature_1_image_coords_.cast<T>();
+
+    residual[0] =
+        epipolar_error_unscaled(0, 0) /
+        (T(epipolar_error_std_dev_) * (sqrt(essential_mat_scale(0, 0))));
 
     return true;
   }
