@@ -96,7 +96,7 @@ class ReprojectionCostFunctor {
    * @return Ceres cost function.
    */
   /*TODO should this be 2,9,9 ?*/
-  static ceres::AutoDiffCostFunction<ReprojectionCostFunctor, 2, 9, 9> *create(
+  static ceres::AutoDiffCostFunction<ReprojectionCostFunctor, 2, 6, 3> *create(
       const vslam_types::CameraIntrinsics &intrinsics,
       const vslam_types::CameraExtrinsics &extrinsics,
       const vslam_types::VisionFeature &image_feature,
@@ -104,7 +104,7 @@ class ReprojectionCostFunctor {
     const Eigen::Vector2f &feature_pixel = image_feature.pixel;
     ReprojectionCostFunctor *residual = new ReprojectionCostFunctor(
         feature_pixel, intrinsics, extrinsics, reprojection_error_std_dev);
-    return new ceres::AutoDiffCostFunction<ReprojectionCostFunctor, 2, 9, 9>(
+    return new ceres::AutoDiffCostFunction<ReprojectionCostFunctor, 2, 6, 3>(
         residual);
   }
 
