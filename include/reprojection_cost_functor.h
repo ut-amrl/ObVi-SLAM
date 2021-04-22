@@ -72,8 +72,8 @@ class ReprojectionCostFunctor {
             T(intrinsics_.camera_mat(1, 2));
 
     // Compute the residual.
-    residual[0] = p_x - T(image_feature_.x());
-    residual[1] = p_y - T(image_feature_.y());
+    residual[0] = (p_x - T(image_feature_.x())) / reprojection_error_std_dev_;
+    residual[1] = (p_y - T(image_feature_.y())) / reprojection_error_std_dev_;
 
     return true;
   }
@@ -91,7 +91,7 @@ class ReprojectionCostFunctor {
    *
    * @return Ceres cost function.
    */
-  /*TODO should this be 2,9,9 ?*/
+
   static ceres::AutoDiffCostFunction<ReprojectionCostFunctor, 2, 6, 3> *create(
       const vslam_types::CameraIntrinsics &intrinsics,
       const vslam_types::CameraExtrinsics &extrinsics,
