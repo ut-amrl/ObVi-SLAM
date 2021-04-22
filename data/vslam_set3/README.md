@@ -4,11 +4,7 @@ The sequence contains simulated date acquired in matlab. Ground truth poses, mea
 <img src="media/side_view.gif" width="500"><img src="media/top_view.gif" width="500">
 
 ## Frame Coordinates
-Frame | #1 | #2 | #3 | #4 | #5 | 
---- | --- | --- | --- |--- |--- |
-Coordinate | (0, 0, 0.13, 0, 0, 0, 1) | (0.1524, 0, 0.13, 0, 0, 0, 1) | (0.3048, 0, 0.13, 0, 0, 0, 1) | (0.4572, 0, 0.13, 0, 0, 0, 1) | (0.6096, 0, 0.13, 0, 0, 0, 1)
-
-Note: Coordinates given as (x, y, z, q<sub>x</sub>, q<sub>y</sub>, q<sub>z</sub>, q<sub>w</sub>) where q<sub>i</sub> is quaternion representation of rotation. Units are in meters.
+Coordinates given as (x, y, z, q<sub>x</sub>, q<sub>y</sub>, q<sub>z</sub>, q<sub>w</sub>) where q<sub>i</sub> is quaternion representation of rotation. Units are in meters.
 
 ## Label Format
 ID | x | y | 
