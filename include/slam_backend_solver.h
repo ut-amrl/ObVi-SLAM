@@ -8,54 +8,13 @@
 namespace vslam_solver {
 
 /**
- * SLAM Node that can be updated during optimization.
- */
-struct SLAMNode {
-  /**
-   * Node index.
-   */
-  uint64_t node_idx;
-
-  /**
-   * 6DOF parameters: tx, ty, tx, angle_x, angle_y, angle_z. Note that angle_*
-   * are the coordinates in scaled angle-axis form.
-   */
-  double pose[6];
-
-  /**
-   * Default constructor.
-   */
-  SLAMNode() = default;
-
-  /**
-   * Constructor that takes in index, translation, and rotation details for the
-   * node.
-   *
-   * @param index           Index of the node.
-   * @param pose_transl     Translation of the node.
-   * @param pose_rot        Rotation of the node.
-   */
-  SLAMNode(const uint64_t &index,
-           const Eigen::Vector3f &pose_transl,
-           const Eigen::AngleAxisf &pose_rot) {
-    node_idx = index;
-    pose[0] = pose_transl.x();
-    pose[1] = pose_transl.y();
-    pose[2] = pose_transl.z();
-    pose[3] = pose_rot.axis().x() * pose_rot.angle();
-    pose[4] = pose_rot.axis().y() * pose_rot.angle();
-    pose[5] = pose_rot.axis().z() * pose_rot.angle();
-  }
-};
-
-/**
  * Create an SLAM node from a robot pose data structure.
  *
  * @param robot_pose Robot pose.
  *
  * @return SLAM node.
  */
-SLAMNode FromRobotPose(const vslam_types::RobotPose &robot_pose);
+vslam_types::SLAMNode FromRobotPose(const vslam_types::RobotPose &robot_pose);
 
 /**
  * Create a robot pose from an SLAM node.
@@ -64,7 +23,7 @@ SLAMNode FromRobotPose(const vslam_types::RobotPose &robot_pose);
  *
  * @return Robot pose data structure.
  */
-vslam_types::RobotPose FromSLAMNode(const SLAMNode &slam_node);
+vslam_types::RobotPose FromSLAMNode(const vslam_types::SLAMNode &slam_node);
 
 /**
  * Add nodes to the nodes list that correspond to the information in the robot
@@ -77,7 +36,7 @@ vslam_types::RobotPose FromSLAMNode(const SLAMNode &slam_node);
  */
 void RobotPosesToSLAMNodes(
     const std::vector<vslam_types::RobotPose> &robot_poses,
-    std::vector<SLAMNode> &nodes);
+    std::vector<vslam_types::SLAMNode> &nodes);
 
 /**
  * Clear the updated poses list and create new entries from the SLAM nodes.
@@ -86,7 +45,7 @@ void RobotPosesToSLAMNodes(
  *                            optimization.
  * @param updated_poses[out]  Vector to update with optimized robot poses.
  */
-void SLAMNodesToRobotPoses(const std::vector<SLAMNode> &slam_nodes,
+void SLAMNodesToRobotPoses(const std::vector<vslam_types::SLAMNode> &slam_nodes,
                            std::vector<vslam_types::RobotPose> &updated_poses);
 
 /**
@@ -114,8 +73,10 @@ class SLAMSolver {
    *                                    to the robot).
    * @param slam_problem[in]            SLAM problem that provides constraints
    *                                    between poses.
-   * @param vision_constraint_adder     Function that adds vision constraints to
+   * @param vision_constraint_adder[in] Function that adds vision constraints to
    *                                    the ceres optimization problem.
+   * @param callback_creator[in]        Function that creates a callback for
+   *                                    visualization.
    * @param updated_robot_poses[in/out] Robot poses to be updated. This contains
    *                                    initial estimates for the robot poses
    *                                    that will be updated after optimization.
@@ -138,7 +99,12 @@ class SLAMSolver {
                const vslam_types::CameraExtrinsics &,
                const SLAMSolverOptimizerParams &,
                ceres::Problem &,
-               std::vector<SLAMNode> *)> vision_constraint_adder,
+               std::vector<vslam_types::SLAMNode> *)> vision_constraint_adder,
+      const std::function<std::shared_ptr<ceres::IterationCallback>(
+          const vslam_types::CameraIntrinsics &,
+          const vslam_types::CameraExtrinsics &,
+          const vslam_types::UTSLAMProblem<FeatureTrackType> &,
+          std::vector<vslam_types::SLAMNode> *)> callback_creator,
       std::vector<vslam_types::RobotPose> &updated_robot_poses);
 
  private:
@@ -174,7 +140,7 @@ void AddStructurelessVisionFactors(
     const vslam_types::CameraExtrinsics &extrinsics,
     const SLAMSolverOptimizerParams &solver_optimization_params,
     ceres::Problem &ceres_problem,
-    std::vector<SLAMNode> *updated_solved_nodes);
+    std::vector<vslam_types::SLAMNode> *updated_solved_nodes);
 }  // namespace vslam_solver
 
 #endif  // UT_VSLAM_SLAM_BACKEND_SOLVER_H

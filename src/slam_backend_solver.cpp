@@ -6,25 +6,26 @@ namespace vslam_solver {
 
 void RobotPosesToSLAMNodes(
     const std::vector<vslam_types::RobotPose> &robot_poses,
-    std::vector<SLAMNode> &nodes) {
+    std::vector<vslam_types::SLAMNode> &nodes) {
   for (const vslam_types::RobotPose &robot_pose : robot_poses) {
     nodes.emplace_back(FromRobotPose(robot_pose));
   }
 }
 
-void SLAMNodesToRobotPoses(const std::vector<SLAMNode> &slam_nodes,
+void SLAMNodesToRobotPoses(const std::vector<vslam_types::SLAMNode> &slam_nodes,
                            std::vector<vslam_types::RobotPose> &updated_poses) {
   updated_poses.clear();
-  for (const SLAMNode &node : slam_nodes) {
+  for (const vslam_types::SLAMNode &node : slam_nodes) {
     updated_poses.emplace_back(FromSLAMNode(node));
   }
 }
 
-SLAMNode FromRobotPose(const vslam_types::RobotPose &robot_pose) {
-  return SLAMNode(robot_pose.frame_idx, robot_pose.loc, robot_pose.angle);
+vslam_types::SLAMNode FromRobotPose(const vslam_types::RobotPose &robot_pose) {
+  return vslam_types::SLAMNode(
+      robot_pose.frame_idx, robot_pose.loc, robot_pose.angle);
 }
 
-vslam_types::RobotPose FromSLAMNode(const SLAMNode &slam_node) {
+vslam_types::RobotPose FromSLAMNode(const vslam_types::SLAMNode &slam_node) {
   Eigen::Vector3f rotation_axis(
       slam_node.pose[3], slam_node.pose[4], slam_node.pose[5]);
 
@@ -47,7 +48,12 @@ bool SLAMSolver::SolveSLAM(
              const vslam_types::CameraExtrinsics &,
              const SLAMSolverOptimizerParams &,
              ceres::Problem &,
-             std::vector<SLAMNode> *)> vision_constraint_adder,
+             std::vector<vslam_types::SLAMNode> *)> vision_constraint_adder,
+    const std::function<std::shared_ptr<ceres::IterationCallback>(
+        const vslam_types::CameraIntrinsics &,
+        const vslam_types::CameraExtrinsics &,
+        const vslam_types::UTSLAMProblem<FeatureTrackType> &,
+        std::vector<vslam_types::SLAMNode> *)> callback_creator,
     std::vector<vslam_types::RobotPose> &updated_robot_poses) {
   ceres::Problem problem;
   ceres::Solver::Options options;
@@ -55,7 +61,7 @@ bool SLAMSolver::SolveSLAM(
 
   // TODO configure options
 
-  std::vector<SLAMNode> slam_nodes;
+  std::vector<vslam_types::SLAMNode> slam_nodes;
   RobotPosesToSLAMNodes(updated_robot_poses, slam_nodes);
 
   vision_constraint_adder(slam_problem,
@@ -64,6 +70,14 @@ bool SLAMSolver::SolveSLAM(
                           solver_optimization_params_,
                           problem,
                           &slam_nodes);
+
+  std::shared_ptr<ceres::IterationCallback> viz_callback =
+      callback_creator(intrinsics, extrinsics, slam_problem, &slam_nodes);
+
+  if (viz_callback != nullptr) {
+    options.callbacks.emplace_back(viz_callback.get());
+    options.update_state_every_iteration = true;
+  }
 
   ceres::Solve(options, &problem, &summary);
   std::cout << summary.FullReport() << "\n";
@@ -81,8 +95,8 @@ void AddStructurelessVisionFactors(
     const vslam_types::CameraExtrinsics &extrinsics,
     const SLAMSolverOptimizerParams &solver_optimization_params,
     ceres::Problem &ceres_problem,
-    std::vector<SLAMNode> *updated_solved_nodes) {
-  std::vector<SLAMNode> &solution = *updated_solved_nodes;
+    std::vector<vslam_types::SLAMNode> *updated_solved_nodes) {
+  std::vector<vslam_types::SLAMNode> &solution = *updated_solved_nodes;
 
   for (const auto &feature_track_by_id : slam_problem.tracks) {
     for (int i = 0; i < feature_track_by_id.second.track.size() - 1; i++) {
@@ -119,6 +133,11 @@ template bool SLAMSolver::SolveSLAM<vslam_types::VisionFeatureTrack>(
         const vslam_types::CameraExtrinsics &,
         const SLAMSolverOptimizerParams &,
         ceres::Problem &,
-        std::vector<SLAMNode> *)> vision_constraint_adder,
+        std::vector<vslam_types::SLAMNode> *)> vision_constraint_adder,
+    const std::function<std::shared_ptr<ceres::IterationCallback>(
+        const vslam_types::CameraIntrinsics &,
+        const vslam_types::CameraExtrinsics &,
+        const vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &,
+        std::vector<vslam_types::SLAMNode> *)> callback_creator,
     std::vector<vslam_types::RobotPose> &updated_robot_poses);
 }  // namespace vslam_solver

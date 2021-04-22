@@ -5,6 +5,7 @@
 
 #include "slam_backend_solver.h"
 #include "slam_solver_optimizer_params.h"
+#include "structureless_ceres_visualization_callback.h"
 #include "vslam_io.h"
 #include "vslam_types.h"
 
@@ -69,15 +70,27 @@ int main(int argc, char **argv) {
       const vslam_types::CameraExtrinsics &,
       const vslam_solver::SLAMSolverOptimizerParams &,
       ceres::Problem &,
-      std::vector<vslam_solver::SLAMNode> *)>
+      std::vector<vslam_types::SLAMNode> *)>
       structureless_vision_constraint_adder =
           vslam_solver::AddStructurelessVisionFactors;
+
+  // TODO if more args are needed for the visualization, then we should bind
+  // them here so the solver only needs to pass the intrinsics, extrinsics, slam
+  // problem, and slam nodes.
+  std::function<std::shared_ptr<ceres::IterationCallback>(
+      const vslam_types::CameraIntrinsics &,
+      const vslam_types::CameraExtrinsics &,
+      const vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &,
+      std::vector<vslam_types::SLAMNode> *)>
+      callback_creator =
+          vslam_viz::StructurelessCeresVisualizationCallback::create;
 
   solver.SolveSLAM<vslam_types::VisionFeatureTrack>(
       intrinsics,
       extrinsics,
       prob,
       structureless_vision_constraint_adder,
+      callback_creator,
       answer);
 
   return 0;
