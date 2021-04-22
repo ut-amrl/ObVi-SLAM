@@ -33,23 +33,19 @@ class ReprojectionCostFunctor {
    * Compute the reprojection error
    *
    * @tparam T                  Type that the cost functor is evaluating.
-   * @param pose_init[in]       Robot's pose in the world frame corresponding to
-   *                            the location of the first feature. This is a 6
-   *                            entry array with the first 3 entries
-   *                            corresponding to the translation and the second
-   *                            3 entries containing the axis-angle
-   *                            representation (with angle given by the
-   *                            magnitude of the vector).
-   * @param pose_current[in]    Robot's pose in the world frame corresponding to
-   *                            the location of the second feature. This is a 6
-   *                            entry array with the first 3 entries
+   * @param pose[in]       Robot's pose in the world frame corresponding to
+   *                            the location of where the feature was imaged.
+   *                            This is a 6 entry array with the first 3 entries
    *                            corresponding to the translation and the second
    *                            3 entries containing the axis-angle
    *                            representation (with angle given by the
    *                            magnitude of the vector).
    * @param point[in]           3D position of the imaged feature in the world
    *                            frame
-   * @param residual[out]       Residual giving the error. Contains 1 entry.
+   * @param residual[out]       Residual giving the error. Contains 2 entries.
+   *                            The first is the x direction reprojection error
+   *                            and the second is the y direction reprojection
+   *                            error
    *
    * @return True if the residual was computed successfully, false otherwise.
    */
