@@ -186,6 +186,47 @@ struct RobotPose {
 };
 
 /**
+ * SLAM Node that can be updated during optimization.
+ */
+struct SLAMNode {
+  /**
+   * Node index.
+   */
+  uint64_t node_idx;
+
+  /**
+   * 6DOF parameters: tx, ty, tx, angle_x, angle_y, angle_z. Note that angle_*
+   * are the coordinates in scaled angle-axis form.
+   */
+  double pose[6];
+
+  /**
+   * Default constructor.
+   */
+  SLAMNode() = default;
+
+  /**
+   * Constructor that takes in index, translation, and rotation details for the
+   * node.
+   *
+   * @param index           Index of the node.
+   * @param pose_transl     Translation of the node.
+   * @param pose_rot        Rotation of the node.
+   */
+  SLAMNode(const uint64_t& index,
+           const Eigen::Vector3f& pose_transl,
+           const Eigen::AngleAxisf& pose_rot) {
+    node_idx = index;
+    pose[0] = pose_transl.x();
+    pose[1] = pose_transl.y();
+    pose[2] = pose_transl.z();
+    pose[3] = pose_rot.axis().x() * pose_rot.angle();
+    pose[4] = pose_rot.axis().y() * pose_rot.angle();
+    pose[5] = pose_rot.axis().z() * pose_rot.angle();
+  }
+};
+
+/**
  * A UT SLAM problem templated by feature track type (stuctureless or
  * structured)
  */
