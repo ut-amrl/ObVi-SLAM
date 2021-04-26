@@ -3,6 +3,7 @@
 #include <vslam_types.h>
 
 #include <draw_epipolar_lines.hpp>
+#include <opencv2/core/eigen.hpp>
 
 namespace vslam_viz {
 
@@ -27,7 +28,7 @@ ceres::CallbackReturnType StructurelessCeresVisualizationCallback::operator()(
       Eigen::Translation3d(extrinsics_.translation.cast<double>()) *
       extrinsics_.rotation.cast<double>();
 
-  LOG(INFO) << "Callback Viz";
+  // Assumes everything is zero indexed and the frames increase by 1 every time
   for (int i = 0; i < nodes.size() - 1; i++) {
     // Convert pose 1 to tf
     const vslam_types::SLAMNode node1 = nodes[i];  // i
@@ -58,6 +59,34 @@ ceres::CallbackReturnType StructurelessCeresVisualizationCallback::operator()(
     Eigen::Matrix<double, 3, 3> fundamental_mat =
         intrinsics_.camera_mat.inverse().inverse().cast<double>() *
         essential_mat * intrinsics_.camera_mat.inverse().cast<double>();
+
+    // Get cam 1 and cam 2 points
+    std::vector<cv::Point_<double>> cam_1_points;
+    std::vector<cv::Point_<double>> cam_2_points;
+
+    for (const auto &ft : slam_problem_.tracks) {
+      for (const auto feature : ft.second.track) {
+        if (feature.frame_idx == i) {
+          // In first frame
+          cv::Point_<float> point1(feature.pixel.x(), feature.pixel.y());
+          cam_1_points.push_back(point1);
+        } else if (feature.frame_idx == i + 1) {
+          // In second frame
+          cv::Point_<float> point2(feature.pixel.x(), feature.pixel.y());
+          cam_2_points.push_back(point2);
+        }
+      }
+    }
+
+    // Make empty mats to represent the image
+    cv::Mat cam1_pic(1024, 1224, CV_8U, cv::Scalar(100));
+    cv::Mat cam2_pic(1024, 1224, CV_8U, cv::Scalar(100));
+    // Convert F to cv format
+    cv::Matx<double, 3, 3> F_cv;
+    cv::eigen2cv(fundamental_mat, F_cv);
+    // Draw image w/ epipolar lines
+    drawEpipolarLines(
+        "epipolar error", F_cv, cam1_pic, cam2_pic, cam_1_points, cam_2_points);
   }
 
   return ceres::SOLVER_CONTINUE;

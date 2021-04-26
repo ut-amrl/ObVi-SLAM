@@ -91,7 +91,8 @@ static void drawEpipolarLines(const std::string &title,
     cv::circle(outImg(rect2), points2[i], 3, color, -1, cv::LINE_AA);
   }
 
-  cv::namedWindow(title, cv::WINDOW_AUTOSIZE);
+  cv::namedWindow(title, cv::WINDOW_NORMAL);
+  cv::resizeWindow(title, 1000, 500);
   cv::imshow(title, outImg);
-  cv::waitKey(0);
+  cv::waitKey(100);
 }
