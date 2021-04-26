@@ -4,6 +4,8 @@
 #include <ceres/iteration_callback.h>
 #include <vslam_types.h>
 
+#include <memory>
+
 namespace vslam_viz {
 
 /**
