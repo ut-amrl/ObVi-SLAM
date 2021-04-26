@@ -1,6 +1,8 @@
 #include <glog/logging.h>
 #include <structureless_ceres_visualization_callback.h>
 
+#include <draw_epipolar_lines.hpp>
+
 namespace vslam_viz {
 
 StructurelessCeresVisualizationCallback::
