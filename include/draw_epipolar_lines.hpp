@@ -28,7 +28,7 @@ static float distancePointLine(const cv::Point_<T> point,
 
 template <typename T1, typename T2>
 static void drawEpipolarLines(const std::string &title,
-                              const cv::Matx<T1, 3, 3> F, 
+                              const cv::Matx<T1, 3, 3> F,
                               const cv::Mat &img1,
                               const cv::Mat &img2,
                               const std::vector<cv::Point_<T2>> points1,
@@ -51,8 +51,8 @@ static void drawEpipolarLines(const std::string &title,
   }
 
   std::vector<cv::Vec<T2, 3>> epilines1, epilines2;
-  cv::computeCorrespondEpilines(points1, 1, F, epilines1); // Index starts with
-                                                           // 1
+  cv::computeCorrespondEpilines(points1, 1, F, epilines1);  // Index starts with
+                                                            // 1
   cv::computeCorrespondEpilines(points2, 2, F, epilines2);
 
   CV_Assert(points1.size() == points2.size() &&
@@ -74,18 +74,20 @@ static void drawEpipolarLines(const std::string &title,
      */
     cv::Scalar color(rng(256), rng(256), rng(256));
 
-    cv::line(
-        outImg(rect2), cv::Point(0, -epilines1[i][2] / epilines1[i][1]),
-        cv::Point(img1.cols, -(epilines1[i][2] + epilines1[i][0] * img1.cols) /
-                                 epilines1[i][1]),
-        color);
+    cv::line(outImg(rect2),
+             cv::Point(0, -epilines1[i][2] / epilines1[i][1]),
+             cv::Point(img1.cols,
+                       -(epilines1[i][2] + epilines1[i][0] * img1.cols) /
+                           epilines1[i][1]),
+             color);
     cv::circle(outImg(rect1), points1[i], 3, color, -1, cv::LINE_AA);
 
-    cv::line(
-        outImg(rect1), cv::Point(0, -epilines2[i][2] / epilines2[i][1]),
-        cv::Point(img2.cols, -(epilines2[i][2] + epilines2[i][0] * img2.cols) /
-                                 epilines2[i][1]),
-        color);
+    cv::line(outImg(rect1),
+             cv::Point(0, -epilines2[i][2] / epilines2[i][1]),
+             cv::Point(img2.cols,
+                       -(epilines2[i][2] + epilines2[i][0] * img2.cols) /
+                           epilines2[i][1]),
+             color);
     cv::circle(outImg(rect2), points2[i], 3, color, -1, cv::LINE_AA);
   }
 
