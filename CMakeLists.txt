@@ -6,15 +6,26 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
-FIND_PACKAGE(Ceres REQUIRED)
-INCLUDE_DIRECTORIES(${CERES_INCLUDE_DIRS})
 
-include_directories(include)
+find_package(Ceres REQUIRED)
+find_package(OpenCV 4.0 REQUIRED)
 
-set(LIBS glog gflags ${CERES_LIBRARIES})
+include_directories(include 
+                    ${CERES_INCLUDE_DIRS}
+                    ${OpenCV_INCLUDE_DIRS})
 
-add_library(ut_vslam src/vslam_io.cpp src/pairwise_2d_feature_cost_functor.cpp src/reprojection_cost_functor.cpp
-        src/slam_backend_solver.cpp src/structureless_ceres_visualization_callback.cpp src/vslam_util.cpp)
+set(LIBS glog 
+         gflags 
+         ${CERES_LIBRARIES} 
+         ${OpenCV_LIBS})
+
+add_library(ut_vslam src/vslam_io.cpp 
+                     src/pairwise_2d_feature_cost_functor.cpp 
+                     src/reprojection_cost_functor.cpp
+                     src/slam_backend_solver.cpp 
+                     src/structureless_ceres_visualization_callback.cpp 
+                     src/vslam_util.cpp)
+                     
 target_compile_features(ut_vslam PRIVATE cxx_std_17)    # 17 required for file iteration 
 
 add_executable(main src/main.cpp)
