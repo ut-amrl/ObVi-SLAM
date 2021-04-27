@@ -1,5 +1,6 @@
 // https://hasper.info/opencv-draw-epipolar-lines/
 
+#include <cmath>
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -61,9 +62,10 @@ static void drawEpipolarLines(const std::string &title,
 
   cv::RNG rng(0);
   for (size_t i = 0; i < points1.size(); i++) {
+    const float point1_err = distancePointLine(points1[i], epilines2[i]);
+    const float point2_err = distancePointLine(points2[i], epilines1[i]);
     if (inlierDistance > 0) {
-      if (distancePointLine(points1[i], epilines2[i]) > inlierDistance ||
-          distancePointLine(points2[i], epilines1[i]) > inlierDistance) {
+      if (point1_err > inlierDistance || point2_err > inlierDistance) {
         // The point match is no inlier
         continue;
       }
@@ -79,7 +81,8 @@ static void drawEpipolarLines(const std::string &title,
              cv::Point(img1.cols,
                        -(epilines1[i][2] + epilines1[i][0] * img1.cols) /
                            epilines1[i][1]),
-             color);
+             color,
+             std::ceil(point1_err));
     cv::circle(outImg(rect1), points1[i], 3, color, -1, cv::LINE_AA);
 
     cv::line(outImg(rect1),
@@ -87,12 +90,12 @@ static void drawEpipolarLines(const std::string &title,
              cv::Point(img2.cols,
                        -(epilines2[i][2] + epilines2[i][0] * img2.cols) /
                            epilines2[i][1]),
-             color);
+             color,
+             std::ceil(point2_err));
     cv::circle(outImg(rect2), points2[i], 3, color, -1, cv::LINE_AA);
   }
 
   cv::namedWindow(title, cv::WINDOW_NORMAL);
-  cv::resizeWindow(title, 1000, 500);
   cv::imshow(title, outImg);
-  cv::waitKey(100);
+  cv::waitKey(10);
 }
