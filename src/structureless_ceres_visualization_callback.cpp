@@ -57,7 +57,7 @@ ceres::CallbackReturnType StructurelessCeresVisualizationCallback::operator()(
 
     // Convert to fundamental matrix with K
     Eigen::Matrix<double, 3, 3> fundamental_mat =
-        intrinsics_.camera_mat.inverse().inverse().cast<double>() *
+        intrinsics_.camera_mat.transpose().inverse().cast<double>() *
         essential_mat * intrinsics_.camera_mat.inverse().cast<double>();
 
     // Get cam 1 and cam 2 points
@@ -65,22 +65,26 @@ ceres::CallbackReturnType StructurelessCeresVisualizationCallback::operator()(
     std::vector<cv::Point_<double>> cam_2_points;
 
     for (const auto &ft : slam_problem_.tracks) {
-      for (const auto feature : ft.second.track) {
-        if (feature.frame_idx == i) {
+      for (int j = 0; j < ft.second.track.size(); ++j) {
+        // This conditional ensure that we only include points that have matches
+        // across consective frame pairs
+        if (ft.second.track[j].frame_idx == i &&
+            ft.second.track[j + 1].frame_idx == i + 1) {
           // In first frame
-          cv::Point_<float> point1(feature.pixel.x(), feature.pixel.y());
+          cv::Point_<float> point1(ft.second.track[j].pixel.x(),
+                                   ft.second.track[j].pixel.y());
           cam_1_points.push_back(point1);
-        } else if (feature.frame_idx == i + 1) {
           // In second frame
-          cv::Point_<float> point2(feature.pixel.x(), feature.pixel.y());
+          cv::Point_<float> point2(ft.second.track[j + 1].pixel.x(),
+                                   ft.second.track[j + 1].pixel.y());
           cam_2_points.push_back(point2);
         }
       }
     }
 
     // Make empty mats to represent the image
-    cv::Mat cam1_pic(1024, 1224, CV_8U, cv::Scalar(100));
-    cv::Mat cam2_pic(1024, 1224, CV_8U, cv::Scalar(100));
+    cv::Mat cam1_pic(480, 640, CV_8U, cv::Scalar(100));
+    cv::Mat cam2_pic(480, 640, CV_8U, cv::Scalar(100));
     // Convert F to cv format
     cv::Matx<double, 3, 3> F_cv;
     cv::eigen2cv(fundamental_mat, F_cv);
