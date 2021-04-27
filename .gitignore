@@ -2,3 +2,7 @@
 bin/*
 lib/*
 build/*
+data/vslam_set2/*
+data/vslam_set3/*
+data/vslam_set4/*
+media/*

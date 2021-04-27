@@ -67,7 +67,7 @@ ceres::CallbackReturnType StructurelessCeresVisualizationCallback::operator()(
     for (const auto &ft : slam_problem_.tracks) {
       for (int j = 0; j < ft.second.track.size(); ++j) {
         // This conditional ensure that we only include points that have matches
-        // across consective frame pairs
+        // across conssecutive frame pairs
         if (ft.second.track[j].frame_idx == i &&
             ft.second.track[j + 1].frame_idx == i + 1) {
           // In first frame
