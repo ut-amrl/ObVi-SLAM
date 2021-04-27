@@ -6,7 +6,7 @@
 1. `make`
 
 ### Run a Demo Program
-Run the following command from the base directory. 
+Run the following command from the base directory. Note - make sure to modify the path to reflect BOTH the data set and the calibration. TODO hard code calibration path relative to dataset so user only enters one path.
 
     ./bin/main --data_path=`pwd`/data/vslam_set1/ --calibration_path=`pwd`/data/vslam_set1/calibration/camera_matrix.txt
 
