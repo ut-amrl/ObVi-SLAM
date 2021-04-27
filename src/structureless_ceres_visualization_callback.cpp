@@ -1,8 +1,8 @@
+#include <draw_epipolar_lines.h>
 #include <glog/logging.h>
 #include <structureless_ceres_visualization_callback.h>
 #include <vslam_types.h>
 
-#include <draw_epipolar_lines.hpp>
 #include <opencv2/core/eigen.hpp>
 
 namespace vslam_viz {
