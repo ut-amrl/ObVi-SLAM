@@ -5,20 +5,16 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-/**
- * \brief Compute and draw the epipolar lines in two images
- *      associated to each other by a fundamental matrix
- *
- * \param title     Title of the window to display
- * \param F         Fundamental matrix
- * \param img1      First image
- * \param img2      Second image
- * \param points1   Set of points in the first image
- * \param points2   Set of points in the second image matching to the first set
- * \param inlierDistance      Points with a high distance to the epipolar lines
- *are not displayed. If it is negative, all points are displayed
- **/
 
+/**
+ * calculate the perpendicular distance between a point and a line in 2D
+ *
+ * @tparam T    Point and line data type
+ * @param point A point in 2D in the same plane as the line
+ * @param line  A line in 2D
+ *
+ * @return      Perpendicular distance between a point and line in 2D
+ */
 template <typename T>
 static float distancePointLine(const cv::Point_<T> point,
                                const cv::Vec<T, 3> &line) {
@@ -27,6 +23,23 @@ static float distancePointLine(const cv::Point_<T> point,
          std::sqrt(line(0) * line(0) + line(1) * line(1));
 }
 
+/**
+ * Compute and draw the epipolar lines in two images
+ * associated to each other by a fundamental matrix
+ *
+ * @tparam T1                 Type of the fundamental matrix
+ * @tparam T2                 Type of the image points
+ * @param title               Title of the window to display
+ * @param F                   Fundamental matrix
+ * @param img1                First image
+ * @param img2                Second image
+ * @param points1             Set of points in the first image
+ * @param points2             Set of points in the second image matching to the
+ *                            first set
+ * @param inlierDistance      Points with a high distance to the epipolar lines
+ *                            are not displayed. If it is negative, all points
+ *are displayed
+ **/
 template <typename T1, typename T2>
 static void drawEpipolarLines(const std::string &title,
                               const cv::Matx<T1, 3, 3> F,
