@@ -54,8 +54,9 @@ int main(int argc, char **argv) {
 
   // Make intrinsics and unit camera extrinsics
   vslam_types::CameraIntrinsics intrinsics{K};
-  vslam_types::CameraExtrinsics extrinsics{Eigen::Vector3f(0, 0, 0),
-                                           Eigen::Quaternionf(1, 0, 0, 0)};
+  vslam_types::CameraExtrinsics extrinsics{
+      Eigen::Vector3f(0, 0, 0),
+      Eigen::Quaternionf(0.5, 0.5, -0.5, 0.5).inverse()};
 
   // Solve
   vslam_solver::SLAMSolverOptimizerParams optimizer_params;
