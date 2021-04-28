@@ -37,21 +37,6 @@ int main(int argc, char **argv) {
   // Load camera calibration matrix
   vslam_io::LoadCameraCalibration(FLAGS_calibration_path, K);
 
-  // Print poses to terminal for display
-  for (const auto &pose : prob.robot_poses) {
-    cout << pose << endl;
-  }
-
-  // Print feature tracks to terminal for display
-  for (const auto &ft : prob.tracks) {
-    for (const auto &feature : ft.second.track) {
-      cout << feature << endl;
-    }
-  }
-
-  // Print camera intrinsics to terminal for display
-  cout << K << endl;
-
   // Make intrinsics and unit camera extrinsics
   vslam_types::CameraIntrinsics intrinsics{K};
   // [0 -1 0; 0 0 -1; 1 0 0] is the rotation of the camera matrix from a classic
@@ -97,6 +82,11 @@ int main(int argc, char **argv) {
       structureless_vision_constraint_adder,
       callback_creator,
       answer);
+
+  // Print poses to terminal for display
+  for (const auto &pose : answer) {
+    cout << pose << endl;
+  }
 
   return 0;
 }

@@ -16,7 +16,8 @@ include_directories(include
                     ${OpenCV_INCLUDE_DIRS}
                     ${Pangolin_INCLUDE_DIRS})
 
-set(LIBS glog 
+set(LIBS stdc++fs
+         glog 
          gflags 
          ${CERES_LIBRARIES} 
          ${OpenCV_LIBS}
@@ -33,4 +34,4 @@ add_library(ut_vslam src/vslam_io.cpp
 target_compile_features(ut_vslam PRIVATE cxx_std_17)    # 17 required for file iteration 
 
 add_executable(main src/main.cpp)
-target_link_libraries(main ut_vslam ${LIBS} stdc++fs)
+target_link_libraries(main ut_vslam ${LIBS} )
