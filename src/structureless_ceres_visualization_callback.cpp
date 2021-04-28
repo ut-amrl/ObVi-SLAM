@@ -89,10 +89,10 @@ ceres::CallbackReturnType StructurelessCeresVisualizationCallback::operator()(
     cv::Matx<double, 3, 3> F_cv;
     cv::eigen2cv(fundamental_mat, F_cv);
     // Draw image w/ epipolar lines
-    drawEpipolarLines(
-        "Frame", F_cv, cam1_pic, cam2_pic, cam_1_points, cam_2_points);
+    // drawEpipolarLines(
+    //    "Frame", F_cv, cam1_pic, cam2_pic, cam_1_points, cam_2_points);
   }
-
+  pose_viz_.drawPoses(nodes);
   return ceres::SOLVER_CONTINUE;
 }
 
