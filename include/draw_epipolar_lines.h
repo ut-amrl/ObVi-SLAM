@@ -36,9 +36,9 @@ static float distancePointLine(const cv::Point_<T> point,
  * @param points1             Set of points in the first image
  * @param points2             Set of points in the second image matching to the
  *                            first set
- * @param inlierDistance      Points with a high distance to the epipolar lines
- *                            are not displayed. If it is negative, all points
- *are displayed
+ * @param inlierDistance      Points with a distance to the epipolar lines
+ *                            higher than this are not displayed. If it is
+ *                            negative, all points are displayed
  **/
 template <typename T1, typename T2>
 static void drawEpipolarLines(const std::string &title,

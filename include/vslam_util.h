@@ -5,9 +5,16 @@
 
 namespace vslam_util {
 
+/**
+ * Calculate the essential matrix given a relative transform
+ *
+ * @param rel_tf[in]    Relative transfrom between two poses
+ *
+ * @return  Essential matrix corresponding to the realtive transform
+ */
 template <typename T>
-void CalcEssentialMatrix(Eigen::Transform<T, 3, Eigen::Affine> const& rel_tf,
-                         Eigen::Matrix<T, 3, 3>* const essential_mat);
+void CalcEssentialMatrix(const Eigen::Transform<T, 3, Eigen::Affine>& rel_tf,
+                         const Eigen::Matrix<T, 3, 3>& essential_mat);
 
 }  // namespace vslam_util
 

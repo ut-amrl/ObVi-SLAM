@@ -54,9 +54,13 @@ int main(int argc, char **argv) {
 
   // Make intrinsics and unit camera extrinsics
   vslam_types::CameraIntrinsics intrinsics{K};
+  // [0 -1 0; 0 0 -1; 1 0 0] is the rotation of the camera matrix from a classic
+  // world frame - for the camera +z is the +x world axis, +y is the -z world
+  // axis, and +x is the -y world axis
   vslam_types::CameraExtrinsics extrinsics{
       Eigen::Vector3f(0, 0, 0),
-      Eigen::Quaternionf(0.5, 0.5, -0.5, 0.5).inverse()};
+      Eigen::Quaternionf(0.5, 0.5, -0.5, 0.5)
+          .inverse()};  // [0 -1 0; 0 0 -1; 1 0 0]^-1
 
   // Solve
   vslam_solver::SLAMSolverOptimizerParams optimizer_params;

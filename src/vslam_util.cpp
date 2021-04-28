@@ -2,16 +2,9 @@
 
 namespace vslam_util {
 
-/**
- * Calculate the essential matrix given a relative transform
- *
- * @param rel_tf[in]    Relative transfrom between two poses
- *
- * @return  Essential matrix corresponding to the realtive transform
- */
 template <typename T>
-void CalcEssentialMatrix(Eigen::Transform<T, 3, Eigen::Affine> const& rel_tf,
-                         Eigen::Matrix<T, 3, 3>* const essential_mat) {
+void CalcEssentialMatrix(const Eigen::Transform<T, 3, Eigen::Affine>& rel_tf,
+                         const Eigen::Matrix<T, 3, 3>& essential_mat) {
   // Extract Tx and R rel_tf (rel_tf aka "cam 1 to cam 2 tf")
   Eigen::Matrix<T, 3, 1> t_vec = rel_tf.translation();
   Eigen::Matrix<T, 3, 3> t_cross;  // skew symmetric

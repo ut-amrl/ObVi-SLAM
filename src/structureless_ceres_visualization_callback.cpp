@@ -66,8 +66,8 @@ ceres::CallbackReturnType StructurelessCeresVisualizationCallback::operator()(
 
     for (const auto &ft : slam_problem_.tracks) {
       for (int j = 0; j < ft.second.track.size(); ++j) {
-        // This conditional ensure that we only include points that have matches
-        // across conssecutive frame pairs
+        // This conditional ensures that we only include points that have
+        // matches across consecutive frame pairs
         if (ft.second.track[j].frame_idx == i &&
             ft.second.track[j + 1].frame_idx == i + 1) {
           // In first frame
@@ -89,8 +89,12 @@ ceres::CallbackReturnType StructurelessCeresVisualizationCallback::operator()(
     cv::Matx<double, 3, 3> F_cv;
     cv::eigen2cv(fundamental_mat, F_cv);
     // Draw image w/ epipolar lines
-    drawEpipolarLines(
-        "epipolar error", F_cv, cam1_pic, cam2_pic, cam_1_points, cam_2_points);
+    drawEpipolarLines("Frame " + std::to_string(i),
+                      F_cv,
+                      cam1_pic,
+                      cam2_pic,
+                      cam_1_points,
+                      cam_2_points);
   }
 
   return ceres::SOLVER_CONTINUE;

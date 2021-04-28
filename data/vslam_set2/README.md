@@ -1,4 +1,4 @@
-# VSLAM SET4 Sequence
+# VSLAM SET2 Sequence
 The sequence contains simulated date acquired in matlab. Ground truth poses, measurements, and 3D features are available. The feature point cloud contained 100 randomly generated points drawn from a uniform distribution. Not all points are imaged. 
 
 In the sequence the camera moves from (-20, 0 , 0) to (-10, 0, 0) in a straight line with a series of 0.5m steps.
