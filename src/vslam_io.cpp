@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <experimental/filesystem>  //c++ 17 file iteration
 #include <fstream>
+#include <random>
 
 namespace vslam_io {
 using namespace vslam_types;
@@ -14,6 +15,9 @@ namespace fs = std::experimental::filesystem;
 void LoadStructurelessUTSLAMProblem(
     const std::string& data_path,
     vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob) {
+  std::default_random_engine generator;
+  std::normal_distribution<double> distribution(0.0, 0.5);
+
   // Iterate over all files/folders in the data_path directory - i.e. over all
   // frames
   std::unordered_map<uint64_t, RobotPose> poses_by_id;
@@ -51,7 +55,9 @@ void LoadStructurelessUTSLAMProblem(
     std::stringstream ss_pose(line);
     float x, y, z, qx, qy, qz, qw;
     ss_pose >> x >> y >> z >> qx >> qy >> qz >> qw;
-    Eigen::Vector3f loc(x, y, z);
+    Eigen::Vector3f loc(x + distribution(generator),
+                        y + distribution(generator),
+                        z + distribution(generator));
     Eigen::Quaternionf angle_q(qw, qx, qy, qz);
     angle_q.normalize();
     Eigen::AngleAxisf angle(angle_q);

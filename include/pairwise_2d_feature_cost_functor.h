@@ -3,6 +3,7 @@
 
 #include <ceres/autodiff_cost_function.h>
 #include <vslam_types.h>
+#include <vslam_util.h>
 
 #include <eigen3/Eigen/Dense>
 
