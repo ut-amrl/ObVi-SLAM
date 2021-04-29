@@ -7,7 +7,7 @@ PoseViewer::PoseViewer()
     : s_cam_(pangolin::OpenGlRenderState(
           pangolin::ProjectionMatrix(
               1024, 768, 1000, 1000, 512, 389, 0.1, 1000),
-          pangolin::ModelViewLookAt(0.1, 0, 100, 0, 0, 0, 0.0, 0.0, -1.0))),
+          pangolin::ModelViewLookAt(0.1, 0, 50, 0, 0, 0, 0.0, 0.0, -1.0))),
       handler_(s_cam_) {
   pangolin::CreateWindowAndBind("Main", 640, 480);
   glEnable(GL_DEPTH_TEST);
