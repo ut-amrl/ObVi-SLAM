@@ -5,15 +5,18 @@ namespace vslam_viz {
 
 PoseViewer::PoseViewer()
     : s_cam_(pangolin::OpenGlRenderState(
-          pangolin::ProjectionMatrix(640, 480, 420, 420, 320, 240, 0.2, 100),
-          pangolin::ModelViewLookAt(-20, 20, -20, 0, 0, 0, pangolin::AxisY))),
+          pangolin::ProjectionMatrix(
+              1024, 768, 1000, 1000, 512, 389, 0.1, 1000),
+          pangolin::ModelViewLookAt(0.1, 0, 100, 0, 0, 0, 0.0, 0.0, -1.0))),
       handler_(s_cam_) {
   pangolin::CreateWindowAndBind("Main", 640, 480);
   glEnable(GL_DEPTH_TEST);
 
-  d_cam_ = &pangolin::CreateDisplay()
-                .SetBounds(0.0, 1.0, 0.0, 1.0, -640.0f / 480.0f)
-                .SetHandler(&handler_);
+  d_cam_ =
+      &pangolin::CreateDisplay()
+           .SetBounds(
+               0.0, 1.0, pangolin::Attach::Pix(175), 1.0, -1024.0f / 768.0f)
+           .SetHandler(&handler_);
   d_cam_->Activate(s_cam_);  // If this is here it doesnt allow us to move the
   // camera in the window - should be in the callback
 }
@@ -23,16 +26,28 @@ void PoseViewer::drawPoses(std::vector<vslam_types::SLAMNode> nodes) const {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   d_cam_->Activate(s_cam_);  // Needed here so we can move the window around
 
-  // Render OpenGL Cube
-  pangolin::OpenGlMatrix Twc;
-  Twc.SetIdentity();
+  // Extrinics
+  vslam_types::CameraExtrinsics extrinsics{
+      Eigen::Vector3f(0, 0, 0),
+      Eigen::Quaternionf(0.5, 0.5, -0.5, 0.5).inverse()};
+  Eigen::Affine3d cam_to_robot_tf(
+      Eigen::Translation3f(extrinsics.translation).cast<double>() *
+      extrinsics.rotation.cast<double>());
+
   for (const auto& node : nodes) {
-    DrawCamera(Twc.Translate(-node.pose[1], -node.pose[2], node.pose[0]));
+    Eigen::Transform<double, 3, Eigen::Affine> robot_pose_in_world =
+        vslam_types::PoseArrayToAffine(&(node.pose[3]), &(node.pose[0]));
+
+    Eigen::Transform<double, 3, Eigen::Affine> cam_mat =
+        robot_pose_in_world * cam_to_robot_tf;
+
+    pangolin::OpenGlMatrix Twc(cam_mat);
+
+    DrawCamera(Twc);
   }
 
   // Swap frames and Process Events
   pangolin::FinishFrame();
-
   return;
 }
 
