@@ -2,10 +2,12 @@
 #define UT_VSLAM_CERES_VISUALIZATION_CALLBACK_H
 
 #include <ceres/iteration_callback.h>
+#include <draw_epipolar_lines.h>
 #include <pose_viewer.h>
 #include <vslam_types.h>
 
 #include <memory>
+#include <opencv2/core/eigen.hpp>
 
 namespace vslam_viz {
 
@@ -14,8 +16,8 @@ namespace vslam_viz {
  *
  * Used for visualization of structureless SLAM.
  */
-class StructurelessCeresVisualizationCallback
-    : public ceres::IterationCallback {
+template <typename FeatureTrackType>
+class VisualSlamCeresVisualizationCallback : public ceres::IterationCallback {
  public:
   /**
    * Constructor.
@@ -28,12 +30,18 @@ class StructurelessCeresVisualizationCallback
    * @param slam_nodes      SLAM nodes being optimized by ceres. These should
    *                        only be read, not modified.
    */
-  StructurelessCeresVisualizationCallback(
+  VisualSlamCeresVisualizationCallback(
       const vslam_types::CameraIntrinsics &intrinsics,
       const vslam_types::CameraExtrinsics &extrinsics,
-      const vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>
-          &slam_problem,
-      std::vector<vslam_types::SLAMNode> *slam_nodes);
+      const vslam_types::UTSLAMProblem<FeatureTrackType> &slam_problem,
+      const std::function<std::vector<vslam_types::VisionFeature>(
+          const FeatureTrackType &)> &feature_retriever,
+      std::vector<vslam_types::SLAMNode> *slam_nodes)
+      : intrinsics_(intrinsics),
+        extrinsics_(extrinsics),
+        slam_problem_(slam_problem),
+        feature_retriever_(feature_retriever),
+        slam_nodes_(slam_nodes) {}
 
   /**
    * Function that is called during ceres optimization.
@@ -42,7 +50,31 @@ class StructurelessCeresVisualizationCallback
    *
    * @return Return type indicating if ceres should continue.
    */
-  ceres::CallbackReturnType operator()(const ceres::IterationSummary &summary);
+  ceres::CallbackReturnType operator()(const ceres::IterationSummary &summary) {
+    // DO NOT MODIFY THESE -- they are being updated during optimization
+    const std::vector<vslam_types::SLAMNode> nodes = *slam_nodes_;
+
+    // TODO add to class?
+    Eigen::Affine3d cam_to_robot_tf =
+        Eigen::Translation3d(extrinsics_.translation.cast<double>()) *
+        extrinsics_.rotation.cast<double>();
+
+    // Visualize epipolar lines and the epipolar error (width of lines)
+    if (true) {
+      VisualizeEpipolarError(cam_to_robot_tf,
+                             intrinsics_,
+                             slam_problem_,
+                             nodes,
+                             feature_retriever_);
+    }
+
+    // Visualize robot poses
+    if (true) {
+      pose_viz_.drawPoses(nodes);
+    }
+
+    return ceres::SOLVER_CONTINUE;
+  }
 
   /**
    * Static function used to create a pointer to this visualization callback.
@@ -57,14 +89,16 @@ class StructurelessCeresVisualizationCallback
    *
    * @return Pointer to visualization callback.
    */
-  static std::shared_ptr<StructurelessCeresVisualizationCallback> create(
+  template <typename TrackType>
+  static std::shared_ptr<VisualSlamCeresVisualizationCallback> create(
       const vslam_types::CameraIntrinsics &intrinsics,
       const vslam_types::CameraExtrinsics &extrinsics,
-      const vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>
-          &slam_problem,
+      const vslam_types::UTSLAMProblem<TrackType> &slam_problem,
+      const std::function<std::vector<vslam_types::VisionFeature>(
+          const TrackType &)> &feature_retriever,
       std::vector<vslam_types::SLAMNode> *slam_nodes) {
-    return std::make_shared<StructurelessCeresVisualizationCallback>(
-        intrinsics, extrinsics, slam_problem, slam_nodes);
+    return std::make_shared<VisualSlamCeresVisualizationCallback<TrackType>>(
+        intrinsics, extrinsics, slam_problem, feature_retriever, slam_nodes);
   }
 
  private:
@@ -81,7 +115,14 @@ class StructurelessCeresVisualizationCallback
   /**
    * SLAM problem with relevant image data.
    */
-  vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> slam_problem_;
+  vslam_types::UTSLAMProblem<FeatureTrackType> slam_problem_;
+
+  /**
+   * Function for retrieving features from a feature track.
+   */
+  std::function<std::vector<vslam_types::VisionFeature>(
+      const FeatureTrackType &)>
+      feature_retriever_;
 
   /**
    * SLAM nodes that are being optimized. These should only be read, not
