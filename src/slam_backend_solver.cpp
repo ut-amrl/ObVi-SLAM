@@ -60,7 +60,7 @@ bool SLAMSolver::SolveSLAM(
   ceres::Solver::Summary summary;
 
   // TODO configure options
-  options.max_num_iterations = 300;
+  options.max_num_iterations = 40;
   options.minimizer_type = ceres::LINE_SEARCH;
 
   std::vector<vslam_types::SLAMNode> slam_nodes;
