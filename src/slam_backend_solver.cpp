@@ -1,5 +1,6 @@
 #include <ceres/ceres.h>
 #include <pairwise_2d_feature_cost_functor.h>
+#include <reprojection_cost_functor.h>
 #include <slam_backend_solver.h>
 
 namespace vslam_solver {
@@ -37,39 +38,40 @@ vslam_types::RobotPose FromSLAMNode(const vslam_types::SLAMNode &slam_node) {
 }
 
 // TODO make all class methods lower case ?
-template <typename FeatureTrackType>
+template <typename FeatureTrackType, typename ProblemParams>
 bool SLAMSolver::SolveSLAM(
     const vslam_types::CameraIntrinsics &intrinsics,
     const vslam_types::CameraExtrinsics &extrinsics,
-    const vslam_types::UTSLAMProblem<FeatureTrackType> &slam_problem,
-    const std::function<
-        void(const vslam_types::UTSLAMProblem<FeatureTrackType> &,
-             const vslam_types::CameraIntrinsics &,
-             const vslam_types::CameraExtrinsics &,
-             const SLAMSolverOptimizerParams &,
-             ceres::Problem &,
-             std::vector<vslam_types::SLAMNode> *)> vision_constraint_adder,
+    const std::function<void(const vslam_types::CameraIntrinsics &,
+                             const vslam_types::CameraExtrinsics &,
+                             const ProblemParams &,
+                             vslam_types::UTSLAMProblem<FeatureTrackType> &,
+                             ceres::Problem &,
+                             std::vector<vslam_types::SLAMNode> *)>
+        vision_constraint_adder,
     const std::function<std::shared_ptr<ceres::IterationCallback>(
         const vslam_types::CameraIntrinsics &,
         const vslam_types::CameraExtrinsics &,
         const vslam_types::UTSLAMProblem<FeatureTrackType> &,
         std::vector<vslam_types::SLAMNode> *)> callback_creator,
+    const ProblemParams &problem_params,
+    vslam_types::UTSLAMProblem<FeatureTrackType> &slam_problem,
     std::vector<vslam_types::RobotPose> &updated_robot_poses) {
   ceres::Problem problem;
   ceres::Solver::Options options;
   ceres::Solver::Summary summary;
 
   // TODO configure options
-  options.max_num_iterations = 300;
-  options.minimizer_type = ceres::LINE_SEARCH;
+  options.max_num_iterations = solver_optimization_params_.max_iterations;
+  options.minimizer_type = solver_optimization_params_.minimizer_type;
 
   std::vector<vslam_types::SLAMNode> slam_nodes;
   RobotPosesToSLAMNodes(updated_robot_poses, slam_nodes);
 
-  vision_constraint_adder(slam_problem,
-                          intrinsics,
+  vision_constraint_adder(intrinsics,
                           extrinsics,
-                          solver_optimization_params_,
+                          problem_params,
+                          slam_problem,
                           problem,
                           &slam_nodes);
 
@@ -91,11 +93,10 @@ bool SLAMSolver::SolveSLAM(
 }
 
 void AddStructurelessVisionFactors(
-    const vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>
-        &slam_problem,
     const vslam_types::CameraIntrinsics &intrinsics,
     const vslam_types::CameraExtrinsics &extrinsics,
-    const SLAMSolverOptimizerParams &solver_optimization_params,
+    const StructurelessSlamProblemParams &solver_optimization_params,
+    vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &slam_problem,
     ceres::Problem &ceres_problem,
     std::vector<vslam_types::SLAMNode> *updated_solved_nodes) {
   std::vector<vslam_types::SLAMNode> &solution = *updated_solved_nodes;
@@ -124,22 +125,74 @@ void AddStructurelessVisionFactors(
   }
 }
 
-template bool SLAMSolver::SolveSLAM<vslam_types::VisionFeatureTrack>(
+void AddStructuredVisionFactors(
     const vslam_types::CameraIntrinsics &intrinsics,
     const vslam_types::CameraExtrinsics &extrinsics,
-    const vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>
+    const StructuredSlamProblemParams &solver_optimization_params,
+    vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack>
         &slam_problem,
-    const std::function<void(
-        const vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &,
-        const vslam_types::CameraIntrinsics &,
-        const vslam_types::CameraExtrinsics &,
-        const SLAMSolverOptimizerParams &,
-        ceres::Problem &,
-        std::vector<vslam_types::SLAMNode> *)> vision_constraint_adder,
+    ceres::Problem &ceres_problem,
+    std::vector<vslam_types::SLAMNode> *updated_solved_nodes) {
+  std::vector<vslam_types::SLAMNode> &solution = *updated_solved_nodes;
+
+  for (auto &feature_track_by_id : slam_problem.tracks) {
+    double *feature_position_block = feature_track_by_id.second.point.data();
+    for (const vslam_types::VisionFeature &feature :
+         feature_track_by_id.second.feature_track.track) {
+      double *pose_block = solution[feature.frame_idx].pose;
+
+      ceres_problem.AddResidualBlock(
+          ReprojectionCostFunctor::create(
+              intrinsics,
+              extrinsics,
+              feature,
+              solver_optimization_params.reprojection_error_std_dev),
+          nullptr,
+          pose_block,
+          feature_position_block);
+    }
+  }
+}
+
+template bool SLAMSolver::SolveSLAM<vslam_types::VisionFeatureTrack,
+                                    StructurelessSlamProblemParams>(
+    const vslam_types::CameraIntrinsics &intrinsics,
+    const vslam_types::CameraExtrinsics &extrinsics,
+    const std::function<
+        void(const vslam_types::CameraIntrinsics &,
+             const vslam_types::CameraExtrinsics &,
+             const StructurelessSlamProblemParams &,
+             vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &,
+             ceres::Problem &,
+             std::vector<vslam_types::SLAMNode> *)> vision_constraint_adder,
     const std::function<std::shared_ptr<ceres::IterationCallback>(
         const vslam_types::CameraIntrinsics &,
         const vslam_types::CameraExtrinsics &,
         const vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &,
         std::vector<vslam_types::SLAMNode> *)> callback_creator,
+    const StructurelessSlamProblemParams &problem_params,
+    vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &slam_problem,
+    std::vector<vslam_types::RobotPose> &updated_robot_poses);
+
+template bool SLAMSolver::SolveSLAM<vslam_types::StructuredVisionFeatureTrack,
+                                    StructuredSlamProblemParams>(
+    const vslam_types::CameraIntrinsics &intrinsics,
+    const vslam_types::CameraExtrinsics &extrinsics,
+    const std::function<void(
+        const vslam_types::CameraIntrinsics &,
+        const vslam_types::CameraExtrinsics &,
+        const StructuredSlamProblemParams &,
+        vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack> &,
+        ceres::Problem &,
+        std::vector<vslam_types::SLAMNode> *)> vision_constraint_adder,
+    const std::function<std::shared_ptr<ceres::IterationCallback>(
+        const vslam_types::CameraIntrinsics &,
+        const vslam_types::CameraExtrinsics &,
+        const vslam_types::UTSLAMProblem<
+            vslam_types::StructuredVisionFeatureTrack> &,
+        std::vector<vslam_types::SLAMNode> *)> callback_creator,
+    const StructuredSlamProblemParams &problem_params,
+    vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack>
+        &slam_problem,
     std::vector<vslam_types::RobotPose> &updated_robot_poses);
 }  // namespace vslam_solver
