@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "eigen3/Eigen/Dense"
+#include "vslam_types.h"
 
 namespace {
 const double kEpsilon = 1e-7;
@@ -15,16 +16,57 @@ const double kEpsilon = 1e-7;
 namespace vslam_util {
 
 /**
- * Calculate the essential matrix given a relative transform
+ * Calculate the essential matrix for the camera at two robot poses.
+ * @tparam T                Type of the number in the computation. Needed to
+ *                          work with ceres optimizatoin.
+ * @param node_1_pose_array First robot pose, as an array. First 3 elements are
+ *                          position, second 3 are axis angle format for
+ *                          rotation.
+ * @param node_2_pose_array Second robot pose, as an array. First 3 elements are
+ *                          position, second 3 are axis angle format for
+ *                          rotation.
+ * @param cam_to_robot_tf   Transform that provides the camera position in the
+ *                          robot's frame.
  *
- * @param rel_tf[in]    Relative transfrom between two poses
- *
- * @return  Essential matrix corresponding to the realtive transform
+ * @return The essential matrix that relates pixels in the image frames.
  */
 template <typename T>
-void CalcEssentialMatrix(const Eigen::Transform<T, 3, Eigen::Affine>& rel_tf,
-                         const Eigen::Matrix<T, 3, 3>& essential_mat);
+Eigen::Matrix<T, 3, 3> CalcEssentialMatrix(
+    const T* node_1_pose_array,
+    const T* node_2_pose_array,
+    Eigen::Transform<T, 3, Eigen::Affine> cam_to_robot_tf) {
+  // Convert pose init to rotation
+  Eigen::Transform<T, 3, Eigen::Affine> first_robot_pose_in_world =
+      vslam_types::PoseArrayToAffine(&(node_1_pose_array[3]),
+                                     &(node_1_pose_array[0]));
 
+  // Convert pose current to rotation
+  Eigen::Transform<T, 3, Eigen::Affine> second_robot_pose_in_world =
+      vslam_types::PoseArrayToAffine(&(node_2_pose_array[3]),
+                                     &(node_2_pose_array[0]));
+
+  // Want to get rotation and translation of camera frame 1 relative to
+  // camera frame 2 (pose of camera 2 in camera 1)
+  // if T_r_c is the transformation matrix representing camera extrinsics
+  // (camera pose rel robot). We assume this is the same for both poses
+  // since the camera doesn't change relative to the robot as the robot moves
+  // T_w_r1 is the robot's pose at frame 1 relative to the world
+  // T_w_r2 is the robot's pose at frame 2 relative to the world, then camera
+  // 2 relative to camera 1 is given by
+  // T_c1_c2 =  T_r_c^-1 * T_w_r1^-1 * T_w_r2 * T_r_c
+  Eigen::Transform<T, 3, Eigen::Affine> cam_1_to_cam_2_mat =
+      cam_to_robot_tf.inverse() * first_robot_pose_in_world.inverse() *
+      second_robot_pose_in_world * cam_to_robot_tf;
+
+  // Extract Tx and R from cam_1_to_cam_2_mat
+  Eigen::Matrix<T, 3, 1> t_vec = cam_1_to_cam_2_mat.translation();
+  Eigen::Matrix<T, 3, 3> t_cross;  // skew symmetric
+  t_cross << T(0.0), -t_vec(2), t_vec(1), t_vec(2), T(0.0), -t_vec(0),
+      -t_vec(1), t_vec(0), T(0.0);
+  Eigen::Matrix<T, 3, 3> rotation = cam_1_to_cam_2_mat.linear();
+  Eigen::Matrix<T, 3, 3> essential_mat = t_cross * rotation;
+  return essential_mat;
+}
 /**
  * Generate the skew symmetric matrix form of a vector
  *
@@ -169,7 +211,6 @@ void CorruptRobotPoses(const Eigen::Matrix<T, 3, 1>& sigma_linear,
   }
   return;
 }
-
 }  // namespace vslam_util
 
 #endif  // UT_VSLAM_SLAM_UTIL_H

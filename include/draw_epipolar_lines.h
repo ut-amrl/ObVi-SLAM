@@ -4,6 +4,7 @@
 // https://hasper.info/opencv-draw-epipolar-lines/
 
 #include <vslam_types.h>
+#include <vslam_util.h>
 
 #include <cmath>
 #include <opencv2/calib3d/calib3d.hpp>
@@ -130,30 +131,11 @@ void VisualizeEpipolarError(
     std::function<std::vector<vslam_types::VisionFeature>(
         const FeatureTrackType &)> feature_retriever) {
   for (int i = 0; i < nodes.size() - 1; i++) {
-    // Convert pose 1 to tf
-    const vslam_types::SLAMNode node1 = nodes[i];  // i
-    Eigen::Transform<double, 3, Eigen::Affine> first_robot_pose_in_world =
-        vslam_types::PoseArrayToAffine<double>(&(node1.pose[3]),
-                                               &(node1.pose[0]));
-
-    // Convert pose 2 to tf
+    const vslam_types::SLAMNode node1 = nodes[i];      // i
     const vslam_types::SLAMNode node2 = nodes[i + 1];  // i+1
-    Eigen::Transform<double, 3, Eigen::Affine> second_robot_pose_in_world =
-        vslam_types::PoseArrayToAffine<double>(&(node2.pose[3]),
-                                               &(node2.pose[0]));
 
-    Eigen::Transform<double, 3, Eigen::Affine> cam_1_to_cam_2_mat =
-        cam_to_robot_tf.inverse() * first_robot_pose_in_world.inverse() *
-        second_robot_pose_in_world * cam_to_robot_tf;
-
-    // Extract Tx and R from cam_1_to_cam_2_mat
-    Eigen::Matrix<double, 3, 1> t_vec = cam_1_to_cam_2_mat.translation();
-    Eigen::Matrix<double, 3, 3> t_cross;  // skew symmetric
-    t_cross << (0.0), -t_vec(2), t_vec(1), t_vec(2), (0.0), -t_vec(0),
-        -t_vec(1), t_vec(0), (0.0);
-    Eigen::Matrix<double, 3, 3> rotation = cam_1_to_cam_2_mat.linear();
-
-    Eigen::Matrix<double, 3, 3> essential_mat = t_cross * rotation;
+    Eigen::Matrix<double, 3, 3> essential_mat = vslam_util::CalcEssentialMatrix(
+        node1.pose, node2.pose, cam_to_robot_tf);
 
     // Convert to fundamental matrix with K
     Eigen::Matrix<double, 3, 3> fundamental_mat =
