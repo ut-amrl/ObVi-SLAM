@@ -16,7 +16,7 @@ void LoadStructurelessUTSLAMProblem(
     const std::string& data_path,
     vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob) {
   std::default_random_engine generator;
-  std::normal_distribution<double> distribution(0.0, 0.5);
+  std::normal_distribution<double> distribution(0.0, 0.0);
 
   // Iterate over all files/folders in the data_path directory - i.e. over all
   // frames
