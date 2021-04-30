@@ -104,8 +104,8 @@ class Pairwise2dFeatureCostFunctor {
     Eigen::Matrix<T, 3, 3> essential_mat = t_cross * rotation;
 
     Eigen::Matrix<T, 1, 1> epipolar_error_unscaled =
-        feature_2_image_coords_.transpose().cast<T>() * essential_mat *
-        feature_1_image_coords_.cast<T>();
+        feature_1_image_coords_.transpose().cast<T>() * essential_mat *
+        feature_2_image_coords_.cast<T>();
 
     Eigen::Matrix<T, 1, 1> essential_mat_scale =
         feature_1_image_coords_.transpose().cast<T>() *
