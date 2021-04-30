@@ -17,7 +17,19 @@ struct SLAMSolverOptimizerParams {
    */
   // TODO set this to a useful value
   double epipolar_error_std_dev = 1.0;
+
+  float pose_viewer_viewpoint_x = 0;
+  float pose_viewer_viewpoint_y = 10;
+  float pose_viewer_viewpoint_z = -0.1;
+  float pose_viewer_focal_length = 2000;
+
+  int image_width = 640;
+  int image_height = 480;
+
+  bool visualize_pose = false;
+  bool visualize_epipolar_error = false;
 };
+
 }  // namespace vslam_solver
 
 #endif  // UT_VSLAM_SLAM_SOLVER_OPTIMIZER_PARAMS_H
