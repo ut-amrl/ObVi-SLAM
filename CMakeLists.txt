@@ -36,6 +36,3 @@ target_compile_features(ut_vslam PRIVATE cxx_std_17)    # 17 required for file i
 
 add_executable(main src/main.cpp)
 target_link_libraries(main ut_vslam ${LIBS} )
-
-add_executable(playground src/playground.cpp)
-target_link_libraries(playground ut_vslam ${LIBS} )
