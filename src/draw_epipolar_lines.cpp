@@ -70,8 +70,9 @@ void VisualizeEpipolarError(
     cv::Matx<double, 3, 3> F_cv;
     cv::eigen2cv(fundamental_mat, F_cv);
     // Draw image w/ epipolar lines
+    // Swapped points because of non comutativity of x`Ex
     DrawEpipolarLines(
-        "Frame", F_cv, cam1_pic, cam2_pic, cam_1_points, cam_2_points);
+        "Frame", F_cv, cam2_pic, cam1_pic, cam_2_points, cam_1_points);
   }
 }
 
