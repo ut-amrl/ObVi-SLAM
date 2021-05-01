@@ -4,19 +4,22 @@
 namespace vslam_solver {
 
 /**
- * Contains parameters related to solving the SLAM problem that are not specific
- * to any particular instantiation of the SLAM problem.
+ * Contains parameters related to solving general SLAM problems that are not
+ * specific to any particular instantiation of the SLAM problem.
  *
  * This will contain default values that can be overwritten before actually
  * constructing the SLAM solver.
  */
 struct SLAMSolverOptimizerParams {
   /**
-   * Standard deviation for the epipolar error of a feature that is seen in
-   * two different images.
+   * Maximum number of iterations to run the optimizer for.
    */
-  // TODO set this to a useful value
-  double epipolar_error_std_dev = 1.0;
+  int max_iterations = 300;
+
+  /**
+   * Minimizer type for ceres optimization.
+   */
+  ceres::MinimizerType minimizer_type = ceres::MinimizerType::LINE_SEARCH;
 };
 }  // namespace vslam_solver
 

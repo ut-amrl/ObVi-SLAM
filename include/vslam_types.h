@@ -114,7 +114,7 @@ struct StructuredVisionFeatureTrack {
   /**
    * 3D coordinate of the feature tracked by the feature track.
    */
-  Eigen::Vector3f point;
+  Eigen::Vector3d point;
   /**
    * Image feature track - same as the structureless feature track.
    * */
@@ -126,7 +126,7 @@ struct StructuredVisionFeatureTrack {
   /**
    * Convenience constructor: initialize everything.
    */
-  StructuredVisionFeatureTrack(const Eigen::Vector3f& point,
+  StructuredVisionFeatureTrack(const Eigen::Vector3d& point,
                                const VisionFeatureTrack& feature_track)
       : point(point), feature_track(feature_track){};
 };
