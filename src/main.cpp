@@ -26,13 +26,10 @@ int main(int argc, char **argv) {
 
   // Make empty unstructured slam problem
   vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> prob;
-  // Load unstructured slam problem
-  vslam_io::LoadStructurelessUTSLAMProblem(FLAGS_dataset_path, prob);
   // Make empty camera calibration matrix
   Eigen::Matrix3f K;
-  // Load camera calibration matrix
-  vslam_io::LoadCameraCalibration(
-      FLAGS_dataset_path + "calibration/camera_matrix.txt", K);
+  // Load unstructured slam problem and intrinsic calibration K
+  vslam_io::LoadStructurelessUTSLAMProblem(FLAGS_dataset_path, prob, K);
 
   // Make intrinsics and unit camera extrinsics
   vslam_types::CameraIntrinsics intrinsics{K};

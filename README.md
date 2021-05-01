@@ -11,5 +11,3 @@ Run the following command from the base directory. Note - make sure to modify th
     ./bin/main --dataset_path=`pwd`/data/vslam_set6/
 
 This will run a program that reads in the poses and feature tracks into a UTSLAMProblem structure and then prints both to the terminal.
-
-./bin/main --data_path=`pwd`/data/vslam_set6/ --calibration_path=`pwd`/data/vslam_set6/calibration/camera_matrix.txt

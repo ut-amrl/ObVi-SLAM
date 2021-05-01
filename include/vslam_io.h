@@ -12,15 +12,16 @@ namespace vslam_io {
  * position in the global frame (x, y, z, qx, qy, qz, qw). All other lines are
  * images keypoints (ID, x_pixel, y_pixel)
  *
- * @param data_path[in]    Absolute or relative path to the data directory
- * @param prob[out]    The vslam_types::UTSLAMProblem() that the data will be
- * loaded into - this essentially consists of robot/frame poses and feature
- * tracks
- *
+ * @param data_path[in]     Absolute or relative path to the data directory
+ * @param prob[out]         The vslam_types::UTSLAMProblem() that the data will
+ *                          be loaded into - this essentially consists of
+ *                          robot/frame poses and feature tracks
+ *@param camera_mat[out]    Camera intrinsic calibration matrix
  */
 void LoadStructurelessUTSLAMProblem(
     const std::string& data_path,
-    vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob);
+    vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob,
+    Eigen::Matrix3f& camera_mat);
 
 /**
  * Loads a camera calibration into the camera calibration intrinsic K

@@ -13,19 +13,20 @@ using namespace vslam_types;
 namespace fs = std::experimental::filesystem;
 
 void LoadStructurelessUTSLAMProblem(
-    const std::string& data_path,
-    vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob) {
+    const std::string& dataset_path,
+    vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob,
+    Eigen::Matrix3f& camera_mat) {
   std::default_random_engine generator;
   std::normal_distribution<double> distribution(0.0, 0.0);
 
-  // Iterate over all files/folders in the data_path directory - i.e. over all
-  // frames
+  // Iterate over all files/folders in the dataset_path directory - i.e. over
+  // all frames
   std::unordered_map<uint64_t, RobotPose> poses_by_id;
-  for (const auto& entry : fs::directory_iterator(fs::path(data_path))) {
+  for (const auto& entry : fs::directory_iterator(fs::path(dataset_path))) {
     const auto file_extension = entry.path().extension().string();
 
     // If it isn't a data file, skip it - we identify data files as
-    // "regular files" with a .txt extension in the data_path directory
+    // "regular files" with a .txt extension in the dataset_path directory
     if (!fs::is_regular_file(entry) || file_extension != ".txt") {
       continue;
     }
@@ -94,6 +95,10 @@ void LoadStructurelessUTSLAMProblem(
     }
     prob.robot_poses.emplace_back(poses_by_id[frame_num]);
   }
+
+  // Load camera calibration matrix
+  vslam_io::LoadCameraCalibration(
+      dataset_path + "calibration/camera_matrix.txt", camera_mat);
 
   return;
 }
