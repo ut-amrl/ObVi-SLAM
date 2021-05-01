@@ -62,6 +62,7 @@ bool SLAMSolver::SolveSLAM(
   ceres::Solver::Summary summary;
 
   // TODO configure options
+
   options.max_num_iterations = solver_optimization_params_.max_iterations;
   options.minimizer_type = solver_optimization_params_.minimizer_type;
 

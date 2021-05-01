@@ -1,10 +1,24 @@
+#ifndef UT_VSLAM_DRAW_EPIPOLAR_LINES_H
+#define UT_VSLAM_DRAW_EPIPOLAR_LINES_H
+
 // https://hasper.info/opencv-draw-epipolar-lines/
+
+#include <vslam_types.h>
 
 #include <cmath>
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+
+namespace vslam_viz {
+
+void VisualizeEpipolarError(
+    const Eigen::Affine3d &cam_to_robot_tf,
+    const vslam_types::CameraIntrinsics &intrinsics,
+    const vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>
+        &slam_problem,
+    const std::vector<vslam_types::SLAMNode> &nodes);
 
 /**
  * calculate the perpendicular distance between a point and a line in 2D
@@ -41,7 +55,7 @@ static float distancePointLine(const cv::Point_<T> point,
  *                            negative, all points are displayed
  **/
 template <typename T1, typename T2>
-static void drawEpipolarLines(const std::string &title,
+static void DrawEpipolarLines(const std::string &title,
                               const cv::Matx<T1, 3, 3> F,
                               const cv::Mat &img1,
                               const cv::Mat &img2,
@@ -112,3 +126,7 @@ static void drawEpipolarLines(const std::string &title,
   cv::imshow(title, outImg);
   cv::waitKey(10);
 }
+
+}  // namespace vslam_viz
+
+#endif  // UT_VSLAM_DRAW_EPIPOLAR_LINES_H

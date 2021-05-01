@@ -2,6 +2,7 @@
 #define UT_VSLAM_CERES_VISUALIZATION_CALLBACK_H
 
 #include <ceres/iteration_callback.h>
+#include <pose_viewer.h>
 #include <vslam_types.h>
 
 #include <memory>
@@ -87,6 +88,8 @@ class StructurelessCeresVisualizationCallback
    * modified.
    */
   std::vector<vslam_types::SLAMNode> *slam_nodes_;
+
+  vslam_viz::PoseViewer pose_viz_;
 };
 }  // namespace vslam_viz
 
