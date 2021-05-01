@@ -1,5 +1,5 @@
-#ifndef UT_VSLAM_PAIRWISE_2D_FEATURE_COST_FUNCTOR_H
-#define UT_VSLAM_PAIRWISE_2D_FEATURE_COST_FUNCTOR_H
+#ifndef UT_VSLAM_REPROJECTION_COST_FUNCTOR_H
+#define UT_VSLAM_REPROJECTION_COST_FUNCTOR_H
 
 #include <ceres/autodiff_cost_function.h>
 #include <vslam_types.h>
@@ -127,4 +127,4 @@ class ReprojectionCostFunctor {
 };
 }  // namespace vslam_solver
 
-#endif  // UT_VSLAM_PAIRWISE_2D_FEATURE_COST_FUNCTOR_H
+#endif  // UT_VSLAM_REPROJECTION_COST_FUNCTOR_H

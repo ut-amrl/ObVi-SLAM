@@ -55,10 +55,10 @@ int main(int argc, char **argv) {
   std::vector<vslam_types::RobotPose> answer(prob.robot_poses);
 
   std::function<void(
-      const vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &,
       const vslam_types::CameraIntrinsics &,
       const vslam_types::CameraExtrinsics &,
-      const vslam_solver::SLAMSolverOptimizerParams &,
+      const vslam_solver::StructurelessSlamProblemParams &,
+      vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &,
       ceres::Problem &,
       std::vector<vslam_types::SLAMNode> *)>
       structureless_vision_constraint_adder =
@@ -75,12 +75,15 @@ int main(int argc, char **argv) {
       callback_creator =
           vslam_viz::StructurelessCeresVisualizationCallback::create;
 
+  vslam_solver::StructurelessSlamProblemParams problem_params;
+
   solver.SolveSLAM<vslam_types::VisionFeatureTrack>(
       intrinsics,
       extrinsics,
-      prob,
       structureless_vision_constraint_adder,
       callback_creator,
+      problem_params,
+      prob,
       answer);
 
   // Print poses to terminal for display

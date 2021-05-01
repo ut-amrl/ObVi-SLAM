@@ -4,30 +4,24 @@
 namespace vslam_solver {
 
 /**
- * Contains parameters related to solving the SLAM problem that are not specific
- * to any particular instantiation of the SLAM problem.
+ * Contains parameters related to solving general SLAM problems that are not
+ * specific to any particular instantiation of the SLAM problem.
  *
  * This will contain default values that can be overwritten before actually
  * constructing the SLAM solver.
  */
 struct SLAMSolverOptimizerParams {
   /**
-   * Standard deviation for the epipolar error of a feature that is seen in
-   * two different images.
+   * Maximum number of iterations to run the optimizer for.
    */
-  // TODO set this to a useful value
-  double epipolar_error_std_dev = 1.0;
 
-  float pose_viewer_viewpoint_x = 0;
-  float pose_viewer_viewpoint_y = 10;
-  float pose_viewer_viewpoint_z = -0.1;
-  float pose_viewer_focal_length = 2000;
+  int max_iterations = 300;
 
-  int image_width = 640;
-  int image_height = 480;
+  /**
+   * Minimizer type for ceres optimization.
+   */
+  ceres::MinimizerType minimizer_type = ceres::MinimizerType::LINE_SEARCH;
 
-  bool visualize_pose = false;
-  bool visualize_epipolar_error = false;
 };
 
 }  // namespace vslam_solver
