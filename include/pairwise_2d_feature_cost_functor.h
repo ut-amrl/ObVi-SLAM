@@ -72,36 +72,8 @@ class Pairwise2dFeatureCostFunctor {
   bool operator()(const T *pose_init,
                   const T *pose_current,
                   T *residual) const {
-    // Convert pose init to rotation
-    Eigen::Transform<T, 3, Eigen::Affine> first_robot_pose_in_world =
-        vslam_types::PoseArrayToAffine(&(pose_init[3]), &(pose_init[0]));
-
-    // Convert pose current to rotation
-    Eigen::Transform<T, 3, Eigen::Affine> second_robot_pose_in_world =
-        vslam_types::PoseArrayToAffine(&(pose_current[3]), &(pose_current[0]));
-
-    // Want to get rotation and translation of camera frame 1 relative to
-    // camera frame 2 (pose of camera 2 in camera 1)
-    // if T_r_c is the transformation matrix representing camera extrinsics
-    // (camera pose rel robot). We assume this is the same for both poses
-    // since the camera doesn't change relative to the robot as the robot moves
-    // T_w_r1 is the robot's pose at frame 1 relative to the world
-    // T_w_r2 is the robot's pose at frame 2 relative to the world, then camera
-    // 2 relative to camera 1 is given by
-    // T_c1_c2 =  T_r_c^-1 * T_w_r1^-1 * T_w_r2 * T_r_c
-    Eigen::Transform<T, 3, Eigen::Affine> cam_1_to_cam_2_mat =
-        cam_to_robot_tf_.inverse().cast<T>() *
-        first_robot_pose_in_world.inverse() * second_robot_pose_in_world *
-        cam_to_robot_tf_.cast<T>();
-
-    // Extract Tx and R from cam_1_to_cam_2_mat
-    Eigen::Matrix<T, 3, 1> t_vec = cam_1_to_cam_2_mat.translation();
-    Eigen::Matrix<T, 3, 3> t_cross;  // skew symmetric
-    t_cross << T(0.0), -t_vec(2), t_vec(1), t_vec(2), T(0.0), -t_vec(0),
-        -t_vec(1), t_vec(0), T(0.0);
-    Eigen::Matrix<T, 3, 3> rotation = cam_1_to_cam_2_mat.linear();
-
-    Eigen::Matrix<T, 3, 3> essential_mat = t_cross * rotation;
+    Eigen::Matrix<T, 3, 3> essential_mat = vslam_util::CalcEssentialMatrix(
+        pose_init, pose_current, cam_to_robot_tf_.cast<T>());
 
     Eigen::Matrix<T, 1, 1> epipolar_error_unscaled =
         feature_1_image_coords_.transpose().cast<T>() * essential_mat *
