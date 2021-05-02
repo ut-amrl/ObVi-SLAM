@@ -2,9 +2,9 @@
 Goes forward ten meters from the origin on the positive x-axis in steps of 0.25 meters on a sin wave of amplitude 1. Only points within 20 meters of the camera location are conssidered at each step.
 
 ## Landmark Noise Levels
-1. Low Noise - Gaussian noise with sigma = 0.1m added to all landmarks
-1. Medium Noise - Gaussian noise with sigma = 0.25m added to all landmarks
-1. High Noise - Gaussian noise with sigma = 0.5m added to all landmarks
+1. Low Noise - Gaussian noise with sigma = 0.05m added to all landmarks
+1. Medium Noise - Gaussian noise with sigma = 0.1m added to all landmarks
+1. High Noise - Gaussian noise with sigma = 0.15m added to all landmarks
 
 Note that the landmark groundtruth is always the value saved to file. Corrupted landmarks are not recorded, corrupted image measurements is actually what we are after. The landmark noise level corresponds to how corrupted the simulated image measurement will be.
 

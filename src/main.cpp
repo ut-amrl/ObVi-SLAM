@@ -54,8 +54,8 @@ int main(int argc, char **argv) {
 
   // These are the poses that are going to be optimized
   std::vector<vslam_types::RobotPose> answer(prob.robot_poses);
-  Eigen::Matrix<double, 3, 1> sigma_linear(0.1, 0.1, 0.1);
-  Eigen::Matrix<double, 3, 1> sigma_rotation(0.1, 0.1, 0.1);
+  Eigen::Matrix<double, 3, 1> sigma_linear(0.0, 0.0, 0.0);
+  Eigen::Matrix<double, 3, 1> sigma_rotation(0.0, 0.0, 0.0);
   vslam_util::CorruptRobotPoses(sigma_linear, sigma_rotation, answer);
 
   std::function<void(
