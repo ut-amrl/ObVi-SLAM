@@ -14,14 +14,12 @@ struct SLAMSolverOptimizerParams {
   /**
    * Maximum number of iterations to run the optimizer for.
    */
-
   int max_iterations = 300;
 
   /**
    * Minimizer type for ceres optimization.
    */
   ceres::MinimizerType minimizer_type = ceres::MinimizerType::TRUST_REGION;
-
 };
 
 }  // namespace vslam_solver

@@ -5,7 +5,7 @@
 
 #include "slam_backend_solver.h"
 #include "slam_solver_optimizer_params.h"
-#include "structureless_ceres_visualization_callback.h"
+#include "visual_slam_ceres_visualization_callback.h"
 #include "vslam_io.h"
 #include "vslam_types.h"
 #include "vslam_util.h"
@@ -65,13 +65,47 @@ int main(int argc, char **argv) {
   // TODO if more args are needed for the visualization, then we should bind
   // them here so the solver only needs to pass the intrinsics, extrinsics, slam
   // problem, and slam nodes.
+
+  std::function<std::vector<vslam_types::VisionFeature>(
+      const vslam_types::VisionFeatureTrack &)>
+      feature_retriever =
+          [](const vslam_types::VisionFeatureTrack &feature_track) {
+            return feature_track.track;
+          };
+
+  // Got the casting solution from
+  // https://stackoverflow.com/questions/30393285/stdfunction-fails-to-distinguish-overloaded-functions
+  typedef std::shared_ptr<vslam_viz::VisualSlamCeresVisualizationCallback<
+      vslam_types::VisionFeatureTrack>> (*funtype)(
+      const vslam_types::CameraIntrinsics &,
+      const vslam_types::CameraExtrinsics &,
+      const vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &,
+      const std::function<std::vector<vslam_types::VisionFeature>(
+          const vslam_types::VisionFeatureTrack &)> &,
+      std::vector<vslam_types::SLAMNode> *);
+  funtype func = vslam_viz::VisualSlamCeresVisualizationCallback<
+      vslam_types::VisionFeatureTrack>::create;
+
+  std::function<std::shared_ptr<ceres::IterationCallback>(
+      const vslam_types::CameraIntrinsics &,
+      const vslam_types::CameraExtrinsics &,
+      const vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &,
+      const std::function<std::vector<vslam_types::VisionFeature>(
+          const vslam_types::VisionFeatureTrack &)> &,
+      std::vector<vslam_types::SLAMNode> *)>
+      unbound_callback_creator = func;
+
   std::function<std::shared_ptr<ceres::IterationCallback>(
       const vslam_types::CameraIntrinsics &,
       const vslam_types::CameraExtrinsics &,
       const vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &,
       std::vector<vslam_types::SLAMNode> *)>
-      callback_creator =
-          vslam_viz::StructurelessCeresVisualizationCallback::create;
+      callback_creator = std::bind(unbound_callback_creator,
+                                   std::placeholders::_1,
+                                   std::placeholders::_2,
+                                   std::placeholders::_3,
+                                   feature_retriever,
+                                   std::placeholders::_4);
 
   vslam_solver::StructurelessSlamProblemParams problem_params;
 
