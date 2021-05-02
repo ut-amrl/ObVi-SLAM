@@ -76,6 +76,9 @@ bool SLAMSolver::SolveSLAM(
                           problem,
                           &slam_nodes);
 
+  // Set the first pose constant
+  problem.SetParameterBlockConstant(slam_nodes[0].pose);
+
   std::shared_ptr<ceres::IterationCallback> viz_callback =
       callback_creator(intrinsics, extrinsics, slam_problem, &slam_nodes);
 
