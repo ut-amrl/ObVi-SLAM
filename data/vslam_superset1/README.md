@@ -6,11 +6,11 @@ Goes forward ten meters from the origin on the positive x-axis in steps of 0.25 
 1. Medium Noise - Gaussian noise with sigma = 0.1m added to all landmarks
 1. High Noise - Gaussian noise with sigma = 0.15m added to all landmarks
 
-Note that the landmark groundtruth is always the value saved to file. Corrupted landmarks are not recorded, corrupted image measurements is actually what we are after. The landmark noise level corresponds to how corrupted the simulated image measurement will be.
+Note that the landmark groundtruth is always the value saved to file. Corrupted landmarks are not recorded, corrupted image measurements is actually what we are after. The landmark noise level corresponds to how corrupted the simulated image measurement will be. The noise added to each landmarkr is unique for each frame.
 
 ## Density Levels
 For each given noise level - there is also an associated density level - the actual number of features per image will vary but should should be roughly consistent. Note that only a fraction of the total landmarks are actually imaged.
 
-1. Low Density - 1000 3D landmarks 
-1. Medium Density - 2000 3D landmarks
-1. High Density - 5000 3D landmarks
+1. Low Density - 1000 3D landmarks - about 50 points per frame
+1. Medium Density - 2000 3D landmarks - about 90 points per frame
+1. High Density - 5000 3D landmarks - about 240 points per frame
