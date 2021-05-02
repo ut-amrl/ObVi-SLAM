@@ -21,7 +21,6 @@ struct SLAMSolverOptimizerParams {
    * Minimizer type for ceres optimization.
    */
   ceres::MinimizerType minimizer_type = ceres::MinimizerType::LINE_SEARCH;
-
 };
 
 }  // namespace vslam_solver
