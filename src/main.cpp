@@ -9,15 +9,11 @@
 #include "vslam_io.h"
 #include "vslam_types.h"
 
-DEFINE_string(
-    data_path,
-    "",
-    "Path to folder containing the files with frames, poses, and labeled "
-    "keypoints for each image");
-
-DEFINE_string(calibration_path,
+DEFINE_string(dataset_path,
               "",
-              "Path to the file containing the calibration (K) for the camera");
+              "\nPath to folder containing the dataset. Structured as - \n"
+              "vslam_setX/\n\tcalibration/camera_matrix.txt\n\tfeatures/"
+              "features.txt\n\t0000x.txt\n\n");
 
 using std::cout;
 using std::endl;
@@ -30,12 +26,10 @@ int main(int argc, char **argv) {
 
   // Make empty unstructured slam problem
   vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> prob;
-  // Load unstructured slam problem
-  vslam_io::LoadStructurelessUTSLAMProblem(FLAGS_data_path, prob);
   // Make empty camera calibration matrix
   Eigen::Matrix3f K;
-  // Load camera calibration matrix
-  vslam_io::LoadCameraCalibration(FLAGS_calibration_path, K);
+  // Load unstructured slam problem and intrinsic calibration K
+  vslam_io::LoadStructurelessUTSLAMProblem(FLAGS_dataset_path, prob, K);
 
   // Make intrinsics and unit camera extrinsics
   vslam_types::CameraIntrinsics intrinsics{K};
