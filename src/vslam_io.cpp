@@ -7,8 +7,14 @@
 #include <fstream>
 #include <random>
 
-namespace vslam_io {
+namespace {
+const std::string calibration_path = "calibration/camera_matrix.txt";
+const std::string features_path = "features/features.txt";
+}  // namespace
+
 using namespace vslam_types;
+
+namespace vslam_io {
 
 namespace fs = std::experimental::filesystem;
 
@@ -190,7 +196,7 @@ void LoadStructuredUTSLAMProblem(
 
   // Load features
   std::ifstream feature_file_stream;
-  feature_file_stream.open(dataset_path + "features/features.txt");
+  feature_file_stream.open(dataset_path + features_path);
   if (feature_file_stream.fail()) {
     LOG(FATAL) << " Failed to open 3D feature file.";
     return;
@@ -214,8 +220,7 @@ void LoadStructuredUTSLAMProblem(
   }
 
   // Load camera calibration matrix
-  vslam_io::LoadCameraCalibration(
-      dataset_path + "calibration/camera_matrix.txt", camera_mat);
+  vslam_io::LoadCameraCalibration(dataset_path + calibration_path, camera_mat);
 
   return;
 }
