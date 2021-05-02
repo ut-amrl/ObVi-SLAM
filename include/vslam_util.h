@@ -25,6 +25,13 @@ template <typename T>
 void CalcEssentialMatrix(const Eigen::Transform<T, 3, Eigen::Affine>& rel_tf,
                          const Eigen::Matrix<T, 3, 3>& essential_mat);
 
+/**
+ * Generate the skew symmetric matrix form of a vector
+ *
+ * @param w[in]   A 3x1 vector
+ *
+ * @return  A 3x3 skew symmetric representation of the vector
+ */
 template <typename T>
 Eigen::Matrix<T, 3, 3> SkewSymmetric(const Eigen::Matrix<T, 3, 1>& w) {
   Eigen::Matrix<T, 3, 3> m;
@@ -32,6 +39,14 @@ Eigen::Matrix<T, 3, 3> SkewSymmetric(const Eigen::Matrix<T, 3, 1>& w) {
   return m;
 }
 
+/**
+ * Produce a 3x1 vector from a matrix - it doesnt check if the matrix was
+ * actually skew symmetric
+ *
+ * @param w[in]   A 3x3 skew symmetric matrix
+ *
+ * @return  A 3x1 vector representation of the skew symmetric matrix
+ */
 template <typename T>
 Eigen::Matrix<T, 3, 1> FromSkewSymmetric(const Eigen::Matrix<T, 3, 3>& s) {
   Eigen::Matrix<T, 3, 1> w(s(2, 1), s(0, 2), s(1, 0));
