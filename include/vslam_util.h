@@ -53,10 +53,6 @@ Eigen::Matrix<T, 3, 1> FromSkewSymmetric(const Eigen::Matrix<T, 3, 3>& s) {
   return w;
 }
 
-template <typename T>
-Eigen::Matrix<T, 3, 3> Identity() {
-  return Eigen::Matrix<T, 3, 3>::Identity();
-}
 /**
  * Convert SO(3) to so(3)
  *
@@ -91,10 +87,10 @@ Eigen::Matrix<T, 3, 3> Exp(const Eigen::Matrix<T, 3, 1>& w) {
   const Eigen::Matrix<T, 3, 3> s = SkewSymmetric(w);
   if (theta < T(kEpsilon)) {
     // Small-angle approximation.
-    return (Identity<T>() + s);
+    return (Eigen::Matrix<T, 3, 3>::Identity() + s);
   }
   // Rodrigues' formula.
-  return (Identity<T>() + sin(theta) / theta * s +
+  return (Eigen::Matrix<T, 3, 3>::Identity() + sin(theta) / theta * s +
           (T(1.0) - cos(theta)) / (theta * theta) * s * s);
 }
 
@@ -110,9 +106,10 @@ Eigen::Matrix<T, 3, 3> GetRodriguesJacobian(const Eigen::Matrix<T, 3, 1>& w) {
   Eigen::Matrix<T, 3, 3> e_S = SkewSymmetric(w);
   const T th = w.norm();
   if (th < T(kEpsilon)) {
-    return (Identity<T>() - T(0.5) * e_S);
+    return (Eigen::Matrix<T, 3, 3>::Identity() - T(0.5) * e_S);
   } else {
-    return (Identity<T>() - (T(1.0) - cos(th)) / (th * th) * e_S +
+    return (Eigen::Matrix<T, 3, 3>::Identity() -
+            (T(1.0) - cos(th)) / (th * th) * e_S +
             (th - sin(th)) / (th * th * th) * e_S * e_S);
   }
 }
