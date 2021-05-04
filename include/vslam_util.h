@@ -211,6 +211,10 @@ void CorruptRobotPoses(const Eigen::Matrix<T, 3, 1>& sigma_linear,
   }
   return;
 }
+
+void SaveKITTIPoses(const std::string& filename,
+                    const std::vector<vslam_types::RobotPose>& poses);
+
 }  // namespace vslam_util
 
 #endif  // UT_VSLAM_SLAM_UTIL_H
