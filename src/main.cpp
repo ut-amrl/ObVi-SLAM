@@ -42,6 +42,11 @@ int main(int argc, char **argv) {
       Eigen::Quaternionf(0.5, 0.5, -0.5, 0.5)
           .inverse()};  // [0 -1 0; 0 0 -1; 1 0 0]^-1
 
+  // Note that for the microsoft data set the extrinsics are identity. This also
+  // needs to be change/paramaterized for the pose viewer
+  // vslam_types::CameraExtrinsics extrinsics{
+  //   Eigen::Vector3f(0, 0, 0), Eigen::Quaternionf(1, 0, 0, 0).inverse()};
+
   // Solve
   vslam_solver::SLAMSolverOptimizerParams optimizer_params;
   vslam_solver::SLAMSolver solver(optimizer_params);
