@@ -23,6 +23,11 @@ void LoadStructurelessUTSLAMProblem(
     vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob,
     Eigen::Matrix3f& camera_mat);
 
+void LoadStructurelessUTSLAMProblemMicrosoft(
+    const std::string& data_path,
+    vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob,
+    Eigen::Matrix3f& camera_mat);
+
 /**
  * Loads a structured slam problem from file. This function loads an
  * structured slam problem for a directory containing data files. Each data
