@@ -20,6 +20,11 @@ DEFINE_string(output_path,
               "",
               "\nPath to folder where we want to write output trajectories to");
 
+DEFINE_bool(
+    save_poses,
+    false,
+    "\nIf true poses will be saved in Kitti format to the output_path file");
+
 using std::cout;
 using std::endl;
 
@@ -131,8 +136,9 @@ int main(int argc, char **argv) {
   for (const auto &pose : answer) {
     cout << pose << endl;
   }
-
-  vslam_util::SaveKITTIPoses(FLAGS_output_path, answer);
+  if (FLAGS_save_poses) {
+    vslam_util::SaveKITTIPoses(FLAGS_output_path, answer);
+  }
 
   return 0;
 }
