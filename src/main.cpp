@@ -16,6 +16,10 @@ DEFINE_string(dataset_path,
               "vslam_setX/\n\tcalibration/camera_matrix.txt\n\tfeatures/"
               "features.txt\n\t0000x.txt\n\n");
 
+DEFINE_string(output_path,
+              "",
+              "\nPath to folder where we want to write output trajectories to");
+
 using std::cout;
 using std::endl;
 
@@ -53,8 +57,8 @@ int main(int argc, char **argv) {
 
   // These are the poses that are going to be optimized
   std::vector<vslam_types::RobotPose> answer(prob.robot_poses);
-  Eigen::Matrix<double, 3, 1> sigma_linear(0.0, 0.0, 0.0);
-  Eigen::Matrix<double, 3, 1> sigma_rotation(0.0, 0.0, 0.0);
+  Eigen::Matrix<double, 3, 1> sigma_linear(0.1, 0.1, 0.1);
+  Eigen::Matrix<double, 3, 1> sigma_rotation(0.1, 0.1, 0.1);
   vslam_util::CorruptRobotPoses(sigma_linear, sigma_rotation, answer);
 
   std::function<void(
@@ -127,6 +131,8 @@ int main(int argc, char **argv) {
   for (const auto &pose : answer) {
     cout << pose << endl;
   }
+
+  vslam_util::SaveKITTIPoses(FLAGS_output_path, answer);
 
   return 0;
 }
