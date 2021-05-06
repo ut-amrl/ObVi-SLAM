@@ -16,15 +16,6 @@ DEFINE_string(dataset_path,
               "vslam_setX/\n\tcalibration/camera_matrix.txt\n\tfeatures/"
               "features.txt\n\t0000x.txt\n\n");
 
-DEFINE_string(output_path,
-              "",
-              "\nPath to folder where we want to write output trajectories to");
-
-DEFINE_bool(
-    save_poses,
-    false,
-    "\nIf true poses will be saved in Kitti format to the output_path file");
-
 using std::cout;
 using std::endl;
 
@@ -34,12 +25,12 @@ int main(int argc, char **argv) {
 
   FLAGS_logtostderr = true;  // Don't log to disk - log to terminal
 
-  // Make empty unstructured slam problem
-  vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> prob;
+  // Make empty structured slam problem
+  vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack> prob;
   // Make empty camera calibration matrix
   Eigen::Matrix3f K;
-  // Load unstructured slam problem and intrinsic calibration K
-  vslam_io::LoadStructurelessUTSLAMProblem(FLAGS_dataset_path, prob, K);
+  // Load structured slam problem and intrinsic calibration K
+  vslam_io::LoadStructuredUTSLAMProblem(FLAGS_dataset_path, prob, K);
 
   // Make intrinsics and unit camera extrinsics
   vslam_types::CameraIntrinsics intrinsics{K};
@@ -51,64 +42,64 @@ int main(int argc, char **argv) {
       Eigen::Quaternionf(0.5, 0.5, -0.5, 0.5)
           .inverse()};  // [0 -1 0; 0 0 -1; 1 0 0]^-1
 
-  // Note that for the microsoft data set the extrinsics are identity. This also
-  // needs to be change/paramaterized for the pose viewer
-  // vslam_types::CameraExtrinsics extrinsics{
-  //   Eigen::Vector3f(0, 0, 0), Eigen::Quaternionf(1, 0, 0, 0).inverse()};
-
   // Solve
   vslam_solver::SLAMSolverOptimizerParams optimizer_params;
   vslam_solver::SLAMSolver solver(optimizer_params);
 
   // These are the poses that are going to be optimized
   std::vector<vslam_types::RobotPose> answer(prob.robot_poses);
-  Eigen::Matrix<double, 3, 1> sigma_linear(0.1, 0.1, 0.1);
-  Eigen::Matrix<double, 3, 1> sigma_rotation(0.1, 0.1, 0.1);
+  Eigen::Matrix<double, 3, 1> sigma_linear(0.0, 0.0, 0.0);
+  Eigen::Matrix<double, 3, 1> sigma_rotation(0.0, 0.0, 0.0);
   vslam_util::CorruptRobotPoses(sigma_linear, sigma_rotation, answer);
+
+  // TODO corrupt feature positions too
 
   std::function<void(
       const vslam_types::CameraIntrinsics &,
       const vslam_types::CameraExtrinsics &,
-      const vslam_solver::StructurelessSlamProblemParams &,
-      vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &,
+      const vslam_solver::StructuredSlamProblemParams &,
+      vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack> &,
       ceres::Problem &,
       std::vector<vslam_types::SLAMNode> *)>
-      structureless_vision_constraint_adder =
-          vslam_solver::AddStructurelessVisionFactors;
+      structured_vision_constraint_adder =
+          vslam_solver::AddStructuredVisionFactors;
 
   std::function<std::vector<vslam_types::VisionFeature>(
-      const vslam_types::VisionFeatureTrack &)>
+      const vslam_types::StructuredVisionFeatureTrack &)>
       feature_retriever =
-          [](const vslam_types::VisionFeatureTrack &feature_track) {
-            return feature_track.track;
+          [](const vslam_types::StructuredVisionFeatureTrack &feature_track) {
+            return feature_track.feature_track.track;
           };
 
   // Got the casting solution from
   // https://stackoverflow.com/questions/30393285/stdfunction-fails-to-distinguish-overloaded-functions
   typedef std::shared_ptr<vslam_viz::VisualSlamCeresVisualizationCallback<
-      vslam_types::VisionFeatureTrack>> (*funtype)(
+      vslam_types::StructuredVisionFeatureTrack>> (*funtype)(
       const vslam_types::CameraIntrinsics &,
       const vslam_types::CameraExtrinsics &,
-      const vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &,
+      const vslam_types::UTSLAMProblem<
+          vslam_types::StructuredVisionFeatureTrack> &,
       const std::function<std::vector<vslam_types::VisionFeature>(
-          const vslam_types::VisionFeatureTrack &)> &,
+          const vslam_types::StructuredVisionFeatureTrack &)> &,
       std::vector<vslam_types::SLAMNode> *);
   funtype func = vslam_viz::VisualSlamCeresVisualizationCallback<
-      vslam_types::VisionFeatureTrack>::create;
+      vslam_types::StructuredVisionFeatureTrack>::create;
 
   std::function<std::shared_ptr<ceres::IterationCallback>(
       const vslam_types::CameraIntrinsics &,
       const vslam_types::CameraExtrinsics &,
-      const vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &,
+      const vslam_types::UTSLAMProblem<
+          vslam_types::StructuredVisionFeatureTrack> &,
       const std::function<std::vector<vslam_types::VisionFeature>(
-          const vslam_types::VisionFeatureTrack &)> &,
+          const vslam_types::StructuredVisionFeatureTrack &)> &,
       std::vector<vslam_types::SLAMNode> *)>
       unbound_callback_creator = func;
 
   std::function<std::shared_ptr<ceres::IterationCallback>(
       const vslam_types::CameraIntrinsics &,
       const vslam_types::CameraExtrinsics &,
-      const vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &,
+      const vslam_types::UTSLAMProblem<
+          vslam_types::StructuredVisionFeatureTrack> &,
       std::vector<vslam_types::SLAMNode> *)>
       callback_creator = std::bind(unbound_callback_creator,
                                    std::placeholders::_1,
@@ -117,12 +108,13 @@ int main(int argc, char **argv) {
                                    feature_retriever,
                                    std::placeholders::_4);
 
-  vslam_solver::StructurelessSlamProblemParams problem_params;
+  vslam_solver::StructuredSlamProblemParams problem_params;
 
-  solver.SolveSLAM<vslam_types::VisionFeatureTrack>(
+  solver.SolveSLAM<vslam_types::StructuredVisionFeatureTrack,
+                   vslam_solver::StructuredSlamProblemParams>(
       intrinsics,
       extrinsics,
-      structureless_vision_constraint_adder,
+      structured_vision_constraint_adder,
       callback_creator,
       problem_params,
       prob,
@@ -131,9 +123,6 @@ int main(int argc, char **argv) {
   // Print poses to terminal for display
   for (const auto &pose : answer) {
     cout << pose << endl;
-  }
-  if (FLAGS_save_poses) {
-    vslam_util::SaveKITTIPoses(FLAGS_output_path, answer);
   }
 
   return 0;
