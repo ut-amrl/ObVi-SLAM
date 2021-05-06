@@ -227,7 +227,103 @@ void LoadStructurelessUTSLAMProblemMicrosoft(
   camera_mat(1, 2) = cy;
 
   return;
-}  // namespace vslam_io
+}
+
+void LoadStructurelessUTSLAMProblemTartan(
+    const std::string& dataset_path,
+    vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob,
+    Eigen::Matrix3f& camera_mat) {
+  std::unordered_map<uint64_t, RobotPose> poses_by_id;
+  // Iterate over all files/folders in the dataset_path directory - i.e. over
+  // all frames to load features
+  for (const auto& entry :
+       fs::directory_iterator(fs::path(dataset_path + "matches_left/"))) {
+    const auto file_extension = entry.path().extension().string();
+
+    // If it isn't a data file, skip it - we identify data files as
+    // "regular files" with a .txt extension in the dataset_path directory
+    if (!fs::is_regular_file(entry) || file_extension != ".txt") {
+      continue;
+    }
+    // If we haven't skipped it lets load it into the UTSLAMProblem
+    std::ifstream data_file_stream(entry.path());
+    if (data_file_stream.fail()) {
+      LOG(FATAL) << "Failed to load: " << entry.path()
+                 << " are you sure this a valid data file? ";
+      return;
+    }
+    // Get frame ID from file name
+    std::istringstream iss(entry.path().filename().stem());
+    uint64_t frame_id;
+    iss >> frame_id;
+
+    // Read pixels and IDS from all other lines
+    std::string line;
+    while (std::getline(data_file_stream, line)) {
+      std::stringstream ss_feature(line);
+      uint64_t feature_id;
+      float x, y;
+      ss_feature >> feature_id >> x >> y;
+      VisionFeature feature(feature_id, frame_id, Eigen::Vector2f(x, y));
+      prob.tracks[feature_id].track.push_back(feature);
+      prob.tracks[feature_id].feature_idx =
+          feature_id;  // TODO dont reset this every time?
+    }
+  }
+
+  // Sort all feature tracks so frame_idxs are in ascending order
+  for (auto& ft : prob.tracks) {
+    std::sort(ft.second.track.begin(), ft.second.track.end());
+  }
+
+  // Load ALL poses
+  std::ifstream pose_file_stream;
+  pose_file_stream.open(dataset_path + "pose_left.txt");
+  if (pose_file_stream.fail()) {
+    LOG(FATAL) << " Failed to open Tartan pose file.";
+    return;
+  }
+
+  // Read in poses from all lines
+  std::string line;
+  uint64_t frame_id = 0;
+  while (std::getline(pose_file_stream, line)) {
+    std::stringstream ss_pose(line);
+    float x, y, z, qx, qy, qz, qw;
+    ss_pose >> x >> y >> z >> qx >> qy >> qz >> qw;
+    Eigen::Vector3f loc(x, y, z);
+    Eigen::Quaternionf angle_q(qw, qx, qy, qz);
+    angle_q.normalize();
+    Eigen::AngleAxisf angle(angle_q);
+    RobotPose pose(frame_id, loc, angle);
+
+    poses_by_id[frame_id] = pose;
+
+    frame_id++;
+  }
+
+  for (uint64_t frame_num = 0; frame_num < poses_by_id.size(); frame_num++) {
+    if (poses_by_id.find(frame_num) == poses_by_id.end()) {
+      LOG(ERROR) << "No pose found for frame num (after subtracting 1) "
+                 << frame_num;
+      return;
+    }
+    prob.robot_poses.emplace_back(poses_by_id[frame_num]);
+  }
+
+  // TODO make not manual
+  float fx = 320;
+  float fy = 320;
+  float cx = 320;
+  float cy = 240;
+  camera_mat.setIdentity();
+  camera_mat(0, 0) = fx;
+  camera_mat(1, 1) = fy;
+  camera_mat(0, 2) = cx;
+  camera_mat(1, 2) = cy;
+
+  return;
+}
 
 void LoadStructuredUTSLAMProblem(
     const std::string& dataset_path,
