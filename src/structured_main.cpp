@@ -16,6 +16,15 @@ DEFINE_string(dataset_path,
               "vslam_setX/\n\tcalibration/camera_matrix.txt\n\tfeatures/"
               "features.txt\n\t0000x.txt\n\n");
 
+DEFINE_string(output_path,
+              "",
+              "\nPath to folder where we want to write output trajectories to");
+
+DEFINE_bool(
+    save_poses,
+    false,
+    "\nIf true poses will be saved in Kitti format to the output_path file");
+
 using std::cout;
 using std::endl;
 
@@ -48,9 +57,14 @@ int main(int argc, char **argv) {
 
   // These are the poses that are going to be optimized
   std::vector<vslam_types::RobotPose> answer(prob.robot_poses);
+  std::vector<vslam_types::RobotPose> gt_robot_poses;
+  vslam_util::AdjustTrajectoryToStartAtZero(answer, gt_robot_poses);
+
   Eigen::Matrix<double, 3, 1> sigma_linear(0.0, 0.0, 0.0);
   Eigen::Matrix<double, 3, 1> sigma_rotation(0.0, 0.0, 0.0);
   vslam_util::CorruptRobotPoses(sigma_linear, sigma_rotation, answer);
+  std::vector<vslam_types::RobotPose> adjusted_to_zero_answer;
+  vslam_util::AdjustTrajectoryToStartAtZero(answer, adjusted_to_zero_answer);
 
   // TODO corrupt feature positions too
 
@@ -81,6 +95,7 @@ int main(int argc, char **argv) {
           vslam_types::StructuredVisionFeatureTrack> &,
       const std::function<std::vector<vslam_types::VisionFeature>(
           const vslam_types::StructuredVisionFeatureTrack &)> &,
+      const std::vector<vslam_types::RobotPose> &,
       std::vector<vslam_types::SLAMNode> *);
   funtype func = vslam_viz::VisualSlamCeresVisualizationCallback<
       vslam_types::StructuredVisionFeatureTrack>::create;
@@ -92,6 +107,7 @@ int main(int argc, char **argv) {
           vslam_types::StructuredVisionFeatureTrack> &,
       const std::function<std::vector<vslam_types::VisionFeature>(
           const vslam_types::StructuredVisionFeatureTrack &)> &,
+      const std::vector<vslam_types::RobotPose> &,
       std::vector<vslam_types::SLAMNode> *)>
       unbound_callback_creator = func;
 
@@ -106,6 +122,7 @@ int main(int argc, char **argv) {
                                    std::placeholders::_2,
                                    std::placeholders::_3,
                                    feature_retriever,
+                                   gt_robot_poses,
                                    std::placeholders::_4);
 
   vslam_solver::StructuredSlamProblemParams problem_params;
@@ -118,11 +135,14 @@ int main(int argc, char **argv) {
       callback_creator,
       problem_params,
       prob,
-      answer);
+      adjusted_to_zero_answer);
 
   // Print poses to terminal for display
-  for (const auto &pose : answer) {
+  for (const auto &pose : adjusted_to_zero_answer) {
     cout << pose << endl;
+  }
+  if (FLAGS_save_poses) {
+    vslam_util::SaveKITTIPoses(FLAGS_output_path, adjusted_to_zero_answer);
   }
 
   return 0;

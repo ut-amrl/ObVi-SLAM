@@ -24,11 +24,13 @@ class VisualSlamCeresVisualizationCallback : public ceres::IterationCallback {
    *
    * TODO -- if we need more in this constructor for visualization, that's fine.
    *
-   * @param intrinsics      Camera intrinsics.
-   * @param extrinsics      Camera extrinsics.
-   * @param slam_problem    SLAM problem.
-   * @param slam_nodes      SLAM nodes being optimized by ceres. These should
-   *                        only be read, not modified.
+   * @param intrinsics          Camera intrinsics.
+   * @param extrinsics          Camera extrinsics.
+   * @param slam_problem        SLAM problem.
+   * @param feature_retriever   Retrieves visual features from a feature track.
+   * @param gt_robot_poses      Ground truth robot poses to display.
+   * @param slam_nodes          SLAM nodes being optimized by ceres. These
+   *                            should only be read, not modified.
    */
   VisualSlamCeresVisualizationCallback(
       const vslam_types::CameraIntrinsics &intrinsics,
@@ -36,11 +38,13 @@ class VisualSlamCeresVisualizationCallback : public ceres::IterationCallback {
       const vslam_types::UTSLAMProblem<FeatureTrackType> &slam_problem,
       const std::function<std::vector<vslam_types::VisionFeature>(
           const FeatureTrackType &)> &feature_retriever,
+      const std::vector<vslam_types::RobotPose> &gt_robot_poses,
       std::vector<vslam_types::SLAMNode> *slam_nodes)
       : intrinsics_(intrinsics),
         extrinsics_(extrinsics),
         slam_problem_(slam_problem),
         feature_retriever_(feature_retriever),
+        gt_robot_poses_(gt_robot_poses),
         slam_nodes_(slam_nodes) {}
 
   /**
@@ -79,13 +83,13 @@ class VisualSlamCeresVisualizationCallback : public ceres::IterationCallback {
   /**
    * Static function used to create a pointer to this visualization callback.
    *
-   * TODO -- if we need more in this constructor for visualization, that's fine.
-   *
-   * @param intrinsics      Camera intrinsics.
-   * @param extrinsics      Camera extrinsics.
-   * @param slam_problem    SLAM problem.
-   * @param slam_nodes      SLAM nodes being optimized by ceres. These should
-   *                        only be read, not modified.
+   * @param intrinsics          Camera intrinsics.
+   * @param extrinsics          Camera extrinsics.
+   * @param slam_problem        SLAM problem.
+   * @param feature_retriever   Retrieves visual features from a feature track.
+   * @param gt_robot_poses      Ground truth robot poses to display.
+   * @param slam_nodes          SLAM nodes being optimized by ceres. These
+   *                            should only be read, not modified.
    *
    * @return Pointer to visualization callback.
    */
@@ -96,9 +100,15 @@ class VisualSlamCeresVisualizationCallback : public ceres::IterationCallback {
       const vslam_types::UTSLAMProblem<TrackType> &slam_problem,
       const std::function<std::vector<vslam_types::VisionFeature>(
           const TrackType &)> &feature_retriever,
+      const std::vector<vslam_types::RobotPose> &gt_robot_poses,
       std::vector<vslam_types::SLAMNode> *slam_nodes) {
     return std::make_shared<VisualSlamCeresVisualizationCallback<TrackType>>(
-        intrinsics, extrinsics, slam_problem, feature_retriever, slam_nodes);
+        intrinsics,
+        extrinsics,
+        slam_problem,
+        feature_retriever,
+        gt_robot_poses,
+        slam_nodes);
   }
 
  private:
@@ -123,6 +133,11 @@ class VisualSlamCeresVisualizationCallback : public ceres::IterationCallback {
   std::function<std::vector<vslam_types::VisionFeature>(
       const FeatureTrackType &)>
       feature_retriever_;
+
+  /**
+   * Ground truth robot poses to display.
+   */
+  std::vector<vslam_types::RobotPose> gt_robot_poses_;
 
   /**
    * SLAM nodes that are being optimized. These should only be read, not

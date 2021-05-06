@@ -62,9 +62,14 @@ int main(int argc, char **argv) {
 
   // These are the poses that are going to be optimized
   std::vector<vslam_types::RobotPose> answer(prob.robot_poses);
+  std::vector<vslam_types::RobotPose> gt_robot_poses;
+  vslam_util::AdjustTrajectoryToStartAtZero(answer, gt_robot_poses);
+
   Eigen::Matrix<double, 3, 1> sigma_linear(0.1, 0.1, 0.1);
   Eigen::Matrix<double, 3, 1> sigma_rotation(0.1, 0.1, 0.1);
   vslam_util::CorruptRobotPoses(sigma_linear, sigma_rotation, answer);
+  std::vector<vslam_types::RobotPose> adjusted_to_zero_answer;
+  vslam_util::AdjustTrajectoryToStartAtZero(answer, adjusted_to_zero_answer);
 
   std::function<void(
       const vslam_types::CameraIntrinsics &,
@@ -92,6 +97,7 @@ int main(int argc, char **argv) {
       const vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &,
       const std::function<std::vector<vslam_types::VisionFeature>(
           const vslam_types::VisionFeatureTrack &)> &,
+      const std::vector<vslam_types::RobotPose> &,
       std::vector<vslam_types::SLAMNode> *);
   funtype func = vslam_viz::VisualSlamCeresVisualizationCallback<
       vslam_types::VisionFeatureTrack>::create;
@@ -102,6 +108,7 @@ int main(int argc, char **argv) {
       const vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &,
       const std::function<std::vector<vslam_types::VisionFeature>(
           const vslam_types::VisionFeatureTrack &)> &,
+      const std::vector<vslam_types::RobotPose> &,
       std::vector<vslam_types::SLAMNode> *)>
       unbound_callback_creator = func;
 
@@ -115,6 +122,7 @@ int main(int argc, char **argv) {
                                    std::placeholders::_2,
                                    std::placeholders::_3,
                                    feature_retriever,
+                                   gt_robot_poses,
                                    std::placeholders::_4);
 
   vslam_solver::StructurelessSlamProblemParams problem_params;
@@ -126,14 +134,14 @@ int main(int argc, char **argv) {
       callback_creator,
       problem_params,
       prob,
-      answer);
+      adjusted_to_zero_answer);
 
   // Print poses to terminal for display
-  for (const auto &pose : answer) {
+  for (const auto &pose : adjusted_to_zero_answer) {
     cout << pose << endl;
   }
   if (FLAGS_save_poses) {
-    vslam_util::SaveKITTIPoses(FLAGS_output_path, answer);
+    vslam_util::SaveKITTIPoses(FLAGS_output_path, adjusted_to_zero_answer);
   }
 
   return 0;

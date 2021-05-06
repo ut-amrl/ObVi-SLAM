@@ -212,8 +212,35 @@ void CorruptRobotPoses(const Eigen::Matrix<T, 3, 1>& sigma_linear,
   return;
 }
 
+/**
+ * Adjust trajectory so that the first pose is at the origin and all
+ * other poses are adjusted to maintain the same transform to the first pose.
+ *
+ * @param original_trajectory[in]   Original trajectory.
+ * @param adjusted_trajectory[out]  Trajectory adjusted to have the first pose
+ *                                  at the origin.
+ */
+void AdjustTrajectoryToStartAtZero(
+    const std::vector<vslam_types::RobotPose>& original_trajectory,
+    std::vector<vslam_types::RobotPose>& adjusted_trajectory);
+
 void SaveKITTIPoses(const std::string& filename,
                     const std::vector<vslam_types::RobotPose>& poses);
+
+/**
+ * Get the pose of pose 2 (provided in frame A) relative to pose 1 (also
+ * provided in frame A).
+ *
+ * @param pose_1    Pose 1 -- pose that we want to be the frame for in the
+ *                  returned pose.
+ * @param pose_2    Pose 2 -- pose that we want to get location of relative to
+ * pose 1.
+ *
+ * @return Relative transform that provides the location of pose 2 relative to
+ * pose 1.
+ */
+vslam_types::RobotPose getPose2RelativeToPose1(
+    const vslam_types::RobotPose& pose_1, const vslam_types::RobotPose& pose_2);
 
 }  // namespace vslam_util
 
