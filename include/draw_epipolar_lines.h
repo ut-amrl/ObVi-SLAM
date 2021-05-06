@@ -86,6 +86,10 @@ static void DrawEpipolarLines(const std::string &title,
   for (size_t i = 0; i < points1.size(); i++) {
     const float point1_err = distancePointLine(points1[i], epilines2[i]);
     const float point2_err = distancePointLine(points2[i], epilines1[i]);
+    if (point1_err < 0 || point2_err < 0) {
+      // The cost is negative - error
+      continue;
+    }
     if (inlierDistance > 0) {
       if (point1_err > inlierDistance || point2_err > inlierDistance) {
         // The point match is no inlier
@@ -104,7 +108,7 @@ static void DrawEpipolarLines(const std::string &title,
                        -(epilines1[i][2] + epilines1[i][0] * img1.cols) /
                            epilines1[i][1]),
              color,
-             std::ceil(point1_err));
+             std::min(1 + int(point1_err), 50));
     cv::circle(outImg(rect1), points1[i], 3, color, -1, cv::LINE_AA);
 
     cv::line(outImg(rect1),
@@ -113,7 +117,7 @@ static void DrawEpipolarLines(const std::string &title,
                        -(epilines2[i][2] + epilines2[i][0] * img2.cols) /
                            epilines2[i][1]),
              color,
-             std::ceil(point2_err));
+             std::min(1 + int(point2_err), 50));
     cv::circle(outImg(rect2), points2[i], 3, color, -1, cv::LINE_AA);
   }
 
@@ -174,7 +178,7 @@ void VisualizeEpipolarError(
     // Draw image w/ epipolar lines
     // Swapped points because of non comutativity of x`Ex
     DrawEpipolarLines(
-        "Frame", F_cv, cam2_pic, cam1_pic, cam_2_points, cam_1_points);
+        "Frame", F_cv, cam2_pic, cam1_pic, cam_2_points, cam_1_points, 50);
   }
 }
 
