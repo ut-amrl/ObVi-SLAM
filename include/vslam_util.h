@@ -263,6 +263,19 @@ void SaveKITTIPoses(const std::string& filename,
 vslam_types::RobotPose getPose2RelativeToPose1(
     const vslam_types::RobotPose& pose_1, const vslam_types::RobotPose& pose_2);
 
+/**
+ * Get the position of the given position (provided in frame A) relative to
+ * pose 1 (also provided in frame A).
+ *
+ * @param pose_1    Pose 1 -- pose that we want to be the frame for in the
+ *                  returned pose.
+ * @param position  Position that we want to get relative to pose 1
+ *
+ * @return Relative position that provides the location of the given position
+ * relative to pose 1.
+ */
+Eigen::Vector3d getPositionRelativeToPose(const vslam_types::RobotPose& pose_1,
+                                          const Eigen::Vector3d& position);
 }  // namespace vslam_util
 
 #endif  // UT_VSLAM_SLAM_UTIL_H

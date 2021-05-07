@@ -57,6 +57,7 @@ int main(int argc, char **argv) {
 
   // These are the poses that are going to be optimized
   std::vector<vslam_types::RobotPose> answer(prob.robot_poses);
+  vslam_types::RobotPose init_pose_unadjusted = answer[0];
   std::vector<vslam_types::RobotPose> gt_robot_poses;
   vslam_util::AdjustTrajectoryToStartAtZero(answer, gt_robot_poses);
 
@@ -65,6 +66,11 @@ int main(int argc, char **argv) {
   vslam_util::CorruptRobotPoses(sigma_linear, sigma_rotation, answer);
   std::vector<vslam_types::RobotPose> adjusted_to_zero_answer;
   vslam_util::AdjustTrajectoryToStartAtZero(answer, adjusted_to_zero_answer);
+
+  for (int i = 0; i < prob.tracks.size(); i++) {
+    prob.tracks[i].point = vslam_util::getPositionRelativeToPose(
+        init_pose_unadjusted, prob.tracks[i].point);
+  }
 
   // TODO corrupt feature positions too
 
