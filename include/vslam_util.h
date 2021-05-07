@@ -234,6 +234,18 @@ void CorruptRobotPoses(const Eigen::Matrix<T, 3, 1>& sigma_linear,
 }
 
 /**
+ * Corrupt the feature pose by drawing from a gaussian centered around the
+ * feature pose.
+ *
+ * @param sigma_linear          Standard deviations for the gaussian.
+ * @param feature_init_pose     Initial feature pose (uncorrupted).
+ *
+ * @return Corrupted feature pose.
+ */
+Eigen::Vector3d CorruptFeature(const Eigen::Vector3d& sigma_linear,
+                               Eigen::Vector3d& feature_init_pose);
+
+/**
  * Adjust trajectory so that the first pose is at the origin and all
  * other poses are adjusted to maintain the same transform to the first pose.
  *
