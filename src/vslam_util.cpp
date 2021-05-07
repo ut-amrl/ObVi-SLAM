@@ -49,4 +49,13 @@ vslam_types::RobotPose getPose2RelativeToPose1(
   return rel_pose;
 }
 
+Eigen::Vector3d getPositionRelativeToPose(const vslam_types::RobotPose &pose_1,
+                                          const Eigen::Vector3d &position) {
+  Eigen::Affine3f pose_1_mat = pose_1.RobotToWorldTF();
+
+  Eigen::Vector3d transformed = pose_1_mat.inverse().cast<double>() * position;
+
+  return transformed;
+}
+
 }  // namespace vslam_util
