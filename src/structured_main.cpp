@@ -67,12 +67,12 @@ int main(int argc, char **argv) {
   std::vector<vslam_types::RobotPose> adjusted_to_zero_answer;
   vslam_util::AdjustTrajectoryToStartAtZero(answer, adjusted_to_zero_answer);
 
+  Eigen::Vector3d feature_sigma_linear(0.0, 0.0, 0.0);
   for (int i = 0; i < prob.tracks.size(); i++) {
     prob.tracks[i].point = vslam_util::getPositionRelativeToPose(
-        init_pose_unadjusted, prob.tracks[i].point);
+        init_pose_unadjusted,
+        vslam_util::CorruptFeature(feature_sigma_linear, prob.tracks[i].point));
   }
-
-  // TODO corrupt feature positions too
 
   std::function<void(
       const vslam_types::CameraIntrinsics &,
