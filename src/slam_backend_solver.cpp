@@ -121,7 +121,7 @@ void AddStructurelessVisionFactors(
                 f1,
                 f2,
                 solver_optimization_params.epipolar_error_std_dev),
-            nullptr,
+            new ceres::HuberLoss(1.0),
             initial_pose_block,
             curr_pose_block);
       }
