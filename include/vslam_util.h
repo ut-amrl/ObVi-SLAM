@@ -176,7 +176,7 @@ void PerturbRotationMatrix(const Eigen::Matrix<T, 3, 1>& dw,
 
 /**
  * Add noise to robot poses - Can be used to corrupt groundtruth poses into
- *imperfect odometry measuremets
+ * imperfect odometry measuremets - simulates odometry!
  *
  * @param sigma_linear[in]        Standard deviation of the linear pose
  *                                  dimensions (dx, dy, dz)
@@ -191,24 +191,45 @@ void CorruptRobotPoses(const Eigen::Matrix<T, 3, 1>& sigma_linear,
   std::default_random_engine generator;
   std::normal_distribution<T> distribution(0.0, 1.0);
 
-  for (auto& pose : poses) {
+  std::vector<vslam_types::RobotPose> gt_poses = poses;
+  for (int i = 1; i < gt_poses.size(); ++i) {
+    // Frame 1
+    Eigen::Transform<float, 3, Eigen::Affine> first_robot_pose_in_world =
+        Eigen::Translation<float, 3>(gt_poses[i - 1].loc) *
+        gt_poses[i - 1].angle;
+    // Frame 2
+    Eigen::Transform<float, 3, Eigen::Affine> second_robot_pose_in_world =
+        Eigen::Translation<float, 3>(gt_poses[i].loc) * gt_poses[i].angle;
+    // Relative transform from frame 2 to 1
+    Eigen::Transform<float, 3, Eigen::Affine> rel_tf =
+        first_robot_pose_in_world.inverse() * second_robot_pose_in_world;
+
     // Corrupt linear dimension
     Eigen::Matrix<float, 3, 1> dl(sigma_linear.x() * distribution(generator),
                                   sigma_linear.y() * distribution(generator),
                                   sigma_linear.z() * distribution(generator));
-    pose.loc += dl;
+    rel_tf.translation() += dl;
     // Corrupt orientation dimension
     Eigen::Matrix<T, 3, 1> dw(sigma_rotation.x() * distribution(generator),
                               sigma_rotation.y() * distribution(generator),
                               sigma_rotation.z() * distribution(generator));
-    Eigen::Matrix<T, 3, 3> R = pose.angle.toRotationMatrix().cast<T>();
+    Eigen::Matrix<T, 3, 3> R = rel_tf.linear().cast<T>();
     PerturbRotationMatrix(dw, R);
-    Eigen::Matrix<float, 3, 3> Rf =
-        R.template cast<float>();  // TODO this is ugly - we just need to
-                                   // template EVERYTHING and make nothing
-                                   // explicitly a float
-    pose.angle = Eigen::AngleAxisf(Rf);
+    rel_tf.linear() = R.template cast<float>();
+
+    // Out most recent noise pose
+    Eigen::Transform<float, 3, Eigen::Affine> corrupted_robot_pose_in_world =
+        Eigen::Translation<float, 3>(poses[i - 1].loc) * poses[i - 1].angle;
+
+    // Add noisy relative tf to our most recent noisy pose
+    Eigen::Transform<float, 3, Eigen::Affine>
+        next_corrupted_robot_pose_in_world =
+            corrupted_robot_pose_in_world * rel_tf;
+
+    poses[i].loc = next_corrupted_robot_pose_in_world.translation();
+    poses[i].angle = next_corrupted_robot_pose_in_world.linear();
   }
+
   return;
 }
 
