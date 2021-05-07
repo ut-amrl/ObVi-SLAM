@@ -23,7 +23,10 @@ void AdjustTrajectoryToStartAtZero(
     const std::vector<vslam_types::RobotPose> &original_trajectory,
     std::vector<vslam_types::RobotPose> &adjusted_trajectory) {
   adjusted_trajectory.clear();
-  vslam_types::RobotPose new_init_pose;
+  vslam_types::RobotPose new_init_pose(
+      original_trajectory[0].frame_idx,
+      Eigen::Vector3f(0, 0, 0),
+      Eigen::AngleAxisf(Eigen::Quaternionf(1, 0, 0, 0)));
   adjusted_trajectory.emplace_back(new_init_pose);
   for (int i = 1; i < original_trajectory.size(); i++) {
     adjusted_trajectory.emplace_back(getPose2RelativeToPose1(
