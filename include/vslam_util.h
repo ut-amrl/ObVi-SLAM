@@ -251,6 +251,20 @@ Eigen::Vector3d CorruptFeature(const Eigen::Vector3d& sigma_linear,
                                Eigen::Vector3d& feature_init_pose);
 
 /**
+ * Get odom factors from the initial pose and a constant noise model.
+ *
+ * @param initial_trajectory    Initial trajectory.
+ * @param odom_alphas           Standard deviations per unit for the
+ *                              translation and rotation (translation is first).
+ *
+ * @return Odometry factors linking each pair of subsequent poses in the
+ * trajectory.
+ */
+std::vector<vslam_types::OdometryFactor> getOdomFactorsFromInitPosesAndNoise(
+    const std::vector<vslam_types::RobotPose>& initial_trajectory,
+    const Eigen::Vector2d& odom_alphas);
+
+/**
  * Adjust trajectory so that the first pose is at the origin and all
  * other poses are adjusted to maintain the same transform to the first pose.
  *

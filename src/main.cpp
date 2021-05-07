@@ -76,6 +76,10 @@ int main(int argc, char **argv) {
   std::vector<vslam_types::RobotPose> adjusted_to_zero_answer;
   vslam_util::AdjustTrajectoryToStartAtZero(answer, adjusted_to_zero_answer);
 
+  // Uncomment to add odom factors from synthetic data
+  //  prob.odom_factors =
+  //      vslam_util::getOdomFactorsFromInitPosesAndNoise(answer, odom_alphas);
+
   if (FLAGS_save_poses) {
     vslam_util::SaveKITTIPoses(FLAGS_output_path + "start.txt",
                                adjusted_to_zero_answer);

@@ -72,6 +72,63 @@ struct VisionFeature {
 };
 
 /**
+ * Represents an IMU or odometry, or fused IMU-odometry observation.
+ */
+struct OdometryFactor {
+  /**
+   * ID of first pose.
+   */
+  uint64_t pose_i;
+
+  /**
+   * ID of second pose.
+   */
+  uint64_t pose_j;
+
+  /**
+   * Translation to go from pose i to pose j.
+   */
+  Eigen::Vector3f translation;
+
+  /**
+   * Rotation to go from pose i to pose j.
+   */
+  Eigen::Quaternionf rotation;
+
+  /**
+   * Sqrt information matrix (square root of inverse covariance). First 3
+   * entries are translation, second 3 are rotation.
+   */
+  Eigen::Matrix<double, 6, 6> sqrt_information;
+
+  /**
+   * Default constructor: do nothing.
+   */
+  OdometryFactor() {}
+
+  /**
+   * Convenience constructor: initialize everything.
+   *
+   * @param pose_i              Id of the first pose.
+   * @param pose_j              Id of the second pose.
+   * @param translation         Measured translation from pose i to pose j.
+   * @param rotation            Measured rotation from pose i to pose j.
+   * @param sqrt_information    Sqrt information matrix (square root of inverse
+   *                            covariance). First 3 entries are translation,
+   *                            second 3 are rotation.
+   */
+  OdometryFactor(const uint64_t& pose_i,
+                 const uint64_t& pose_j,
+                 const Eigen::Vector3f& translation,
+                 const Eigen::Quaternionf& rotation,
+                 const Eigen::Matrix<double, 6, 6>& sqrt_information)
+      : pose_i(pose_i),
+        pose_j(pose_j),
+        translation(translation),
+        rotation(rotation) {}
+};
+
+/**
  * Structureless vision feature track.
  */
 struct VisionFeatureTrack {
@@ -244,6 +301,12 @@ struct UTSLAMProblem {
    * Robot/frame poses of the entire trajectory
    */
   std::vector<RobotPose> robot_poses;
+
+  /**
+   * Odometry factors.
+   */
+  std::vector<OdometryFactor> odom_factors;
+
   /**
    * Default constructor: do nothing.
    */
