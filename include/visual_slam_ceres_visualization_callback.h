@@ -45,7 +45,8 @@ class VisualSlamCeresVisualizationCallback : public ceres::IterationCallback {
         slam_problem_(slam_problem),
         feature_retriever_(feature_retriever),
         gt_robot_poses_(gt_robot_poses),
-        slam_nodes_(slam_nodes) {}
+        slam_nodes_(slam_nodes),
+        pose_viz_(gt_robot_poses_) {}
 
   /**
    * Function that is called during ceres optimization.
