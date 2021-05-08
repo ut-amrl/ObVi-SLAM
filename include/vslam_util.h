@@ -178,15 +178,12 @@ void PerturbRotationMatrix(const Eigen::Matrix<T, 3, 1>& dw,
  * Add noise to robot poses - Can be used to corrupt groundtruth poses into
  * imperfect odometry measuremets - simulates odometry!
  *
- * @param sigma_linear[in]        Standard deviation of the linear pose
- *                                  dimensions (dx, dy, dz)
- * @param sigma_rotations[in]     Standard deviation of the rotational pose
- *                                  dimensions (dx, dy, dz) in so(3) space
- * @param poses[out]                Ground truth robot poses to add noise to
+ * @param odom_alphas[in]   Odom alpha 1 and 3 as described :
+ * https://wiki.ros.org/amcl
+ * @param poses[out]   Ground truth robot poses to add noise to
  */
 template <typename T>
-void CorruptRobotPoses(const Eigen::Matrix<T, 3, 1>& sigma_linear,
-                       const Eigen::Matrix<T, 3, 1>& sigma_rotation,
+void CorruptRobotPoses(const Eigen::Matrix<T, 2, 1>& odom_alphas,
                        std::vector<vslam_types::RobotPose>& poses) {
   std::default_random_engine generator;
   std::normal_distribution<T> distribution(0.0, 1.0);
@@ -204,15 +201,23 @@ void CorruptRobotPoses(const Eigen::Matrix<T, 3, 1>& sigma_linear,
     Eigen::Transform<float, 3, Eigen::Affine> rel_tf =
         first_robot_pose_in_world.inverse() * second_robot_pose_in_world;
 
-    // Corrupt linear dimension
-    Eigen::Matrix<float, 3, 1> dl(sigma_linear.x() * distribution(generator),
-                                  sigma_linear.y() * distribution(generator),
-                                  sigma_linear.z() * distribution(generator));
+    // Corrupt linear dimension proportional to linear displacement
+    Eigen::Matrix<float, 3, 1> dl(fabs(rel_tf.translation().x()) *
+                                      odom_alphas(1) * distribution(generator),
+                                  fabs(rel_tf.translation().y()) *
+                                      odom_alphas(1) * distribution(generator),
+                                  fabs(rel_tf.translation().z()) *
+                                      odom_alphas(1) * distribution(generator));
     rel_tf.translation() += dl;
     // Corrupt orientation dimension
-    Eigen::Matrix<T, 3, 1> dw(sigma_rotation.x() * distribution(generator),
-                              sigma_rotation.y() * distribution(generator),
-                              sigma_rotation.z() * distribution(generator));
+    Eigen::AngleAxis<T> rel_rotation(rel_tf.linear().cast<T>());
+    Eigen::Matrix<T, 3, 1> dw(
+        fabs(rel_rotation.angle() * rel_rotation.axis().x()) * odom_alphas(0) *
+            distribution(generator),
+        fabs(rel_rotation.angle() * rel_rotation.axis().y()) * odom_alphas(0) *
+            distribution(generator),
+        fabs(rel_rotation.angle() * rel_rotation.axis().z()) * odom_alphas(0) *
+            distribution(generator));
     Eigen::Matrix<T, 3, 3> R = rel_tf.linear().cast<T>();
     PerturbRotationMatrix(dw, R);
     rel_tf.linear() = R.template cast<float>();

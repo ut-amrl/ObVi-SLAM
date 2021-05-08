@@ -61,9 +61,8 @@ int main(int argc, char **argv) {
   std::vector<vslam_types::RobotPose> gt_robot_poses;
   vslam_util::AdjustTrajectoryToStartAtZero(answer, gt_robot_poses);
 
-  Eigen::Matrix<double, 3, 1> sigma_linear(0.0, 0.0, 0.0);
-  Eigen::Matrix<double, 3, 1> sigma_rotation(0.0, 0.0, 0.0);
-  vslam_util::CorruptRobotPoses(sigma_linear, sigma_rotation, answer);
+  Eigen::Matrix<double, 2, 1> odom_alphas(.1, .1);
+  vslam_util::CorruptRobotPoses(odom_alphas, answer);
   std::vector<vslam_types::RobotPose> adjusted_to_zero_answer;
   vslam_util::AdjustTrajectoryToStartAtZero(answer, adjusted_to_zero_answer);
 
