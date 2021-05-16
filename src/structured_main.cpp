@@ -61,10 +61,19 @@ int main(int argc, char **argv) {
   std::vector<vslam_types::RobotPose> gt_robot_poses;
   vslam_util::AdjustTrajectoryToStartAtZero(answer, gt_robot_poses);
 
+  if (FLAGS_save_poses) {
+    vslam_util::SaveKITTIPoses(FLAGS_output_path + "gt.txt", gt_robot_poses);
+  }
+
   Eigen::Matrix<double, 2, 1> odom_alphas(.1, .1);
   vslam_util::CorruptRobotPoses(odom_alphas, answer);
   std::vector<vslam_types::RobotPose> adjusted_to_zero_answer;
   vslam_util::AdjustTrajectoryToStartAtZero(answer, adjusted_to_zero_answer);
+
+  if (FLAGS_save_poses) {
+    vslam_util::SaveKITTIPoses(FLAGS_output_path + "start.txt",
+                               adjusted_to_zero_answer);
+  }
 
   Eigen::Vector3d feature_sigma_linear(0.0, 0.0, 0.0);
   for (int i = 0; i < prob.tracks.size(); i++) {
@@ -146,8 +155,10 @@ int main(int argc, char **argv) {
   for (const auto &pose : adjusted_to_zero_answer) {
     cout << pose << endl;
   }
+
   if (FLAGS_save_poses) {
-    vslam_util::SaveKITTIPoses(FLAGS_output_path, adjusted_to_zero_answer);
+    vslam_util::SaveKITTIPoses(FLAGS_output_path + "answer.txt",
+                               adjusted_to_zero_answer);
   }
 
   return 0;
