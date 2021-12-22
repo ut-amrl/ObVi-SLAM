@@ -65,6 +65,8 @@ bool SLAMSolver::SolveSLAM(
 
   options.max_num_iterations = solver_optimization_params_.max_iterations;
   options.minimizer_type = solver_optimization_params_.minimizer_type;
+  options.trust_region_strategy_type = ceres::TrustRegionStrategyType::DOGLEG;
+  options.linear_solver_type = ceres::LinearSolverType::SPARSE_SCHUR;
 
   std::vector<vslam_types::SLAMNode> slam_nodes;
   RobotPosesToSLAMNodes(updated_robot_poses, slam_nodes);
