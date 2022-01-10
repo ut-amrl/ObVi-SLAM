@@ -186,6 +186,44 @@ struct RobotPose {
 };
 
 /**
+ * Ellipsoid estimate data structure. This one should not be used during
+ * optimization because it is harder to update.
+ */
+struct EllipsoidEstimate {
+  /**
+   * Location of the ellipsoid's center.
+   */
+  Eigen::Vector3f loc;
+  /**
+   * Ellipsoid orientation: rotates points from ellipsoid frame to global.
+   */
+  Eigen::AngleAxisf orientation;
+  /**
+   * Dimension of the ellipsoid along each of the major axes.
+   */
+  Eigen::Vector3f ellipsoid_dim;
+  /**
+   * Semantic class of the ellipsoid.
+   *
+   * TODO should this be an index instead of a string? That's more efficient,
+   * but we don't have a great idea of the classes at the moment.
+   */
+  std::string semantic_class;
+
+  /**
+   * Convenience constructor: initialize everything.
+   */
+  EllipsoidEstimate(const Eigen::Vector3f& loc,
+                    const Eigen::AngleAxisf& orientation,
+                    const Eigen::Vector3f& ellipsoid_dim,
+                    const std::string& semantic_class)
+      : loc(loc),
+        orientation(orientation),
+        ellipsoid_dim(ellipsoid_dim),
+        semantic_class(semantic_class) {}
+};
+
+/**
  * SLAM Node that can be updated during optimization.
  */
 struct SLAMNode {
@@ -227,6 +265,81 @@ struct SLAMNode {
 };
 
 /**
+ * Ellispoid Estimate Node that can be updated during optimization.
+ */
+struct EllipsoidEstimateNode {
+  /**
+   * 9DOF parameters: tx, ty, tx, angle_x, angle_y, angle_z, dim_x, dim_y,
+   * dim_z. Note that angle_* are the coordinates in scaled angle-axis form.
+   */
+  double pose[9];
+
+  /**
+   * TODO should this be here? It's needed during optimization to determine
+   * which POM to use (since there's a different one per semantic class), but
+   * isn't changed during optimization
+   */
+  std::string semantic_class;
+
+  /**
+   * Default constructor.
+   *
+   * TODO do we need the default constructor or should we just remove it?
+   */
+  EllipsoidEstimateNode() = default;
+
+  /**
+   * Constructor that takes in translation, rotation, and dimension details for
+   * the node.
+   *
+   * @param pose_transl     Translation of the node.
+   * @param pose_rot        Rotation of the node.
+   * @param ellipsoid_dim   Dimension of the ellipsoid (x length, y length,
+   *                        z length).
+   */
+  EllipsoidEstimateNode(const Eigen::Vector3f& pose_transl,
+                        const Eigen::AngleAxisf& pose_rot,
+                        const Eigen::Vector3f& ellipsoid_dim,
+                        const std::string& semantic_class)
+      : semantic_class(semantic_class) {
+    pose[0] = pose_transl.x();
+    pose[1] = pose_transl.y();
+    pose[2] = pose_transl.z();
+    pose[3] = pose_rot.axis().x() * pose_rot.angle();
+    pose[4] = pose_rot.axis().y() * pose_rot.angle();
+    pose[5] = pose_rot.axis().z() * pose_rot.angle();
+    pose[6] = ellipsoid_dim.x();
+    pose[7] = ellipsoid_dim.y();
+    pose[8] = ellipsoid_dim.z();
+  }
+};
+
+/**
+ * Data structure representing the bounding box detection of an object in an
+ * image.
+ */
+struct ObjectImageBoundingBoxDetection {
+  /**
+   * Pixel coordinates of the two opposite corners that define the bounding box
+   * of an object within an image.
+   */
+  std::pair<Eigen::Vector2f, Eigen::Vector2f> pixel_corner_locations;
+
+  /**
+   * Semantic class of the detected bounding box
+   *
+   * TODO should this instead be an index? Should it store a set of
+   * possible semantic classes with their likelihood?
+   */
+  std::string semantic_class;
+
+  /**
+   * Index of the frame/camera/robot_pose this bounding box was acquired at.
+   */
+  uint64_t frame_idx;
+};
+
+/**
  * A UT SLAM problem templated by feature track type (stuctureless or
  * structured)
  */
@@ -254,6 +367,54 @@ struct UTSLAMProblem {
   UTSLAMProblem(std::unordered_map<uint64_t, FeatureTrackType> const& tracks,
                 const std::vector<RobotPose>& robot_poses)
       : tracks(tracks), robot_poses(robot_poses) {}
+};
+
+/**
+ * Extension of the SLAM problem that also approximates ellipsoids for objects
+ * in the scene based on bounding box detections of objects in images.
+ *
+ * @tparam FeatureTrackType Type of the feature track to use in performing
+ * low-level visual SLAM.
+ */
+template <typename FeatureTrackType>
+struct UTObjectSLAMProblem : public UTSLAMProblem<FeatureTrackType> {
+  /**
+   * List of object detections (as bounding boxes).
+   *
+   * TODO do we want to store these by their frame index?
+   */
+  std::vector<ObjectImageBoundingBoxDetection> bounding_boxes;
+
+  /**
+   * Estimates of the ellipsoids for objects in the scene.
+   */
+  std::vector<EllipsoidEstimate> ellipsoid_estimates;
+
+  // TODO do we need a data structure in here for the class-specific dimension
+  //  priors?
+  // TODO do we need a data structure in here for covariances for various terms
+  // TODO should the SLAM problem contain a list of the useful semantic classes
+  //  or should we assume that the detections have already been filtered to
+  //  contain only the relevant classes.
+  // TODO Should we require initial estimates for the ellipsoids or create the
+  // estimates on the fly?
+
+  /**
+   * Default constructor: do nothing.
+   */
+  UTObjectSLAMProblem() : UTSLAMProblem<FeatureTrackType>() {}
+  /**
+   * Convenience constructor: initialize everything.
+   *
+   * TODO do we want to get initial estimates for the ellipsoid or should we
+   * initialize online?
+   */
+  UTObjectSLAMProblem(
+      std::unordered_map<uint64_t, FeatureTrackType> const& tracks,
+      const std::vector<RobotPose>& robot_poses,
+      const std::vector<EllipsoidEstimate>& ellipsoid_estimates)
+      : UTSLAMProblem<FeatureTrackType>(tracks, robot_poses),
+        ellipsoid_estimates(ellipsoid_estimates) {}
 };
 
 /**
