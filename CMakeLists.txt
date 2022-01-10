@@ -28,7 +28,8 @@ add_library(ut_vslam src/vslam_io.cpp
             src/reprojection_cost_functor.cpp
             src/slam_backend_solver.cpp
             src/pose_viewer.cpp
-            src/vslam_util.cpp)
+            src/vslam_util.cpp
+            src/shape_prior_factor.cpp)
 
 target_compile_features(ut_vslam PRIVATE cxx_std_17) 
 
@@ -37,3 +38,6 @@ target_link_libraries(main ut_vslam ${LIBS})
 
 add_executable(structured_main src/structured_main.cpp)
 target_link_libraries(structured_main ut_vslam ${LIBS})
+
+add_executable(ellipsoid_estimator_main src/ellipsoid_estimator_main.cpp)
+target_link_libraries(ellipsoid_estimator_main ut_vslam ${LIBS})
