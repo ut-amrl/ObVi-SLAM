@@ -1,4 +1,5 @@
 #include <ceres/ceres.h>
+#include <odometry_cost_functor.h>
 #include <pairwise_2d_feature_cost_functor.h>
 #include <reprojection_cost_functor.h>
 #include <slam_backend_solver.h>
@@ -77,6 +78,7 @@ bool SLAMSolver::SolveSLAM(
                           slam_problem,
                           problem,
                           &slam_nodes);
+  addOdometryFactors(slam_problem, problem, &slam_nodes);
 
   // Set the first pose constant
   problem.SetParameterBlockConstant(slam_nodes[0].pose);
@@ -96,6 +98,25 @@ bool SLAMSolver::SolveSLAM(
 
   return (summary.termination_type == ceres::CONVERGENCE ||
           summary.termination_type == ceres::USER_SUCCESS);
+}
+
+template <typename FeatureTrackType>
+void SLAMSolver::addOdometryFactors(
+    const vslam_types::UTSLAMProblem<FeatureTrackType> &slam_problem,
+    ceres::Problem &problem,
+    std::vector<vslam_types::SLAMNode> *updated_solved_nodes) {
+  std::vector<vslam_types::SLAMNode> &solution = *updated_solved_nodes;
+  for (const vslam_types::OdometryFactor &factor : slam_problem.odom_factors) {
+    CHECK_GT(solution.size(), factor.pose_i);
+    CHECK_GT(solution.size(), factor.pose_j);
+    double *pose_i_block = solution[factor.pose_i].pose;
+    double *pose_j_block = solution[factor.pose_j].pose;
+
+    problem.AddResidualBlock(OdometryCostFunctor::create(factor),
+                             nullptr,
+                             pose_i_block,
+                             pose_j_block);
+  }
 }
 
 void AddStructurelessVisionFactors(
@@ -201,4 +222,17 @@ template bool SLAMSolver::SolveSLAM<vslam_types::StructuredVisionFeatureTrack,
     vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack>
         &slam_problem,
     std::vector<vslam_types::RobotPose> &updated_robot_poses);
+
+template void SLAMSolver::addOdometryFactors<vslam_types::VisionFeatureTrack>(
+    const vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>
+        &slam_problem,
+    ceres::Problem &problem,
+    std::vector<vslam_types::SLAMNode> *updated_solved_nodes);
+
+template void
+SLAMSolver::addOdometryFactors<vslam_types::StructuredVisionFeatureTrack>(
+    const vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack>
+        &slam_problem,
+    ceres::Problem &problem,
+    std::vector<vslam_types::SLAMNode> *updated_solved_nodes);
 }  // namespace vslam_solver

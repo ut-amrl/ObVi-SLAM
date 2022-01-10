@@ -75,6 +75,10 @@ int main(int argc, char **argv) {
                                adjusted_to_zero_answer);
   }
 
+  // Uncomment to add odom factors from synthetic data
+  //  prob.odom_factors =
+  //      vslam_util::getOdomFactorsFromInitPosesAndNoise(answer, odom_alphas);
+
   Eigen::Vector3d feature_sigma_linear(0.0, 0.0, 0.0);
   for (int i = 0; i < prob.tracks.size(); i++) {
     prob.tracks[i].point = vslam_util::getPositionRelativeToPose(

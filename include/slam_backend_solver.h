@@ -122,6 +122,26 @@ class SLAMSolver {
    * on any particular instantiation of a SLAM problem.
    */
   SLAMSolverOptimizerParams solver_optimization_params_;
+
+  /**
+   * Add odometry factors to the ceres problem
+   *
+   * @tparam FeatureTrackType               Feature track type.
+   * @param slam_problem                    SLAM problem that contains info
+   *                                        about the odom factors.
+   * @param problem[in/out]                 Ceres problem that will have
+   *                                        residual blocks added to it.
+   * @param updated_solved_nodes[in/out]    Nodes in the SLAM problem that will
+   *                                        be updated during optimization. The
+   *                                        values will not change here, but
+   *                                        they will be tied to the ceres
+   *                                        problem.
+   */
+  template <typename FeatureTrackType>
+  void addOdometryFactors(
+      const vslam_types::UTSLAMProblem<FeatureTrackType> &slam_problem,
+      ceres::Problem &problem,
+      std::vector<vslam_types::SLAMNode> *updated_solved_nodes);
 };
 
 /**

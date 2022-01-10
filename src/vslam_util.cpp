@@ -1,6 +1,8 @@
+#include <glog/logging.h>
 #include <vslam_util.h>
 
 #include <fstream>
+#include <unsupported/Eigen/MatrixFunctions>
 
 namespace vslam_util {
 
@@ -69,6 +71,46 @@ Eigen::Vector3d getPositionRelativeToPose(const vslam_types::RobotPose &pose_1,
   Eigen::Vector3d transformed = pose_1_mat.inverse().cast<double>() * position;
 
   return transformed;
+}
+
+std::vector<vslam_types::OdometryFactor> getOdomFactorsFromInitPosesAndNoise(
+    const std::vector<vslam_types::RobotPose> &initial_trajectory,
+    const Eigen::Vector2d &odom_alphas) {
+  std::vector<vslam_types::OdometryFactor> odom_factors;
+
+  for (uint64_t i = 1; i < initial_trajectory.size(); i++) {
+    vslam_types::RobotPose relative_pose = getPose2RelativeToPose1(
+        initial_trajectory[i - 1], initial_trajectory[i]);
+
+    Eigen::Matrix<double, 6, 6> odom_cov_mat =
+        Eigen::Matrix<double, 6, 6>::Zero();
+
+    odom_cov_mat(0, 0) = pow(relative_pose.loc.x() * odom_alphas(1), 2);
+    odom_cov_mat(1, 1) = pow(relative_pose.loc.y() * odom_alphas(1), 2);
+    odom_cov_mat(2, 2) = pow(relative_pose.loc.z() * odom_alphas(1), 2);
+    odom_cov_mat(3, 3) =
+        pow(relative_pose.angle.angle() * relative_pose.angle.axis().x() *
+                odom_alphas(0),
+            2);
+    odom_cov_mat(4, 4) =
+        pow(relative_pose.angle.angle() * relative_pose.angle.axis().y() *
+                odom_alphas(0),
+            2);
+    odom_cov_mat(5, 5) =
+        pow(relative_pose.angle.angle() * relative_pose.angle.axis().z() *
+                odom_alphas(0),
+            2);
+
+    Eigen::Matrix<double, 6, 6> sqrt_information =
+        odom_cov_mat.inverse().sqrt();
+
+    vslam_types::OdometryFactor factor(i - 1,
+                                       i,
+                                       relative_pose.loc,
+                                       Eigen::Quaternionf(relative_pose.angle),
+                                       sqrt_information);
+  }
+  return odom_factors;
 }
 
 }  // namespace vslam_util
