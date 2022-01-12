@@ -342,7 +342,8 @@ struct EllipsoidEstimateNode {
 struct ObjectImageBoundingBoxDetection {
   /**
    * Pixel coordinates of the two opposite corners that define the bounding box
-   * of an object within an image.
+   * of an object within an image. The first of the pair should have the smaller
+   * x and y values.
    */
   std::pair<Eigen::Vector2f, Eigen::Vector2f> pixel_corner_locations;
 
