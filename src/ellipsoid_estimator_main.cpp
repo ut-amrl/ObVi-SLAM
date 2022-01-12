@@ -1,3 +1,4 @@
+#include <bounding_box_factor.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 #include <shape_prior_factor.h>
