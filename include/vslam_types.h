@@ -13,6 +13,8 @@
 
 namespace vslam_types {
 
+typedef uint64_t CameraId;
+
 /**
  * Threshold for a small angle when creating a axis-angle representation.
  */
@@ -34,9 +36,16 @@ struct VisionFeature {
    */
   uint64_t frame_idx;
   /**
-   * Camera pixel location of feature.
+   * Camera pixel location of feature by the camera id that captured them.
+   *
+   * There must be an entry here for the primary camera id.
    */
-  Eigen::Vector2f pixel;
+  std::unordered_map<CameraId, Eigen::Vector2f> pixel_by_camera_id;
+  /**
+   * Id of the primary camera. This one should be used if only one camera is
+   * used.
+   */
+  CameraId primary_camera_id;
   /**
    * Default constructor: do nothing.
    */
@@ -44,16 +53,28 @@ struct VisionFeature {
   /**
    * Convenience constructor: initialize everything.
    */
-  VisionFeature(const uint64_t& feature_idx,
-                const uint64_t& frame_idx,
-                const Eigen::Vector2f& pixel)
-      : feature_idx(feature_idx), frame_idx(frame_idx), pixel(pixel) {}
+  VisionFeature(
+      const uint64_t& feature_idx,
+      const uint64_t& frame_idx,
+      const std::unordered_map<CameraId, Eigen::Vector2f>& pixel_by_camera_id,
+      const CameraId& primary_camera_id)
+      : feature_idx(feature_idx),
+        frame_idx(frame_idx),
+        pixel_by_camera_id(pixel_by_camera_id),
+        primary_camera_id(primary_camera_id) {}
   /**
    * Convenience override of ostream.
    */
   friend std::ostream& operator<<(std::ostream& o, const VisionFeature& f) {
     o << "feature_idx: " << f.feature_idx << "\tframe_idx: " << f.frame_idx
-      << "\tpixel: " << f.pixel.x() << " " << f.pixel.y();
+      << "\tPrimary camera id: " << f.primary_camera_id
+      << "\tPixels by camera id: ";
+    for (const auto& pixel_camera_id_pair : f.pixel_by_camera_id) {
+      o << "("
+        << "Camera id:" << pixel_camera_id_pair.first
+        << ", pixel: " << pixel_camera_id_pair.second.x() << ", "
+        << pixel_camera_id_pair.second.y() << "),";
+    }
     return o;
   }
   /**
@@ -67,7 +88,7 @@ struct VisionFeature {
     // features across tracks in this manner doesn't have a very intuitive
     // meaning
     assert(lhs.feature_idx == rhs.feature_idx);
-    return lhs.frame_idx < rhs.frame_idx ? true : false;
+    return lhs.frame_idx < rhs.frame_idx;
   }
 };
 
@@ -227,36 +248,6 @@ struct SLAMNode {
 };
 
 /**
- * A UT SLAM problem templated by feature track type (stuctureless or
- * structured)
- */
-template <typename FeatureTrackType>
-struct UTSLAMProblem {
-  /**
-   * Unordered map representing the database of tracks - indexed by
-   * track/feature ID.
-   */
-  std::unordered_map<uint64_t, FeatureTrackType> tracks;
-  /**
-   * TODO: I think it'd be good to either convert this to a map or make sure
-   *  the poses are stored in order of their indices so we can just do
-   *  robot_poses[index] to get the pose
-   * Robot/frame poses of the entire trajectory
-   */
-  std::vector<RobotPose> robot_poses;
-  /**
-   * Default constructor: do nothing.
-   */
-  UTSLAMProblem() {}
-  /**
-   * Convenience constructor: initialize everything.
-   */
-  UTSLAMProblem(std::unordered_map<uint64_t, FeatureTrackType> const& tracks,
-                const std::vector<RobotPose>& robot_poses)
-      : tracks(tracks), robot_poses(robot_poses) {}
-};
-
-/**
  * Pinhole camera intrinsics parameters.
  */
 struct CameraIntrinsics {
@@ -282,6 +273,51 @@ struct CameraExtrinsics {
    * Rotation Quaternion form.
    */
   Eigen::Quaternionf rotation;
+};
+
+/**
+ * A UT SLAM problem templated by feature track type (stuctureless or
+ * structured)
+ */
+template <typename FeatureTrackType>
+struct UTSLAMProblem {
+  /**
+   * Unordered map representing the database of tracks - indexed by
+   * track/feature ID.
+   */
+  std::unordered_map<uint64_t, FeatureTrackType> tracks;
+  /**
+   * TODO: I think it'd be good to either convert this to a map or make sure
+   *  the poses are stored in order of their indices so we can just do
+   *  robot_poses[index] to get the pose
+   * Robot/frame poses of the entire trajectory
+   */
+  std::vector<RobotPose> robot_poses;
+  /**
+   * Extrinsics for each camera.
+   */
+  std::unordered_map<CameraId, CameraExtrinsics> camera_extrinsics_by_camera;
+  /**
+   * Intrinsics for each camera.
+   */
+  std::unordered_map<CameraId, CameraIntrinsics> camera_instrinsics_by_camera;
+  /**
+   * Default constructor: do nothing.
+   */
+  UTSLAMProblem() {}
+  /**
+   * Convenience constructor: initialize everything.
+   */
+  UTSLAMProblem(std::unordered_map<uint64_t, FeatureTrackType> const& tracks,
+                const std::vector<RobotPose>& robot_poses,
+                const std::unordered_map<CameraId, CameraExtrinsics>&
+                    camera_extrinsics_by_camera,
+                const std::unordered_map<CameraId, CameraIntrinsics>&
+                    camera_intrinsics_by_camera)
+      : tracks(tracks),
+        robot_poses(robot_poses),
+        camera_extrinsics_by_camera(camera_extrinsics_by_camera),
+        camera_instrinsics_by_camera(camera_intrinsics_by_camera) {}
 };
 
 // TODO  Move these functions to a utility file
