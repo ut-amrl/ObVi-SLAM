@@ -9,8 +9,9 @@
 #include <random>
 
 namespace {
-const std::string calibration_path = "calibration/camera_matrix.txt";
-const std::string features_path = "features/features.txt";
+const std::string kCalibrationPath = "calibration/camera_matrix.txt";
+const std::string kFeaturesPath = "features/features.txt";
+const std::string kTxtExtension = ".txt";
 }  // namespace
 
 using namespace vslam_types;
@@ -23,70 +24,16 @@ void LoadStructurelessUTSLAMProblem(
     const std::string& dataset_path,
     vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob,
     Eigen::Matrix3f& camera_mat) {
-  std::default_random_engine generator;  // TODO remove
-  std::normal_distribution<double> distribution(0.0, 0.0);
-
   // Iterate over all files/folders in the dataset_path directory - i.e. over
   // all frames
   std::unordered_map<uint64_t, RobotPose> poses_by_id;
-  for (const auto& entry : fs::directory_iterator(fs::path(dataset_path))) {
-    const auto file_extension = entry.path().extension().string();
 
-    // If it isn't a data file, skip it - we identify data files as
-    // "regular files" with a .txt extension in the dataset_path directory
-    if (!fs::is_regular_file(entry) || file_extension != ".txt") {
-      continue;
-    }
+  std::function<VisionFeatureTrack*(const uint64_t&)> feature_track_retriever =
+      [&](const uint64_t& feature_id) { return &(prob.tracks[feature_id]); };
 
-    // If we haven't skipped it lets load it into the UTSLAMProblem
-    std::ifstream data_file_stream(entry.path());
-    if (data_file_stream.fail()) {
-      LOG(FATAL) << "Failed to load: " << entry.path()
-                 << " are you sure this a valid data file? ";
-      return;
-    }
-
-    std::string line;
-
-    // Read frame ID from 1st line
-    std::getline(data_file_stream, line);
-    std::stringstream ss_id(line);
-    uint64_t frame_id;
-    ss_id >> frame_id;
-
-    // Use 0 as the first index
-    // TODO We should maybe just fix our dataset so it is zero indexed instead
-    frame_id--;
-
-    // Read frame/robot pose from 2nd line
-    std::getline(data_file_stream, line);
-    std::stringstream ss_pose(line);
-    float x, y, z, qx, qy, qz, qw;
-    ss_pose >> x >> y >> z >> qx >> qy >> qz >> qw;
-    Eigen::Vector3f loc(x + distribution(generator),
-                        y + distribution(generator),
-                        z + distribution(generator));
-    Eigen::Quaternionf angle_q(qw, qx, qy, qz);
-    angle_q.normalize();
-    Eigen::AngleAxisf angle(angle_q);
-    RobotPose pose(frame_id, loc, angle);
-
-    poses_by_id[frame_id] = pose;
-
-    // Read pixels and IDS from all other lines
-    while (std::getline(data_file_stream, line)) {
-      std::stringstream ss_feature(line);
-      uint64_t feature_id;
-      float x, y;
-      ss_feature >> feature_id >> x >> y;
-      VisionFeature feature(feature_id, frame_id, Eigen::Vector2f(x, y));
-      prob.tracks[feature_id].track.push_back(feature);
-      prob.tracks[feature_id].feature_idx =
-          feature_id;  // TODO dont reset this every time
-
-      // TODO should the feature ID just be the ID in the map and not a part of
-      // the feature track/
-    }
+  if (!ReadAllFeatureFiles(
+          dataset_path, feature_track_retriever, poses_by_id)) {
+    return;
   }
 
   // Sort all feature tracks so frame_idxs are in ascending order
@@ -94,18 +41,10 @@ void LoadStructurelessUTSLAMProblem(
     std::sort(ft.second.track.begin(), ft.second.track.end());
   }
 
-  for (uint64_t frame_num = 0; frame_num < poses_by_id.size(); frame_num++) {
-    if (poses_by_id.find(frame_num) == poses_by_id.end()) {
-      LOG(ERROR) << "No pose found for frame num (after subtracting 1) "
-                 << frame_num;
-      return;
-    }
-    prob.robot_poses.emplace_back(poses_by_id[frame_num]);
-  }
+  SetRobotPosesInSlamProblem(poses_by_id, prob);
 
   // Load camera calibration matrix
-  vslam_io::LoadCameraCalibration(
-      dataset_path + "calibration/camera_matrix.txt", camera_mat);
+  vslam_io::LoadCameraCalibration(dataset_path + kCalibrationPath, camera_mat);
 
   return;
 }
@@ -115,6 +54,10 @@ void LoadStructurelessUTSLAMProblemMicrosoft(
     vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob,
     Eigen::Matrix3f& camera_mat) {
   std::unordered_map<uint64_t, RobotPose> poses_by_id;
+
+  std::function<VisionFeatureTrack*(const uint64_t&)> feature_track_retriever =
+      [&](const uint64_t& feature_id) { return &(prob.tracks[feature_id]); };
+
   // Iterate over all files/folders in the dataset_path directory - i.e. over
   // all frames to load features
   for (const auto& entry :
@@ -123,7 +66,7 @@ void LoadStructurelessUTSLAMProblemMicrosoft(
 
     // If it isn't a data file, skip it - we identify data files as
     // "regular files" with a .txt extension in the dataset_path directory
-    if (!fs::is_regular_file(entry) || file_extension != ".txt") {
+    if (!fs::is_regular_file(entry) || file_extension != kTxtExtension) {
       continue;
     }
     // If we haven't skipped it lets load it into the UTSLAMProblem
@@ -139,17 +82,7 @@ void LoadStructurelessUTSLAMProblemMicrosoft(
     iss >> frame_id;
 
     // Read pixels and IDS from all other lines
-    std::string line;
-    while (std::getline(data_file_stream, line)) {
-      std::stringstream ss_feature(line);
-      uint64_t feature_id;
-      float x, y;
-      ss_feature >> feature_id >> x >> y;
-      VisionFeature feature(feature_id, frame_id, Eigen::Vector2f(x, y));
-      prob.tracks[feature_id].track.push_back(feature);
-      prob.tracks[feature_id].feature_idx =
-          feature_id;  // TODO dont reset this every time?
-    }
+    ReadFeaturesFromFile(data_file_stream, frame_id, feature_track_retriever);
   }
 
   // Sort all feature tracks so frame_idxs are in ascending order
@@ -166,7 +99,7 @@ void LoadStructurelessUTSLAMProblemMicrosoft(
 
     // If it isn't a data file, skip it - we identify data files as
     // "regular files" with a .txt extension in the dataset_path directory
-    if (!fs::is_regular_file(entry) || file_extension != ".txt") {
+    if (!fs::is_regular_file(entry) || file_extension != kTxtExtension) {
       continue;
     }
     // If we haven't skipped it lets load it into the UTSLAMProblem
@@ -206,14 +139,7 @@ void LoadStructurelessUTSLAMProblemMicrosoft(
     poses_by_id[frame_id] = pose;
   }
 
-  for (uint64_t frame_num = 0; frame_num < poses_by_id.size(); frame_num++) {
-    if (poses_by_id.find(frame_num) == poses_by_id.end()) {
-      LOG(ERROR) << "No pose found for frame num (after subtracting 1) "
-                 << frame_num;
-      return;
-    }
-    prob.robot_poses.emplace_back(poses_by_id[frame_num]);
-  }
+  SetRobotPosesInSlamProblem(poses_by_id, prob);
 
   // TODO make not manual
   float fx = 585;
@@ -234,6 +160,10 @@ void LoadStructurelessUTSLAMProblemTartan(
     vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob,
     Eigen::Matrix3f& camera_mat) {
   std::unordered_map<uint64_t, RobotPose> poses_by_id;
+
+  std::function<VisionFeatureTrack*(const uint64_t&)> feature_track_retriever =
+      [&](const uint64_t& feature_id) { return &(prob.tracks[feature_id]); };
+
   // Iterate over all files/folders in the dataset_path directory - i.e. over
   // all frames to load features
   for (const auto& entry :
@@ -242,7 +172,7 @@ void LoadStructurelessUTSLAMProblemTartan(
 
     // If it isn't a data file, skip it - we identify data files as
     // "regular files" with a .txt extension in the dataset_path directory
-    if (!fs::is_regular_file(entry) || file_extension != ".txt") {
+    if (!fs::is_regular_file(entry) || file_extension != kTxtExtension) {
       continue;
     }
     // If we haven't skipped it lets load it into the UTSLAMProblem
@@ -258,17 +188,7 @@ void LoadStructurelessUTSLAMProblemTartan(
     iss >> frame_id;
 
     // Read pixels and IDS from all other lines
-    std::string line;
-    while (std::getline(data_file_stream, line)) {
-      std::stringstream ss_feature(line);
-      uint64_t feature_id;
-      float x, y;
-      ss_feature >> feature_id >> x >> y;
-      VisionFeature feature(feature_id, frame_id, Eigen::Vector2f(x, y));
-      prob.tracks[feature_id].track.push_back(feature);
-      prob.tracks[feature_id].feature_idx =
-          feature_id;  // TODO dont reset this every time?
-    }
+    ReadFeaturesFromFile(data_file_stream, frame_id, feature_track_retriever);
   }
 
   // Sort all feature tracks so frame_idxs are in ascending order
@@ -285,6 +205,7 @@ void LoadStructurelessUTSLAMProblemTartan(
   }
 
   // Read in poses from all lines
+
   std::string line;
   uint64_t frame_id = 0;
   while (std::getline(pose_file_stream, line)) {
@@ -302,14 +223,7 @@ void LoadStructurelessUTSLAMProblemTartan(
     frame_id++;
   }
 
-  for (uint64_t frame_num = 0; frame_num < poses_by_id.size(); frame_num++) {
-    if (poses_by_id.find(frame_num) == poses_by_id.end()) {
-      LOG(ERROR) << "No pose found for frame num (after subtracting 1) "
-                 << frame_num;
-      return;
-    }
-    prob.robot_poses.emplace_back(poses_by_id[frame_num]);
-  }
+  SetRobotPosesInSlamProblem(poses_by_id, prob);
 
   // TODO make not manual
   float fx = 320;
@@ -329,70 +243,18 @@ void LoadStructuredUTSLAMProblem(
     const std::string& dataset_path,
     vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack>& prob,
     Eigen::Matrix3f& camera_mat) {
-  std::default_random_engine generator;
-  std::normal_distribution<double> distribution(0.0, 0.0);
-
   // Iterate over all files/folders in the dataset_path directory - i.e. over
   // all frames
   std::unordered_map<uint64_t, RobotPose> poses_by_id;
-  for (const auto& entry : fs::directory_iterator(fs::path(dataset_path))) {
-    const auto file_extension = entry.path().extension().string();
 
-    // If it isn't a data file, skip it - we identify data files as
-    // "regular files" with a .txt extension in the dataset_path directory
-    if (!fs::is_regular_file(entry) || file_extension != ".txt") {
-      continue;
-    }
+  std::function<VisionFeatureTrack*(const uint64_t&)> feature_track_retriever =
+      [&](const uint64_t& feature_id) {
+        return &(prob.tracks[feature_id].feature_track);
+      };
 
-    // If we haven't skipped it lets load it into the UTSLAMProblem
-    std::ifstream data_file_stream(entry.path());
-    if (data_file_stream.fail()) {
-      LOG(FATAL) << "Failed to load: " << entry.path()
-                 << " are you sure this a valid data file? ";
-      return;
-    }
-
-    std::string line;
-
-    // Read frame ID from 1st line
-    std::getline(data_file_stream, line);
-    std::stringstream ss_id(line);
-    uint64_t frame_id;
-    ss_id >> frame_id;
-
-    // Use 0 as the first index
-    // TODO We should maybe just fix our dataset so it is zero indexed instead
-    frame_id--;
-
-    // Read frame/robot pose from 2nd line
-    std::getline(data_file_stream, line);
-    std::stringstream ss_pose(line);
-    float x, y, z, qx, qy, qz, qw;
-    ss_pose >> x >> y >> z >> qx >> qy >> qz >> qw;
-    Eigen::Vector3f loc(x + distribution(generator),
-                        y + distribution(generator),
-                        z + distribution(generator));
-    Eigen::Quaternionf angle_q(qw, qx, qy, qz);
-    angle_q.normalize();
-    Eigen::AngleAxisf angle(angle_q);
-    RobotPose pose(frame_id, loc, angle);
-
-    poses_by_id[frame_id] = pose;
-
-    // Read pixels and IDS from all other lines
-    while (std::getline(data_file_stream, line)) {
-      std::stringstream ss_feature(line);
-      uint64_t feature_id;
-      float x, y;
-      ss_feature >> feature_id >> x >> y;
-      VisionFeature feature(feature_id, frame_id, Eigen::Vector2f(x, y));
-      prob.tracks[feature_id].feature_track.track.push_back(feature);
-      prob.tracks[feature_id].feature_track.feature_idx =
-          feature_id;  // TODO dont reset this every time
-
-      // TODO should the feature ID just be the ID in the map and not a part
-      // of the feature track/
-    }
+  if (!ReadAllFeatureFiles(
+          dataset_path, feature_track_retriever, poses_by_id)) {
+    return;
   }
 
   // Sort all feature tracks so frame_idxs are in ascending order
@@ -401,42 +263,22 @@ void LoadStructuredUTSLAMProblem(
               ft.second.feature_track.track.end());
   }
 
-  for (uint64_t frame_num = 0; frame_num < poses_by_id.size(); frame_num++) {
-    if (poses_by_id.find(frame_num) == poses_by_id.end()) {
-      LOG(ERROR) << "No pose found for frame num (after subtracting 1) "
-                 << frame_num;
-      return;
-    }
-    prob.robot_poses.emplace_back(poses_by_id[frame_num]);
-  }
+  SetRobotPosesInSlamProblem(poses_by_id, prob);
 
-  // Load features
-  std::ifstream feature_file_stream;
-  feature_file_stream.open(dataset_path + features_path);
-  if (feature_file_stream.fail()) {
-    LOG(FATAL) << " Failed to open 3D feature file.";
+  std::unordered_map<uint64_t, Eigen::Vector3d> feature_estimates_by_id;
+  if (!LoadInitialFeatureEstimates(dataset_path + kFeaturesPath,
+                                   feature_estimates_by_id)) {
     return;
   }
 
-  // Read in IDs and features from all lines
-  std::string line;
-  while (std::getline(feature_file_stream, line)) {
-    std::stringstream ss_feature(line);
-    int ID;
-    double x, y, z;
-    ss_feature >> ID >> x >> y >> z;
-
-    // See if we have the ID in the feature track map and populate its 3D
-    // point if we do
-    std::unordered_map<uint64_t, vslam_types::StructuredVisionFeatureTrack>::
-        const_iterator it = prob.tracks.find(ID);
-    if (it != prob.tracks.end()) {
-      prob.tracks[ID].point = Eigen::Vector3d(x, y, z);
+  for (const auto& feature_id_and_est : feature_estimates_by_id) {
+    if (prob.tracks.find(feature_id_and_est.first) != prob.tracks.end()) {
+      prob.tracks[feature_id_and_est.first].point = feature_id_and_est.second;
     }
   }
 
   // Load camera calibration matrix
-  vslam_io::LoadCameraCalibration(dataset_path + calibration_path, camera_mat);
+  vslam_io::LoadCameraCalibration(dataset_path + kCalibrationPath, camera_mat);
 
   return;
 }
@@ -462,6 +304,113 @@ void LoadCameraCalibration(const std::string& calibration_path,
   camera_mat(0, 2) = cx;
   camera_mat(1, 2) = cy;
   return;
+}
+
+void ReadFeaturesFromFile(std::ifstream& data_file_stream,
+                          const uint64_t& frame_id,
+                          std::function<VisionFeatureTrack*(const uint64_t&)>
+                              feature_track_retriever) {
+  std::string line;
+  // Read pixels and IDS from all other lines
+  while (std::getline(data_file_stream, line)) {
+    std::stringstream ss_feature(line);
+    uint64_t feature_id;
+    float x, y;
+    ss_feature >> feature_id >> x >> y;
+    VisionFeature feature(feature_id, frame_id, Eigen::Vector2f(x, y));
+    VisionFeatureTrack* feature_track = feature_track_retriever(feature_id);
+    feature_track->track.push_back(feature);
+    feature_track->feature_idx = feature_id;  // TODO dont reset this every time
+
+    // TODO should the feature ID just be the ID in the map and not a part of
+    // the feature track/
+  }
+}
+
+void ReadRobotPoseAndFeaturesFromFile(
+    std::ifstream& data_file_stream,
+    std::unordered_map<uint64_t, RobotPose>& poses_by_id,
+    std::function<vslam_types::VisionFeatureTrack*(const uint64_t&)>
+        feature_track_retriever) {
+  std::string line;
+
+  // Read frame ID from 1st line
+  std::getline(data_file_stream, line);
+  std::stringstream ss_id(line);
+  uint64_t frame_id;
+  ss_id >> frame_id;
+
+  // Use 0 as the first index
+  // TODO We should maybe just fix our dataset so it is zero indexed instead
+  frame_id--;
+
+  // Read frame/robot pose from 2nd line
+  std::getline(data_file_stream, line);
+  std::stringstream ss_pose(line);
+  float x, y, z, qx, qy, qz, qw;
+  ss_pose >> x >> y >> z >> qx >> qy >> qz >> qw;
+  Eigen::Vector3f loc(x, y, z);
+  Eigen::Quaternionf angle_q(qw, qx, qy, qz);
+  angle_q.normalize();
+  Eigen::AngleAxisf angle(angle_q);
+  RobotPose pose(frame_id, loc, angle);
+
+  poses_by_id[frame_id] = pose;
+
+  // Read pixels and IDS from all other
+  ReadFeaturesFromFile(data_file_stream, frame_id, feature_track_retriever);
+}
+
+bool ReadAllFeatureFiles(
+    const std::string& dataset_path,
+    std::function<vslam_types::VisionFeatureTrack*(const uint64_t&)>
+        feature_track_retriever,
+    std::unordered_map<uint64_t, vslam_types::RobotPose>& poses_by_id) {
+  for (const auto& entry : fs::directory_iterator(fs::path(dataset_path))) {
+    const auto file_extension = entry.path().extension().string();
+
+    // If it isn't a data file, skip it - we identify data files as
+    // "regular files" with a .txt extension in the dataset_path directory
+    if (!fs::is_regular_file(entry) || file_extension != kTxtExtension) {
+      continue;
+    }
+
+    // If we haven't skipped it lets load it into the UTSLAMProblem
+    std::ifstream data_file_stream(entry.path());
+    if (data_file_stream.fail()) {
+      LOG(FATAL) << "Failed to load: " << entry.path()
+                 << " are you sure this a valid data file? ";
+      return false;
+    }
+
+    ReadRobotPoseAndFeaturesFromFile(
+        data_file_stream, poses_by_id, feature_track_retriever);
+  }
+  return true;
+}
+
+bool LoadInitialFeatureEstimates(
+    const std::string& features_file,
+    std::unordered_map<uint64_t, Eigen::Vector3d>& feature_estimates_by_id) {
+  // Load features
+  std::ifstream feature_file_stream;
+  feature_file_stream.open(features_file);
+  if (feature_file_stream.fail()) {
+    LOG(FATAL) << " Failed to open 3D feature file.";
+    return false;
+  }
+
+  // Read in IDs and features from all lines
+  std::string line;
+  while (std::getline(feature_file_stream, line)) {
+    std::stringstream ss_feature(line);
+    int ID;
+    double x, y, z;
+    ss_feature >> ID >> x >> y >> z;
+    feature_estimates_by_id[ID] = Eigen::Vector3d(x, y, z);
+  }
+
+  return true;
 }
 
 }  // namespace vslam_io
