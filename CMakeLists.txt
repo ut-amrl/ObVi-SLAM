@@ -37,3 +37,6 @@ target_link_libraries(main ut_vslam ${LIBS})
 
 add_executable(structured_main src/structured_main.cpp)
 target_link_libraries(structured_main ut_vslam ${LIBS})
+
+add_executable(unproject_main src/unproject_main.cpp)
+target_link_libraries(unproject_main ut_vslam ${LIBS})
