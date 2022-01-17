@@ -170,6 +170,9 @@ void LoadCameraCalibrationData(
 void LoadCameraCalibrationMatrix(const std::string& calibration_path,
                                  Eigen::Matrix3f& camera_mat);
 
+void LoadCameraIntrinsics(const std::string& intrinsics_path,
+                          std::unordered_map<vslam_types::CameraId, vslam_types::CameraIntrinsics>& intrinsics);
+
 /**
  * Load the camera extrinsics (camera pose relative to robot base link) into
  * the given object.
@@ -182,6 +185,8 @@ void LoadCameraCalibrationMatrix(const std::string& calibration_path,
 void LoadCameraExtrinsics(const std::string& extrinsics_path,
                           vslam_types::CameraExtrinsics& extrinsics);
 
+void LoadCameraExtrinsics(const std::string& extrinsics_path,
+                          std::unordered_map<vslam_types::CameraId, vslam_types::CameraExtrinsics>& extrinsics);
 /**
  * Load the camera intrinsics and extrinsics for the tartan dataset.
  *

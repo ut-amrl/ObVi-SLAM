@@ -155,7 +155,7 @@ int main(int argc, char** argv) {
     // intrinsics: project 3D point from camera's baselink frame to 2D measurement
     CameraIntrinsics intrinsics;
     cout << "before load camera calibration" << endl;
-    LoadCameraCalibration(FLAGS_dataset_path + "calibration/camera_matrix.txt", intrinsics.camera_mat);
+    LoadCameraCalibrationMatrix(FLAGS_dataset_path + "calibration/camera_matrix.txt", intrinsics.camera_mat);
     // extrinsics: transform from the robot frame to the camera frame
     // TODO: double check this transformation (it takes an inverse in structured_main)
     CameraExtrinsics extrinsics{Vector3f(0, 0, 0), Quaternionf(0.5, 0.5, -0.5, 0.5)};

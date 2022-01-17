@@ -10,6 +10,7 @@
 
 namespace {
 const std::string kCalibrationPath = "calibration/camera_matrix.txt";
+const std::string kExtrinsicsPath = "calibration/extrinsics.txt";
 const std::string kFeaturesPath = "features/features.txt";
 const std::string kTxtExtension = ".txt";
 const vslam_types::CameraId kDefaultCameraId = 1;
@@ -327,6 +328,8 @@ void LoadCameraCalibrationData(
         camera_intrinsics_by_camera_id,
     std::unordered_map<vslam_types::CameraId, vslam_types::CameraExtrinsics>&
         camera_extrinsics_by_camera_id) {
+
+  /*
   Eigen::Matrix3f camera_mat;
 
   // Load camera calibration matrix
@@ -344,6 +347,7 @@ void LoadCameraCalibrationData(
 
   camera_intrinsics_by_camera_id = {{kDefaultCameraId, intrinsics}};
   camera_extrinsics_by_camera_id = {{kDefaultCameraId, extrinsics}};
+  */
 
   // TODO Taijing -- replace this function with proper code for multi-camera
   // intrinsics and extrinsics reading
@@ -382,17 +386,33 @@ void ReadFeaturesFromFile(std::ifstream& data_file_stream,
   // Read pixels and IDS from all other lines
   while (std::getline(data_file_stream, line)) {
     std::stringstream ss_feature(line);
+    std::vector<CameraId> camera_ids;
+    int camera_id;
+    std::vector<float> xs, ys;
     uint64_t feature_id;
     float x, y;
-    ss_feature >> feature_id >> x >> y;
-    VisionFeature feature(feature_id,
-                          frame_id,
-                          {{kDefaultCameraId, Eigen::Vector2f(x, y)}},
-                          kDefaultCameraId);
+    ss_feature >> feature_id;
+    ss_feature >> camera_id;
+    while ( !ss_feature.eof() ) {
+      ss_feature >> x >> y;
+      camera_ids.emplace_back(camera_id);
+      xs.emplace_back(x);
+      ys.emplace_back(y);
+      ss_feature >> camera_id;
+    }
+    CameraId primary_camera_id = kDefaultCameraId; // FIXME
     VisionFeatureTrack* feature_track = feature_track_retriever(feature_id);
-    feature_track->track.push_back(feature);
-    feature_track->feature_idx = feature_id;  // TODO dont reset this every time
-
+    for (size_t i = 0; i < camera_ids.size(); ++i) {
+      camera_id = camera_ids[i];
+      x = xs[i];
+      y = ys[i];
+      VisionFeature feature(feature_id,
+                            frame_id,
+                            {{camera_id, Eigen::Vector2f(x, y)}},
+                            primary_camera_id); 
+      feature_track->track.push_back(feature);
+      feature_track->feature_idx = feature_id;  // TODO dont reset this every time
+    }
     // TODO should the feature ID just be the ID in the map and not a part of
     // the feature track/
   }
@@ -471,6 +491,7 @@ bool LoadInitialFeatureEstimates(
     return false;
   }
 
+
   // Read in IDs and features from all lines
   std::string line;
   while (std::getline(feature_file_stream, line)) {
@@ -484,9 +505,73 @@ bool LoadInitialFeatureEstimates(
   return true;
 }
 
+void LoadCameraIntrinsics(const std::string& intrinsics_path,
+                          std::unordered_map<vslam_types::CameraId, vslam_types::CameraIntrinsics>& intrinsics) {
+  
+  std::ifstream intrinsics_file_stream;
+  intrinsics_file_stream.open(intrinsics_path);
+  if (intrinsics_file_stream.fail()) {
+    LOG(FATAL) << "LoadCameraIntrinsics() failed to load: " << intrinsics_path
+               << " are you sure this a valid path to the intrinsics file? ";
+    return;
+  }
+  std::string line;
+  CameraId camera_id;
+  float fx, fy, cx,cy;
+  while ( std::getline(intrinsics_file_stream, line) ) {
+    std::stringstream ss_intrinsics(line);
+    ss_intrinsics >> camera_id >> fx >> fy >> cx >> cy;
+    intrinsics[camera_id].camera_mat.setIdentity();
+    intrinsics[camera_id].camera_mat(0, 0) = fx;
+    intrinsics[camera_id].camera_mat(1, 1) = fy;
+    intrinsics[camera_id].camera_mat(0, 2) = cx;
+    intrinsics[camera_id].camera_mat(1, 2) = cy;
+  }
+  return;
+}
+
 void LoadCameraExtrinsics(const std::string& extrinsics_path,
                           vslam_types::CameraExtrinsics& extrinsics) {
   // TODO Taijing fill in :)
+  std::ifstream extrinsics_file_stream;
+  extrinsics_file_stream.open(extrinsics_path);
+  if (extrinsics_file_stream.fail()) {
+    LOG(FATAL) << "LoadCameraExtrinsics() failed to load: " << extrinsics_path
+               << " are you sure this a valid path to the extrinsics file? ";
+    return;
+  }
+  // TODO check extrinsics file format; 
+  // only read the first line for now; may need to change to read in multiple lines
+  // multi  cam: <cameraId> <x y z qx qy qz qw>
+  float camera_id, x, y, z, qx, qy, qz, qw;
+  std::string line;
+  std::getline(extrinsics_file_stream, line);
+  std::stringstream ss_extrinsics(line);
+  ss_extrinsics >> camera_id >> x >> y >> z >> qx >> qy >> qw;
+  extrinsics.translation = Eigen::Vector3f(x, y, z);
+  extrinsics.rotation    = Eigen::Quaternionf(qw, qx, qy, qz);
+  return;
+}
+
+void LoadCameraExtrinsics(const std::string& extrinsics_path,
+                          std::unordered_map<vslam_types::CameraId, vslam_types::CameraExtrinsics>& extrinsics) {
+   // TODO Taijing fill in :)
+  std::ifstream extrinsics_file_stream;
+  extrinsics_file_stream.open(extrinsics_path);
+  if (extrinsics_file_stream.fail()) {
+    LOG(FATAL) << "LoadCameraExtrinsics() failed to load: " << extrinsics_path
+               << " are you sure this a valid path to the extrinsics file? ";
+    return;
+  }
+  std::string line;
+  float camera_id, x, y, z, qx, qy,qz, qw;
+  while ( std::getline(extrinsics_file_stream, line) ) {
+    std::stringstream ss_extrinsics(line);
+    ss_extrinsics >> camera_id >> x >> y >> z >> qx >> qy >> qw;
+    extrinsics[camera_id].translation = Eigen::Vector3f(x, y, z);
+    extrinsics[camera_id].rotation    = Eigen::Quaternionf(qw, qx, qy, qz);
+  }
+  return;
 }
 
 }  // namespace vslam_io
