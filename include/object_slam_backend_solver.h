@@ -10,6 +10,31 @@
 namespace vslam_solver {
 
 /**
+ * Find ellipsoid estimates based only on bounding box observations and semantic
+ * priors. Does not try to optimize for robot poses.
+ *
+ * @param ut_slam_problem[in]               SLAM problem defining observations.
+ * @param solver_params[in]                 Params for solving the optimization
+ *                                          problem.
+ * @param callback_creator[in]              Callback creator.
+ * @param problem_params[in]                SLAM problem parameters.
+ * @param updated_ellipsoid_estimates[out]  Ellipsoid estimates after
+ *                                          optimization.
+ *
+ * @return True if the SLAM solver converged, false if it didn't.
+ */
+bool findEllipsoidEstimates(
+    vslam_types::UTObjectSLAMProblem<vslam_types::StructuredVisionFeatureTrack>
+        &ut_slam_problem,
+    const SLAMSolverOptimizerParams &solver_params,
+    const std::function<std::shared_ptr<ceres::IterationCallback>(
+        const vslam_types::UTObjectSLAMProblem<
+            vslam_types::StructuredVisionFeatureTrack> &,
+        std::vector<vslam_types::SLAMNode> *)> callback_creator,
+    const StructuredObjectSlamProblemParams &problem_params,
+    std::vector<vslam_types::EllipsoidEstimate> &updated_ellipsoid_estimates);
+
+/**
  * Create an ellipsoid node from a ellipsoid estimate data structure.
  *
  * @param ellipsoid_estimate Ellispoid estimate.
