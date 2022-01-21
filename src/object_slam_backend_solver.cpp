@@ -6,6 +6,73 @@
 
 namespace vslam_solver {
 
+bool findEllipsoidEstimates(
+    vslam_types::UTObjectSLAMProblem<vslam_types::StructuredVisionFeatureTrack>
+        &ut_slam_problem,
+    const SLAMSolverOptimizerParams &solver_params,
+    const std::function<std::shared_ptr<ceres::IterationCallback>(
+        const vslam_types::UTObjectSLAMProblem<
+            vslam_types::StructuredVisionFeatureTrack> &,
+        std::vector<vslam_types::SLAMNode> *)> callback_creator,
+    const StructuredObjectSlamProblemParams &problem_params,
+    std::vector<vslam_types::EllipsoidEstimate> &updated_ellipsoid_estimates) {
+  vslam_solver::ObjectSLAMSolver slam_solver(solver_params);
+
+  std::vector<vslam_types::RobotPose> robot_poses = ut_slam_problem.robot_poses;
+  updated_ellipsoid_estimates = ut_slam_problem.ellipsoid_estimates;
+
+  std::function<StructuredSlamProblemParams(
+      const StructuredObjectSlamProblemParams &)>
+      vision_params_extractor = [](const StructuredObjectSlamProblemParams
+                                       &structured_object_slam_params) {
+        return structured_object_slam_params.structured_slam_params;
+      };
+
+  std::function<void(const StructuredObjectSlamProblemParams &,
+                     vslam_types::UTObjectSLAMProblem<
+                         vslam_types::StructuredVisionFeatureTrack> &,
+                     ceres::Problem &,
+                     std::vector<vslam_types::SLAMNode> *)>
+      vision_constraint_adder =
+          std::bind(vslam_solver::AddStructuredVisionFactors,
+                    std::bind(vision_params_extractor, std::placeholders::_1),
+                    std::placeholders::_2,
+                    std::placeholders::_3,
+                    std::placeholders::_4);
+
+  std::function<void(const StructuredObjectSlamProblemParams &,
+                     vslam_types::UTObjectSLAMProblem<
+                         vslam_types::StructuredVisionFeatureTrack> &,
+                     ceres::Problem &,
+                     std::vector<vslam_types::SLAMNode> *,
+                     std::vector<vslam_types::EllipsoidEstimateNode> *)>
+      ellipsoid_constraint_creator =
+          [](const StructuredObjectSlamProblemParams &params_arg,
+             vslam_types::UTObjectSLAMProblem<
+                 vslam_types::StructuredVisionFeatureTrack> &slam_problem_arg,
+             ceres::Problem &ceres_problem_arg,
+             std::vector<vslam_types::SLAMNode> *slam_nodes_arg,
+             std::vector<vslam_types::EllipsoidEstimateNode>
+                 *ellipsoid_nodes_arg) {
+            return vslam_solver::AddEllipsoidFactors(
+                params_arg.object_slam_params,
+                slam_problem_arg,
+                ceres_problem_arg,
+                slam_nodes_arg,
+                ellipsoid_nodes_arg);
+          };
+
+  return slam_solver.SolveObjectSLAM(false,
+                                     true,
+                                     vision_constraint_adder,
+                                     ellipsoid_constraint_creator,
+                                     callback_creator,
+                                     problem_params,
+                                     ut_slam_problem,
+                                     robot_poses,
+                                     updated_ellipsoid_estimates);
+}
+
 vslam_types::EllipsoidEstimateNode FromEllipsoidEstimate(
     const vslam_types::EllipsoidEstimate &ellipsoid_estimate) {
   return vslam_types::EllipsoidEstimateNode(ellipsoid_estimate.loc,
