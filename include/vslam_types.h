@@ -290,6 +290,12 @@ struct SLAMNode {
  */
 struct EllipsoidEstimateNode {
   /**
+   * Index of the ellipsoid. Indices should be consecutive and index should
+   * match index of the ellipsoid in the list..
+   */
+  uint64_t ellipsoid_idx;
+
+  /**
    * 9DOF parameters: tx, ty, tx, angle_x, angle_y, angle_z, dim_x, dim_y,
    * dim_z. Note that angle_* are the coordinates in scaled angle-axis form.
    */
@@ -341,6 +347,11 @@ struct EllipsoidEstimateNode {
  */
 struct ObjectImageBoundingBoxDetection {
   /**
+   * Index of the ellipsoid that this bounding box corresponds to.
+   */
+  uint64_t ellipsoid_idx;
+
+  /**
    * Pixel coordinates of the two opposite corners that define the bounding box
    * of an object within an image. The first of the pair should have the smaller
    * x and y values.
@@ -359,6 +370,11 @@ struct ObjectImageBoundingBoxDetection {
    * Index of the frame/camera/robot_pose this bounding box was acquired at.
    */
   uint64_t frame_idx;
+
+  /**
+   * Id of the camera that captured this boundign box.
+   */
+  CameraId camera_id;
 };
 
 /**
@@ -451,7 +467,8 @@ struct UTObjectSLAMProblem : public UTSLAMProblem<FeatureTrackType> {
   std::vector<ObjectImageBoundingBoxDetection> bounding_boxes;
 
   /**
-   * Estimates of the ellipsoids for objects in the scene.
+   * Estimates of the ellipsoids for objects in the scene. Order should match
+   * the ids for each ellipsoid.
    */
   std::vector<EllipsoidEstimate> ellipsoid_estimates;
 

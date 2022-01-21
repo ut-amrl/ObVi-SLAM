@@ -29,7 +29,10 @@ add_library(ut_vslam src/vslam_io.cpp
             src/slam_backend_solver.cpp
             src/pose_viewer.cpp
             src/vslam_util.cpp
-            src/shape_prior_factor.cpp)
+            src/shape_prior_factor.cpp
+            src/bounding_box_factor.cpp
+            src/object_slam_backend_solver.cpp
+        )
 
 target_compile_features(ut_vslam PRIVATE cxx_std_17) 
 

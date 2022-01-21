@@ -116,7 +116,7 @@ class BoundingBoxFactor {
    * @return Ceres cost function.
    */
   static ceres::AutoDiffCostFunction<BoundingBoxFactor, 4, 9, 6>
-      *createUsingSemanticClassMapping(
+      *createBoundingBoxFactor(
           const vslam_types::ObjectImageBoundingBoxDetection &object_detection,
           const vslam_types::CameraIntrinsics &camera_intrinsics,
           const vslam_types::CameraExtrinsics &camera_extrinsics,
