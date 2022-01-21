@@ -1,6 +1,7 @@
 #include <bounding_box_factor.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
+#include <object_slam_backend_solver.h>
 #include <shape_prior_factor.h>
 
 int main(int argc, char **argv) {
