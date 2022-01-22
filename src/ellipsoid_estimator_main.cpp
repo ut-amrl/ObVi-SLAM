@@ -3,6 +3,7 @@
 #include <glog/logging.h>
 #include <object_slam_backend_solver.h>
 #include <shape_prior_factor.h>
+#include <synthetic_problem/synthetic_problem_generator.h>
 
 int main(int argc, char **argv) {
   google::InitGoogleLogging(argv[0]);

@@ -78,7 +78,8 @@ vslam_types::EllipsoidEstimateNode FromEllipsoidEstimate(
   return vslam_types::EllipsoidEstimateNode(ellipsoid_estimate.loc,
                                             ellipsoid_estimate.orientation,
                                             ellipsoid_estimate.ellipsoid_dim,
-                                            ellipsoid_estimate.semantic_class);
+                                            ellipsoid_estimate.semantic_class,
+                                            ellipsoid_estimate.ellipsoid_idx);
 }
 
 vslam_types::EllipsoidEstimate FromEllipsoidNode(
@@ -92,14 +93,17 @@ vslam_types::EllipsoidEstimate FromEllipsoidNode(
       ellipsoid_node.pose[0], ellipsoid_node.pose[1], ellipsoid_node.pose[2]);
   Eigen::Vector3f dim(
       ellipsoid_node.pose[6], ellipsoid_node.pose[7], ellipsoid_node.pose[8]);
-  return vslam_types::EllipsoidEstimate(
-      transl, rotation_aa, dim, ellipsoid_node.semantic_class);
+  return vslam_types::EllipsoidEstimate(transl,
+                                        rotation_aa,
+                                        dim,
+                                        ellipsoid_node.semantic_class,
+                                        ellipsoid_node.ellipsoid_idx);
 }
 
 void EllipsoidEstimatesToNodes(
-    const std::vector<vslam_types::EllipsoidEstimate> &ellispoid_estimates,
+    const std::vector<vslam_types::EllipsoidEstimate> &ellipsoid_estimates,
     std::vector<vslam_types::EllipsoidEstimateNode> &nodes) {
-  for (const vslam_types::EllipsoidEstimate &estimate : ellispoid_estimates) {
+  for (const vslam_types::EllipsoidEstimate &estimate : ellipsoid_estimates) {
     nodes.emplace_back(FromEllipsoidEstimate(estimate));
   }
 }
