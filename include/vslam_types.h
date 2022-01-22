@@ -212,6 +212,11 @@ struct RobotPose {
  */
 struct EllipsoidEstimate {
   /**
+   * Index of the ellipsoid. Indices should be consecutive and index should
+   * match index of the ellipsoid in the list.
+   */
+  uint64_t ellipsoid_idx;
+  /**
    * Location of the ellipsoid's center.
    */
   Eigen::Vector3f loc;
@@ -237,11 +242,13 @@ struct EllipsoidEstimate {
   EllipsoidEstimate(const Eigen::Vector3f& loc,
                     const Eigen::AngleAxisf& orientation,
                     const Eigen::Vector3f& ellipsoid_dim,
-                    const std::string& semantic_class)
+                    const std::string& semantic_class,
+                    const uint64_t& ellipsoid_idx)
       : loc(loc),
         orientation(orientation),
         ellipsoid_dim(ellipsoid_dim),
-        semantic_class(semantic_class) {}
+        semantic_class(semantic_class),
+        ellipsoid_idx(ellipsoid_idx) {}
 };
 
 /**
@@ -316,19 +323,22 @@ struct EllipsoidEstimateNode {
   EllipsoidEstimateNode() = default;
 
   /**
-   * Constructor that takes in translation, rotation, and dimension details for
-   * the node.
+   * Constructor that takes in translation, rotation, dimension, semantic class
+   * and ellipsoid index details for the node.
    *
    * @param pose_transl     Translation of the node.
    * @param pose_rot        Rotation of the node.
    * @param ellipsoid_dim   Dimension of the ellipsoid (x length, y length,
    *                        z length).
+   * @param semantic_class  Semantic class for the ellipsoid.
+   * @param ellipsoid_idx   Ellipsoid index.
    */
   EllipsoidEstimateNode(const Eigen::Vector3f& pose_transl,
                         const Eigen::AngleAxisf& pose_rot,
                         const Eigen::Vector3f& ellipsoid_dim,
-                        const std::string& semantic_class)
-      : semantic_class(semantic_class) {
+                        const std::string& semantic_class,
+                        const uint64_t& ellipsoid_idx)
+      : semantic_class(semantic_class), ellipsoid_idx(ellipsoid_idx) {
     pose[0] = pose_transl.x();
     pose[1] = pose_transl.y();
     pose[2] = pose_transl.z();

@@ -58,6 +58,7 @@ vslam_types::RobotPose getPose2RelativeToPose1(
   vslam_types::RobotPose rel_pose;
   rel_pose.loc = pose_2_rel_to_1.translation();
   rel_pose.angle = Eigen::AngleAxisf(pose_2_rel_to_1.linear());
+  rel_pose.frame_idx = pose_2.frame_idx;
 
   return rel_pose;
 }
@@ -69,6 +70,21 @@ Eigen::Vector3d getPositionRelativeToPose(const vslam_types::RobotPose &pose_1,
   Eigen::Vector3d transformed = pose_1_mat.inverse().cast<double>() * position;
 
   return transformed;
+}
+
+vslam_types::RobotPose combinePoses(const vslam_types::RobotPose &pose_1,
+                                    const vslam_types::RobotPose &pose_2) {
+  Eigen::Affine3f pose_1_mat = pose_1.RobotToWorldTF();
+  Eigen::Affine3f pose_2_mat = pose_2.RobotToWorldTF();
+
+  Eigen::Affine3f pose_2_rel_to_world_mat = pose_1_mat * pose_2_mat;
+
+  vslam_types::RobotPose pose_2_world;
+  pose_2_world.loc = pose_2_rel_to_world_mat.translation();
+  pose_2_world.angle = Eigen::AngleAxisf(pose_2_rel_to_world_mat.linear());
+  pose_2_world.frame_idx = pose_2.frame_idx;
+
+  return pose_2_world;
 }
 
 }  // namespace vslam_util

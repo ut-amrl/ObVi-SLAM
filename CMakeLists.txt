@@ -12,36 +12,38 @@ find_package(OpenCV 4.0 REQUIRED)
 find_package(Pangolin REQUIRED)
 
 include_directories(include
-                    ${CERES_INCLUDE_DIRS}
-                    ${OpenCV_INCLUDE_DIRS}
-                    ${Pangolin_INCLUDE_DIRS})
+        ${CERES_INCLUDE_DIRS}
+        ${OpenCV_INCLUDE_DIRS}
+        ${Pangolin_INCLUDE_DIRS})
 
 option(TESTING "Build tests" ON)
 
 set(LIBS stdc++fs
-    glog
-    gflags
-    amrl_shared_lib
-    ${CERES_LIBRARIES}
-    ${OpenCV_LIBS}
-    ${Pangolin_LIBRARIES})
+        glog
+        gflags
+        amrl_shared_lib
+        ${CERES_LIBRARIES}
+        ${OpenCV_LIBS}
+        ${Pangolin_LIBRARIES})
 
 include_directories(src/shared)
 add_subdirectory(src/shared)
 include_directories(src)
 
 add_library(ut_vslam src/vslam_io.cpp
-            src/pairwise_2d_feature_cost_functor.cpp
-            src/reprojection_cost_functor.cpp
-            src/slam_backend_solver.cpp
-            src/pose_viewer.cpp
-            src/vslam_util.cpp
-            src/shape_prior_factor.cpp
-            src/bounding_box_factor.cpp
-            src/object_slam_backend_solver.cpp
+        src/pairwise_2d_feature_cost_functor.cpp
+        src/reprojection_cost_functor.cpp
+        src/slam_backend_solver.cpp
+        src/pose_viewer.cpp
+        src/vslam_util.cpp
+        src/shape_prior_factor.cpp
+        src/bounding_box_factor.cpp
+        src/object_slam_backend_solver.cpp
+        src/synthetic_problem/noise_addition_utils.cpp
+        src/synthetic_problem/synthetic_problem_generator.cpp
         )
 
-target_compile_features(ut_vslam PRIVATE cxx_std_17) 
+target_compile_features(ut_vslam PRIVATE cxx_std_17)
 
 add_executable(main src/main.cpp)
 target_link_libraries(main ut_vslam ${LIBS})

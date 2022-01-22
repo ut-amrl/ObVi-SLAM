@@ -294,6 +294,41 @@ vslam_types::RobotPose getPose2RelativeToPose1(
  */
 Eigen::Vector3d getPositionRelativeToPose(const vslam_types::RobotPose& pose_1,
                                           const Eigen::Vector3d& position);
+
+/**
+ * Combine the given poses. I.e. if pose 1 is in frame A and pose 2 is in the
+ * frame of pose 1, then this will return pose 2 relative to frame A.
+ *
+ * Uses the frame id for pose 2 in constructing the new pose.
+ *
+ * @param pose_1    Pose 1 -- pose 2 is relative to this.
+ * @param pose_2    Pose 2 -- relative to pose 1, but we want to get it in the
+ * same frame as pose 1.
+ *
+ * @return Relative transform that provides the location of pose 2 relative to
+ * the frame that pose 1 is in.
+ */
+vslam_types::RobotPose combinePoses(const vslam_types::RobotPose& pose_1,
+                                    const vslam_types::RobotPose& pose_2);
+
+/**
+ * Create a diagonal covariance matrix from a vector of standard deviations.
+ *
+ * @tparam N Number of components in the vector.
+ *
+ * @param std_devs Standard deviations for each component.
+ *
+ * @return Covariance matrix created using the standard deviations to form the
+ * diagonal.
+ */
+template <int N>
+Eigen::Matrix<float, N, N> createDiagCovFromStdDevs(
+    const Eigen::Matrix<float, N, 1>& std_devs) {
+  Eigen::Matrix<float, N, 1> variances = std_devs.array().pow(2);
+
+  Eigen::DiagonalMatrix<float, N> cov(variances);
+  return cov;
+}
 }  // namespace vslam_util
 
 #endif  // UT_VSLAM_SLAM_UTIL_H

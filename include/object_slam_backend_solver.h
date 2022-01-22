@@ -64,7 +64,7 @@ vslam_types::EllipsoidEstimate FromEllipsoidNode(
  *                                  each ellipsoid estimate.
  */
 void EllipsoidEstimatesToNodes(
-    const std::vector<vslam_types::EllipsoidEstimate> &ellispoid_estimates,
+    const std::vector<vslam_types::EllipsoidEstimate> &ellipsoid_estimates,
     std::vector<vslam_types::EllipsoidEstimateNode> &nodes);
 
 /**
