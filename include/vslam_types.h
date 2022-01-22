@@ -14,6 +14,7 @@
 namespace vslam_types {
 
 typedef uint64_t CameraId;
+typedef uint64_t FeatureId;
 
 /**
  * Threshold for a small angle when creating a axis-angle representation.

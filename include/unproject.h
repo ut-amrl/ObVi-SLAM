@@ -28,7 +28,7 @@ Vector3f Unproject(const Vector2f& image_feature,
     camera_to_robot = camera_to_robot.inverse();
     Vector3f point_in_robot = camera_to_robot * point_in_cam;
     // Vector3f point_in_robot = PoseArrayToAffine(&angle, &extrinsics.translation).inverse() * point_in_cam;
-    Vector3f point_in_world = robot_pose.RobotToWorldTF() * point_in_world;
+    Vector3f point_in_world = robot_pose.RobotToWorldTF() * point_in_robot;
     if (0) {
         printf("measurement: %.2f,%.2f\n", image_feature.x(), image_feature.y());
         printf("point_in_cam: %.2f,%.2f,%.2f\n", point_in_cam.x(), point_in_cam.y(), point_in_cam.z());
@@ -57,29 +57,6 @@ void Unproject(const Vector2f& image_feature,
     Vector3f point_in_world = robot_pose.RobotToWorldTF() * point_in_world;
     point = point_in_world;
 }
-
-void Unproject(const vector<Vector2f>& image_features,
-               const CameraIntrinsics& intrinsics,
-               const CameraExtrinsics& extrinsics,
-               const vector<RobotPose>& robot_poses,
-               const vector<float>& depths,
-               vector<Vector3f>* points_ptr) {
-    vector<Vector3f>& points = *points_ptr;
-    if (image_features.size() != robot_poses.size() 
-        || image_features.size() != depths.size()
-        || robot_poses.size() != depths.size()) {
-        LOG(FATAL) << "Size mismatch! "
-            << "image size = " << image_features.size() << ", "
-            << "pose size = " << robot_poses.size() << ", "
-            << "depth size = " << depths.size();
-        return;
-    }
-    for (size_t i = 0; i < image_features.size(); ++i) {
-        points[i] = Unproject(image_features[i], intrinsics, extrinsics, robot_poses[i], depths[i]);
-    }
-    
-}
-
 
 } // namespace unproject
 

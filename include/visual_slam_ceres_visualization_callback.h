@@ -82,8 +82,9 @@ class VisualSlamCeresVisualizationCallback : public ceres::IterationCallback {
           const TrackType &)> &feature_retriever,
       const std::vector<vslam_types::RobotPose> &gt_robot_poses,
       std::vector<vslam_types::SLAMNode> *slam_nodes) {
-    return std::make_shared<VisualSlamCeresVisualizationCallback<TrackType>>(
-        slam_problem, feature_retriever, gt_robot_poses, slam_nodes);
+    return nullptr;
+    // return std::make_shared<VisualSlamCeresVisualizationCallback<TrackType>>(
+    //     slam_problem, feature_retriever, gt_robot_poses, slam_nodes);
   }
 
  private:
