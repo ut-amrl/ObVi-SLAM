@@ -16,12 +16,19 @@ include_directories(include
                     ${OpenCV_INCLUDE_DIRS}
                     ${Pangolin_INCLUDE_DIRS})
 
+option(TESTING "Build tests" ON)
+
 set(LIBS stdc++fs
     glog
     gflags
+    amrl_shared_lib
     ${CERES_LIBRARIES}
     ${OpenCV_LIBS}
     ${Pangolin_LIBRARIES})
+
+include_directories(src/shared)
+add_subdirectory(src/shared)
+include_directories(src)
 
 add_library(ut_vslam src/vslam_io.cpp
             src/pairwise_2d_feature_cost_functor.cpp
