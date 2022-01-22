@@ -9,7 +9,7 @@
 #include <random>
 
 namespace {
-const std::string kCalibrationPath = "calibration/camera_matrix.txt";
+const std::string kIntrinsicsPath = "calibration/camera_matrix.txt";
 const std::string kExtrinsicsPath = "calibration/extrinsics.txt";
 const std::string kFeaturesPath = "features/features.txt";
 const std::string kTxtExtension = ".txt";
@@ -323,7 +323,7 @@ void LoadStructuredUTSLAMProblem(
 }
 
 void LoadCameraCalibrationData(
-    const std::string& calibration_directory_path,
+    const std::string& dataset_path,
     std::unordered_map<vslam_types::CameraId, vslam_types::CameraIntrinsics>&
         camera_intrinsics_by_camera_id,
     std::unordered_map<vslam_types::CameraId, vslam_types::CameraExtrinsics>&
@@ -334,7 +334,7 @@ void LoadCameraCalibrationData(
 
   // Load camera calibration matrix
   vslam_io::LoadCameraCalibrationMatrix(
-      calibration_directory_path + kCalibrationPath, camera_mat);
+      calibration_directory_path + kIntrinsicsPath, camera_mat);
 
   vslam_types::CameraIntrinsics intrinsics{camera_mat};
   // [0 -1 0; 0 0 -1; 1 0 0] is the rotation of the camera matrix from a classic
@@ -351,6 +351,8 @@ void LoadCameraCalibrationData(
 
   // TODO Taijing -- replace this function with proper code for multi-camera
   // intrinsics and extrinsics reading
+  LoadCameraIntrinsics(dataset_path + kIntrinsicsPath, camera_intrinsics_by_camera_id);
+  LoadCameraExtrinsics(dataset_path + kExtrinsicsPath, camera_extrinsics_by_camera_id);
 }
 
 void LoadCameraCalibrationMatrix(const std::string& calibration_path,
