@@ -205,6 +205,10 @@ bool ObjectSLAMSolver::SolveObjectSLAM(
   std::vector<vslam_types::SLAMNode> slam_nodes;
   RobotPosesToSLAMNodes(updated_robot_poses, slam_nodes);
 
+  for (int i = 0; i < slam_nodes.size(); i++) {
+    problem.AddParameterBlock(slam_nodes[i].pose, 6);
+  }
+
   std::vector<vslam_types::EllipsoidEstimateNode> ellispoid_nodes;
   EllipsoidEstimatesToNodes(updated_ellipsoid_estimates, ellispoid_nodes);
 

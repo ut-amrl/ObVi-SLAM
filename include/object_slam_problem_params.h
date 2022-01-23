@@ -1,8 +1,8 @@
 #ifndef UT_VSLAM_OBJECT_SLAM_PROBLEM_PARAMS_H
 #define UT_VSLAM_OBJECT_SLAM_PROBLEM_PARAMS_H
 
-#include <unordered_map>
 #include <eigen3/Eigen/Dense>
+#include <unordered_map>
 
 namespace vslam_solver {
 
