@@ -78,7 +78,6 @@ bool SLAMSolver::SolveSLAM(
     options.update_state_every_iteration = true;
   }
 
-  std::cout << "start ceres solving" << std::endl;
   ceres::Solve(options, &problem, &summary);
   std::cout << summary.FullReport() << "\n";
 

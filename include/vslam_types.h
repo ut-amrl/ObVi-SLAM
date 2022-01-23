@@ -288,7 +288,7 @@ struct UTSLAMProblem {
    */
   std::unordered_map<uint64_t, FeatureTrackType> tracks;
   /**
-   * TODO: I think it'd be good to either convert this to a map or make sure
+   * TODO: I think it'd be good to either convert this to a map or make R
    *  the poses are stored in order of their indices so we can just do
    *  robot_poses[index] to get the pose
    * Robot/frame poses of the entire trajectory

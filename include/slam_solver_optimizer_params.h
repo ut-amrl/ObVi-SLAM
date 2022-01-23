@@ -14,7 +14,7 @@ struct SLAMSolverOptimizerParams {
   /**
    * Maximum number of iterations to run the optimizer for.
    */
-  int max_iterations = 50;
+  int max_iterations = 500;
 
   /**
    * Minimizer type for ceres optimization.

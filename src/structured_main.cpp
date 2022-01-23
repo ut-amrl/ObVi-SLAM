@@ -120,7 +120,6 @@ int main(int argc, char **argv) {
 
   vslam_solver::StructuredSlamProblemParams problem_params;
 
-	cout << "before solve slam" << endl;
   solver.SolveSLAM<vslam_types::StructuredVisionFeatureTrack,
                    vslam_solver::StructuredSlamProblemParams>(
       structured_vision_constraint_adder,
@@ -128,11 +127,10 @@ int main(int argc, char **argv) {
       problem_params,
       prob,
       adjusted_to_zero_answer);
-  cout << "after solve slam" << endl;
 
   // Print poses to terminal for display
   for (const auto &pose : adjusted_to_zero_answer) {
-    cout << pose << endl;
+    // cout << pose << endl;
   }
 
   if (FLAGS_save_poses) {
