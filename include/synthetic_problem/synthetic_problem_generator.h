@@ -25,18 +25,6 @@ struct EllipsoidVisibilityParams {
    * This should be considered before adding noise and also after.
    */
   int minimum_bounding_box_size_pixels = 20;
-
-  /**
-   * Maximum pixel in the x direction. Should derive this from camera
-   * intrinsics.
-   */
-  int max_pixel_x;
-
-  /**
-   * Maximum pixel in the x direction. Should derive this from camera
-   * intrinsics.
-   */
-  int max_pixel_y;
 };
 
 /**
@@ -48,13 +36,16 @@ struct EllipsoidVisibilityParams {
  * @param ellipsoid_visibility_params   Ellipsoid visibility parameters
  *                                      specifying how big the bounding box
  *                                      must be.
+ * @param camera_intrinsics             Camera intrinsics from which to derive
+ *                                      frame size from.
  *
  * @return True if the bounding box satisfies visibility params (big enough and
  * in frame), false otherwise.
  */
 bool doesBoundingBoxSatisfyVisibilityParams(
     const Eigen::Vector4f &bounding_box,
-    const EllipsoidVisibilityParams &ellipsoid_visibility_params);
+    const EllipsoidVisibilityParams &ellipsoid_visibility_params,
+    const vslam_types::CameraIntrinsics &camera_intrinsics);
 
 /**
  * Get the ground truth bounding box from the ground truth robot pose and
@@ -183,7 +174,7 @@ createEllipsoidOnlySyntheticProblemFromEllipsoidsAndCameraPoses(
     const std::unordered_map<vslam_types::CameraId,
                              vslam_types::CameraExtrinsics> &extrinsics,
     const std::unordered_map<std::string,
-                             std::pair<Eigen::Vector3f, Eigen::Matrix3f>>
+                             std::pair<Eigen::Vector3f, Eigen::Vector3f>>
         &shape_mean_and_std_devs_by_semantic_class,
     const Eigen::Vector4f &bounding_box_std_devs,
     const Eigen::Matrix<float, 6, 1> &ellipsoid_pose_estimate_noise,

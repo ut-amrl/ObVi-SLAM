@@ -16,7 +16,6 @@ Eigen::Vector4f getGroundTruthBoundingBoxObservation(
     const vslam_types::EllipsoidEstimate &gt_ellipsoid,
     const vslam_types::CameraIntrinsics &cam_intrinsics,
     const vslam_types::CameraExtrinsics &cam_extrinsics) {
-
   // TODO make more generic 3d pose rep
   vslam_types::RobotPose extrinsics_pose(
       gt_robot_pose.frame_idx,
@@ -57,25 +56,31 @@ Eigen::Vector4f getGroundTruthBoundingBoxObservation(
 
 bool doesBoundingBoxSatisfyVisibilityParams(
     const Eigen::Vector4f &bounding_box,
-    const EllipsoidVisibilityParams &ellipsoid_visibility_params) {
+    const EllipsoidVisibilityParams &ellipsoid_visibility_params,
+    const CameraIntrinsics &camera_intrinsics) {
   float min_x = bounding_box(0);
   float max_x = bounding_box(1);
   float min_y = bounding_box(2);
   float max_y = bounding_box(3);
 
-  bool big_enough = (((max_x - min_x) >
-           ellipsoid_visibility_params.minimum_bounding_box_size_pixels) &&
-          ((max_y - min_y) >
-           ellipsoid_visibility_params.minimum_bounding_box_size_pixels));
+  bool big_enough =
+      (((max_x - min_x) >
+        ellipsoid_visibility_params.minimum_bounding_box_size_pixels) &&
+       ((max_y - min_y) >
+        ellipsoid_visibility_params.minimum_bounding_box_size_pixels));
+
+  // TODO is this right?
+  float max_pixel_x = 2 * camera_intrinsics.camera_mat(0, 2);
+  float max_pixel_y = 2 * camera_intrinsics.camera_mat(1, 2);
 
   bool in_frame = min_x >= 0;
   in_frame = in_frame && (max_x >= 0);
-  in_frame = in_frame && (min_x <= ellipsoid_visibility_params.max_pixel_x);
-  in_frame = in_frame && (max_x <= ellipsoid_visibility_params.max_pixel_x);
+  in_frame = in_frame && (min_x <= max_pixel_x);
+  in_frame = in_frame && (max_x <= max_pixel_x);
   in_frame = in_frame && (min_y >= 0);
   in_frame = in_frame && (max_y >= 0);
-  in_frame = in_frame && (min_y <= ellipsoid_visibility_params.max_pixel_y);
-  in_frame = in_frame && (max_y <= ellipsoid_visibility_params.max_pixel_y);
+  in_frame = in_frame && (min_y <= max_pixel_y);
+  in_frame = in_frame && (max_y <= max_pixel_y);
 
   return in_frame && big_enough;
 }
@@ -92,7 +97,6 @@ generateBoundingBoxDetectionsFromGroundTruthEllipsoidsAndPoses(
     const double &bounding_box_detection_success_rate,
     const EllipsoidVisibilityParams &ellipsoid_visibility_params,
     util_random::Random &random_gen) {
-
   std::vector<vslam_types::ObjectImageBoundingBoxDetection>
       detected_bounding_boxes;
   for (uint64_t robot_pose_num = 0;
@@ -123,7 +127,8 @@ generateBoundingBoxDetectionsFromGroundTruthEllipsoidsAndPoses(
                                                  curr_cam_extrinsics);
         if (!doesBoundingBoxSatisfyVisibilityParams(
                 noiseless_predicted_bounding_box,
-                ellipsoid_visibility_params)) {
+                ellipsoid_visibility_params,
+                curr_cam_intrinsics)) {
           continue;
         }
 
@@ -131,8 +136,9 @@ generateBoundingBoxDetectionsFromGroundTruthEllipsoidsAndPoses(
             addNoiseToVectorDiagonalCov(noiseless_predicted_bounding_box,
                                         bounding_box_std_devs,
                                         random_gen);
-        if (!doesBoundingBoxSatisfyVisibilityParams(
-                noisy_bounding_box, ellipsoid_visibility_params)) {
+        if (!doesBoundingBoxSatisfyVisibilityParams(noisy_bounding_box,
+                                                    ellipsoid_visibility_params,
+                                                    curr_cam_intrinsics)) {
           continue;
         }
 
