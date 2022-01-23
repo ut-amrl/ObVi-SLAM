@@ -41,6 +41,7 @@ add_library(ut_vslam src/vslam_io.cpp
         src/object_slam_backend_solver.cpp
         src/synthetic_problem/noise_addition_utils.cpp
         src/synthetic_problem/synthetic_problem_generator.cpp
+        src/synthetic_problem/synthetic_problem_construction_utils.cpp
         )
 
 target_compile_features(ut_vslam PRIVATE cxx_std_17)
