@@ -19,7 +19,7 @@ Vector3f Unproject(const Vector2f& image_feature,
                    const CameraExtrinsics& extrinsics,
                    const RobotPose& robot_pose,
                    const float depth) {
-	Vector3f point_in_cam  = intrinsics.camera_mat.inverse() * Vector3f(image_feature.x(), image_feature.y(), depth);
+	Vector3f point_in_cam  = intrinsics.camera_mat.inverse() * (Vector3f(image_feature.x(), image_feature.y(), 1) * depth);
 	AngleAxisf angle(extrinsics.rotation);
 	Affine3f camera_to_robot = Affine3f::Identity();
 	camera_to_robot.translate(extrinsics.translation);
