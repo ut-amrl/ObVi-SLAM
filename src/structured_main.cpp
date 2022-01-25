@@ -39,6 +39,7 @@ int main(int argc, char **argv) {
 
   // Load structured slam problem and intrinsic calibration K
   vslam_io::LoadStructuredUTSLAMProblem(FLAGS_dataset_path, prob);
+  cout << "finish loading problem" << endl;
 
   // Solve
   vslam_solver::SLAMSolverOptimizerParams optimizer_params;

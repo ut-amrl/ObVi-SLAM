@@ -175,7 +175,7 @@ void AddStructuredVisionFactors(
                     camera_id_and_pixel.first),
                 camera_id_and_pixel.second,
                 solver_optimization_params.reprojection_error_std_dev),
-            nullptr,
+            new ceres::HuberLoss(1.0),
             pose_block,
             feature_position_block);
       }
