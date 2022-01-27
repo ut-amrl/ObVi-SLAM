@@ -23,8 +23,8 @@ Vector3f Unproject(const Vector2f& image_feature,
     point_in_cam = depth * point_in_cam;
     AngleAxisf angle(extrinsics.rotation);
     Affine3f camera_to_robot = Affine3f::Identity();
-    camera_to_robot.rotate(extrinsics.rotation);
     camera_to_robot.translate(extrinsics.translation);
+    camera_to_robot.rotate(extrinsics.rotation);
     camera_to_robot = camera_to_robot.inverse();
     Vector3f point_in_robot = camera_to_robot * point_in_cam;
     // Vector3f point_in_robot = PoseArrayToAffine(&angle, &extrinsics.translation).inverse() * point_in_cam;
