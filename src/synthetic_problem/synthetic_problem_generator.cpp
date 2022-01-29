@@ -2,6 +2,7 @@
 // Created by amanda on 1/21/22.
 //
 
+#include <glog/logging.h>
 #include <object_slam_problem_params.h>
 #include <synthetic_problem/noise_addition_utils.h>
 #include <synthetic_problem/synthetic_problem_generator.h>
@@ -23,31 +24,58 @@ Eigen::Vector4f getGroundTruthBoundingBoxObservation(
       Eigen::AngleAxisf(cam_extrinsics.rotation));
   vslam_types::RobotPose cam_pose_in_world =
       vslam_util::combinePoses(gt_robot_pose, extrinsics_pose);
+  LOG(INFO) << "Cam transl in world "
+            << cam_pose_in_world.RobotToWorldTF().translation();
+  LOG(INFO) << "Cam rot mat in world "
+            << cam_pose_in_world.RobotToWorldTF().linear();
   vslam_types::RobotPose ellipsoid_pose_in_world(
       gt_robot_pose.frame_idx, gt_ellipsoid.loc, gt_ellipsoid.orientation);
 
-  vslam_types::RobotPose ellipsoid_pose_rel_cam =
-      vslam_util::getPose2RelativeToPose1(cam_pose_in_world,
-                                          ellipsoid_pose_in_world);
-  Eigen::AffineCompact3f relative_ellipsoid_pose =
+    vslam_types::RobotPose ellipsoid_pose_rel_cam =
+        vslam_util::getPose2RelativeToPose1(cam_pose_in_world,
+                                            ellipsoid_pose_in_world);
+
+//  vslam_types::RobotPose cam_pose_rel_ellispoid =
+//      vslam_util::getPose2RelativeToPose1(ellipsoid_pose_in_world,
+//                                          cam_pose_in_world);
+
+  //  LOG(INFO) << "Ellipsoid translation rel to cam " <<
+  //  ellipsoid_pose_rel_cam.loc; Eigen::AffineCompact3f relative_ellipsoid_pose
+  //  =
+  //      ellipsoid_pose_rel_cam.RobotToWorldTF();
+  Eigen::AffineCompact3f relative_cam_pose =
       ellipsoid_pose_rel_cam.RobotToWorldTF();
+  //  LOG(INFO) << "Ellipsoid translation rel to cam " <<
+  //  relative_ellipsoid_pose.translation();
+  LOG(INFO) << "Cam transl rel ellipsoid " << relative_cam_pose.translation();
+  LOG(INFO) << "Cam rot rel ellipsoid" << relative_cam_pose.linear();
 
   Eigen::DiagonalMatrix<float, 4> transformed_ellipsoid_dual(
-      Eigen::Vector4f(gt_ellipsoid.ellipsoid_dim.x(),
-                      gt_ellipsoid.ellipsoid_dim.y(),
-                      gt_ellipsoid.ellipsoid_dim.z(),
+      Eigen::Vector4f(pow(gt_ellipsoid.ellipsoid_dim.x(), 2),
+                      pow(gt_ellipsoid.ellipsoid_dim.y(), 2),
+                      pow(gt_ellipsoid.ellipsoid_dim.z(), 2),
                       -1));
 
-  Eigen::Matrix3f g_mat = cam_intrinsics.camera_mat *
-                          relative_ellipsoid_pose.matrix() *
-                          transformed_ellipsoid_dual *
-                          (relative_ellipsoid_pose.matrix().transpose()) *
-                          (cam_intrinsics.camera_mat.transpose());
+  LOG(INFO) << "Ellipsoid rep: " << transformed_ellipsoid_dual.toDenseMatrix();
+  LOG(INFO) << "Cam pose " << relative_cam_pose.matrix();
+
+  Eigen::Matrix3f g_mat =
+      cam_intrinsics.camera_mat * relative_cam_pose.matrix() *
+      transformed_ellipsoid_dual * (relative_cam_pose.matrix().transpose()) *
+      (cam_intrinsics.camera_mat.transpose());
+  LOG(INFO) << "G_mat " << g_mat;
+  //  Eigen::Matrix3f g_mat = cam_intrinsics.camera_mat *
+  //                          relative_ellipsoid_pose.matrix() *
+  //                          transformed_ellipsoid_dual *
+  //                          (relative_ellipsoid_pose.matrix().transpose()) *
+  //                          (cam_intrinsics.camera_mat.transpose());
 
   float u_sqrt_term = sqrt(pow(g_mat(0, 2), 2) - (g_mat(0, 0) * g_mat(2, 2)));
+  LOG(INFO) << "u sqrt term " << u_sqrt_term;
   float u_min = g_mat(0, 2) + u_sqrt_term;
   float u_max = g_mat(0, 2) - u_sqrt_term;
   float v_sqrt_term = sqrt(pow(g_mat(1, 2), 2) - (g_mat(1, 1) * g_mat(2, 2)));
+  LOG(INFO) << "v sqrt term " << v_sqrt_term;
   float v_min = g_mat(1, 2) + v_sqrt_term;
   float v_max = g_mat(1, 2) - v_sqrt_term;
 
@@ -82,6 +110,13 @@ bool doesBoundingBoxSatisfyVisibilityParams(
   in_frame = in_frame && (min_y <= max_pixel_y);
   in_frame = in_frame && (max_y <= max_pixel_y);
 
+  if (!in_frame) {
+    LOG(INFO) << "Ellipsoid not in the bounds of the camera frame";
+  }
+  if (!big_enough) {
+    LOG(INFO) << "Ellipsoid bounding box not big enough";
+  }
+
   return in_frame && big_enough;
 }
 
@@ -111,6 +146,7 @@ generateBoundingBoxDetectionsFromGroundTruthEllipsoidsAndPoses(
           ground_truth_ellipsoids[ellipsoid_num];
       for (const auto &camera_id_and_intrinsics : intrinsics) {
         if (random_gen.UniformRandom() > bounding_box_detection_success_rate) {
+          LOG(INFO) << "Simulated failed detection";
           // This detection "failed" so we don't add a bounding box for it
           continue;
         }
@@ -125,10 +161,12 @@ generateBoundingBoxDetectionsFromGroundTruthEllipsoidsAndPoses(
                                                  gt_ellipsoid,
                                                  curr_cam_intrinsics,
                                                  curr_cam_extrinsics);
+        LOG(INFO) << "Predicted noiseless bounding box " << noiseless_predicted_bounding_box;
         if (!doesBoundingBoxSatisfyVisibilityParams(
                 noiseless_predicted_bounding_box,
                 ellipsoid_visibility_params,
                 curr_cam_intrinsics)) {
+          LOG(INFO) << "Noiseless bb estimate doesn't satisfy visibility";
           continue;
         }
 
@@ -139,6 +177,7 @@ generateBoundingBoxDetectionsFromGroundTruthEllipsoidsAndPoses(
         if (!doesBoundingBoxSatisfyVisibilityParams(noisy_bounding_box,
                                                     ellipsoid_visibility_params,
                                                     curr_cam_intrinsics)) {
+          LOG(INFO) << "Noisy bb estimate doesn't satisfy visibility";
           continue;
         }
 

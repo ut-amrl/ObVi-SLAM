@@ -5,41 +5,61 @@
 #include <synthetic_problem/synthetic_problem_construction_utils.h>
 #include <synthetic_problem/synthetic_problem_generator.h>
 #include <visual_slam_ceres_visualization_callback.h>
+#include <visualization/ros_visualization.h>
+
+DEFINE_string(param_prefix, "", "param_prefix");
 
 int main(int argc, char **argv) {
+  google::ParseCommandLineFlags(&argc, &argv, false);
   google::InitGoogleLogging(argv[0]);
-  google::ParseCommandLineFlags(&argc, &argv, true);
+  FLAGS_logtostderr = true;  // Don't log to disk - log to terminal
 
   std::string car_semantic_class_str = "car";
 
-  FLAGS_logtostderr = true;  // Don't log to disk - log to terminal
+  std::string param_prefix = FLAGS_param_prefix;
+  std::string node_prefix = FLAGS_param_prefix;
+  if (!param_prefix.empty()) {
+    param_prefix = "/" + param_prefix + "/";
+    node_prefix += "_";
+  }
+  LOG(INFO) << "Prefix: " << param_prefix;
+
+  ros::init(argc, argv, node_prefix + "ellipsoid_estimator_est");
+  ros::NodeHandle n;
+
+  std::shared_ptr<vslam_viz::RosVisualization> viz =
+      std::make_shared<vslam_viz::RosVisualization>(n, param_prefix);
 
   std::vector<vslam_types::EllipsoidEstimate> ground_truth_ellipsoids;
-  vslam_types::EllipsoidEstimate ellipsoid_est(
-      Eigen::Vector3f(0, 0, 0),
-      Eigen::AngleAxisf(0, Eigen::Vector3f(1, 0, 0)),
-      Eigen::Vector3f(3, 4, 5),
-      car_semantic_class_str,
-      0);
+  Eigen::Vector3f ellipsoid_loc;
+  Eigen::AngleAxisf ellipsoid_orientation(0, Eigen::Vector3f(1, 0, 0));
+  Eigen::Vector3f ellipsoid_dim(4, 1, 2);
+
+  vslam_types::EllipsoidEstimate ellipsoid_est(ellipsoid_loc,
+                                               ellipsoid_orientation,
+                                               ellipsoid_dim,
+                                               car_semantic_class_str,
+                                               0);
   ground_truth_ellipsoids.emplace_back(ellipsoid_est);
 
+  float viewing_radius = 5;
   std::vector<vslam_types::RobotPose> ground_truth_robot_poses;
-  ground_truth_robot_poses.emplace_back(vslam_types::RobotPose(
-      ground_truth_robot_poses.size() - 1,
-      Eigen::Vector3f(20, 0, 0),
-      synthetic_problem::createAngleAxisFromYaw(M_PI_2)));
   ground_truth_robot_poses.emplace_back(
-      vslam_types::RobotPose(ground_truth_robot_poses.size() - 1,
-                             Eigen::Vector3f(0, 20, 0),
+      vslam_types::RobotPose(ground_truth_robot_poses.size(),
+                             Eigen::Vector3f(viewing_radius, 0, 0),
                              synthetic_problem::createAngleAxisFromYaw(M_PI)));
   ground_truth_robot_poses.emplace_back(vslam_types::RobotPose(
-      ground_truth_robot_poses.size() - 1,
-      Eigen::Vector3f(-20, 0, 0),
+      ground_truth_robot_poses.size(),
+      Eigen::Vector3f(0, viewing_radius, 0),
       synthetic_problem::createAngleAxisFromYaw(-M_PI_2)));
   ground_truth_robot_poses.emplace_back(
-      vslam_types::RobotPose(ground_truth_robot_poses.size() - 1,
-                             Eigen::Vector3f(0, -20, 0),
+      vslam_types::RobotPose(ground_truth_robot_poses.size(),
+                             Eigen::Vector3f(-viewing_radius, 0, 0),
                              synthetic_problem::createAngleAxisFromYaw(0)));
+  ground_truth_robot_poses.emplace_back(vslam_types::RobotPose(
+      ground_truth_robot_poses.size(),
+      Eigen::Vector3f(0, -viewing_radius, 0),
+      synthetic_problem::createAngleAxisFromYaw(M_PI_2)));
 
   std::unordered_map<vslam_types::CameraId, vslam_types::CameraIntrinsics>
       intrinsics;
@@ -79,12 +99,12 @@ int main(int argc, char **argv) {
   Eigen::Quaternionf extrinsics_orientation =
       Eigen::Quaternionf(0.5, 0.5, -0.5, 0.5)
           .inverse();  // [0 -1 0; 0 0 -1; 1 0 0]^-1
-  LOG(INFO) << "Extrinsics orientation " << extrinsics_orientation.w() << ", " << extrinsics_orientation.x() << ", " << extrinsics_orientation.y() << ", " << extrinsics_orientation.z();
   extrinsics[0] = {Eigen::Vector3f(0, 0, 0), extrinsics_orientation};
   // TODO Is translation before or after rotation? (i.e. should we use camera
   // frame axes or robot frame)
   extrinsics[1] = {Eigen::Vector3f(0, -0.2, 0), extrinsics_orientation};
-  double bounding_box_detection_success_rate = 0.8;
+  double bounding_box_detection_success_rate = 0.8;  // TODO change back to this
+  bounding_box_detection_success_rate = 1;
   synthetic_problem::EllipsoidVisibilityParams ellipsoid_visibility_params;
   util_random::Random random_gen;
 
@@ -106,7 +126,9 @@ int main(int argc, char **argv) {
               ellipsoid_visibility_params,
               random_gen);
 
-  LOG(INFO) << "Created problem with " << slam_problem_and_params.first.bounding_boxes.size() << " bounding box detections";
+  LOG(INFO) << "Created problem with "
+            << slam_problem_and_params.first.bounding_boxes.size()
+            << " bounding box detections";
 
   vslam_solver::SLAMSolverOptimizerParams optimizer_params;
   vslam_solver::StructuredObjectSlamProblemParams problem_params;
@@ -153,6 +175,18 @@ int main(int argc, char **argv) {
                                    ground_truth_robot_poses,
                                    std::placeholders::_2);
 
+
+  std_msgs::ColorRGBA ellipsoid_color;
+  ellipsoid_color.a = 1.0;
+  ellipsoid_color.b = 1.0;
+  viz->visualizeEllipsoids(
+      ground_truth_ellipsoids, "ground_truth_ellipsoids", ellipsoid_color);
+  ros::Duration(2).sleep();
+  viz->visualizeTrajectoryAndEllipsoidsWithTf(ground_truth_robot_poses,
+                                              ground_truth_ellipsoids,
+                                              extrinsics,
+                                              intrinsics);
+  ros::Duration(2).sleep();
   bool slam_convergence_result =
       findEllipsoidEstimates(slam_problem_and_params.first,
                              optimizer_params,

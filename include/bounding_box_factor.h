@@ -65,18 +65,18 @@ class BoundingBoxFactor {
 
     // Robot to world defines the robot's pose in the world frame
     // Cam to robot defines the camera pose in the robot's frame
-    // We want the camera's pose in the world frame
-    Eigen::Transform<T, 3, Eigen::Affine> camera_to_world =
-        robot_to_world_current * cam_to_robot_tf_.template cast<T>();
-    Eigen::Transform<T, 3, Eigen::AffineCompact> camera_to_world_compact =
-        camera_to_world;
+    // We want the world's pose in the camera frame
+    Eigen::Transform<T, 3, Eigen::Affine> world_to_camera =
+        robot_to_cam_tf_.template cast<T>() * robot_to_world_current.inverse();
+    Eigen::Transform<T, 3, Eigen::AffineCompact> world_to_camera_compact =
+        world_to_camera;
     Eigen::Matrix<T, 4, 4> ellipsoid_dual_rep =
         vslam_util::createDualRepresentationForEllipsoid(ellipsoid);
 
     Eigen::Matrix<T, 3, 3> g_mat =
         camera_intrinsics_mat_.template cast<T>() *
-        camera_to_world_compact.matrix() * ellipsoid_dual_rep *
-        camera_to_world_compact.matrix().transpose() *
+        world_to_camera_compact.matrix() * ellipsoid_dual_rep *
+        world_to_camera_compact.matrix().transpose() *
         camera_intrinsics_mat_.transpose().template cast<T>();
 
     T g1_1 = g_mat(1, 1);
@@ -140,9 +140,10 @@ class BoundingBoxFactor {
   Eigen::Matrix3f camera_intrinsics_mat_;
 
   /**
-   * Transform that provides the camera position in the robot's frame.
+   * Transform that provides the robot's position in the camera frame (inverse
+   * of extrinsics, which provide the camera's pose in the robot frame).
    */
-  Eigen::Affine3f cam_to_robot_tf_;
+  Eigen::Affine3f robot_to_cam_tf_;
 
   /**
    * Square root of the bounding box information matrix (inverse of covariance).
