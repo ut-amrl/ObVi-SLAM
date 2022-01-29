@@ -1,0 +1,21 @@
+
+<package>
+  <description brief="ut_vslam">
+    Visual SLAM Library for AMRL
+
+  </description>
+  <name>ut_vslam</name>
+  <author>Joydeep Biswas</author>
+  <author>Amanda Adkins</author>
+  <license>MIT</license>
+  <review status="unreviewed" notes=""/>
+  <url></url>
+  <depend package="std_msgs"/>
+  <depend package="sensor_msgs"/>
+  <depend package="visualization_msgs" />
+  <depend package="roscpp"/>
+  <depend package="rosbag" />
+  <depend package="tf"/>
+
+</package>
+

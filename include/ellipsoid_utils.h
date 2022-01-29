@@ -48,9 +48,9 @@ Eigen::Matrix<T, 4, 4> createDualRepresentationForEllipsoid(
   dual_rep.topRightCorner(3, 1) = neg_transl;
 
   Eigen::DiagonalMatrix<T, 3> diag_mat(
-      ellipsoid_data[6] + T(kDimensionRegularizationConstant),
-      ellipsoid_data[7] + T(kDimensionRegularizationConstant),
-      ellipsoid_data[8] + T(kDimensionRegularizationConstant));
+      pow(ellipsoid_data[6], 2) + T(kDimensionRegularizationConstant),
+      pow(ellipsoid_data[7], 2) + T(kDimensionRegularizationConstant),
+      pow(ellipsoid_data[8], 2) + T(kDimensionRegularizationConstant));
 
   Eigen::Matrix<T, 3, 3> rot_mat = Exp(Eigen::Matrix<T, 3, 1>(
       ellipsoid_data[3], ellipsoid_data[4], ellipsoid_data[5]));
