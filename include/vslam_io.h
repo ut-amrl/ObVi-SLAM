@@ -49,6 +49,9 @@ void LoadStructuredUTSLAMProblem(
     vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack>&
         prob);
 
+void LoadStructuredUTSLAMProblemStereo(const std::string& data_path, 
+    vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack>& prob);
+
 /**
  * Set the robot poses in the SLAM problem.
  *
