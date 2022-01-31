@@ -71,9 +71,6 @@ class SLAMSolver {
    *
    * @tparam FeatureTrackType           Type of the vision feature information.
    * @tparam ProblemParams              Type of the problem params.
-   * @param intrinsics[in]              Camera intrinsics.
-   * @param extrinsics[in]              Camera extrinsics (camera pose relative
-   *                                    to the robot).
    * @param vision_constraint_adder[in] Function that adds vision constraints to
    *                                    the ceres optimization problem.
    * @param callback_creator[in]        Function that creates a callback for
@@ -96,18 +93,12 @@ class SLAMSolver {
   //  wanted to note it here
   template <typename FeatureTrackType, typename ProblemParams>
   bool SolveSLAM(
-      const vslam_types::CameraIntrinsics &intrinsics,
-      const vslam_types::CameraExtrinsics &extrinsics,
-      const std::function<void(const vslam_types::CameraIntrinsics &,
-                               const vslam_types::CameraExtrinsics &,
-                               const ProblemParams &,
+      const std::function<void(const ProblemParams &,
                                vslam_types::UTSLAMProblem<FeatureTrackType> &,
                                ceres::Problem &,
                                std::vector<vslam_types::SLAMNode> *)>
           vision_constraint_adder,
       const std::function<std::shared_ptr<ceres::IterationCallback>(
-          const vslam_types::CameraIntrinsics &,
-          const vslam_types::CameraExtrinsics &,
           const vslam_types::UTSLAMProblem<FeatureTrackType> &,
           std::vector<vslam_types::SLAMNode> *)> callback_creator,
       const ProblemParams &problem_params,
@@ -127,9 +118,6 @@ class SLAMSolver {
 /**
  * Add vision factors to the ceres optimization problem.
  *
- * @param intrinsics[in]                Camera intrinsics.
- * @param extrinsics[in]                Camera extrinsics (camera pose relative
- *                                      to the robot).
  * @param solver_optimization_params[in]Solver optimization parameters
  * @param slam_problem[in/out]          SLAM problem defining constraints
  *                                      between frames.
@@ -141,8 +129,6 @@ class SLAMSolver {
  *                                      tied to the ceres problem.
  */
 void AddStructurelessVisionFactors(
-    const vslam_types::CameraIntrinsics &intrinsics,
-    const vslam_types::CameraExtrinsics &extrinsics,
     const StructurelessSlamProblemParams &solver_optimization_params,
     vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &slam_problem,
     ceres::Problem &ceres_problem,
@@ -151,9 +137,6 @@ void AddStructurelessVisionFactors(
 /**
  * Add structured vision factors to the ceres optimization problem.
  *
- * @param intrinsics[in]                Camera intrinsics.
- * @param extrinsics[in]                Camera extrinsics (camera pose relative
- *                                      to the robot).
  * @param solver_optimization_params[in]Solver optimization parameters
  * @param slam_problem[in/out]          SLAM problem defining constraints
  *                                      between frames. Poses of feature points
@@ -166,8 +149,6 @@ void AddStructurelessVisionFactors(
  *                                      tied to the ceres problem.
  */
 void AddStructuredVisionFactors(
-    const vslam_types::CameraIntrinsics &intrinsics,
-    const vslam_types::CameraExtrinsics &extrinsics,
     const StructuredSlamProblemParams &solver_optimization_params,
     vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack>
         &slam_problem,

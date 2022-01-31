@@ -34,7 +34,8 @@ template <typename T>
 Eigen::Matrix<T, 3, 3> CalcEssentialMatrix(
     const T* node_1_pose_array,
     const T* node_2_pose_array,
-    Eigen::Transform<T, 3, Eigen::Affine> cam_to_robot_tf) {
+    Eigen::Transform<T, 3, Eigen::Affine> cam_to_robot_tf_node_1,
+    Eigen::Transform<T, 3, Eigen::Affine> cam_to_robot_tf_node_2) {
   // Convert pose init to rotation
   Eigen::Transform<T, 3, Eigen::Affine> first_robot_pose_in_world =
       vslam_types::PoseArrayToAffine(&(node_1_pose_array[3]),
@@ -55,8 +56,8 @@ Eigen::Matrix<T, 3, 3> CalcEssentialMatrix(
   // 2 relative to camera 1 is given by
   // T_c1_c2 =  T_r_c^-1 * T_w_r1^-1 * T_w_r2 * T_r_c
   Eigen::Transform<T, 3, Eigen::Affine> cam_1_to_cam_2_mat =
-      cam_to_robot_tf.inverse() * first_robot_pose_in_world.inverse() *
-      second_robot_pose_in_world * cam_to_robot_tf;
+      cam_to_robot_tf_node_1.inverse() * first_robot_pose_in_world.inverse() *
+      second_robot_pose_in_world * cam_to_robot_tf_node_2;
 
   // Extract Tx and R from cam_1_to_cam_2_mat
   Eigen::Matrix<T, 3, 1> t_vec = cam_1_to_cam_2_mat.translation();

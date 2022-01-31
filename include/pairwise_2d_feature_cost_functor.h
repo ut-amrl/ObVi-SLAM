@@ -35,16 +35,24 @@ class Pairwise2dFeatureCostFunctor {
    *
    * @param image_1_feature         Pixel location of the feature in image 1.
    * @param image_2_feature         Pixel location of the feature in image 2.
-   * @param intrinsics              Camera intrinsics.
-   * @param extrinsics              Camera extrinsics (pose of the camera
-   *                                relative to the robot).
+   * @param intrinsics_feature_1    Camera intrinsics for the first feature.
+   * @param extrinsics_feature_1    Camera extrinsics (pose of the camera
+   *                                relative to the robot) for the first
+   *                                feature.
+   * @param intrinsics_feature_2    Camera intrinsics for the second feature.
+   * @param extrinsics_feature_2    Camera extrinsics (pose of the camera
+   *                                relative to the robot) for the second
+   *                                feature.
    * @param epipolar_error_std_dev  Standard deviation of the epipolar error.
    */
-  Pairwise2dFeatureCostFunctor(const Eigen::Vector2f &image_1_feature,
-                               const Eigen::Vector2f &image_2_feature,
-                               const vslam_types::CameraIntrinsics &intrinsics,
-                               const vslam_types::CameraExtrinsics &extrinsics,
-                               const double &epipolar_error_std_dev);
+  Pairwise2dFeatureCostFunctor(
+      const Eigen::Vector2f &image_1_feature,
+      const Eigen::Vector2f &image_2_feature,
+      const vslam_types::CameraIntrinsics &intrinsics_feature_1,
+      const vslam_types::CameraExtrinsics &extrinsics_feature_1,
+      const vslam_types::CameraIntrinsics &intrinsics_feature_2,
+      const vslam_types::CameraExtrinsics &extrinsics_feature_2,
+      const double &epipolar_error_std_dev);
 
   /**
    * Compute the residual for the epipolar error using the essential matrix.
@@ -72,8 +80,11 @@ class Pairwise2dFeatureCostFunctor {
   bool operator()(const T *pose_init,
                   const T *pose_current,
                   T *residual) const {
-    Eigen::Matrix<T, 3, 3> essential_mat = vslam_util::CalcEssentialMatrix(
-        pose_init, pose_current, cam_to_robot_tf_.cast<T>());
+    Eigen::Matrix<T, 3, 3> essential_mat =
+        vslam_util::CalcEssentialMatrix(pose_init,
+                                        pose_current,
+                                        cam_to_robot_tf_feature_1_.cast<T>(),
+                                        cam_to_robot_tf_feature_2_.cast<T>());
 
     Eigen::Matrix<T, 1, 1> epipolar_error_unscaled =
         feature_1_image_coords_.transpose().cast<T>() * essential_mat *
@@ -97,26 +108,34 @@ class Pairwise2dFeatureCostFunctor {
    * @param intrinsics              Camera intrinsics.
    * @param extrinsics              Camera extrinsics (provide camera pose
    *                                relative to robot).
-   * @param frame_1_feature         Feature from frame 1.
-   * @param frame_2_feature         Feature from frame 2.
+   * @param intrinsics_feature_1    Camera intrinsics for the first feature.
+   * @param extrinsics_feature_1    Camera extrinsics (pose of the camera
+   *                                relative to the robot) for the first
+   *                                feature.
+   * @param intrinsics_feature_2    Camera intrinsics for the second feature.
+   * @param extrinsics_feature_2    Camera extrinsics (pose of the camera
+   *                                relative to the robot) for the second
+   *                                feature.
    * @param epipolar_error_std_dev  Standard deviation of the epipolar error
    *                                (assuming this is normally distributed).
    *
    * @return Ceres cost function.
    */
   static ceres::AutoDiffCostFunction<Pairwise2dFeatureCostFunctor, 1, 6, 6>
-      *create(const vslam_types::CameraIntrinsics &intrinsics,
-              const vslam_types::CameraExtrinsics &extrinsics,
-              const vslam_types::VisionFeature &frame_1_feature,
-              const vslam_types::VisionFeature &frame_2_feature,
+      *create(const vslam_types::CameraIntrinsics &intrinsics_feature_1,
+              const vslam_types::CameraExtrinsics &extrinsics_feature_1,
+              const vslam_types::CameraIntrinsics &intrinsics_feature_2,
+              const vslam_types::CameraExtrinsics &extrinsics_feature_2,
+              const Eigen::Vector2f &frame_1_feature_loc,
+              const Eigen::Vector2f &frame_2_feature_loc,
               const double &epipolar_error_std_dev) {
-    const Eigen::Vector2f &initial_pixel = frame_1_feature.pixel;
-    const Eigen::Vector2f &current_pixel = frame_2_feature.pixel;
     Pairwise2dFeatureCostFunctor *residual =
-        new Pairwise2dFeatureCostFunctor(initial_pixel,
-                                         current_pixel,
-                                         intrinsics,
-                                         extrinsics,
+        new Pairwise2dFeatureCostFunctor(frame_1_feature_loc,
+                                         frame_2_feature_loc,
+                                         intrinsics_feature_1,
+                                         extrinsics_feature_1,
+                                         intrinsics_feature_2,
+                                         extrinsics_feature_2,
                                          epipolar_error_std_dev);
     return new ceres::
         AutoDiffCostFunction<Pairwise2dFeatureCostFunctor, 1, 6, 6>(residual);
@@ -136,9 +155,16 @@ class Pairwise2dFeatureCostFunctor {
   Eigen::Vector3f feature_2_image_coords_;
 
   /**
-   * Transform that provides the camera position in the robot's frame.
+   * Transform that provides the camera position in the robot's frame for the
+   * camera that captured the first feature.
    */
-  Eigen::Affine3f cam_to_robot_tf_;
+  Eigen::Affine3f cam_to_robot_tf_feature_1_;
+
+  /**
+   * Transform that provides the camera position in the robot's frame for the
+   * camera that captured the second feature.
+   */
+  Eigen::Affine3f cam_to_robot_tf_feature_2_;
 
   /**
    * Epipolar error standard deviation.

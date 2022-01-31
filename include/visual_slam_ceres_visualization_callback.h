@@ -22,10 +22,6 @@ class VisualSlamCeresVisualizationCallback : public ceres::IterationCallback {
   /**
    * Constructor.
    *
-   * TODO -- if we need more in this constructor for visualization, that's fine.
-   *
-   * @param intrinsics          Camera intrinsics.
-   * @param extrinsics          Camera extrinsics.
    * @param slam_problem        SLAM problem.
    * @param feature_retriever   Retrieves visual features from a feature track.
    * @param gt_robot_poses      Ground truth robot poses to display.
@@ -33,16 +29,12 @@ class VisualSlamCeresVisualizationCallback : public ceres::IterationCallback {
    *                            should only be read, not modified.
    */
   VisualSlamCeresVisualizationCallback(
-      const vslam_types::CameraIntrinsics &intrinsics,
-      const vslam_types::CameraExtrinsics &extrinsics,
       const vslam_types::UTSLAMProblem<FeatureTrackType> &slam_problem,
       const std::function<std::vector<vslam_types::VisionFeature>(
           const FeatureTrackType &)> &feature_retriever,
       const std::vector<vslam_types::RobotPose> &gt_robot_poses,
       std::vector<vslam_types::SLAMNode> *slam_nodes)
-      : intrinsics_(intrinsics),
-        extrinsics_(extrinsics),
-        slam_problem_(slam_problem),
+      : slam_problem_(slam_problem),
         feature_retriever_(feature_retriever),
         gt_robot_poses_(gt_robot_poses),
         slam_nodes_(slam_nodes),
@@ -59,18 +51,9 @@ class VisualSlamCeresVisualizationCallback : public ceres::IterationCallback {
     // DO NOT MODIFY THESE -- they are being updated during optimization
     const std::vector<vslam_types::SLAMNode> nodes = *slam_nodes_;
 
-    // TODO add to class?
-    Eigen::Affine3d cam_to_robot_tf =
-        Eigen::Translation3d(extrinsics_.translation.cast<double>()) *
-        extrinsics_.rotation.cast<double>();
-
     // Visualize epipolar lines and the epipolar error (width of lines)
     if (true) {
-      VisualizeEpipolarError(cam_to_robot_tf,
-                             intrinsics_,
-                             slam_problem_,
-                             nodes,
-                             feature_retriever_);
+      VisualizeEpipolarError(slam_problem_, nodes, feature_retriever_);
     }
 
     // Visualize robot poses
@@ -84,8 +67,6 @@ class VisualSlamCeresVisualizationCallback : public ceres::IterationCallback {
   /**
    * Static function used to create a pointer to this visualization callback.
    *
-   * @param intrinsics          Camera intrinsics.
-   * @param extrinsics          Camera extrinsics.
    * @param slam_problem        SLAM problem.
    * @param feature_retriever   Retrieves visual features from a feature track.
    * @param gt_robot_poses      Ground truth robot poses to display.
@@ -96,33 +77,16 @@ class VisualSlamCeresVisualizationCallback : public ceres::IterationCallback {
    */
   template <typename TrackType>
   static std::shared_ptr<VisualSlamCeresVisualizationCallback> create(
-      const vslam_types::CameraIntrinsics &intrinsics,
-      const vslam_types::CameraExtrinsics &extrinsics,
       const vslam_types::UTSLAMProblem<TrackType> &slam_problem,
       const std::function<std::vector<vslam_types::VisionFeature>(
           const TrackType &)> &feature_retriever,
       const std::vector<vslam_types::RobotPose> &gt_robot_poses,
       std::vector<vslam_types::SLAMNode> *slam_nodes) {
     return std::make_shared<VisualSlamCeresVisualizationCallback<TrackType>>(
-        intrinsics,
-        extrinsics,
-        slam_problem,
-        feature_retriever,
-        gt_robot_poses,
-        slam_nodes);
+        slam_problem, feature_retriever, gt_robot_poses, slam_nodes);
   }
 
  private:
-  /**
-   * Camera intrinsics.
-   */
-  vslam_types::CameraIntrinsics intrinsics_;
-
-  /**
-   * Camera extrinsics.
-   */
-  vslam_types::CameraExtrinsics extrinsics_;
-
   /**
    * SLAM problem with relevant image data.
    */

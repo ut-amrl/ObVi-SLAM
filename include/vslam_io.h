@@ -17,22 +17,18 @@ namespace vslam_io {
  * @param prob[out]         The vslam_types::UTSLAMProblem<>() that the data
  *                          will be loaded into - this essentially consists of
  *                          robot/frame poses and feature tracks
- *@param camera_mat[out]    Camera intrinsic calibration matrix
  */
 void LoadStructurelessUTSLAMProblem(
     const std::string& data_path,
-    vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob,
-    Eigen::Matrix3f& camera_mat);
+    vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob);
 
 void LoadStructurelessUTSLAMProblemMicrosoft(
     const std::string& data_path,
-    vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob,
-    Eigen::Matrix3f& camera_mat);
+    vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob);
 
 void LoadStructurelessUTSLAMProblemTartan(
     const std::string& data_path,
-    vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob,
-    Eigen::Matrix3f& camera_mat);
+    vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob);
 
 /**
  * Loads a structured slam problem from file. This function loads an
@@ -47,23 +43,11 @@ void LoadStructurelessUTSLAMProblemTartan(
  *                          will be loaded into - this essentially consists of
  *                          robot/frame poses, vision feature tracks and 3D
  *                          feature points
- *@param camera_mat[out]    Camera intrinsic calibration matrix
  */
 void LoadStructuredUTSLAMProblem(
     const std::string& data_path,
-    vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack>& prob,
-    Eigen::Matrix3f& camera_mat);
-
-/**
- * Loads a camera calibration into the camera calibration intrinsic K
- * matrix
- *
- * @param calibration_path[in]  Full path to the calibration file
- * @param camera_mat[out]       Camera intrinsic calibration matrix K
- *
- */
-void LoadCameraCalibration(const std::string& calibration_path,
-                           Eigen::Matrix3f& camera_mat);
+    vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack>&
+        prob);
 
 /**
  * Set the robot poses in the SLAM problem.
@@ -88,6 +72,8 @@ void SetRobotPosesInSlamProblem(
 
 /**
  * Read the features from a file stream.
+ *
+ * // TODO Taijing -- fix this to handle features detected from multiple cameras
  *
  * Assumes that the line containing the pose has already been read from the
  * stream.
@@ -155,6 +141,74 @@ bool LoadInitialFeatureEstimates(
     const std::string& features_file,
     std::unordered_map<uint64_t, Eigen::Vector3d>& feature_estimates_by_id);
 
+/**
+ * Loads intrinsic and extrinsic calibration data for multiple cameras.
+ *
+ * // TODO Taijing -- fill this in properly
+ *
+ * @param calibration_path[in]                  Full path to the calibration
+ *                                              directory.
+ * @param camera_intrinsics_by_camera_id[out]   Camera intrinsics by the camera
+ *                                              id.
+ * @param camera_extrinsics_by_camera_id[out]   Camera extrinsics by the camera
+ *                                              id.
+ *
+ */
+void LoadCameraCalibrationData(
+    const std::string& calibration_path,
+    std::unordered_map<vslam_types::CameraId, vslam_types::CameraIntrinsics>&
+        camera_intrinsics_by_camera_id,
+    std::unordered_map<vslam_types::CameraId, vslam_types::CameraExtrinsics>&
+        camera_extrinsics_by_camera_id);
+
+/**
+ * Load the intrinsic camera calibration into the given matrix.
+ *
+ * @param calibration_path[in]  File containing the camera intrinsics.
+ * @param camera_mat[out]       Matrix to populate with camera intrinsic data.
+ */
+void LoadCameraCalibrationMatrix(const std::string& calibration_path,
+                                 Eigen::Matrix3f& camera_mat);
+
+/**
+ * Load the camera extrinsics (camera pose relative to robot base link) into
+ * the given object.
+ *
+ * // TODO Taijing -- fill this in properly
+ *
+ * @param extrinsics_path[in]   File name for the camera extrinsics.
+ * @param extrinsics[out]       Object to set the camera extrinsics in.
+ */
+void LoadCameraExtrinsics(const std::string& extrinsics_path,
+                          vslam_types::CameraExtrinsics& extrinsics);
+
+/**
+ * Load the camera intrinsics and extrinsics for the tartan dataset.
+ *
+ * @param camera_intrinsics_by_camera_id[out]   Camera intrinsics by the camera
+ *                                              id.
+ * @param camera_extrinsics_by_camera_id[out]   Camera extrinsics by the camera
+ *                                              id.
+ */
+void LoadCameraIntrinsicsAndExtrinsicsTartanDataset(
+    std::unordered_map<vslam_types::CameraId, vslam_types::CameraIntrinsics>&
+        camera_intrinsics_by_camera_id,
+    std::unordered_map<vslam_types::CameraId, vslam_types::CameraExtrinsics>&
+        camera_extrinsics_by_camera_id);
+
+/**
+ * Load the camera intrinsics and extrinsics for the microsoft dataset.
+ *
+ * @param camera_intrinsics_by_camera_id[out]   Camera intrinsics by the camera
+ *                                              id.
+ * @param camera_extrinsics_by_camera_id[out]   Camera extrinsics by the camera
+ *                                              id.
+ */
+void LoadCameraIntrinsicsAndExtrinsicsMicrosoftDataset(
+    std::unordered_map<vslam_types::CameraId, vslam_types::CameraIntrinsics>&
+        camera_intrinsics_by_camera_id,
+    std::unordered_map<vslam_types::CameraId, vslam_types::CameraExtrinsics>&
+        camera_extrinsics_by_camera_id);
 }  // namespace vslam_io
 
 #endif  // __VSLAM_IO_H__

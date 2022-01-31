@@ -12,6 +12,7 @@ namespace {
 const std::string kCalibrationPath = "calibration/camera_matrix.txt";
 const std::string kFeaturesPath = "features/features.txt";
 const std::string kTxtExtension = ".txt";
+const vslam_types::CameraId kDefaultCameraId = 1;
 }  // namespace
 
 using namespace vslam_types;
@@ -22,8 +23,7 @@ namespace fs = std::experimental::filesystem;
 
 void LoadStructurelessUTSLAMProblem(
     const std::string& dataset_path,
-    vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob,
-    Eigen::Matrix3f& camera_mat) {
+    vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob) {
   // Iterate over all files/folders in the dataset_path directory - i.e. over
   // all frames
   std::unordered_map<uint64_t, RobotPose> poses_by_id;
@@ -43,16 +43,15 @@ void LoadStructurelessUTSLAMProblem(
 
   SetRobotPosesInSlamProblem(poses_by_id, prob);
 
-  // Load camera calibration matrix
-  vslam_io::LoadCameraCalibration(dataset_path + kCalibrationPath, camera_mat);
-
-  return;
+  // Load camera calibration data
+  vslam_io::LoadCameraCalibrationData(dataset_path,
+                                      prob.camera_instrinsics_by_camera,
+                                      prob.camera_extrinsics_by_camera);
 }
 
 void LoadStructurelessUTSLAMProblemMicrosoft(
     const std::string& dataset_path,
-    vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob,
-    Eigen::Matrix3f& camera_mat) {
+    vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob) {
   std::unordered_map<uint64_t, RobotPose> poses_by_id;
 
   std::function<VisionFeatureTrack*(const uint64_t&)> feature_track_retriever =
@@ -141,24 +140,13 @@ void LoadStructurelessUTSLAMProblemMicrosoft(
 
   SetRobotPosesInSlamProblem(poses_by_id, prob);
 
-  // TODO make not manual
-  float fx = 585;
-  float fy = 585;
-  float cx = 320;
-  float cy = 240;
-  camera_mat.setIdentity();
-  camera_mat(0, 0) = fx;
-  camera_mat(1, 1) = fy;
-  camera_mat(0, 2) = cx;
-  camera_mat(1, 2) = cy;
-
-  return;
+  vslam_io::LoadCameraIntrinsicsAndExtrinsicsMicrosoftDataset(
+      prob.camera_instrinsics_by_camera, prob.camera_extrinsics_by_camera);
 }
 
 void LoadStructurelessUTSLAMProblemTartan(
     const std::string& dataset_path,
-    vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob,
-    Eigen::Matrix3f& camera_mat) {
+    vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack>& prob) {
   std::unordered_map<uint64_t, RobotPose> poses_by_id;
 
   std::function<VisionFeatureTrack*(const uint64_t&)> feature_track_retriever =
@@ -225,6 +213,46 @@ void LoadStructurelessUTSLAMProblemTartan(
 
   SetRobotPosesInSlamProblem(poses_by_id, prob);
 
+  vslam_io::LoadCameraIntrinsicsAndExtrinsicsTartanDataset(
+      prob.camera_instrinsics_by_camera, prob.camera_extrinsics_by_camera);
+}
+
+void LoadCameraIntrinsicsAndExtrinsicsMicrosoftDataset(
+    std::unordered_map<vslam_types::CameraId, vslam_types::CameraIntrinsics>&
+        camera_intrinsics_by_camera_id,
+    std::unordered_map<vslam_types::CameraId, vslam_types::CameraExtrinsics>&
+        camera_extrinsics_by_camera_id) {
+  Eigen::Matrix3f camera_mat;
+  // TODO make not manual
+  float fx = 585;
+  float fy = 585;
+  float cx = 320;
+  float cy = 240;
+  camera_mat.setIdentity();
+  camera_mat(0, 0) = fx;
+  camera_mat(1, 1) = fy;
+  camera_mat(0, 2) = cx;
+  camera_mat(1, 2) = cy;
+
+  vslam_types::CameraIntrinsics intrinsics{camera_mat};
+  // [0 -1 0; 0 0 -1; 1 0 0] is the rotation of the camera matrix from a classic
+  // world frame - for the camera +z is the +x world axis, +y is the -z world
+  // axis, and +x is the -y world axis
+  vslam_types::CameraExtrinsics extrinsics{
+      Eigen::Vector3f(0, 0, 0),
+      Eigen::Quaternionf(0.5, 0.5, -0.5, 0.5)
+          .inverse()};  // [0 -1 0; 0 0 -1; 1 0 0]^-1
+
+  camera_intrinsics_by_camera_id = {{kDefaultCameraId, intrinsics}};
+  camera_extrinsics_by_camera_id = {{kDefaultCameraId, extrinsics}};
+}
+
+void LoadCameraIntrinsicsAndExtrinsicsTartanDataset(
+    std::unordered_map<vslam_types::CameraId, vslam_types::CameraIntrinsics>&
+        camera_intrinsics_by_camera_id,
+    std::unordered_map<vslam_types::CameraId, vslam_types::CameraExtrinsics>&
+        camera_extrinsics_by_camera_id) {
+  Eigen::Matrix3f camera_mat;
   // TODO make not manual
   float fx = 320;
   float fy = 320;
@@ -236,13 +264,23 @@ void LoadStructurelessUTSLAMProblemTartan(
   camera_mat(0, 2) = cx;
   camera_mat(1, 2) = cy;
 
-  return;
+  vslam_types::CameraIntrinsics intrinsics{camera_mat};
+  // [0 -1 0; 0 0 -1; 1 0 0] is the rotation of the camera matrix from a classic
+  // world frame - for the camera +z is the +x world axis, +y is the -z world
+  // axis, and +x is the -y world axis
+  vslam_types::CameraExtrinsics extrinsics{
+      Eigen::Vector3f(0, 0, 0),
+      Eigen::Quaternionf(0.5, 0.5, -0.5, 0.5)
+          .inverse()};  // [0 -1 0; 0 0 -1; 1 0 0]^-1
+
+  camera_intrinsics_by_camera_id = {{kDefaultCameraId, intrinsics}};
+  camera_extrinsics_by_camera_id = {{kDefaultCameraId, extrinsics}};
 }
 
 void LoadStructuredUTSLAMProblem(
     const std::string& dataset_path,
-    vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack>& prob,
-    Eigen::Matrix3f& camera_mat) {
+    vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack>&
+        prob) {
   // Iterate over all files/folders in the dataset_path directory - i.e. over
   // all frames
   std::unordered_map<uint64_t, RobotPose> poses_by_id;
@@ -277,14 +315,42 @@ void LoadStructuredUTSLAMProblem(
     }
   }
 
-  // Load camera calibration matrix
-  vslam_io::LoadCameraCalibration(dataset_path + kCalibrationPath, camera_mat);
-
-  return;
+  // Load camera calibration data
+  vslam_io::LoadCameraCalibrationData(dataset_path,
+                                      prob.camera_instrinsics_by_camera,
+                                      prob.camera_extrinsics_by_camera);
 }
 
-void LoadCameraCalibration(const std::string& calibration_path,
-                           Eigen::Matrix3f& camera_mat) {
+void LoadCameraCalibrationData(
+    const std::string& calibration_directory_path,
+    std::unordered_map<vslam_types::CameraId, vslam_types::CameraIntrinsics>&
+        camera_intrinsics_by_camera_id,
+    std::unordered_map<vslam_types::CameraId, vslam_types::CameraExtrinsics>&
+        camera_extrinsics_by_camera_id) {
+  Eigen::Matrix3f camera_mat;
+
+  // Load camera calibration matrix
+  vslam_io::LoadCameraCalibrationMatrix(
+      calibration_directory_path + kCalibrationPath, camera_mat);
+
+  vslam_types::CameraIntrinsics intrinsics{camera_mat};
+  // [0 -1 0; 0 0 -1; 1 0 0] is the rotation of the camera matrix from a classic
+  // world frame - for the camera +z is the +x world axis, +y is the -z world
+  // axis, and +x is the -y world axis
+  vslam_types::CameraExtrinsics extrinsics{
+      Eigen::Vector3f(0, 0, 0),
+      Eigen::Quaternionf(0.5, 0.5, -0.5, 0.5)
+          .inverse()};  // [0 -1 0; 0 0 -1; 1 0 0]^-1
+
+  camera_intrinsics_by_camera_id = {{kDefaultCameraId, intrinsics}};
+  camera_extrinsics_by_camera_id = {{kDefaultCameraId, extrinsics}};
+
+  // TODO Taijing -- replace this function with proper code for multi-camera
+  // intrinsics and extrinsics reading
+}
+
+void LoadCameraCalibrationMatrix(const std::string& calibration_path,
+                                 Eigen::Matrix3f& camera_mat) {
   std::ifstream calibration_file_stream;
   calibration_file_stream.open(calibration_path);
   if (calibration_file_stream.fail()) {
@@ -310,6 +376,8 @@ void ReadFeaturesFromFile(std::ifstream& data_file_stream,
                           const uint64_t& frame_id,
                           std::function<VisionFeatureTrack*(const uint64_t&)>
                               feature_track_retriever) {
+  // TODO Taijing -- fix this to read in pixel estimates and their camera ids
+
   std::string line;
   // Read pixels and IDS from all other lines
   while (std::getline(data_file_stream, line)) {
@@ -317,7 +385,10 @@ void ReadFeaturesFromFile(std::ifstream& data_file_stream,
     uint64_t feature_id;
     float x, y;
     ss_feature >> feature_id >> x >> y;
-    VisionFeature feature(feature_id, frame_id, Eigen::Vector2f(x, y));
+    VisionFeature feature(feature_id,
+                          frame_id,
+                          {{kDefaultCameraId, Eigen::Vector2f(x, y)}},
+                          kDefaultCameraId);
     VisionFeatureTrack* feature_track = feature_track_retriever(feature_id);
     feature_track->track.push_back(feature);
     feature_track->feature_idx = feature_id;  // TODO dont reset this every time
@@ -411,6 +482,11 @@ bool LoadInitialFeatureEstimates(
   }
 
   return true;
+}
+
+void LoadCameraExtrinsics(const std::string& extrinsics_path,
+                          vslam_types::CameraExtrinsics& extrinsics) {
+  // TODO Taijing fill in :)
 }
 
 }  // namespace vslam_io

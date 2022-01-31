@@ -33,7 +33,7 @@ class ReprojectionCostFunctor {
    * Compute the reprojection error
    *
    * @tparam T                  Type that the cost functor is evaluating.
-   * @param pose[in]       Robot's pose in the world frame corresponding to
+   * @param pose[in]            Robot's pose in the world frame corresponding to
    *                            the location of where the feature was imaged.
    *                            This is a 6 entry array with the first 3 entries
    *                            corresponding to the translation and the second
@@ -81,23 +81,21 @@ class ReprojectionCostFunctor {
   /**
    * Create the autodiff cost function with this cost functor.
    *
-   * @param intrinsics              Camera intrinsics.
-   * @param extrinsics              Camera extrinsics (provide camera pose
-   *                                relative to robot).
-   * @param frame_1_feature         Feature from frame 1.
-   * @param frame_2_feature         Feature from frame 2.
-   * @param epipolar_error_std_dev  Standard deviation of the epipolar error
-   *                                (assuming this is normally distributed).
+   * @param intrinsics                  Camera intrinsics.
+   * @param extrinsics                  Camera extrinsics (provide camera pose
+   *                                    relative to robot).
+   * @param feature_pixel               Pixel location of the feature.
+   * @param reprojection_error_std_dev  Standard deviation of the reprojection
+   *                                    error (assuming this is normally
+   *                                    distributed).
    *
    * @return Ceres cost function.
    */
-
   static ceres::AutoDiffCostFunction<ReprojectionCostFunctor, 2, 6, 3> *create(
       const vslam_types::CameraIntrinsics &intrinsics,
       const vslam_types::CameraExtrinsics &extrinsics,
-      const vslam_types::VisionFeature &image_feature,
+      const Eigen::Vector2f &feature_pixel,
       const double &reprojection_error_std_dev) {
-    const Eigen::Vector2f &feature_pixel = image_feature.pixel;
     ReprojectionCostFunctor *residual = new ReprojectionCostFunctor(
         feature_pixel, intrinsics, extrinsics, reprojection_error_std_dev);
     return new ceres::AutoDiffCostFunction<ReprojectionCostFunctor, 2, 6, 3>(

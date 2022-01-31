@@ -128,58 +128,82 @@ static void DrawEpipolarLines(const std::string &title,
 
 template <typename FeatureTrackType>
 void VisualizeEpipolarError(
-    const Eigen::Affine3d &cam_to_robot_tf,
-    const vslam_types::CameraIntrinsics &intrinsics,
     const vslam_types::UTSLAMProblem<FeatureTrackType> &slam_problem,
     const std::vector<vslam_types::SLAMNode> &nodes,
     std::function<std::vector<vslam_types::VisionFeature>(
         const FeatureTrackType &)> feature_retriever) {
-  for (int i = 0; i < nodes.size() - 1; i++) {
-    const vslam_types::SLAMNode node1 = nodes[i];      // i
-    const vslam_types::SLAMNode node2 = nodes[i + 1];  // i+1
-
-    Eigen::Matrix<double, 3, 3> essential_mat = vslam_util::CalcEssentialMatrix(
-        node1.pose, node2.pose, cam_to_robot_tf);
-
-    // Convert to fundamental matrix with K
-    Eigen::Matrix<double, 3, 3> fundamental_mat =
-        intrinsics.camera_mat.transpose().inverse().cast<double>() *
-        essential_mat * intrinsics.camera_mat.inverse().cast<double>();
-
-    // Get cam 1 and cam 2 points
-    std::vector<cv::Point_<double>> cam_1_points;
-    std::vector<cv::Point_<double>> cam_2_points;
-
-    for (const auto &ft : slam_problem.tracks) {
-      std::vector<vslam_types::VisionFeature> features =
-          feature_retriever(ft.second);
-      for (int j = 0; j < features.size(); ++j) {
-        // This conditional ensures that we only include points that have
-        // matches across consecutive frame pairs
-        if (features[j].frame_idx == i && features[j + 1].frame_idx == i + 1) {
-          // In first frame
-          cv::Point_<float> point1(features[j].pixel.x(),
-                                   features[j].pixel.y());
-          cam_1_points.push_back(point1);
-          // In second frame
-          cv::Point_<float> point2(features[j + 1].pixel.x(),
-                                   features[j + 1].pixel.y());
-          cam_2_points.push_back(point2);
-        }
-      }
-    }
-
-    // Make empty mats to represent the image
-    cv::Mat cam1_pic(480, 640, CV_8U, cv::Scalar(100));
-    cv::Mat cam2_pic(480, 640, CV_8U, cv::Scalar(100));
-    // Convert F to cv format
-    cv::Matx<double, 3, 3> F_cv;
-    cv::eigen2cv(fundamental_mat, F_cv);
-    // Draw image w/ epipolar lines
-    // Swapped points because of non comutativity of x`Ex
-    DrawEpipolarLines(
-        "Frame", F_cv, cam2_pic, cam1_pic, cam_2_points, cam_1_points, 50);
-  }
+  // TODO Amanda fix to accomodate multi-camera
+  //  for (int i = 0; i < nodes.size() - 1; i++) {
+  //    const vslam_types::SLAMNode node1 = nodes[i];      // i
+  //    const vslam_types::SLAMNode node2 = nodes[i + 1];  // i+1
+  //
+  //    Eigen::Affine3f cam_to_robot_tf_feature_1_ =
+  //    Eigen::Translation3f(extrinsics_feature_1.translation) *
+  //                                                 extrinsics_feature_1.rotation;
+  //
+  //    /**
+  //     * Transform that provides the camera position in the robot's frame.
+  //     */
+  //    Eigen::Affine3f cam_to_robot_tf_feature_2_ =
+  //            Eigen::Translation3f(extrinsics_feature_2.translation) *
+  //            extrinsics_feature_2.rotation;
+  //
+  //    Eigen::Matrix<double, 3, 3> essential_mat =
+  //        vslam_util::CalcEssentialMatrix(node1.pose,
+  //                                        node2.pose,
+  //                                        cam_to_robot_tf_feature_1_.cast<T>(),
+  //                                        cam_to_robot_tf_feature_2_.cast<T>());
+  //
+  //    Eigen::Matrix<double, 3, 3> essential_mat =
+  //    vslam_util::CalcEssentialMatrix(
+  //        node1.pose, node2.pose, cam_to_robot_tf);
+  //
+  //    // Get cam 1 and cam 2 points
+  //    std::vector<cv::Point_<double>> cam_1_points;
+  //    std::vector<cv::Point_<double>> cam_2_points;
+  //
+  //    for (const auto &ft : slam_problem.tracks) {
+  //      std::vector<vslam_types::VisionFeature> features =
+  //          feature_retriever(ft.second);
+  //      for (int j = 0; j < features.size(); ++j) {
+  //
+  //        vslam_types::VisionFeature feature_1 = features[j];
+  //        vslam_types::VisionFeature feature_2 = features[j+1];
+  //        // This conditional ensures that we only include points that have
+  //        // matches across consecutive frame pairs
+  //        if (features[j].frame_idx == i && features[j + 1].frame_idx == i +
+  //        1) {
+  //
+  //          // Convert to fundamental matrix with K
+  //          Eigen::Matrix<double, 3, 3> fundamental_mat =
+  //              intrinsics.camera_mat.transpose().inverse().cast<double>() *
+  //              essential_mat *
+  //              intrinsics.camera_mat.inverse().cast<double>();
+  //
+  //
+  //          // In first frame
+  //          cv::Point_<float> point1(features[j].pixel.x(),
+  //                                   features[j].pixel.y());
+  //          cam_1_points.push_back(point1);
+  //          // In second frame
+  //          cv::Point_<float> point2(features[j + 1].pixel.x(),
+  //                                   features[j + 1].pixel.y());
+  //          cam_2_points.push_back(point2);
+  //        }
+  //      }
+  //    }
+  //
+  //    // Make empty mats to represent the image
+  //    cv::Mat cam1_pic(480, 640, CV_8U, cv::Scalar(100));
+  //    cv::Mat cam2_pic(480, 640, CV_8U, cv::Scalar(100));
+  //    // Convert F to cv format
+  //    cv::Matx<double, 3, 3> F_cv;
+  //    cv::eigen2cv(fundamental_mat, F_cv);
+  //    // Draw image w/ epipolar lines
+  //    // Swapped points because of non comutativity of x`Ex
+  //    DrawEpipolarLines(
+  //        "Frame", F_cv, cam2_pic, cam1_pic, cam_2_points, cam_1_points, 50);
+  //  }
 }
 
 }  // namespace vslam_viz

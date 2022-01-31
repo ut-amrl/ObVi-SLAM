@@ -40,18 +40,12 @@ vslam_types::RobotPose FromSLAMNode(const vslam_types::SLAMNode &slam_node) {
 // TODO make all class methods lower case ?
 template <typename FeatureTrackType, typename ProblemParams>
 bool SLAMSolver::SolveSLAM(
-    const vslam_types::CameraIntrinsics &intrinsics,
-    const vslam_types::CameraExtrinsics &extrinsics,
-    const std::function<void(const vslam_types::CameraIntrinsics &,
-                             const vslam_types::CameraExtrinsics &,
-                             const ProblemParams &,
+    const std::function<void(const ProblemParams &,
                              vslam_types::UTSLAMProblem<FeatureTrackType> &,
                              ceres::Problem &,
                              std::vector<vslam_types::SLAMNode> *)>
         vision_constraint_adder,
     const std::function<std::shared_ptr<ceres::IterationCallback>(
-        const vslam_types::CameraIntrinsics &,
-        const vslam_types::CameraExtrinsics &,
         const vslam_types::UTSLAMProblem<FeatureTrackType> &,
         std::vector<vslam_types::SLAMNode> *)> callback_creator,
     const ProblemParams &problem_params,
@@ -71,18 +65,13 @@ bool SLAMSolver::SolveSLAM(
   std::vector<vslam_types::SLAMNode> slam_nodes;
   RobotPosesToSLAMNodes(updated_robot_poses, slam_nodes);
 
-  vision_constraint_adder(intrinsics,
-                          extrinsics,
-                          problem_params,
-                          slam_problem,
-                          problem,
-                          &slam_nodes);
+  vision_constraint_adder(problem_params, slam_problem, problem, &slam_nodes);
 
   // Set the first pose constant
   problem.SetParameterBlockConstant(slam_nodes[0].pose);
 
   std::shared_ptr<ceres::IterationCallback> viz_callback =
-      callback_creator(intrinsics, extrinsics, slam_problem, &slam_nodes);
+      callback_creator(slam_problem, &slam_nodes);
 
   if (viz_callback != nullptr) {
     options.callbacks.emplace_back(viz_callback.get());
@@ -99,8 +88,6 @@ bool SLAMSolver::SolveSLAM(
 }
 
 void AddStructurelessVisionFactors(
-    const vslam_types::CameraIntrinsics &intrinsics,
-    const vslam_types::CameraExtrinsics &extrinsics,
     const StructurelessSlamProblemParams &solver_optimization_params,
     vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &slam_problem,
     ceres::Problem &ceres_problem,
@@ -110,6 +97,37 @@ void AddStructurelessVisionFactors(
   for (const auto &feature_track_by_id : slam_problem.tracks) {
     for (int i = 0; i < feature_track_by_id.second.track.size() - 1; i++) {
       vslam_types::VisionFeature f1 = feature_track_by_id.second.track[i];
+      vslam_types::CameraId f1_primary_camera_id = f1.primary_camera_id;
+      vslam_types::CameraIntrinsics feature_1_primary_cam_intrinsics =
+          slam_problem.camera_instrinsics_by_camera.at(f1_primary_camera_id);
+      vslam_types::CameraExtrinsics feature_1_primary_cam_extrinsics =
+          slam_problem.camera_extrinsics_by_camera.at(f1_primary_camera_id);
+      Eigen::Vector2f feature_1_primary_pixel =
+          f1.pixel_by_camera_id.at(f1_primary_camera_id);
+
+      for (const auto &pixel_with_camera_id : f1.pixel_by_camera_id) {
+        vslam_types::CameraId other_feat_camera_id = pixel_with_camera_id.first;
+        if (other_feat_camera_id == f1_primary_camera_id) {
+          continue;
+        }
+        double *pose_block = solution[f1.frame_idx].pose;
+
+        ceres_problem.AddResidualBlock(
+            Pairwise2dFeatureCostFunctor::create(
+                feature_1_primary_cam_intrinsics,
+                feature_1_primary_cam_extrinsics,
+                slam_problem.camera_instrinsics_by_camera.at(
+                    other_feat_camera_id),
+                slam_problem.camera_extrinsics_by_camera.at(
+                    other_feat_camera_id),
+                f1.pixel_by_camera_id.at(f1_primary_camera_id),
+                f1.pixel_by_camera_id.at(other_feat_camera_id),
+                solver_optimization_params.epipolar_error_std_dev),
+            new ceres::HuberLoss(1.0),
+            pose_block,
+            pose_block);
+      }
+
       for (int j = i + 1; j < feature_track_by_id.second.track.size(); j++) {
         vslam_types::VisionFeature f2 = feature_track_by_id.second.track[j];
 
@@ -118,10 +136,14 @@ void AddStructurelessVisionFactors(
 
         ceres_problem.AddResidualBlock(
             Pairwise2dFeatureCostFunctor::create(
-                intrinsics,
-                extrinsics,
-                f1,
-                f2,
+                feature_1_primary_cam_intrinsics,
+                feature_1_primary_cam_extrinsics,
+                slam_problem.camera_instrinsics_by_camera.at(
+                    f2.primary_camera_id),
+                slam_problem.camera_extrinsics_by_camera.at(
+                    f2.primary_camera_id),
+                f1.pixel_by_camera_id.at(f1.primary_camera_id),
+                f2.pixel_by_camera_id.at(f2.primary_camera_id),
                 solver_optimization_params.epipolar_error_std_dev),
             new ceres::HuberLoss(1.0),
             initial_pose_block,
@@ -132,8 +154,6 @@ void AddStructurelessVisionFactors(
 }
 
 void AddStructuredVisionFactors(
-    const vslam_types::CameraIntrinsics &intrinsics,
-    const vslam_types::CameraExtrinsics &extrinsics,
     const StructuredSlamProblemParams &solver_optimization_params,
     vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack>
         &slam_problem,
@@ -146,34 +166,31 @@ void AddStructuredVisionFactors(
     for (const vslam_types::VisionFeature &feature :
          feature_track_by_id.second.feature_track.track) {
       double *pose_block = solution[feature.frame_idx].pose;
-
-      ceres_problem.AddResidualBlock(
-          ReprojectionCostFunctor::create(
-              intrinsics,
-              extrinsics,
-              feature,
-              solver_optimization_params.reprojection_error_std_dev),
-          nullptr,
-          pose_block,
-          feature_position_block);
+      for (const auto &camera_id_and_pixel : feature.pixel_by_camera_id) {
+        ceres_problem.AddResidualBlock(
+            ReprojectionCostFunctor::create(
+                slam_problem.camera_instrinsics_by_camera.at(
+                    camera_id_and_pixel.first),
+                slam_problem.camera_extrinsics_by_camera.at(
+                    camera_id_and_pixel.first),
+                camera_id_and_pixel.second,
+                solver_optimization_params.reprojection_error_std_dev),
+            nullptr,
+            pose_block,
+            feature_position_block);
+      }
     }
   }
 }
 
 template bool SLAMSolver::SolveSLAM<vslam_types::VisionFeatureTrack,
                                     StructurelessSlamProblemParams>(
-    const vslam_types::CameraIntrinsics &intrinsics,
-    const vslam_types::CameraExtrinsics &extrinsics,
     const std::function<
-        void(const vslam_types::CameraIntrinsics &,
-             const vslam_types::CameraExtrinsics &,
-             const StructurelessSlamProblemParams &,
+        void(const StructurelessSlamProblemParams &,
              vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &,
              ceres::Problem &,
              std::vector<vslam_types::SLAMNode> *)> vision_constraint_adder,
     const std::function<std::shared_ptr<ceres::IterationCallback>(
-        const vslam_types::CameraIntrinsics &,
-        const vslam_types::CameraExtrinsics &,
         const vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &,
         std::vector<vslam_types::SLAMNode> *)> callback_creator,
     const StructurelessSlamProblemParams &problem_params,
@@ -182,18 +199,12 @@ template bool SLAMSolver::SolveSLAM<vslam_types::VisionFeatureTrack,
 
 template bool SLAMSolver::SolveSLAM<vslam_types::StructuredVisionFeatureTrack,
                                     StructuredSlamProblemParams>(
-    const vslam_types::CameraIntrinsics &intrinsics,
-    const vslam_types::CameraExtrinsics &extrinsics,
     const std::function<void(
-        const vslam_types::CameraIntrinsics &,
-        const vslam_types::CameraExtrinsics &,
         const StructuredSlamProblemParams &,
         vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack> &,
         ceres::Problem &,
         std::vector<vslam_types::SLAMNode> *)> vision_constraint_adder,
     const std::function<std::shared_ptr<ceres::IterationCallback>(
-        const vslam_types::CameraIntrinsics &,
-        const vslam_types::CameraExtrinsics &,
         const vslam_types::UTSLAMProblem<
             vslam_types::StructuredVisionFeatureTrack> &,
         std::vector<vslam_types::SLAMNode> *)> callback_creator,

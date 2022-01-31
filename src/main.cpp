@@ -36,25 +36,9 @@ int main(int argc, char **argv) {
 
   // Make empty unstructured slam problem
   vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> prob;
-  // Make empty camera calibration matrix
-  Eigen::Matrix3f K;
+
   // Load unstructured slam problem and intrinsic calibration K
-  vslam_io::LoadStructurelessUTSLAMProblem(FLAGS_dataset_path, prob, K);
-
-  // Make intrinsics and unit camera extrinsics
-  vslam_types::CameraIntrinsics intrinsics{K};
-  // [0 -1 0; 0 0 -1; 1 0 0] is the rotation of the camera matrix from a classic
-  // world frame - for the camera +z is the +x world axis, +y is the -z world
-  // axis, and +x is the -y world axis
-  vslam_types::CameraExtrinsics extrinsics{
-      Eigen::Vector3f(0, 0, 0),
-      Eigen::Quaternionf(0.5, 0.5, -0.5, 0.5)
-          .inverse()};  // [0 -1 0; 0 0 -1; 1 0 0]^-1
-
-  // Note that for the microsoft data set the extrinsics are identity. This also
-  // needs to be change/paramaterized for the pose viewer
-  // vslam_types::CameraExtrinsics extrinsics{
-  //   Eigen::Vector3f(0, 0, 0), Eigen::Quaternionf(1, 0, 0, 0).inverse()};
+  vslam_io::LoadStructurelessUTSLAMProblem(FLAGS_dataset_path, prob);
 
   // Solve
   vslam_solver::SLAMSolverOptimizerParams optimizer_params;
@@ -82,8 +66,6 @@ int main(int argc, char **argv) {
   }
 
   std::function<void(
-      const vslam_types::CameraIntrinsics &,
-      const vslam_types::CameraExtrinsics &,
       const vslam_solver::StructurelessSlamProblemParams &,
       vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &,
       ceres::Problem &,
@@ -102,8 +84,6 @@ int main(int argc, char **argv) {
   // https://stackoverflow.com/questions/30393285/stdfunction-fails-to-distinguish-overloaded-functions
   typedef std::shared_ptr<vslam_viz::VisualSlamCeresVisualizationCallback<
       vslam_types::VisionFeatureTrack>> (*funtype)(
-      const vslam_types::CameraIntrinsics &,
-      const vslam_types::CameraExtrinsics &,
       const vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &,
       const std::function<std::vector<vslam_types::VisionFeature>(
           const vslam_types::VisionFeatureTrack &)> &,
@@ -113,8 +93,6 @@ int main(int argc, char **argv) {
       vslam_types::VisionFeatureTrack>::create;
 
   std::function<std::shared_ptr<ceres::IterationCallback>(
-      const vslam_types::CameraIntrinsics &,
-      const vslam_types::CameraExtrinsics &,
       const vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &,
       const std::function<std::vector<vslam_types::VisionFeature>(
           const vslam_types::VisionFeatureTrack &)> &,
@@ -123,23 +101,17 @@ int main(int argc, char **argv) {
       unbound_callback_creator = func;
 
   std::function<std::shared_ptr<ceres::IterationCallback>(
-      const vslam_types::CameraIntrinsics &,
-      const vslam_types::CameraExtrinsics &,
       const vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &,
       std::vector<vslam_types::SLAMNode> *)>
       callback_creator = std::bind(unbound_callback_creator,
                                    std::placeholders::_1,
-                                   std::placeholders::_2,
-                                   std::placeholders::_3,
                                    feature_retriever,
                                    gt_robot_poses,
-                                   std::placeholders::_4);
+                                   std::placeholders::_2);
 
   vslam_solver::StructurelessSlamProblemParams problem_params;
 
   solver.SolveSLAM<vslam_types::VisionFeatureTrack>(
-      intrinsics,
-      extrinsics,
       structureless_vision_constraint_adder,
       callback_creator,
       problem_params,
