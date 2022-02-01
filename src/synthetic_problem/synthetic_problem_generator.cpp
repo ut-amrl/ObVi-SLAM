@@ -31,29 +31,103 @@ Eigen::Vector4f getGroundTruthBoundingBoxObservation(
   vslam_types::RobotPose ellipsoid_pose_in_world(
       gt_robot_pose.frame_idx, gt_ellipsoid.loc, gt_ellipsoid.orientation);
 
-    vslam_types::RobotPose ellipsoid_pose_rel_cam =
-        vslam_util::getPose2RelativeToPose1(cam_pose_in_world,
-                                            ellipsoid_pose_in_world);
+  vslam_types::RobotPose ellipsoid_pose_rel_cam =
+      vslam_util::getPose2RelativeToPose1(cam_pose_in_world,
+                                          ellipsoid_pose_in_world);
 
-//  vslam_types::RobotPose cam_pose_rel_ellispoid =
-//      vslam_util::getPose2RelativeToPose1(ellipsoid_pose_in_world,
-//                                          cam_pose_in_world);
+  Eigen::Vector3f ellipsoid_extrema_neg_x_ellipsoid_frame(
+      -gt_ellipsoid.ellipsoid_dim.x() / 2, 0, 0);
+  Eigen::Vector3f ellipsoid_extrema_pos_x_ellipsoid_frame =
+      -ellipsoid_extrema_neg_x_ellipsoid_frame;
+  Eigen::Vector3f ellipsoid_extrema_neg_y_ellipsoid_frame(
+      0, -gt_ellipsoid.ellipsoid_dim.y() / 2, 0);
+  Eigen::Vector3f ellipsoid_extrema_pos_y_ellipsoid_frame =
+      -ellipsoid_extrema_neg_y_ellipsoid_frame;
+  Eigen::Vector3f ellipsoid_extrema_neg_z_ellipsoid_frame(
+      0, 0, -gt_ellipsoid.ellipsoid_dim.z() / 2);
+  Eigen::Vector3f ellipsoid_extrema_pos_z_ellipsoid_frame =
+      -ellipsoid_extrema_neg_z_ellipsoid_frame;
+  Eigen::Vector3f ellipsoid_center_ellipsoid_frame(0, 0, 0);
+
+  //  vslam_types::RobotPose cam_pose_rel_ellispoid =
+  //      vslam_util::getPose2RelativeToPose1(ellipsoid_pose_in_world,
+  //                                          cam_pose_in_world);
 
   //  LOG(INFO) << "Ellipsoid translation rel to cam " <<
   //  ellipsoid_pose_rel_cam.loc; Eigen::AffineCompact3f relative_ellipsoid_pose
   //  =
   //      ellipsoid_pose_rel_cam.RobotToWorldTF();
+
+  // Pose of the ellipsoid relative to the camera
   Eigen::AffineCompact3f relative_cam_pose =
       ellipsoid_pose_rel_cam.RobotToWorldTF();
+
+  Eigen::Vector3f ellipsoid_extrema_neg_x_cam_frame =
+      relative_cam_pose * ellipsoid_extrema_neg_x_ellipsoid_frame;
+  Eigen::Vector3f ellipsoid_extrema_pos_x_cam_frame =
+      relative_cam_pose * ellipsoid_extrema_pos_x_ellipsoid_frame;
+  Eigen::Vector3f ellipsoid_extrema_neg_y_cam_frame =
+      relative_cam_pose * ellipsoid_extrema_neg_y_ellipsoid_frame;
+  Eigen::Vector3f ellipsoid_extrema_pos_y_cam_frame =
+      relative_cam_pose * ellipsoid_extrema_pos_y_ellipsoid_frame;
+  Eigen::Vector3f ellipsoid_extrema_neg_z_cam_frame =
+      relative_cam_pose * ellipsoid_extrema_neg_z_ellipsoid_frame;
+  Eigen::Vector3f ellipsoid_extrema_pos_z_cam_frame =
+      relative_cam_pose * ellipsoid_extrema_pos_z_ellipsoid_frame;
+  Eigen::Vector3f ellipsoid_center_cam_frame =
+      relative_cam_pose * ellipsoid_center_ellipsoid_frame;
+
+  LOG(INFO) << "Extrema rel camera";
+  LOG(INFO) << ellipsoid_extrema_neg_x_cam_frame;
+  LOG(INFO) << ellipsoid_extrema_pos_x_cam_frame;
+  LOG(INFO) << ellipsoid_extrema_neg_y_cam_frame;
+  LOG(INFO) << ellipsoid_extrema_pos_y_cam_frame;
+  LOG(INFO) << ellipsoid_extrema_neg_z_cam_frame;
+  LOG(INFO) << ellipsoid_extrema_pos_z_cam_frame;
+  LOG(INFO) << ellipsoid_center_cam_frame;
+
+  Eigen::Vector3f ellipsoid_extrema_neg_x_pixel =
+      cam_intrinsics.camera_mat * ellipsoid_extrema_neg_x_cam_frame;
+  Eigen::Vector3f ellipsoid_extrema_pos_x_pixel =
+      cam_intrinsics.camera_mat * ellipsoid_extrema_pos_x_cam_frame;
+  Eigen::Vector3f ellipsoid_extrema_neg_y_pixel =
+      cam_intrinsics.camera_mat * ellipsoid_extrema_neg_y_cam_frame;
+  Eigen::Vector3f ellipsoid_extrema_pos_y_pixel =
+      cam_intrinsics.camera_mat * ellipsoid_extrema_pos_y_cam_frame;
+  Eigen::Vector3f ellipsoid_extrema_neg_z_pixel =
+      cam_intrinsics.camera_mat * ellipsoid_extrema_neg_z_cam_frame;
+  Eigen::Vector3f ellipsoid_extrema_pos_z_pixel =
+      cam_intrinsics.camera_mat * ellipsoid_extrema_pos_z_cam_frame;
+  Eigen::Vector3f ellipsoid_center_pixel =
+      cam_intrinsics.camera_mat * ellipsoid_center_cam_frame;
+
+  LOG(INFO) << "Pixels unscaled";
+  LOG(INFO) << ellipsoid_extrema_neg_x_pixel;
+  LOG(INFO) << ellipsoid_extrema_pos_x_pixel;
+  LOG(INFO) << ellipsoid_extrema_neg_y_pixel;
+  LOG(INFO) << ellipsoid_extrema_pos_y_pixel;
+  LOG(INFO) << ellipsoid_extrema_neg_z_pixel;
+  LOG(INFO) << ellipsoid_extrema_pos_z_pixel;
+  LOG(INFO) << ellipsoid_center_pixel;
+
+  LOG(INFO) << "Pixels scaled";
+  LOG(INFO) << ellipsoid_extrema_neg_x_pixel / ellipsoid_extrema_neg_x_pixel.z();
+  LOG(INFO) << ellipsoid_extrema_pos_x_pixel / ellipsoid_extrema_pos_x_pixel.z();
+  LOG(INFO) << ellipsoid_extrema_neg_y_pixel / ellipsoid_extrema_neg_y_pixel.z();
+  LOG(INFO) << ellipsoid_extrema_pos_y_pixel / ellipsoid_extrema_pos_y_pixel.z();
+  LOG(INFO) << ellipsoid_extrema_neg_z_pixel / ellipsoid_extrema_neg_z_pixel.z();
+  LOG(INFO) << ellipsoid_extrema_pos_z_pixel / ellipsoid_extrema_pos_z_pixel.z();
+  LOG(INFO) << ellipsoid_center_pixel / ellipsoid_center_pixel.z();
+
   //  LOG(INFO) << "Ellipsoid translation rel to cam " <<
   //  relative_ellipsoid_pose.translation();
   LOG(INFO) << "Cam transl rel ellipsoid " << relative_cam_pose.translation();
   LOG(INFO) << "Cam rot rel ellipsoid" << relative_cam_pose.linear();
 
   Eigen::DiagonalMatrix<float, 4> transformed_ellipsoid_dual(
-      Eigen::Vector4f(pow(gt_ellipsoid.ellipsoid_dim.x(), 2),
-                      pow(gt_ellipsoid.ellipsoid_dim.y(), 2),
-                      pow(gt_ellipsoid.ellipsoid_dim.z(), 2),
+      Eigen::Vector4f(pow(gt_ellipsoid.ellipsoid_dim.x()/2, 2),
+                      pow(gt_ellipsoid.ellipsoid_dim.y()/2, 2),
+                      pow(gt_ellipsoid.ellipsoid_dim.z()/2, 2),
                       -1));
 
   LOG(INFO) << "Ellipsoid rep: " << transformed_ellipsoid_dual.toDenseMatrix();
@@ -63,7 +137,7 @@ Eigen::Vector4f getGroundTruthBoundingBoxObservation(
       cam_intrinsics.camera_mat * relative_cam_pose.matrix() *
       transformed_ellipsoid_dual * (relative_cam_pose.matrix().transpose()) *
       (cam_intrinsics.camera_mat.transpose());
-  LOG(INFO) << "G_mat " << g_mat;
+  LOG(INFO) << "G_mat \n" << g_mat;
   //  Eigen::Matrix3f g_mat = cam_intrinsics.camera_mat *
   //                          relative_ellipsoid_pose.matrix() *
   //                          transformed_ellipsoid_dual *
@@ -78,6 +152,11 @@ Eigen::Vector4f getGroundTruthBoundingBoxObservation(
   LOG(INFO) << "v sqrt term " << v_sqrt_term;
   float v_min = g_mat(1, 2) + v_sqrt_term;
   float v_max = g_mat(1, 2) - v_sqrt_term;
+
+  u_min = u_min / g_mat(2, 2);
+  u_max = u_max / g_mat(2, 2);
+  v_min = v_min / g_mat(2, 2);
+  v_max = v_max / g_mat(2, 2);
 
   return Eigen::Vector4f(u_min, u_max, v_min, v_max);
 }
@@ -161,7 +240,8 @@ generateBoundingBoxDetectionsFromGroundTruthEllipsoidsAndPoses(
                                                  gt_ellipsoid,
                                                  curr_cam_intrinsics,
                                                  curr_cam_extrinsics);
-        LOG(INFO) << "Predicted noiseless bounding box " << noiseless_predicted_bounding_box;
+        LOG(INFO) << "Predicted noiseless bounding box "
+                  << noiseless_predicted_bounding_box;
         if (!doesBoundingBoxSatisfyVisibilityParams(
                 noiseless_predicted_bounding_box,
                 ellipsoid_visibility_params,
