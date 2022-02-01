@@ -129,6 +129,18 @@ int main(int argc, char **argv) {
   LOG(INFO) << "Created problem with "
             << slam_problem_and_params.first.bounding_boxes.size()
             << " bounding box detections";
+  LOG(INFO) << "Ellipsoid init est size " << slam_problem_and_params.first.ellipsoid_estimates.size();
+  LOG(INFO) << "Ellipsoid initial est before calling sovler";
+  LOG(INFO) << slam_problem_and_params.first.ellipsoid_estimates[0].loc.x();
+  LOG(INFO) << slam_problem_and_params.first.ellipsoid_estimates[0].loc.y();
+  LOG(INFO) << slam_problem_and_params.first.ellipsoid_estimates[0].loc.z();
+  LOG(INFO) << slam_problem_and_params.first.ellipsoid_estimates[0].orientation.axis().x() * slam_problem_and_params.first.ellipsoid_estimates[0].orientation.angle();
+  LOG(INFO) << slam_problem_and_params.first.ellipsoid_estimates[0].orientation.axis().y() * slam_problem_and_params.first.ellipsoid_estimates[0].orientation.angle();
+  LOG(INFO) << slam_problem_and_params.first.ellipsoid_estimates[0].orientation.axis().z() * slam_problem_and_params.first.ellipsoid_estimates[0].orientation.angle();
+  LOG(INFO) << slam_problem_and_params.first.ellipsoid_estimates[0].ellipsoid_dim.x();
+  LOG(INFO) << slam_problem_and_params.first.ellipsoid_estimates[0].ellipsoid_dim.y();
+  LOG(INFO) << slam_problem_and_params.first.ellipsoid_estimates[0].ellipsoid_dim.z();
+
 
   vslam_solver::SLAMSolverOptimizerParams optimizer_params;
   vslam_solver::StructuredObjectSlamProblemParams problem_params;
@@ -179,14 +191,14 @@ int main(int argc, char **argv) {
   std_msgs::ColorRGBA ellipsoid_color;
   ellipsoid_color.a = 1.0;
   ellipsoid_color.b = 1.0;
-  viz->visualizeEllipsoids(
-      ground_truth_ellipsoids, "ground_truth_ellipsoids", ellipsoid_color);
-  ros::Duration(2).sleep();
-  viz->visualizeTrajectoryAndEllipsoidsWithTf(ground_truth_robot_poses,
-                                              ground_truth_ellipsoids,
-                                              extrinsics,
-                                              intrinsics);
-  ros::Duration(2).sleep();
+//  viz->visualizeEllipsoids(
+//      ground_truth_ellipsoids, "ground_truth_ellipsoids", ellipsoid_color);
+//  ros::Duration(2).sleep();
+//  viz->visualizeTrajectoryAndEllipsoidsWithTf(ground_truth_robot_poses,
+//                                              ground_truth_ellipsoids,
+//                                              extrinsics,
+//                                              intrinsics);
+//  ros::Duration(2).sleep();
   bool slam_convergence_result =
       findEllipsoidEstimates(slam_problem_and_params.first,
                              optimizer_params,

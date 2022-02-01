@@ -19,7 +19,30 @@ bool findEllipsoidEstimates(
   vslam_solver::ObjectSLAMSolver slam_solver(solver_params);
 
   std::vector<vslam_types::RobotPose> robot_poses = ut_slam_problem.robot_poses;
+
+  LOG(INFO) << "Ellipsoid initial est before adding to out var";
+  LOG(INFO) << ut_slam_problem.ellipsoid_estimates[0].loc.x();
+  LOG(INFO) << ut_slam_problem.ellipsoid_estimates[0].loc.y();
+  LOG(INFO) << ut_slam_problem.ellipsoid_estimates[0].loc.z();
+  LOG(INFO) << ut_slam_problem.ellipsoid_estimates[0].orientation.axis().x() * ut_slam_problem.ellipsoid_estimates[0].orientation.angle();
+  LOG(INFO) << ut_slam_problem.ellipsoid_estimates[0].orientation.axis().y() * ut_slam_problem.ellipsoid_estimates[0].orientation.angle();
+  LOG(INFO) << ut_slam_problem.ellipsoid_estimates[0].orientation.axis().z() * ut_slam_problem.ellipsoid_estimates[0].orientation.angle();
+  LOG(INFO) << ut_slam_problem.ellipsoid_estimates[0].ellipsoid_dim.x();
+  LOG(INFO) << ut_slam_problem.ellipsoid_estimates[0].ellipsoid_dim.y();
+  LOG(INFO) << ut_slam_problem.ellipsoid_estimates[0].ellipsoid_dim.z();
+
   updated_ellipsoid_estimates = ut_slam_problem.ellipsoid_estimates;
+  LOG(INFO) << "Ellipsoid initial est before adding to problem";
+  LOG(INFO) << updated_ellipsoid_estimates[0].loc.x();
+  LOG(INFO) << updated_ellipsoid_estimates[0].loc.y();
+  LOG(INFO) << updated_ellipsoid_estimates[0].loc.z();
+  LOG(INFO) << updated_ellipsoid_estimates[0].orientation.axis().x() * updated_ellipsoid_estimates[0].orientation.angle();
+  LOG(INFO) << updated_ellipsoid_estimates[0].orientation.axis().y() * updated_ellipsoid_estimates[0].orientation.angle();
+  LOG(INFO) << updated_ellipsoid_estimates[0].orientation.axis().z() * updated_ellipsoid_estimates[0].orientation.angle();
+  LOG(INFO) << updated_ellipsoid_estimates[0].ellipsoid_dim.x();
+  LOG(INFO) << updated_ellipsoid_estimates[0].ellipsoid_dim.y();
+  LOG(INFO) << updated_ellipsoid_estimates[0].ellipsoid_dim.z();
+
 
   std::function<StructuredSlamProblemParams(
       const StructuredObjectSlamProblemParams &)>
@@ -75,6 +98,16 @@ bool findEllipsoidEstimates(
 
 vslam_types::EllipsoidEstimateNode FromEllipsoidEstimate(
     const vslam_types::EllipsoidEstimate &ellipsoid_estimate) {
+  LOG(INFO) << "Ellipsoid initial est before node";
+  LOG(INFO) << ellipsoid_estimate.loc.x();
+  LOG(INFO) << ellipsoid_estimate.loc.y();
+  LOG(INFO) << ellipsoid_estimate.loc.z();
+  LOG(INFO) << ellipsoid_estimate.orientation.axis().x() * ellipsoid_estimate.orientation.angle();
+  LOG(INFO) << ellipsoid_estimate.orientation.axis().y() * ellipsoid_estimate.orientation.angle();
+  LOG(INFO) << ellipsoid_estimate.orientation.axis().z() * ellipsoid_estimate.orientation.angle();
+  LOG(INFO) << ellipsoid_estimate.ellipsoid_dim.x();
+  LOG(INFO) << ellipsoid_estimate.ellipsoid_dim.y();
+  LOG(INFO) << ellipsoid_estimate.ellipsoid_dim.z();
   return vslam_types::EllipsoidEstimateNode(ellipsoid_estimate.loc,
                                             ellipsoid_estimate.orientation,
                                             ellipsoid_estimate.ellipsoid_dim,
@@ -211,6 +244,11 @@ bool ObjectSLAMSolver::SolveObjectSLAM(
 
   std::vector<vslam_types::EllipsoidEstimateNode> ellispoid_nodes;
   EllipsoidEstimatesToNodes(updated_ellipsoid_estimates, ellispoid_nodes);
+  LOG(INFO) << "Ellipsoid initial params";
+  for (int i = 0; i < 9; i++) {
+    LOG(INFO) << ellispoid_nodes[0].pose[i];
+  }
+
 
   // TODO add POM constraint adder
 
