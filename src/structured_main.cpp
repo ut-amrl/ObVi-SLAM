@@ -29,6 +29,7 @@ using std::cout;
 using std::endl;
 
 int main(int argc, char **argv) {
+  cout << "start main" << endl;
   google::InitGoogleLogging(argv[0]);
   google::ParseCommandLineFlags(&argc, &argv, true);
 
@@ -38,6 +39,7 @@ int main(int argc, char **argv) {
   vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack> prob;
 
   // Load structured slam problem and intrinsic calibration K
+  cout << "start loading problem" << endl;
   vslam_io::LoadStructuredUTSLAMProblem(FLAGS_dataset_path, prob);
   cout << "finish loading problem" << endl;
 

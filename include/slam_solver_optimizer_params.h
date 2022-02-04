@@ -20,6 +20,7 @@ struct SLAMSolverOptimizerParams {
    * Minimizer type for ceres optimization.
    */
   ceres::MinimizerType minimizer_type = ceres::MinimizerType::TRUST_REGION;
+  size_t max_num_consecutive_invalid_steps = 20;
 };
 
 }  // namespace vslam_solver

@@ -412,6 +412,15 @@ void ReadFeaturesFromFile(std::ifstream& data_file_stream,
     }
     CameraId primary_camera_id = kDefaultCameraId; // FIXME
     VisionFeatureTrack* feature_track = feature_track_retriever(feature_id);
+    x = xs[0];
+    y = ys[0];
+    VisionFeature feature(feature_id,
+                          frame_id,
+                          {{camera_id, Eigen::Vector2f(x, y)}},
+                          primary_camera_id); 
+    feature_track->track.push_back(feature);
+    feature_track->feature_idx = feature_id; 
+    /*
     for (size_t i = 0; i < camera_ids.size(); ++i) {
       camera_id = camera_ids[i];
       x = xs[i];
@@ -422,7 +431,7 @@ void ReadFeaturesFromFile(std::ifstream& data_file_stream,
                             primary_camera_id); 
       feature_track->track.push_back(feature);
       feature_track->feature_idx = feature_id;  // TODO dont reset this every time
-    }
+    }*/
     // TODO should the feature ID just be the ID in the map and not a part of
     // the feature track/
   }
