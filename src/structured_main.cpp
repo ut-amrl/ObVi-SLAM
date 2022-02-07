@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
   }
 
   Eigen::Matrix<double, 2, 1> odom_alphas(.1, .1);
-  vslam_util::CorruptRobotPoses(odom_alphas, answer);
+//   vslam_util::CorruptRobotPoses(odom_alphas, answer);
   std::vector<vslam_types::RobotPose> adjusted_to_zero_answer;
   vslam_util::AdjustTrajectoryToStartAtZero(answer, adjusted_to_zero_answer);
 
