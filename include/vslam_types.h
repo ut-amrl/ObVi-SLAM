@@ -15,6 +15,7 @@ namespace vslam_types {
 
 typedef uint64_t CameraId;
 typedef uint64_t FeatureId;
+typedef uint64_t FrameId;
 
 /**
  * Threshold for a small angle when creating a axis-angle representation.
@@ -151,6 +152,35 @@ struct StructuredVisionFeatureTrack {
   StructuredVisionFeatureTrack(const Eigen::Vector3d& point,
                                const VisionFeatureTrack& feature_track)
       : point(point), feature_track(feature_track){};
+};
+
+struct VisionFeatureTrackByPose {
+  /**
+   * Index of the frame/camera/robot_pose this feature was acquired at.
+   */
+  FrameId frame_id;
+  /**
+   * The track of feature matches.
+   */
+  std::vector<VisionFeature> track;
+  /**
+   * Default constructor: do nothing.
+   */
+  VisionFeatureTrackByPose() {}
+  /**
+   * Convenience constructor: initialize everything.
+   */
+  VisionFeatureTrackByPose(const FrameId& frame_id,
+                           const std::vector<VisionFeature>& track)
+      : frame_id(frame_id), track(track) {};
+  /**
+   * Convenience constructor: initialize everything.
+   */
+  VisionFeatureTrackByPose(const FrameId& frame_id,
+                           const VisionFeature& feature) {
+    this->frame_id = frame_id;
+    track.push_back(feature);
+  }
 };
 
 /**
@@ -319,6 +349,40 @@ struct UTSLAMProblem {
         robot_poses(robot_poses),
         camera_extrinsics_by_camera(camera_extrinsics_by_camera),
         camera_instrinsics_by_camera(camera_intrinsics_by_camera) {}
+};
+
+template <typename FeatureTrackType>
+struct UTSLAMProblemOnline {
+  /**
+   * index - FrameId; 
+   * use vector instead of unordered_map for better locality
+   */
+  std::vector<RobotPose> robot_poses; 
+  std::vector<FeatureTrackType> tracks;
+  /**
+   * estimated 3D Feature positions
+   */
+  std::unordered_map<FeatureId, Eigen::Vector3d> points;
+  /**
+   * starting frame id for the current sliding window
+   */
+  FrameId start_frame_id;
+  /**
+   * Extrinsics for each camera.
+   */
+  std::unordered_map<CameraId, CameraExtrinsics> camera_extrinsics_by_camera;
+  /**
+   * Intrinsics for each camera.
+   */
+  std::unordered_map<CameraId, CameraIntrinsics> camera_intrinsics_by_camera;
+  UTSLAMProblemOnline() {
+    this->start_frame_id = 0;
+  }
+  UTSLAMProblemOnline(const std::unordered_map<CameraId, CameraExtrinsics>& camera_extrinsics_by_camera,
+                      const std::unordered_map<CameraId, CameraIntrinsics>& camera_instrinsics_by_camera)
+      : start_frame_id(0), 
+        camera_extrinsics_by_camera(camera_extrinsics_by_camera), 
+        camera_intrinsics_by_camera(camera_intrinsics_by_camera) {}
 };
 
 // TODO  Move these functions to a utility file

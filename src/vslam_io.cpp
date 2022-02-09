@@ -322,14 +322,6 @@ void LoadStructuredUTSLAMProblem(
                                       prob.camera_extrinsics_by_camera);
 }
 
-void LoadStructuredUTSLAMProblemStereo(const std::string& data_path, 
-    vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack>& prob) {
-  
-  std::unordered_map<uint64_t, RobotPose> poses_by_id;
-
-
-}
-
 void LoadCameraCalibrationData(
     const std::string& dataset_path,
     std::unordered_map<vslam_types::CameraId, vslam_types::CameraIntrinsics>&
