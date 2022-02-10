@@ -6,6 +6,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
+INCLUDE($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
+ROSBUILD_INIT()
+SET(ROS_BUILD_STATIC_LIBS true)
+SET(ROS_BUILD_SHARED_LIBS false)
 
 find_package(Ceres REQUIRED)
 find_package(OpenCV 4.0 REQUIRED)
@@ -19,6 +23,7 @@ include_directories(include
 set(LIBS stdc++fs
     glog
     gflags
+    roslib roscpp rosbag 
     ${CERES_LIBRARIES}
     ${OpenCV_LIBS}
     ${Pangolin_LIBRARIES})
@@ -40,3 +45,6 @@ target_link_libraries(structured_main ut_vslam ${LIBS})
 
 add_executable(unproject_main src/unproject_main.cpp)
 target_link_libraries(unproject_main ut_vslam ${LIBS})
+
+rosbuild_add_executable(online_main src/online_main.cpp)
+target_link_libraries(online_main ut_vslam ${LIBS})

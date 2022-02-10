@@ -69,9 +69,10 @@ int main(int argc, char **argv) {
 
   Eigen::Vector3d feature_sigma_linear(0.0, 0.0, 0.0);
   for (int i = 0; i < prob.tracks.size(); i++) {
-    prob.tracks[i].point = vslam_util::getPositionRelativeToPose(
-        init_pose_unadjusted,
-        vslam_util::CorruptFeature(feature_sigma_linear, prob.tracks[i].point));
+    prob.tracks[i].point = vslam_util::getPositionRelativeToPose(init_pose_unadjusted, prob.tracks[i].point);
+    // prob.tracks[i].point = vslam_util::getPositionRelativeToPose(
+    //     init_pose_unadjusted,
+    //     vslam_util::CorruptFeature(feature_sigma_linear, prob.tracks[i].point));
   }
 
   std::function<void(

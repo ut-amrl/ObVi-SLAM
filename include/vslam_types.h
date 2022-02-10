@@ -154,7 +154,7 @@ struct StructuredVisionFeatureTrack {
       : point(point), feature_track(feature_track){};
 };
 
-struct VisionFeatureTrackByPose {
+struct StructuredFrameTrack {
   /**
    * Index of the frame/camera/robot_pose this feature was acquired at.
    */
@@ -166,18 +166,18 @@ struct VisionFeatureTrackByPose {
   /**
    * Default constructor: do nothing.
    */
-  VisionFeatureTrackByPose() {}
+  StructuredFrameTrack() {}
   /**
    * Convenience constructor: initialize everything.
    */
-  VisionFeatureTrackByPose(const FrameId& frame_id,
-                           const std::vector<VisionFeature>& track)
+  StructuredFrameTrack(const FrameId& frame_id,
+                              const std::vector<VisionFeature>& track)
       : frame_id(frame_id), track(track) {};
   /**
    * Convenience constructor: initialize everything.
    */
-  VisionFeatureTrackByPose(const FrameId& frame_id,
-                           const VisionFeature& feature) {
+  StructuredFrameTrack(const FrameId& frame_id,
+                              const VisionFeature& feature) {
     this->frame_id = frame_id;
     track.push_back(feature);
   }
@@ -358,6 +358,7 @@ struct UTSLAMProblemOnline {
    * use vector instead of unordered_map for better locality
    */
   std::vector<RobotPose> robot_poses; 
+  std::vector<SLAMNode> slam_nodes;
   std::vector<FeatureTrackType> tracks;
   /**
    * estimated 3D Feature positions

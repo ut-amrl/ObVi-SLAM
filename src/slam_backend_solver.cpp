@@ -1,3 +1,4 @@
+#include <type_traits>
 #include <ceres/ceres.h>
 #include <pairwise_2d_feature_cost_functor.h>
 #include <reprojection_cost_functor.h>
@@ -179,6 +180,37 @@ void AddStructuredVisionFactors(
             new ceres::HuberLoss(1.0),
             pose_block,
             feature_position_block);
+      }
+    }
+  }
+}
+
+void AddStructuredVisionFactorsFrameTrack(const StructuredSlamProblemParams &solver_optimization_params,
+                                          vslam_types::UTSLAMProblemOnline<vslam_types::StructuredFrameTrack> &slam_problem,
+                                          ceres::Problem &ceres_problem) {
+  std::vector<vslam_types::SLAMNode> &slam_nodes = slam_problem.slam_nodes;
+  std::unordered_map<vslam_types::FeatureId, Eigen::Vector3d> &points = slam_problem.points;
+  std::vector<vslam_types::StructuredFrameTrack> &tracks = slam_problem.tracks;
+
+  // iterate through all poses in the current window
+  for (vslam_types::FrameId frame_id = slam_problem.start_frame_id; 
+       frame_id < slam_problem.start_frame_id + solver_optimization_params.n_interval_frames;
+       ++frame_id) {
+    double *pose_block = slam_nodes[frame_id].pose;
+    // iterate through all features in the current pose
+    for (const vslam_types::VisionFeature &feature : tracks[frame_id].track) {
+      double *point_block = points[feature.feature_idx].data();
+      // iterate through all <camera, feature> where camera capture that feature
+      for (const auto &camera_id_and_pixel : feature.pixel_by_camera_id) {
+        ceres_problem.AddResidualBlock(
+            ReprojectionCostFunctor::create(
+                slam_problem.camera_intrinsics_by_camera[camera_id_and_pixel.first],
+                slam_problem.camera_extrinsics_by_camera[camera_id_and_pixel.first],
+                camera_id_and_pixel.second,
+                solver_optimization_params.reprojection_error_std_dev),
+            new ceres::HuberLoss(1.0),
+            pose_block,
+            point_block);
       }
     }
   }

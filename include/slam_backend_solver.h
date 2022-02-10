@@ -154,6 +154,11 @@ void AddStructuredVisionFactors(
         &slam_problem,
     ceres::Problem &ceres_problem,
     std::vector<vslam_types::SLAMNode> *updated_solved_nodes);
+
+void AddStructuredVisionFactorsFrameTrack(const StructuredSlamProblemParams &solver_optimization_params,
+                                std::vector<vslam_types::StructuredFrameTrack> &tracks,
+                                ceres::Problem &ceres_problem);
+
 }  // namespace vslam_solver
 
 #endif  // UT_VSLAM_SLAM_BACKEND_SOLVER_H
