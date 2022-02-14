@@ -70,7 +70,8 @@ bool SLAMSolver::SolveSLAM(
   vision_constraint_adder(problem_params, slam_problem, problem, &slam_nodes);
 
   // Set the first pose constant
-  problem.SetParameterBlockConstant(slam_nodes[0].pose);
+  // problem.SetParameterBlockConstant(slam_nodes[0].pose);
+  problem.SetParameterBlockConstant(slam_nodes[slam_problem.start_frame_id].pose); // TODO FIXME
 
   std::shared_ptr<ceres::IterationCallback> viz_callback =
       callback_creator(slam_problem, &slam_nodes);
@@ -202,6 +203,10 @@ void AddStructuredVisionFactors(
     for (const vslam_types::VisionFeature &feature :
          feature_track_by_id.second.feature_track.track) {
       double *pose_block = solution[feature.frame_idx].pose;
+      if (feature.frame_idx <  slam_problem.start_frame_id || 
+          feature.frame_idx >= slam_problem.start_frame_id + solver_optimization_params.n_interval_frames) {
+        continue;
+      }
       for (const auto &camera_id_and_pixel : feature.pixel_by_camera_id) {
         ceres_problem.AddResidualBlock(
             ReprojectionCostFunctor::create(

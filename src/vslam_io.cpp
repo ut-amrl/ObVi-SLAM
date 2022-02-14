@@ -17,6 +17,7 @@ const vslam_types::CameraId kDefaultCameraId = 1;
 }  // namespace
 
 using namespace vslam_types;
+using namespace std;
 
 namespace vslam_io {
 
@@ -282,6 +283,8 @@ void LoadStructuredUTSLAMProblem(
     const std::string& dataset_path,
     vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack>&
         prob) {
+  cout << "dataset_path: " << dataset_path << endl;
+  
   // Iterate over all files/folders in the dataset_path directory - i.e. over
   // all frames
   std::unordered_map<uint64_t, RobotPose> poses_by_id;
@@ -290,7 +293,6 @@ void LoadStructuredUTSLAMProblem(
       [&](const uint64_t& feature_id) {
         return &(prob.tracks[feature_id].feature_track);
       };
-
   if (!ReadAllFeatureFiles(
           dataset_path, feature_track_retriever, poses_by_id)) {
     return;
@@ -303,7 +305,6 @@ void LoadStructuredUTSLAMProblem(
   }
 
   SetRobotPosesInSlamProblem(poses_by_id, prob);
-
   std::unordered_map<uint64_t, Eigen::Vector3d> feature_estimates_by_id;
   if (!LoadInitialFeatureEstimates(dataset_path + kFeaturesPath,
                                    feature_estimates_by_id)) {
@@ -466,6 +467,7 @@ bool ReadAllFeatureFiles(
     std::function<vslam_types::VisionFeatureTrack*(const uint64_t&)>
         feature_track_retriever,
     std::unordered_map<uint64_t, vslam_types::RobotPose>& poses_by_id) {
+  cout << "dataset_path: " << dataset_path << endl;
   for (const auto& entry : fs::directory_iterator(fs::path(dataset_path))) {
     const auto file_extension = entry.path().extension().string();
 

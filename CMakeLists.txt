@@ -3,13 +3,14 @@ project(ut_vslam)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
-set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
-set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 INCLUDE($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 ROSBUILD_INIT()
 SET(ROS_BUILD_STATIC_LIBS true)
 SET(ROS_BUILD_SHARED_LIBS false)
+
+set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
+set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 find_package(Ceres REQUIRED)
 find_package(OpenCV 4.0 REQUIRED)
@@ -19,6 +20,13 @@ include_directories(include
                     ${CERES_INCLUDE_DIRS}
                     ${OpenCV_INCLUDE_DIRS}
                     ${Pangolin_INCLUDE_DIRS})
+
+# set(LIBS stdc++fs
+#     glog
+#     gflags
+#     ${CERES_LIBRARIES}
+#     ${OpenCV_LIBS}
+#     ${Pangolin_LIBRARIES})
 
 set(LIBS stdc++fs
     glog
@@ -45,6 +53,9 @@ target_link_libraries(structured_main ut_vslam ${LIBS})
 
 add_executable(unproject_main src/unproject_main.cpp)
 target_link_libraries(unproject_main ut_vslam ${LIBS})
+
+# add_executable(online_main src/online_main.cpp)
+# target_link_libraries(online_main ut_vslam ${LIBS})
 
 rosbuild_add_executable(online_main src/online_main.cpp)
 target_link_libraries(online_main ut_vslam ${LIBS})
