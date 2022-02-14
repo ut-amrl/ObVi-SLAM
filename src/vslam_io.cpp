@@ -349,8 +349,6 @@ void LoadCameraCalibrationData(
   camera_extrinsics_by_camera_id = {{kDefaultCameraId, extrinsics}};
   */
 
-  // TODO Taijing -- replace this function with proper code for multi-camera
-  // intrinsics and extrinsics reading
   LoadCameraIntrinsics(dataset_path + kIntrinsicsPath, camera_intrinsics_by_camera_id);
   LoadCameraExtrinsics(dataset_path + kExtrinsicsPath, camera_extrinsics_by_camera_id);
 }

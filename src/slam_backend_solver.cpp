@@ -157,6 +157,40 @@ void AddStructurelessVisionFactors(
 
 void AddStructuredVisionFactors(
     const StructuredSlamProblemParams &solver_optimization_params,
+    vslam_types::UTSLAMProblemOnline<vslam_types::StructuredVisionFeatureTrack>
+        &slam_problem,
+    ceres::Problem &ceres_problem,
+    std::vector<vslam_types::SLAMNode> *updated_solved_nodes) {
+  std::vector<vslam_types::SLAMNode> &solution = *updated_solved_nodes;
+
+  for (auto &feature_track_by_id : slam_problem.tracks) {
+    double *feature_position_block = feature_track_by_id.second.point.data();
+    for (const vslam_types::VisionFeature &feature :
+         feature_track_by_id.second.feature_track.track) {
+      double *pose_block = solution[feature.frame_idx].pose;
+      if (feature.frame_idx <  slam_problem.start_frame_id || 
+          feature.frame_idx >= slam_problem.start_frame_id + solver_optimization_params.n_interval_frames) {
+        continue;
+      }
+      for (const auto &camera_id_and_pixel : feature.pixel_by_camera_id) {
+        ceres_problem.AddResidualBlock(
+            ReprojectionCostFunctor::create(
+                slam_problem.camera_instrinsics_by_camera.at(
+                    camera_id_and_pixel.first),
+                slam_problem.camera_extrinsics_by_camera.at(
+                    camera_id_and_pixel.first),
+                camera_id_and_pixel.second,
+                solver_optimization_params.reprojection_error_std_dev),
+            new ceres::HuberLoss(1.0),
+            pose_block,
+            feature_position_block);
+      }
+    }
+  }
+}
+
+void AddStructuredVisionFactors(
+    const StructuredSlamProblemParams &solver_optimization_params,
     vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack>
         &slam_problem,
     ceres::Problem &ceres_problem,
@@ -185,6 +219,7 @@ void AddStructuredVisionFactors(
   }
 }
 
+/*
 void AddStructuredVisionFactorsFrameTrack(const StructuredSlamProblemParams &solver_optimization_params,
                                           vslam_types::UTSLAMProblemOnline<vslam_types::StructuredFrameTrack> &slam_problem,
                                           ceres::Problem &ceres_problem) {
@@ -215,7 +250,7 @@ void AddStructuredVisionFactorsFrameTrack(const StructuredSlamProblemParams &sol
     }
   }
 }
-
+*/
 template bool SLAMSolver::SolveSLAM<vslam_types::VisionFeatureTrack,
                                     StructurelessSlamProblemParams>(
     const std::function<

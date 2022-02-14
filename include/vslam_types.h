@@ -312,6 +312,7 @@ struct CameraExtrinsics {
  */
 template <typename FeatureTrackType>
 struct UTSLAMProblem {
+  FrameId start_frame_id;
   /**
    * Unordered map representing the database of tracks - indexed by
    * track/feature ID.
@@ -353,21 +354,19 @@ struct UTSLAMProblem {
 
 template <typename FeatureTrackType>
 struct UTSLAMProblemOnline {
-  /**
-   * index - FrameId; 
-   * use vector instead of unordered_map for better locality
-   */
-  std::vector<RobotPose> robot_poses; 
-  std::vector<SLAMNode> slam_nodes;
-  std::vector<FeatureTrackType> tracks;
-  /**
-   * estimated 3D Feature positions
-   */
-  std::unordered_map<FeatureId, Eigen::Vector3d> points;
-  /**
-   * starting frame id for the current sliding window
-   */
   FrameId start_frame_id;
+  /**
+   * Unordered map representing the database of tracks - indexed by
+   * track/feature ID.
+   */
+  std::unordered_map<uint64_t, FeatureTrackType> tracks;
+  /**
+   * TODO: I think it'd be good to either convert this to a map or make R
+   *  the poses are stored in order of their indices so we can just do
+   *  robot_poses[index] to get the pose
+   * Robot/frame poses of the entire trajectory
+   */
+  std::vector<RobotPose> robot_poses;
   /**
    * Extrinsics for each camera.
    */
@@ -375,18 +374,63 @@ struct UTSLAMProblemOnline {
   /**
    * Intrinsics for each camera.
    */
-  std::unordered_map<CameraId, CameraIntrinsics> camera_intrinsics_by_camera;
-  UTSLAMProblemOnline() {
-    this->start_frame_id = 0;
-  }
-  UTSLAMProblemOnline(const std::unordered_map<CameraId, CameraExtrinsics>& camera_extrinsics_by_camera,
-                      const std::unordered_map<CameraId, CameraIntrinsics>& camera_instrinsics_by_camera)
-      : start_frame_id(0), 
-        camera_extrinsics_by_camera(camera_extrinsics_by_camera), 
-        camera_intrinsics_by_camera(camera_intrinsics_by_camera) {}
+  std::unordered_map<CameraId, CameraIntrinsics> camera_instrinsics_by_camera;
+  /**
+   * Default constructor: do nothing.
+   */
+  UTSLAMProblemOnline() {}
+  /**
+   * Convenience constructor: initialize everything.
+   */
+  UTSLAMProblemOnline(std::unordered_map<uint64_t, FeatureTrackType> const& tracks,
+                const std::vector<RobotPose>& robot_poses,
+                const std::unordered_map<CameraId, CameraExtrinsics>&
+                    camera_extrinsics_by_camera,
+                const std::unordered_map<CameraId, CameraIntrinsics>&
+                    camera_intrinsics_by_camera)
+      : tracks(tracks),
+        robot_poses(robot_poses),
+        camera_extrinsics_by_camera(camera_extrinsics_by_camera),
+        camera_instrinsics_by_camera(camera_intrinsics_by_camera) {}
 };
 
-// TODO  Move these functions to a utility file
+// template <typename FeatureTrackType>
+// struct UTSLAMProblemOnline {
+//   /**
+//    * index - FrameId; 
+//    * use vector instead of unordered_map for better locality
+//    */
+//   std::vector<RobotPose> robot_poses; 
+//   std::vector<SLAMNode> slam_nodes;
+//   std::vector<FeatureTrackType> tracks;
+//   /**
+//    * estimated 3D Feature positions
+//    */
+//   std::unordered_map<FeatureId, Eigen::Vector3d> points;
+//   /**
+//    * starting frame id for the current sliding window
+//    */
+//   FrameId start_frame_id;
+//   /**
+//    * Extrinsics for each camera.
+//    */
+//   std::unordered_map<CameraId, CameraExtrinsics> camera_extrinsics_by_camera;
+//   /**
+//    * Intrinsics for each camera.
+//    */
+//   std::unordered_map<CameraId, CameraIntrinsics> camera_intrinsics_by_camera;
+//   UTSLAMProblemOnline() {
+//     this->start_frame_id = 0;
+//   }
+//   UTSLAMProblemOnline(const std::unordered_map<CameraId, CameraExtrinsics>& camera_extrinsics_by_camera,
+//                       const std::unordered_map<CameraId, CameraIntrinsics>& camera_instrinsics_by_camera)
+//       : start_frame_id(0), 
+//         camera_extrinsics_by_camera(camera_extrinsics_by_camera), 
+//         camera_intrinsics_by_camera(camera_intrinsics_by_camera) {}
+// }; 
+
+
+// // TODO  Move these functions to a utility file
 
 /**
  * Convert from a vector that stores the axis-angle representation (with
