@@ -76,7 +76,7 @@ int main(int argc, char **argv) {
       ceres::Problem &,
       std::vector<vslam_types::SLAMNode> *)>
       structured_vision_constraint_adder =
-          vslam_solver::AddStructuredVisionFactors;
+          vslam_solver::AddStructuredVisionFactorsOffline;
 
   std::function<std::vector<vslam_types::VisionFeature>(
       const vslam_types::StructuredVisionFeatureTrack &)>
@@ -119,9 +119,10 @@ int main(int argc, char **argv) {
 
   vslam_solver::StructuredSlamProblemParams problem_params;
 
+/*
   for (size_t start_frame_idx = 0; 
        start_frame_idx + problem_params.n_interval_frames < prob.robot_poses.size(); 
-       start_frame_idx += problem_params.n_interval_frames) { // TODO FIXME
+       ++start_frame_idx) { // TODO FIXME
     prob.start_frame_id = start_frame_idx;
     solver.SolveSLAM<vslam_types::StructuredVisionFeatureTrack,
                     vslam_solver::StructuredSlamProblemParams>(
@@ -130,6 +131,37 @@ int main(int argc, char **argv) {
         problem_params,
         prob,
         adjusted_to_zero_answer);
+  }
+*/
+  const float MIN_TRANSLATION_OPT = 10;
+  const float MIN_ROTATION_OPT = M_1_PI / 6; // 30 degree
+
+  int start_frame_idx = 0; 
+  int end_frame_idx = start_frame_idx;
+  while (end_frame_idx < prob.robot_poses.size()) {
+    ++end_frame_idx;
+    // TODO: need to add MIN_ROTATION_OPT --> how to calculate difference between 2 rotaitons?
+    Eigen::Quaternionf q_start(adjusted_to_zero_answer[start_frame_idx].angle);
+    Eigen::Quaternionf q_end(adjusted_to_zero_answer[end_frame_idx].angle);
+    if ((adjusted_to_zero_answer[end_frame_idx].loc - adjusted_to_zero_answer[start_frame_idx].loc).norm() < MIN_TRANSLATION_OPT 
+        && abs(q_start.angularDistance(q_end)) < MIN_ROTATION_OPT ) { continue; }
+    if (0) {
+      cout << "start_frame_idx: " << start_frame_idx << "; end_frame_idx: " << end_frame_idx << endl;
+      cout << "start robot pose: " << adjusted_to_zero_answer[start_frame_idx] << endl;
+      cout << "end   robot pose: " << adjusted_to_zero_answer[end_frame_idx] << endl;
+      cout << endl;
+    }
+    prob.start_frame_id = start_frame_idx;
+    prob.end_frame_id   = end_frame_idx;
+    solver.SolveSLAM<vslam_types::StructuredVisionFeatureTrack,
+                    vslam_solver::StructuredSlamProblemParams>(
+        structured_vision_constraint_adder,
+        callback_creator,
+        problem_params,
+        prob,
+        adjusted_to_zero_answer);
+    ++start_frame_idx; // don't need to update end_frame_idx
+    --end_frame_idx; // avoid huge jumps at frame end_frame_idx
   }
 
   if (FLAGS_save_poses) {

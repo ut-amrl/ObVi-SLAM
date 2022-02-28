@@ -148,7 +148,28 @@ void AddStructurelessVisionFactors(
  *                                      will not change here, but they will be
  *                                      tied to the ceres problem.
  */
-void AddStructuredVisionFactors(
+void AddStructuredVisionFactorsOnline(
+    const StructuredSlamProblemParams &solver_optimization_params,
+    vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack>
+        &slam_problem,
+    ceres::Problem &ceres_problem,
+    std::vector<vslam_types::SLAMNode> *updated_solved_nodes);
+
+/**
+ * Add structured vision factors to the ceres optimization problem.
+ *
+ * @param solver_optimization_params[in]Solver optimization parameters
+ * @param slam_problem[in/out]          SLAM problem defining constraints
+ *                                      between frames. Poses of feature points
+ *                                      will be attached to ceres optimization.
+ * @param ceres_problem[in/out]         Ceres problem that will have residual
+ *                                      blocks added to it.
+ * @param updated_solved_nodes[in/out]  Nodes in the SLAM problem that will be
+ *                                      updated during optimization. The values
+ *                                      will not change here, but they will be
+ *                                      tied to the ceres problem.
+ */
+void AddStructuredVisionFactorsOffline(
     const StructuredSlamProblemParams &solver_optimization_params,
     vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack>
         &slam_problem,

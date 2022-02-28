@@ -3,6 +3,10 @@
 #include <pairwise_2d_feature_cost_functor.h>
 #include <reprojection_cost_functor.h>
 #include <slam_backend_solver.h>
+#include <iostream>
+#include <fstream>
+
+using namespace std; // TODO: delete me
 
 namespace vslam_solver {
 
@@ -71,7 +75,7 @@ bool SLAMSolver::SolveSLAM(
 
   // Set the first pose constant
   // problem.SetParameterBlockConstant(slam_nodes[0].pose);
-  problem.SetParameterBlockConstant(slam_nodes[slam_problem.start_frame_id].pose); // TODO FIXME
+  problem.SetParameterBlockConstant(slam_nodes[slam_problem.start_frame_id].pose); 
 
   std::shared_ptr<ceres::IterationCallback> viz_callback =
       callback_creator(slam_problem, &slam_nodes);
@@ -85,6 +89,18 @@ bool SLAMSolver::SolveSLAM(
   std::cout << summary.FullReport() << "\n";
 
   SLAMNodesToRobotPoses(slam_nodes, updated_robot_poses);
+  if (0) { // TODO: delete me
+    std::ofstream of_success;
+    of_success.open("/home/tiejean/dataset/ut_vslam_out/debug/success/" + std::to_string(slam_problem.start_frame_id) + ".txt", ios::trunc);
+    if (summary.termination_type == ceres::CONVERGENCE || summary.termination_type == ceres::USER_SUCCESS) {
+      of_success << "succeed" << std::endl;
+    } else {
+      of_success << "failed" << std::endl;
+    }
+    of_success.close();
+    vslam_util::SaveKITTIPoses("/home/tiejean/dataset/ut_vslam_out/debug/traj" + std::to_string(slam_problem.start_frame_id) + ".txt",
+                               updated_robot_poses);
+  }
 
   return (summary.termination_type == ceres::CONVERGENCE ||
           summary.termination_type == ceres::USER_SUCCESS);
@@ -156,12 +172,14 @@ void AddStructurelessVisionFactors(
   }
 }
 
-void AddStructuredVisionFactors(
+// TODO: FIXME
+void AddStructuredVisionFactorsOnline(
     const StructuredSlamProblemParams &solver_optimization_params,
     vslam_types::UTSLAMProblemOnline<vslam_types::StructuredVisionFeatureTrack>
         &slam_problem,
     ceres::Problem &ceres_problem,
     std::vector<vslam_types::SLAMNode> *updated_solved_nodes) {
+  std::cout << "AddStructuredVisionFactors online" << std::endl;
   std::vector<vslam_types::SLAMNode> &solution = *updated_solved_nodes;
 
   for (auto &feature_track_by_id : slam_problem.tracks) {
@@ -190,23 +208,22 @@ void AddStructuredVisionFactors(
   }
 }
 
-void AddStructuredVisionFactors(
+// TODO: FIXME
+void AddStructuredVisionFactorsOffline(
     const StructuredSlamProblemParams &solver_optimization_params,
     vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack>
         &slam_problem,
     ceres::Problem &ceres_problem,
     std::vector<vslam_types::SLAMNode> *updated_solved_nodes) {
   std::vector<vslam_types::SLAMNode> &solution = *updated_solved_nodes;
-
+  std::cout << "AddStructuredVisionFactors offline" << std::endl;
   for (auto &feature_track_by_id : slam_problem.tracks) {
     double *feature_position_block = feature_track_by_id.second.point.data();
     for (const vslam_types::VisionFeature &feature :
          feature_track_by_id.second.feature_track.track) {
       double *pose_block = solution[feature.frame_idx].pose;
       if (feature.frame_idx <  slam_problem.start_frame_id || 
-          feature.frame_idx >= slam_problem.start_frame_id + solver_optimization_params.n_interval_frames) {
-        continue;
-      }
+          feature.frame_idx >= slam_problem.end_frame_id) { continue; }
       for (const auto &camera_id_and_pixel : feature.pixel_by_camera_id) {
         ceres_problem.AddResidualBlock(
             ReprojectionCostFunctor::create(

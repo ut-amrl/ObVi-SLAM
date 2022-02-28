@@ -313,6 +313,7 @@ struct CameraExtrinsics {
 template <typename FeatureTrackType>
 struct UTSLAMProblem {
   FrameId start_frame_id;
+  FrameId end_frame_id;
   /**
    * Unordered map representing the database of tracks - indexed by
    * track/feature ID.

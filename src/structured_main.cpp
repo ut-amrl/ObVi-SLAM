@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
       ceres::Problem &,
       std::vector<vslam_types::SLAMNode> *)>
       structured_vision_constraint_adder =
-          vslam_solver::AddStructuredVisionFactors;
+          vslam_solver::AddStructuredVisionFactorsOffline;
 
   std::function<std::vector<vslam_types::VisionFeature>(
       const vslam_types::StructuredVisionFeatureTrack &)>
@@ -131,11 +131,6 @@ int main(int argc, char **argv) {
       problem_params,
       prob,
       adjusted_to_zero_answer);
-
-  // Print poses to terminal for display
-  for (const auto &pose : adjusted_to_zero_answer) {
-    // cout << pose << endl;
-  }
 
   if (FLAGS_save_poses) {
     vslam_util::SaveKITTIPoses(FLAGS_output_path + "answer.txt",
