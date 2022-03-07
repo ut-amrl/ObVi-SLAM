@@ -89,16 +89,24 @@ bool SLAMSolver::SolveSLAM(
   std::cout << summary.FullReport() << "\n";
 
   SLAMNodesToRobotPoses(slam_nodes, updated_robot_poses);
-  if (0) { // TODO: delete me
+  if (1) { // TODO: delete me
     std::ofstream of_success;
-    of_success.open("/home/tiejean/dataset/ut_vslam_out/debug/success/" + std::to_string(slam_problem.start_frame_id) + ".txt", ios::trunc);
+    // dump out if optimization is successful or not
+    of_success.open(slam_problem.output + "success/" + std::to_string(slam_problem.start_frame_id) + ".txt", ios::trunc);
     if (summary.termination_type == ceres::CONVERGENCE || summary.termination_type == ceres::USER_SUCCESS) {
       of_success << "succeed" << std::endl;
     } else {
       of_success << "failed" << std::endl;
+      of_success << summary.FullReport() << std::endl;
     }
     of_success.close();
-    vslam_util::SaveKITTIPoses("/home/tiejean/dataset/ut_vslam_out/debug/traj" + std::to_string(slam_problem.start_frame_id) + ".txt",
+    // dump out start and end frames of this opimization
+    std::ofstream of_frame;
+    of_frame.open(slam_problem.output + "frame/" + std::to_string(slam_problem.start_frame_id) + ".txt", ios::trunc);
+    of_frame << slam_problem.start_frame_id << " " << slam_problem.end_frame_id << std::endl;
+    of_frame.close();
+    // dump out trajectory after this optimization
+    vslam_util::SaveKITTIPoses(slam_problem.output + "traj/" + std::to_string(slam_problem.start_frame_id) + ".txt",
                                updated_robot_poses);
   }
 
