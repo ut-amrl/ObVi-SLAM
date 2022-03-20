@@ -130,36 +130,48 @@ int main(int argc, char **argv) {
 
   vslam_solver::StructuredSlamProblemParams problem_params;
 
-/*
-  for (size_t start_frame_idx = 0; 
-       start_frame_idx + problem_params.n_interval_frames < prob.robot_poses.size(); 
-       ++start_frame_idx) { // TODO FIXME
-    prob.start_frame_id = start_frame_idx;
-    solver.SolveSLAM<vslam_types::StructuredVisionFeatureTrack,
-                    vslam_solver::StructuredSlamProblemParams>(
-        structured_vision_constraint_adder,
-        callback_creator,
-        problem_params,
-        prob,
-        adjusted_to_zero_answer);
-  }
-*/
-  const float MIN_TRANSLATION_OPT = 10;
-  const float MIN_ROTATION_OPT = M_1_PI / 6; // 30 degree
-  std::vector<vslam_types::RobotPose> adjusted_to_zero_answer;
-
-
-  prob.output = FLAGS_output_path;
-  int start_frame_idx = 0; 
-  int end_frame_idx = start_frame_idx;
-  while (end_frame_idx < prob.robot_poses.size()) {
-    ++end_frame_idx;
+  const float MIN_TRANSLATION_OPT = 1.0;
+  const float MIN_ROTATION_OPT = M_1_PI / 36; // 5 degree
+  size_t start_frame_idx = 0;
+  size_t end_frame_idx = start_frame_idx;
+  prob.valid_frame_ids.insert(0);
+  for (end_frame_idx = start_frame_idx; end_frame_idx < adjusted_to_zero_answer.size(); ++end_frame_idx) {
     Eigen::Quaternionf q_start(adjusted_to_zero_answer[start_frame_idx].angle);
     Eigen::Quaternionf q_end(adjusted_to_zero_answer[end_frame_idx].angle);
     if ((adjusted_to_zero_answer[end_frame_idx].loc - adjusted_to_zero_answer[start_frame_idx].loc).norm() < MIN_TRANSLATION_OPT 
         && abs(q_start.angularDistance(q_end)) < MIN_ROTATION_OPT ) { continue; }
-    prob.start_frame_id = start_frame_idx;
-    prob.end_frame_id   = end_frame_idx;
+    prob.valid_frame_ids.insert(end_frame_idx);
+    start_frame_idx = end_frame_idx;
+  }
+
+  if (1) {
+    std::ofstream of_frame_ids;
+    of_frame_ids.open(FLAGS_output_path + "valid_frame_ids.txt", std::ios::trunc);
+    for (const auto& valid_frame_id : prob.valid_frame_ids) {
+      of_frame_ids << valid_frame_id << endl;
+    }
+    of_frame_ids.close();
+  }
+
+  size_t n_interval_frames = 0;
+  vslam_types::FrameId second_valid_frame_id = 0;
+  prob.output = FLAGS_output_path;
+  prob.start_frame_id = 0; 
+  prob.end_frame_id = prob.start_frame_id;
+  while (prob.start_frame_id + problem_params.n_interval_frames < prob.robot_poses.size() &&
+         prob.end_frame_id < prob.robot_poses.size() ) {
+    ++prob.end_frame_id;
+    if (n_interval_frames < problem_params.n_interval_frames) {
+      // if prob.end_frame_id is a valid frame id
+      if (prob.valid_frame_ids.find(prob.end_frame_id) != prob.valid_frame_ids.end()) { 
+        // store second_valid_frame_id to update prob.start_frame_id
+        if (n_interval_frames == 0) { second_valid_frame_id = prob.end_frame_id; }
+        ++n_interval_frames; 
+      }
+      continue;
+    }
+    n_interval_frames = 0;
+    cout << "start frame id: " << prob.start_frame_id << ", end frame id: " << prob.end_frame_id << endl;;
     solver.SolveSLAM<vslam_types::StructuredVisionFeatureTrack,
                     vslam_solver::StructuredSlamProblemParams>(
         structured_vision_constraint_adder,
@@ -177,8 +189,8 @@ int main(int argc, char **argv) {
       }
       of_points.close();
     }
-    ++start_frame_idx; // don't need to update end_frame_idx
-    --end_frame_idx; // avoid huge jumps at frame end_frame_idx
+    prob.start_frame_id = second_valid_frame_id;
+    prob.end_frame_id   = second_valid_frame_id; // FIXME: redundant computation
   }
 
   if (FLAGS_save_poses) {

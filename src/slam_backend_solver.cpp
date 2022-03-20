@@ -100,10 +100,16 @@ bool SLAMSolver::SolveSLAM(
       of_success << summary.FullReport() << std::endl;
     }
     of_success.close();
-    // dump out start and end frames of this opimization
     std::ofstream of_frame;
     of_frame.open(slam_problem.output + "frame/" + std::to_string(slam_problem.start_frame_id) + ".txt", ios::trunc);
-    of_frame << slam_problem.start_frame_id << " " << slam_problem.end_frame_id << std::endl;
+    for (size_t frame_id = 0; frame_id < 800; ++frame_id) {
+      if (frame_id <  slam_problem.start_frame_id || 
+          frame_id >= slam_problem.end_frame_id ||
+          slam_problem.valid_frame_ids.find(frame_id) == slam_problem.valid_frame_ids.end()) { 
+        continue;
+      }
+      of_frame << frame_id << endl;
+    }
     of_frame.close();
     // dump out trajectory after this optimization
     vslam_util::SaveKITTIPoses(slam_problem.output + "traj/" + std::to_string(slam_problem.start_frame_id) + ".txt",
@@ -195,10 +201,6 @@ void AddStructuredVisionFactorsOnline(
     for (const vslam_types::VisionFeature &feature :
          feature_track_by_id.second.feature_track.track) {
       double *pose_block = solution[feature.frame_idx].pose;
-      if (feature.frame_idx <  slam_problem.start_frame_id || 
-          feature.frame_idx >= slam_problem.start_frame_id + solver_optimization_params.n_interval_frames) {
-        continue;
-      }
       for (const auto &camera_id_and_pixel : feature.pixel_by_camera_id) {
         ceres_problem.AddResidualBlock(
             ReprojectionCostFunctor::create(
@@ -231,7 +233,9 @@ void AddStructuredVisionFactorsOffline(
          feature_track_by_id.second.feature_track.track) {
       double *pose_block = solution[feature.frame_idx].pose;
       if (feature.frame_idx <  slam_problem.start_frame_id || 
-          feature.frame_idx >= slam_problem.end_frame_id) { continue; }
+          feature.frame_idx >= slam_problem.end_frame_id ||
+          slam_problem.valid_frame_ids.find(feature.frame_idx) == slam_problem.valid_frame_ids.end()) 
+      { continue; }
       for (const auto &camera_id_and_pixel : feature.pixel_by_camera_id) {
         ceres_problem.AddResidualBlock(
             ReprojectionCostFunctor::create(

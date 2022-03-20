@@ -28,30 +28,148 @@ namespace {
 const string calibration_path = "calibration/camera_matrix.txt";
 const string features_path = "features/features.txt";
 const string depths_path = "depths/";
+const string velocities_path = "velocities/";
 }
 
 struct FeatureProjector {
-    CameraId camera_id; // TODO redundant, delete me & fix constructor
-    FeatureId feature_id; // TODO redundant, delete me & fix constructor
+    FeatureId feature_id; 
+    FrameId frame_id;
     Vector2f measurement;
+    RobotPose velocity; // TODO delete me
     RobotPose robot_pose;
     float depth;    
 
     FeatureProjector() {}
-    FeatureProjector(const CameraId camera_id, const FeatureId feature_id, const Vector2f& measurement, const RobotPose& robot_pose) {
-        this->camera_id = camera_id;
-        this->feature_id = feature_id;
-        this->measurement = measurement;
-        this->robot_pose = robot_pose;
+    FeatureProjector(const CameraId frame_id, const FeatureId feature_id, const Vector2f& measurement) 
+        : frame_id(frame_id), feature_id(feature_id), measurement(measurement) {}
+    FeatureProjector(const CameraId frame_id, const FeatureId feature_id, const Vector2f& measurement, const RobotPose& robot_pose)
+        : frame_id(frame_id), feature_id(feature_id), measurement(measurement), robot_pose(robot_pose) {}
+    FeatureProjector(const CameraId frame_id, const FeatureId feature_id, const Vector2f& measurement, const RobotPose& robot_pose, const float depth)
+        : frame_id(frame_id), feature_id(feature_id), measurement(measurement), robot_pose(robot_pose), depth(depth) {}
+    
+    FeatureProjector(const CameraId frame_id, 
+                     const FeatureId feature_id, 
+                     const Vector2f& measurement, 
+                     const RobotPose& prev_robot_pose,
+                     const RobotPose& velocity) {
+      this->frame_id = frame_id;
+      this->feature_id = feature_id;
+      this->measurement = measurement;
+      Eigen::Affine3f robotToWorldTF = velocity.RobotToWorldTF() * prev_robot_pose.RobotToWorldTF();
+      this->robot_pose = RobotPose(prev_robot_pose.frame_idx+1, 
+                         robotToWorldTF.translation(),
+                         AngleAxisf(robotToWorldTF.rotation()) );
     }
-    FeatureProjector(const CameraId camera_id, const FeatureId feature_id, const Vector2f& measurement, const RobotPose& robot_pose, const float depth) {
-        this->camera_id = camera_id;
-        this->feature_id = feature_id;
-        this->measurement = measurement;
-        this->depth = depth;
-        this->robot_pose = robot_pose;
+    FeatureProjector(const CameraId frame_id, 
+                     const FeatureId feature_id, 
+                     const Vector2f& measurement, 
+                     const RobotPose& prev_robot_pose,
+                     const RobotPose& velocity,
+                     const float depth) {
+      this->frame_id = frame_id;
+      this->feature_id = feature_id;
+      this->measurement = measurement;
+      Eigen::Affine3f robotToWorldTF = velocity.RobotToWorldTF() * prev_robot_pose.RobotToWorldTF();
+      this->robot_pose = RobotPose(prev_robot_pose.frame_idx+1, 
+                         robotToWorldTF.translation(),
+                         AngleAxisf(robotToWorldTF.rotation()) );
+      this->depth = depth;
     }
+
+    void SetRobotPose(const RobotPose& prev_robot_pose, const RobotPose& velocity) {
+        Eigen::Affine3f robotToWorldTF = velocity.RobotToWorldTF() * prev_robot_pose.RobotToWorldTF();
+        this->robot_pose = RobotPose(prev_robot_pose.frame_idx+1, 
+                            robotToWorldTF.translation(),
+                            AngleAxisf(robotToWorldTF.rotation()) );
+    }
+
+    friend std::ostream& operator<<(std::ostream& o,
+                                  const FeatureProjector& p) {
+        o << "frame_id: " << p.frame_id << "\trobopose: " << p.robot_pose 
+          << "\tfeature_id: " << p.feature_id << " measurement: " << p.measurement.transpose();
+        return o;
+    }
+    
 };
+
+RobotPose getCurrentRobotPose(const RobotPose& prev_robot_pose, const RobotPose& velocity) {
+    Eigen::Affine3f robotToWorldTF = velocity.RobotToWorldTF() * prev_robot_pose.RobotToWorldTF();
+    return RobotPose(prev_robot_pose.frame_idx+1, 
+                     robotToWorldTF.translation(),
+                     AngleAxisf(robotToWorldTF.rotation()) );
+}
+
+void LoadVelocityToAbsPose(const string& dataset_path, unordered_map<FeatureId, FeatureProjector>& features) {
+    // load all relative poses (velocity)
+    unordered_map<FrameId, RobotPose> velocities_by_frame_id;
+    for (const auto& entry : directory_iterator(path(dataset_path + velocities_path))) {
+        const auto file_extension = entry.path().extension().string();
+        if (!is_regular_file(entry) || file_extension != ".txt") { continue; }
+        std::ifstream data_file_stream(entry.path());
+        if (data_file_stream.fail()) {
+            LOG(FATAL) << "Failed to load: " << entry.path()
+                                    << " are you sure this a valid data file? ";
+            return;
+        }
+        string line;
+        getline(data_file_stream, line);
+        FrameId frame_id;
+        stringstream ss_frame_id(line);
+        ss_frame_id >> frame_id;
+        getline(data_file_stream, line); 
+        stringstream ss_robot_pose(line);
+        float x, y, z, qx, qy, qz, qw;
+        ss_robot_pose >> x >> y >> z >> qx >> qy >> qz >> qw;
+        Vector3f translation(x, y, z);
+        AngleAxisf rotation_a(Quaternionf(qw, qx, qy, qz));
+        RobotPose velocity(frame_id, translation, rotation_a);
+        velocities_by_frame_id[frame_id] = velocity;
+    }
+    // convert all relative poses to absolute ones
+    size_t nframes = velocities_by_frame_id.size() + 1;
+    unordered_map<FrameId, RobotPose> poses_by_frame_id;
+    poses_by_frame_id[1] = RobotPose(1, Vector3f(0, 0, 0), AngleAxisf(Quaternionf(1, 0, 0, 0)));
+    for (size_t curr_frame_id = 2; curr_frame_id <= nframes; ++curr_frame_id) {
+        size_t prev_frame_id = curr_frame_id - 1;
+        poses_by_frame_id[curr_frame_id] = getCurrentRobotPose(poses_by_frame_id[prev_frame_id], 
+                                                               velocities_by_frame_id[curr_frame_id]);
+    }
+    // update absolute poses in features
+    for (auto& feature : features) {
+        size_t frame_id = feature.second.frame_id;
+        feature.second.robot_pose = poses_by_frame_id[frame_id];
+    }
+}
+
+void LoadDepths(const string& dataset_path, 
+                unordered_map<FeatureId, FeatureProjector>& features) {
+  for (const auto& entry : directory_iterator(path(dataset_path + depths_path))) {
+    const auto file_extension = entry.path().extension().string();
+    if (!is_regular_file(entry) || file_extension != ".txt") { continue; }
+    std::ifstream data_file_stream(entry.path());
+    if (data_file_stream.fail()) {
+        LOG(FATAL) << "Failed to load: " << entry.path()
+                                << " are you sure this a valid data file? ";
+        return;
+    }
+    string line;
+    getline(data_file_stream, line); 
+    FrameId frame_id;
+    stringstream ss_frame_id(line);
+    ss_frame_id >> frame_id;
+    getline(data_file_stream, line); // skip the second line
+    
+    FeatureId feature_id;
+    float depth;
+    while ( getline(data_file_stream, line) ) {
+        stringstream ss_depth(line);
+        ss_depth >> feature_id >> depth;
+        if (features[feature_id].frame_id == frame_id) {
+            features[feature_id].depth = depth;
+        }
+    }
+  }
+}
 
 /**
  * TODO only use one measurement for initial estimates; 
@@ -60,7 +178,7 @@ struct FeatureProjector {
  * @param dataset_path 
  * @param features return
  */
-void LoadFeatures(const string& dataset_path, 
+void LoadFeaturesWithAbsPoses(const string& dataset_path, 
                   unordered_map<FeatureId, FeatureProjector>& features) {
     
     // iterate through all measurements
@@ -78,7 +196,6 @@ void LoadFeatures(const string& dataset_path,
         uint64 frame_id;
         stringstream ss_frame_id(line);
         ss_frame_id >> frame_id;
-        --frame_id;
         getline(data_file_stream, line);
         float x, y, z, qx, qy, qz, qw;
         stringstream ss_pose(line);
@@ -100,33 +217,42 @@ void LoadFeatures(const string& dataset_path,
     }
 
     // iterate through all depths associated with the left camera measuremnts
-    for (const auto& entry : directory_iterator(path(dataset_path + depths_path))) {
+    LoadDepths(dataset_path, features);
+}
+
+void LoadFeaturesWithRelPoses(const string& dataset_path, 
+                  unordered_map<FeatureId, FeatureProjector>& features) {
+    for (const auto& entry : directory_iterator(path(dataset_path))) {
         const auto file_extension = entry.path().extension().string();
         if (!is_regular_file(entry) || file_extension != ".txt") { continue; }
         std::ifstream data_file_stream(entry.path());
         if (data_file_stream.fail()) {
-            LOG(FATAL) << "Failed to load: " << entry.path()
-                                    << " are you sure this a valid data file? ";
-            return;
+        LOG(FATAL) << "Failed to load: " << entry.path()
+                                << " are you sure this a valid data file? ";
+        return;
         }
         string line;
         getline(data_file_stream, line); 
         uint64 frame_id;
         stringstream ss_frame_id(line);
         ss_frame_id >> frame_id;
-        --frame_id;
-        getline(data_file_stream, line); // skip the second line
+        getline(data_file_stream, line); // skip the absolute pose line
         
         FeatureId feature_id;
-        float depth;
+        CameraId camera1_id, camera2_id;
+        float measurement_x1, measurement_y1, measurement_x2, measurement_y2;
         while ( getline(data_file_stream, line) ) {
-            stringstream ss_depth(line);
-            ss_depth >> feature_id >> depth;
-            if (features[feature_id].feature_id == feature_id) {
-                features[feature_id].depth = depth;
-            }
+            stringstream ss_feature(line);
+            ss_feature >> feature_id >> camera1_id >> measurement_x1 >> measurement_y1 >> camera2_id >> measurement_x2 >> measurement_y2;
+            features[feature_id] = FeatureProjector(frame_id, feature_id, Vector2f(measurement_x1, measurement_y1));
         }
     }
+
+    // iterate through all depths associated with the left camera measuremnts
+    LoadDepths(dataset_path, features);
+
+  // iterate through all velocity to convert relative pose to the map frame
+    LoadVelocityToAbsPose(dataset_path, features);
 }
 
 void EstimatePoints3D(const string& dataset_path, 
@@ -136,8 +262,14 @@ void EstimatePoints3D(const string& dataset_path,
                                             const bool dumpToFile) {
     vector<pair<FeatureId,Vector3f>> points;
     for (const auto& feature : features) {
+        FeatureProjector featureProjector = feature.second;
         Vector3f point = Unproject(feature.second.measurement, intrinsics, extrinsics, feature.second.robot_pose, feature.second.depth);
         points.emplace_back(feature.first, point);
+        if (!dumpToFile) { // debug
+            cout << feature.second << endl;
+            cout << "point: " << point.transpose() << endl;
+            cout << endl;
+        }
     }
     
     if (dumpToFile) {
@@ -154,19 +286,37 @@ void EstimatePoints3D(const string& dataset_path,
                << point.second.z() << endl;
         }
         fp.close();
-    } else { // debug
-        for (const auto& point : points) {
-            printf("%ld: point - %.2f, %.2f, %.2f\n; depth - %.2f\n", 
-                    point.first, point.second.x(), point.second.y(), point.second.x(), features.at(point.first).depth);
+    } 
+}
+
+void LoadDepthsByFrameId(const string& dataset_path, const FrameId frame_id,
+                unordered_map<FeatureId, FeatureProjector>& features) {
+    std::ifstream data_file_stream(dataset_path + depths_path + std::to_string(frame_id) + ".txt");
+    if (data_file_stream.fail()) {
+        LOG(FATAL) << "Failed to load: " << dataset_path + depths_path + std::to_string(frame_id) + ".txt"
+                                << " are you sure this a valid data file? ";
+        return;
+    }
+    string line;
+    getline(data_file_stream, line); 
+    getline(data_file_stream, line); // skip the second line
+    
+    FeatureId feature_id;
+    float depth;
+    while ( getline(data_file_stream, line) ) {
+        stringstream ss_depth(line);
+        ss_depth >> feature_id >> depth;
+        if (features[feature_id].frame_id == frame_id) {
+            features[feature_id].depth = depth;
         }
     }
 }
 
-void LoadFeaturesByFrameId(const string& dataset_path, const size_t frame_id, unordered_map<FeatureId, FeatureProjector>& features) {
+void LoadFeaturesWithAbsPosesByFrameId(const string& dataset_path, const size_t frame_id, unordered_map<FeatureId, FeatureProjector>& features) {
     std::string measurement_path = dataset_path + std::to_string(frame_id) + ".txt";
     std::ifstream measurement_file_stream(measurement_path);
     if (measurement_file_stream.fail()) {
-        LOG(FATAL) << "[LoadFeaturesByFrameId] Failed to load measurement file: " << measurement_path;
+        LOG(FATAL) << "[LoadFeaturesWithAbsPosesByFrameId] Failed to load measurement file: " << measurement_path;
         return;
     }
 
@@ -192,23 +342,8 @@ void LoadFeaturesByFrameId(const string& dataset_path, const size_t frame_id, un
         features[feature_id] = FeatureProjector(frame_id, feature_id, Vector2f(measurement_x1, measurement_y1), robot_pose);
     }
 
-    std::string depth_path = dataset_path + "depths/" + std::to_string(frame_id) + ".txt";
-    std::ifstream depth_file_stream(depth_path);
-    if (depth_file_stream.fail()) {
-        LOG(FATAL) << "[LoadFeaturesByFrameId] Failed to load depth file: " << depth_path;
-        return;
-    }
-
-    getline(depth_file_stream, line); // skip frame id
-    getline(depth_file_stream, line); // skip camera pose
-    float depth;
-    while (getline(depth_file_stream, line)) {
-        stringstream ss_depth(line);
-        ss_depth >> feature_id >> depth;
-        if (features[feature_id].feature_id == feature_id) {
-            features[feature_id].depth = depth;
-        }
-    }
+    // iterate through all depths associated with the left camera measuremnts
+    LoadDepthsByFrameId(dataset_path, frame_id, features);
 }
 
 int main(int argc, char** argv) {
@@ -216,8 +351,8 @@ int main(int argc, char** argv) {
     ParseCommandLineFlags(&argc, &argv, true);
 
     unordered_map<FeatureId, FeatureProjector> features_map;
-    LoadFeatures(FLAGS_dataset_path, features_map);
-    // LoadFeaturesByFrameId(FLAGS_dataset_path, 1, features_map);
+    // LoadFeaturesWithAbsPoses(FLAGS_dataset_path, features_map);
+    LoadFeaturesWithAbsPosesByFrameId(FLAGS_dataset_path, 2, features_map);
     // intrinsics: project 3D point from camera's baselink frame to 2D measurement
     unordered_map<CameraId, CameraIntrinsics> intrinsics_map;  
     LoadCameraIntrinsics(FLAGS_dataset_path + "calibration/camera_matrix.txt", intrinsics_map);
@@ -226,5 +361,5 @@ int main(int argc, char** argv) {
     unordered_map<CameraId, CameraExtrinsics> extrinsics_map;  
     LoadCameraExtrinsics(FLAGS_dataset_path + "calibration/extrinsics.txt", extrinsics_map);
     // debug
-    EstimatePoints3D(FLAGS_dataset_path, features_map, intrinsics_map[1], extrinsics_map[1], true);
+    EstimatePoints3D(FLAGS_dataset_path, features_map, intrinsics_map[1], extrinsics_map[1], false);
 }

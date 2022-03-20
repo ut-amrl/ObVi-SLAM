@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <unordered_set>
 
 #include "eigen3/Eigen/Dense"
 #include "eigen3/Eigen/Geometry"
@@ -315,6 +316,7 @@ struct UTSLAMProblem {
   FrameId start_frame_id;
   FrameId end_frame_id;
   std::string output;
+  std::unordered_set<FrameId> valid_frame_ids;
   /**
    * Unordered map representing the database of tracks - indexed by
    * track/feature ID.
