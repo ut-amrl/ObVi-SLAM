@@ -351,8 +351,8 @@ int main(int argc, char** argv) {
     ParseCommandLineFlags(&argc, &argv, true);
 
     unordered_map<FeatureId, FeatureProjector> features_map;
-    // LoadFeaturesWithAbsPoses(FLAGS_dataset_path, features_map);
-    LoadFeaturesWithAbsPosesByFrameId(FLAGS_dataset_path, 2, features_map);
+    LoadFeaturesWithAbsPoses(FLAGS_dataset_path, features_map);
+    // LoadFeaturesWithAbsPosesByFrameId(FLAGS_dataset_path, 500, features_map);
     // intrinsics: project 3D point from camera's baselink frame to 2D measurement
     unordered_map<CameraId, CameraIntrinsics> intrinsics_map;  
     LoadCameraIntrinsics(FLAGS_dataset_path + "calibration/camera_matrix.txt", intrinsics_map);
@@ -361,5 +361,5 @@ int main(int argc, char** argv) {
     unordered_map<CameraId, CameraExtrinsics> extrinsics_map;  
     LoadCameraExtrinsics(FLAGS_dataset_path + "calibration/extrinsics.txt", extrinsics_map);
     // debug
-    EstimatePoints3D(FLAGS_dataset_path, features_map, intrinsics_map[1], extrinsics_map[1], false);
+    EstimatePoints3D(FLAGS_dataset_path, features_map, intrinsics_map[1], extrinsics_map[1], true);
 }
