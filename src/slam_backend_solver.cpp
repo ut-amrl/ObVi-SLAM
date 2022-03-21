@@ -68,6 +68,10 @@ bool SLAMSolver::SolveSLAM(
   options.linear_solver_type = ceres::LinearSolverType::SPARSE_SCHUR;
   options.max_num_consecutive_invalid_steps = solver_optimization_params_.max_num_consecutive_invalid_steps;
 
+  /**
+   * TODO don't need to convert everything to slamn_odes
+   * only need to convert those in the sliding window
+   */
   std::vector<vslam_types::SLAMNode> slam_nodes;
   RobotPosesToSLAMNodes(updated_robot_poses, slam_nodes);
 
@@ -75,8 +79,9 @@ bool SLAMSolver::SolveSLAM(
 
   // Set the first pose constant
   // problem.SetParameterBlockConstant(slam_nodes[0].pose);
-  problem.SetParameterBlockConstant(slam_nodes[slam_problem.start_frame_id].pose); 
+  problem.SetParameterBlockConstant(slam_nodes[slam_problem.start_frame_idx].pose); 
 
+#if 0
   std::shared_ptr<ceres::IterationCallback> viz_callback =
       callback_creator(slam_problem, &slam_nodes);
 
@@ -84,15 +89,16 @@ bool SLAMSolver::SolveSLAM(
     options.callbacks.emplace_back(viz_callback.get());
     options.update_state_every_iteration = true;
   }
+#endif
 
   ceres::Solve(options, &problem, &summary);
   std::cout << summary.FullReport() << "\n";
 
   SLAMNodesToRobotPoses(slam_nodes, updated_robot_poses);
-  if (1) { // TODO: delete me
+  if (0) { // TODO: delete me
     std::ofstream of_success;
     // dump out if optimization is successful or not
-    of_success.open(slam_problem.output + "success/" + std::to_string(slam_problem.start_frame_id) + ".txt", ios::trunc);
+    of_success.open(slam_problem.output + "success/" + std::to_string(slam_problem.start_frame_idx) + ".txt", ios::trunc);
     if (summary.termination_type == ceres::CONVERGENCE || summary.termination_type == ceres::USER_SUCCESS) {
       of_success << "succeed" << std::endl;
     } else {
@@ -101,9 +107,9 @@ bool SLAMSolver::SolveSLAM(
     }
     of_success.close();
     std::ofstream of_frame;
-    of_frame.open(slam_problem.output + "frame/" + std::to_string(slam_problem.start_frame_id) + ".txt", ios::trunc);
+    of_frame.open(slam_problem.output + "frame/" + std::to_string(slam_problem.start_frame_idx) + ".txt", ios::trunc);
     for (size_t frame_id = 0; frame_id < 800; ++frame_id) {
-      if (frame_id <  slam_problem.start_frame_id || 
+      if (frame_id <  slam_problem.start_frame_idx || 
           frame_id >= slam_problem.end_frame_id ||
           slam_problem.valid_frame_ids.find(frame_id) == slam_problem.valid_frame_ids.end()) { 
         continue;
@@ -112,7 +118,7 @@ bool SLAMSolver::SolveSLAM(
     }
     of_frame.close();
     // dump out trajectory after this optimization
-    vslam_util::SaveKITTIPoses(slam_problem.output + "traj/" + std::to_string(slam_problem.start_frame_id) + ".txt",
+    vslam_util::SaveKITTIPoses(slam_problem.output + "traj/" + std::to_string(slam_problem.start_frame_idx) + ".txt",
                                updated_robot_poses);
   }
 
@@ -200,10 +206,6 @@ void AddStructuredVisionFactorsOffline(
     for (const vslam_types::VisionFeature &feature :
          feature_track_by_id.second.feature_track.track) {
       double *pose_block = solution[feature.frame_idx].pose;
-      if (feature.frame_idx <  slam_problem.start_frame_id || 
-          feature.frame_idx >= slam_problem.end_frame_id ||
-          slam_problem.valid_frame_ids.find(feature.frame_idx) == slam_problem.valid_frame_ids.end()) 
-      { continue; }
       for (const auto &camera_id_and_pixel : feature.pixel_by_camera_id) {
         ceres_problem.AddResidualBlock(
             ReprojectionCostFunctor::create(
@@ -221,38 +223,48 @@ void AddStructuredVisionFactorsOffline(
   }
 }
 
-/*
-void AddStructuredVisionFactorsFrameTrack(const StructuredSlamProblemParams &solver_optimization_params,
-                                          vslam_types::UTSLAMProblemOnline<vslam_types::StructuredFrameTrack> &slam_problem,
-                                          ceres::Problem &ceres_problem) {
-  std::vector<vslam_types::SLAMNode> &slam_nodes = slam_problem.slam_nodes;
-  std::unordered_map<vslam_types::FeatureId, Eigen::Vector3d> &points = slam_problem.points;
-  std::vector<vslam_types::StructuredFrameTrack> &tracks = slam_problem.tracks;
+void AddStructuredVisionFactorsOnline(
+    const StructuredSlamProblemParams &solver_optimization_params,
+    vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack>
+        &slam_problem,
+    ceres::Problem &ceres_problem,
+    std::vector<vslam_types::SLAMNode> *updated_solved_nodes) {
 
-  // iterate through all poses in the current window
-  for (vslam_types::FrameId frame_id = slam_problem.start_frame_id; 
-       frame_id < slam_problem.start_frame_id + solver_optimization_params.n_interval_frames;
-       ++frame_id) {
-    double *pose_block = slam_nodes[frame_id].pose;
-    // iterate through all features in the current pose
-    for (const vslam_types::VisionFeature &feature : tracks[frame_id].track) {
-      double *point_block = points[feature.feature_idx].data();
-      // iterate through all <camera, feature> where camera capture that feature
+  std::cout << "AddStructuredVisionFactors online" << std::endl;
+  std::vector<vslam_types::SLAMNode> &solution = *updated_solved_nodes;
+  for (auto &feature_track_by_id : slam_problem.tracks) {
+    double *feature_position_block = feature_track_by_id.second.point.data();
+    for (const vslam_types::VisionFeature &feature :
+         feature_track_by_id.second.feature_track.track) {
+      double *pose_block = solution[feature.frame_idx].pose;
+      if (feature.frame_idx <  slam_problem.start_frame_idx || 
+          feature.frame_idx >= slam_problem.start_frame_idx + solver_optimization_params.n_interval_frames)
+      { continue; }
+      #if 0
+      cout << endl;
+      cout << "feature.frame_idx: " << feature.frame_idx << endl;
+      cout << "feature.feature_idx: " << feature.feature_idx << endl;
+      cout << "pose (t): " << pose_block[0] << ", " << pose_block[1] << ", " << pose_block[2] << endl;
+      cout << "measurement (primary camera): " << feature.pixel_by_camera_id.at(1).transpose() << endl;
+      #endif
       for (const auto &camera_id_and_pixel : feature.pixel_by_camera_id) {
         ceres_problem.AddResidualBlock(
             ReprojectionCostFunctor::create(
-                slam_problem.camera_intrinsics_by_camera[camera_id_and_pixel.first],
-                slam_problem.camera_extrinsics_by_camera[camera_id_and_pixel.first],
+                slam_problem.camera_instrinsics_by_camera.at(
+                    camera_id_and_pixel.first),
+                slam_problem.camera_extrinsics_by_camera.at(
+                    camera_id_and_pixel.first),
                 camera_id_and_pixel.second,
                 solver_optimization_params.reprojection_error_std_dev),
             new ceres::HuberLoss(1.0),
             pose_block,
-            point_block);
+            feature_position_block);
       }
     }
   }
+
 }
-*/
+
 template bool SLAMSolver::SolveSLAM<vslam_types::VisionFeatureTrack,
                                     StructurelessSlamProblemParams>(
     const std::function<

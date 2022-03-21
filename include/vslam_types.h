@@ -313,7 +313,7 @@ struct CameraExtrinsics {
  */
 template <typename FeatureTrackType>
 struct UTSLAMProblem {
-  FrameId start_frame_id;
+  FrameId start_frame_idx;
   FrameId end_frame_id;
   std::string output;
   std::unordered_set<FrameId> valid_frame_ids;
@@ -328,6 +328,7 @@ struct UTSLAMProblem {
    *  robot_poses[index] to get the pose
    * Robot/frame poses of the entire trajectory
    */
+  // should keep all poses and use a starting frame ID instead of removing poses outside the window
   std::vector<RobotPose> robot_poses;
   /**
    * Extrinsics for each camera.

@@ -4,6 +4,8 @@
 #include <iostream>
 #include <fstream>
 #include <experimental/filesystem> 
+#include <map>
+#include <string>
 
 #include "slam_backend_solver.h"
 #include "slam_solver_optimizer_params.h"
@@ -11,6 +13,7 @@
 #include "vslam_io.h"
 #include "vslam_types.h"
 #include "vslam_util.h"
+#include "vslam_unproject.h"
 
 DEFINE_string(dataset_path,
               "",
@@ -31,12 +34,216 @@ using std::cout;
 using std::endl;
 namespace fs = std::experimental::filesystem;
 
+// TODO hardcode; move me to some params file
+const vslam_types::CameraId primary_camera_id = 1;
+
 // This is a dummy structure to simulate what we want from ros
 struct ObservationTrack {
   vslam_types::RobotPose velocity; // transformation from prev pose to curr pose
-  std::unordered_map<vslam_types::CameraId, std::unordered_map<vslam_types::FeatureId, Eigen::Vector2f>> measurements_by_camera;
-  std::unordered_map<vslam_types::CameraId, std::unordered_map<vslam_types::FeatureId, float>> depths_by_camera;
+  vslam_types::RobotPose robot_pose;
+  // using map instead of unordered_map to ensure no collision
+  std::map<vslam_types::CameraId, std::map<vslam_types::FeatureId, Eigen::Vector2f>> measurements_by_camera;
+  std::map<vslam_types::CameraId, std::map<vslam_types::FeatureId, float>> depths_by_camera;
 };
+
+void LoadMeasurements(const std::string& dataset_path,
+                      std::map<vslam_types::FrameId, ObservationTrack>& observationTracks) {
+  /**
+   * Load all observations as an ObservationTrack's measurements_by_camera into Memory at once
+   * Need to take in subscribe to rostopic later
+   */
+  for (const auto& entry : fs::directory_iterator(fs::path(dataset_path))) {
+    const auto file_extension = entry.path().extension().string();
+    if (!fs::is_regular_file(entry) || file_extension != ".txt") {
+      continue;
+    }
+    std::ifstream data_file_stream(entry.path());
+    if (data_file_stream.fail()) {
+      LOG(FATAL) << "Failed to load: " << entry.path()
+                 << " are you sure this a valid data file? ";
+      exit(1);
+    }
+
+    // Start loading measurement files
+    std::string line;
+
+    // Read frame ID from 1st line
+    // NOTE not the actual frame ID we want
+    std::getline(data_file_stream, line);
+    std::stringstream ss_id(line);
+    vslam_types::FrameId frame_id;
+    ss_id >> frame_id;
+    // Read frame/robot pose from 2nd line
+    // Skip it; we only want relative pose from "velocities" direcotry
+    std::getline(data_file_stream, line);
+
+    while (std::getline(data_file_stream, line)) {
+      std::stringstream ss_feature(line);
+      vslam_types::CameraId camera_id;
+      vslam_types::FeatureId feature_id;
+      float x, y;
+      std::vector<float> xs, ys;
+      std::vector<vslam_types::CameraId> camera_ids;
+      // parse one line
+      ss_feature >> feature_id;
+      ss_feature >> camera_id;
+      while ( !ss_feature.eof() ) {
+        ss_feature >> x >> y;
+        camera_ids.emplace_back(camera_id);
+        xs.emplace_back(x);
+        ys.emplace_back(y);
+        ss_feature >> camera_id;
+      }
+      // load each line to measurements_by_camera
+      if (observationTracks.find(frame_id) == observationTracks.end()) {
+        observationTracks[frame_id] = ObservationTrack();
+      }
+      for (size_t camera_idx = 0; camera_idx < camera_ids.size(); ++camera_idx) {
+        camera_id = camera_ids[camera_idx];
+        x = xs[camera_idx];
+        y = ys[camera_idx];
+        observationTracks[frame_id].measurements_by_camera[camera_id][feature_id] = Eigen::Vector2f(x, y);
+      }
+    }
+  }
+}
+
+void LoadDepths(const std::string& dataset_path,
+                std::map<vslam_types::FrameId, ObservationTrack>& observationTracks) {
+  /**
+   * Load all observations as an ObservationTrack's depths_by_camera into Memory at once
+   * NOTE current depth files only have left camera depth; they don't have camera ID either
+   * Need to take in subscribe to rostopic later
+   */
+  for (const auto& entry : fs::directory_iterator(fs::path(dataset_path + "depths/"))) {
+    const auto file_extension = entry.path().extension().string();
+    if (!fs::is_regular_file(entry) || file_extension != ".txt") {
+      continue;
+    }
+    std::ifstream data_file_stream(entry.path());
+    if (data_file_stream.fail()) {
+      LOG(FATAL) << "Failed to load: " << entry.path()
+                 << " are you sure this a valid data file? ";
+      exit(1);
+    }
+
+    // Start loading depth files
+    std::string line;
+    // Read frame ID from 1st line
+    // NOTE not the actual frame ID we want
+    std::getline(data_file_stream, line);
+    std::stringstream ss_id(line);
+    vslam_types::FrameId frame_id;
+    ss_id >> frame_id;
+    // Read frame/robot pose from 2nd line
+    // Skip it; we only want relative pose from "velocities" direcotry
+    std::getline(data_file_stream, line);
+
+    auto& depths_by_camera = observationTracks[frame_id].depths_by_camera;
+    while (std::getline(data_file_stream, line)) {
+      std::stringstream ss_depth(line);
+      vslam_types::FeatureId feature_id;
+      float depth;
+      ss_depth >> feature_id >> depth;
+      depths_by_camera[primary_camera_id][feature_id] = depth;
+    }
+  }
+}
+
+void LoadVelocities(const std::string& dataset_path,
+                    std::map<vslam_types::FrameId, ObservationTrack>& observationTracks) {
+  for (const auto& entry : fs::directory_iterator(fs::path(dataset_path + "velocities/"))) {
+    const auto file_extension = entry.path().extension().string();
+    if (!fs::is_regular_file(entry) || file_extension != ".txt") {
+      continue;
+    }
+    std::ifstream data_file_stream(entry.path());
+    if (data_file_stream.fail()) {
+      LOG(FATAL) << "Failed to load: " << entry.path()
+                 << " are you sure this a valid data file? ";
+      exit(1);
+    }
+
+    // Start loading depth files
+    std::string line;
+    // Read frame ID from 1st line
+    // NOTE not the actual frame ID we want
+    std::getline(data_file_stream, line);
+    std::stringstream ss_id(line);
+    vslam_types::FrameId frame_id;
+    ss_id >> frame_id;
+    std::getline(data_file_stream, line);
+    std::stringstream ss_velocity(line);
+    float x, y, z, qx, qy, qz, qw;
+    ss_velocity >> x >> y >> z >> qx >> qy >> qz >> qw;
+    Eigen::Vector3f translation(x, y, z);
+    Eigen::AngleAxisf rotation_a(Eigen::Quaternionf(qw, qx, qy, qz));
+    observationTracks[frame_id].velocity = vslam_types::RobotPose(frame_id, translation, rotation_a);
+  }
+}
+
+// also defined in unproject_main
+// TODO move me to some helper file
+vslam_types::RobotPose getCurrentRobotPose(const vslam_types::RobotPose& prev_robot_pose, 
+                                           const vslam_types::RobotPose& velocity) {
+    Eigen::Affine3f velocity_matrix = velocity.RobotToWorldTF();
+    Eigen::Affine3f prev_pose_matrix = prev_robot_pose.RobotToWorldTF();
+    velocity_matrix = velocity_matrix.inverse();
+    prev_pose_matrix = prev_pose_matrix.inverse();
+    Eigen::Affine3f curr_pose_matrix = velocity_matrix * prev_pose_matrix;
+    curr_pose_matrix = curr_pose_matrix.inverse();
+    vslam_types::RobotPose pose = vslam_types::RobotPose(prev_robot_pose.frame_idx+1, 
+                     curr_pose_matrix.translation(),
+                     Eigen::AngleAxisf(curr_pose_matrix.rotation()) );
+    return pose;
+}
+
+// TODO use generic types instead
+void LoadObservationTrack(const vslam_types::RobotPose& robot_pose, 
+                          const std::map<vslam_types::CameraId, std::map<vslam_types::FeatureId, Eigen::Vector2f>>& measurements_by_camera,
+                          const std::map<vslam_types::FeatureId, float>& depths_by_feature_id,
+                          const CameraIntrinsics& intrinsics,
+                          const CameraExtrinsics& extrinsics,
+                          std::unordered_map<vslam_types::FeatureId, vslam_types::StructuredVisionFeatureTrack>& tracks_by_feature_id) {
+  vslam_types::FeatureId feature_id;
+  Eigen::Vector2f measurement;
+  float depth;
+  vslam_types::FrameId frame_id = robot_pose.frame_idx;
+
+  // handle primary camera
+  for (const auto& measurement_by_feature_id : measurements_by_camera.at(primary_camera_id)) {
+    feature_id = measurement_by_feature_id.first;
+    measurement = measurement_by_feature_id.second;
+    depth = depths_by_feature_id.at(feature_id);
+    // unproject point by the primary camera
+    Eigen::Vector3d point = vslam_unproject::Unproject(measurement, intrinsics, extrinsics, robot_pose, depth).cast<double>();
+    // set up structuredVisionFeatureTrack
+    vslam_types::StructuredVisionFeatureTrack structuredVisionFeatureTrack;
+    structuredVisionFeatureTrack.point = point;
+    structuredVisionFeatureTrack.feature_track.feature_idx = feature_id;
+    std::unordered_map<CameraId, Eigen::Vector2f> pixel_by_camera_id;
+    pixel_by_camera_id[primary_camera_id] = measurement;
+    structuredVisionFeatureTrack.feature_track.track.emplace_back(feature_id, frame_id, pixel_by_camera_id, primary_camera_id);
+    // assign #feature_id-th structuredVisionFeatureTrack
+    tracks_by_feature_id[feature_id] = structuredVisionFeatureTrack;
+  }
+
+  // handle non-primary camera: update pixel_by_camera_id
+  for (const auto& measurement_by_camera : measurements_by_camera) {
+    vslam_types::CameraId camera_id = measurement_by_camera.first;
+    if (camera_id == primary_camera_id) { continue; }
+    for (const auto& measurement_by_feature_id : measurements_by_camera.at(camera_id)) {
+      feature_id = measurement_by_feature_id.first;
+      measurement = measurement_by_feature_id.second;
+      depth = depths_by_feature_id.at(feature_id);
+      // iterate through track in VisionFeatureTrack to find VisionFeature associated with current frmae ID
+      for (auto& vision_feature : tracks_by_feature_id[feature_id].feature_track.track) {
+        if (vision_feature.frame_idx != frame_id) { continue; }
+        vision_feature.pixel_by_camera_id[camera_id] = measurement;
+      }
+    }
+  }
+}
 
 int main(int argc, char **argv) {
   google::InitGoogleLogging(argv[0]);
@@ -54,104 +261,21 @@ int main(int argc, char **argv) {
   // Load Camera Extrinsics and Instrinsics
   vslam_io::LoadCameraCalibrationData(FLAGS_dataset_path, prob.camera_instrinsics_by_camera, prob.camera_extrinsics_by_camera);
 
+  std::map<vslam_types::FrameId, ObservationTrack> observationTracks;
+  
+  LoadMeasurements(FLAGS_dataset_path, observationTracks);
+  LoadDepths(FLAGS_dataset_path, observationTracks);
+  LoadVelocities(FLAGS_dataset_path, observationTracks);
+  
+  // use a hardcoded solution for now
+  // TODO: fix this in ORB_SLAM
+  vslam_types::RobotPose first_pose = vslam_types::RobotPose(1, 
+                                      Eigen::Vector3f(-0.00654, -0.00277, 0.965), 
+                                      Eigen::AngleAxisf(Eigen::Quaternionf(1, 0.00226, 0.000729, -0.00036)));
+
   /**
-   * Temporary Solution for sliding window: 
-   * Load everything as an ObservationTrack into Memory at once
-   * Need to take in subscribe to rostopic later
+   * set up solveSLAM function parameters
    */
-  for (const auto& entry : fs::directory_iterator(fs::path(FLAGS_dataset_path))) {
-    const auto file_extension = entry.path().extension().string();
-    if (!fs::is_regular_file(entry) || file_extension != ".txt") {
-      continue;
-    }
-    std::ifstream data_file_stream(entry.path());
-    if (data_file_stream.fail()) {
-      LOG(FATAL) << "Failed to load: " << entry.path()
-                 << " are you sure this a valid data file? ";
-      return false;
-    }
-
-    // Start loading data files
-    std::string line;
-
-    // Read frame ID from 1st line
-    // Skip it; not the frame ID we want
-    std::getline(data_file_stream, line);
-
-    // Read frame/robot pose from 2nd line
-    std::getline(data_file_stream, line);
-    std::stringstream ss_pose(line);
-    float x, y, z, qx, qy, qz, qw;
-    ss_pose >> x >> y >> z >> qx >> qy >> qz >> qw;
-    Eigen::Vector3f loc(x, y, z);
-    Eigen::Quaternionf angle_q(qw, qx, qy, qz);
-    angle_q.normalize();
-    Eigen::AngleAxisf angle(angle_q);
-    vslam_types::RobotPose pose(0, loc, angle); // Don't want frame ID in this case
-
-  }
-
-  // init starting position from zero
-  // NOTE: frame_id starts at 0 translation and 0 rotation
-  vslam_types::RobotPose start_pose(0, Eigen::Vector3f(0, 0, 0), Eigen::AngleAxisf(Eigen::Quaternionf(1, 0, 0, 0)));
-
-  // Use while instead of for, as we want "while" ultimately 
-  // while () {
-    // 
-  // }
-
-# if 0
-  // Solve
-  vslam_solver::SLAMSolverOptimizerParams optimizer_params;
-  vslam_solver::SLAMSolver solver(optimizer_params);
-
-  // These are the poses that are going to be optimized
-  std::vector<vslam_types::RobotPose> answer(prob.robot_poses);
-  vslam_types::RobotPose init_pose_unadjusted = answer[0];
-  std::vector<vslam_types::RobotPose> gt_robot_poses;
-  vslam_util::AdjustTrajectoryToStartAtZero(answer, gt_robot_poses);
-
-  if (FLAGS_save_poses) {
-    vslam_util::SaveKITTIPoses(FLAGS_output_path + "gt.txt", gt_robot_poses);
-  }
-
-  std::vector<vslam_types::RobotPose> adjusted_to_zero_answer;
-  vslam_util::AdjustTrajectoryToStartAtZero(answer, adjusted_to_zero_answer);
-
-  if (FLAGS_save_poses) {
-    vslam_util::SaveKITTIPoses(FLAGS_output_path + "start.txt",
-                               adjusted_to_zero_answer);
-  }
-
-  Eigen::Vector3d feature_sigma_linear(0.0, 0.0, 0.0);
-  for (size_t i = 0; i < prob.tracks.size(); i++) {
-    prob.tracks[i].point = vslam_util::getPositionRelativeToPose(init_pose_unadjusted, prob.tracks[i].point);
-  }
-  if (1) {
-    std::ofstream of_points;
-    of_points.open(FLAGS_output_path + "adjusted_features.txt");
-    for (const auto& it : prob.tracks) {
-      of_points << it.first << " " << it.second.point[0] 
-                            << " " << it.second.point[1] 
-                            << " " << it.second.point[2] << endl;
-    }
-    of_points.close();
-  }
-
-  std::function<void(
-      const vslam_solver::StructuredSlamProblemParams &,
-      vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack> &,
-      ceres::Problem &,
-      std::vector<vslam_types::SLAMNode> *)>
-      structured_vision_constraint_adder =
-          vslam_solver::AddStructuredVisionFactorsOffline;
-
-  std::function<std::vector<vslam_types::VisionFeature>(
-      const vslam_types::StructuredVisionFeatureTrack &)>
-      feature_retriever =
-          [](const vslam_types::StructuredVisionFeatureTrack &feature_track) {
-            return feature_track.feature_track.track;
-          };
 
   // Got the casting solution from
   // https://stackoverflow.com/questions/30393285/stdfunction-fails-to-distinguish-overloaded-functions
@@ -166,6 +290,23 @@ int main(int argc, char **argv) {
   funtype func = vslam_viz::VisualSlamCeresVisualizationCallback<
       vslam_types::StructuredVisionFeatureTrack>::create;
 
+  std::function<std::vector<vslam_types::VisionFeature>(
+      const vslam_types::StructuredVisionFeatureTrack &)>
+      feature_retriever =
+          [](const vslam_types::StructuredVisionFeatureTrack &feature_track) {
+            return feature_track.feature_track.track;
+          };
+
+  // TODO change it to AddStructuredVisionFactorsOnline; 
+  // TODO fix AddStructuredVisionFactorsOnline and AddStructuredVisionFactorsOffline
+  std::function<void(
+      const vslam_solver::StructuredSlamProblemParams &,
+      vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack> &,
+      ceres::Problem &,
+      std::vector<vslam_types::SLAMNode> *)>
+      structured_vision_constraint_adder =
+          vslam_solver::AddStructuredVisionFactorsOnline;
+
   std::function<std::shared_ptr<ceres::IterationCallback>(
       const vslam_types::UTSLAMProblem<
           vslam_types::StructuredVisionFeatureTrack> &,
@@ -179,81 +320,98 @@ int main(int argc, char **argv) {
       const vslam_types::UTSLAMProblem<
           vslam_types::StructuredVisionFeatureTrack> &,
       std::vector<vslam_types::SLAMNode> *)>
-      callback_creator = std::bind(unbound_callback_creator,
-                                   std::placeholders::_1,
-                                   feature_retriever,
-                                   gt_robot_poses,
-                                   std::placeholders::_2);
+      callback_creator;
+
+  // TODO move them to some params header file
+  const float MIN_TRANSLATION_OPT = 1.0;
+  const float MIN_ROTATION_OPT = M_1_PI / 18; // 10 degree
+  // use t to index through observationTracks
+  size_t t = 1;
+  const size_t ntimes = 800;
+  // Use while instead of for, as we want "while" ultimately 
+  prob.start_frame_idx = 0; // this id starts from 0
 
   vslam_solver::StructuredSlamProblemParams problem_params;
-
-  const float MIN_TRANSLATION_OPT = 1.0;
-  const float MIN_ROTATION_OPT = M_1_PI / 36; // 5 degree
-  size_t start_frame_idx = 0;
-  size_t end_frame_idx = start_frame_idx;
-  prob.valid_frame_ids.insert(0);
-  for (end_frame_idx = start_frame_idx; end_frame_idx < adjusted_to_zero_answer.size(); ++end_frame_idx) {
-    Eigen::Quaternionf q_start(adjusted_to_zero_answer[start_frame_idx].angle);
-    Eigen::Quaternionf q_end(adjusted_to_zero_answer[end_frame_idx].angle);
-    if ((adjusted_to_zero_answer[end_frame_idx].loc - adjusted_to_zero_answer[start_frame_idx].loc).norm() < MIN_TRANSLATION_OPT 
-        && abs(q_start.angularDistance(q_end)) < MIN_ROTATION_OPT ) { continue; }
-    prob.valid_frame_ids.insert(end_frame_idx);
-    start_frame_idx = end_frame_idx;
-  }
-
-  if (1) {
-    std::ofstream of_frame_ids;
-    of_frame_ids.open(FLAGS_output_path + "valid_frame_ids.txt", std::ios::trunc);
-    for (const auto& valid_frame_id : prob.valid_frame_ids) {
-      of_frame_ids << valid_frame_id << endl;
-    }
-    of_frame_ids.close();
-  }
-
-  size_t n_interval_frames = 0;
-  vslam_types::FrameId second_valid_frame_id = 0;
-  prob.output = FLAGS_output_path;
-  prob.start_frame_id = 0; 
-  prob.end_frame_id = prob.start_frame_id;
-  while (prob.start_frame_id + problem_params.n_interval_frames < prob.robot_poses.size() &&
-         prob.end_frame_id < prob.robot_poses.size() ) {
-    ++prob.end_frame_id;
-    if (n_interval_frames < problem_params.n_interval_frames) {
-      // if prob.end_frame_id is a valid frame id
-      if (prob.valid_frame_ids.find(prob.end_frame_id) != prob.valid_frame_ids.end()) { 
-        // store second_valid_frame_id to update prob.start_frame_id
-        if (n_interval_frames == 0) { second_valid_frame_id = prob.end_frame_id; }
-        ++n_interval_frames; 
+  vslam_types::RobotPose prev_pose;
+  vslam_types::FrameId next_frame_idx;
+  std::vector<vslam_types::RobotPose> answer;
+  bool is_last_iter_optimized = false;
+  cout << "start loop" << endl;
+  while (t < ntimes) {
+    next_frame_idx =  prob.robot_poses.size();
+    if (t == 1) {
+      observationTracks[t].robot_pose = first_pose;
+      prev_pose = observationTracks[t].robot_pose;
+      // add first pose to robot_pose
+      prob.robot_poses.emplace_back(next_frame_idx, 
+                                    observationTracks[t].robot_pose.loc, 
+                                    observationTracks[t].robot_pose.angle);
+    } else {
+      vslam_types::RobotPose prev_robot_pose;
+      /**
+       * If in the last iteration, we have solved SLAM. Then, prev_robot_pose is 
+       * different from what's stored in observationTracks. We should use the last 
+       * robot pose stored in prob.robot_poses
+       */
+      if (is_last_iter_optimized) {
+        prev_robot_pose = prob.robot_poses[next_frame_idx-1];
+      } else {
+        prev_robot_pose = observationTracks[t-1].robot_pose;
       }
+      observationTracks[t].robot_pose = getCurrentRobotPose(prev_robot_pose, 
+                                                            observationTracks[t].velocity);
+    }
+    
+    float dist_traveled = (observationTracks[t].robot_pose.loc - prev_pose.loc).norm();
+    Eigen::Quaternionf q_prev(prev_pose.angle);
+    Eigen::Quaternionf q_curr(observationTracks[t].robot_pose.angle);
+    float angle_rotated = abs(q_curr.angularDistance(q_prev));
+
+    if (dist_traveled < MIN_TRANSLATION_OPT && angle_rotated < MIN_ROTATION_OPT) {
+      if ( t == 1 ) {
+        // estimate landmarks
+        LoadObservationTrack(prob.robot_poses[next_frame_idx], 
+                             observationTracks[t].measurements_by_camera, 
+                             observationTracks[t].depths_by_camera[primary_camera_id],
+                             prob.camera_instrinsics_by_camera[primary_camera_id], 
+                             prob.camera_extrinsics_by_camera[primary_camera_id], prob.tracks);
+      }
+      is_last_iter_optimized = false;
+      ++t;
       continue;
     }
-    n_interval_frames = 0;
-    cout << "start frame id: " << prob.start_frame_id << ", end frame id: " << prob.end_frame_id << endl;;
-    solver.SolveSLAM<vslam_types::StructuredVisionFeatureTrack,
+    // add current pose to robot_pose
+    prob.robot_poses.emplace_back(next_frame_idx, 
+                                  observationTracks[t].robot_pose.loc, 
+                                  observationTracks[t].robot_pose.angle);
+
+    // if add current pose to robot_pose, estimate landmarks
+    LoadObservationTrack(prob.robot_poses[next_frame_idx], 
+                         observationTracks[t].measurements_by_camera, 
+                         observationTracks[t].depths_by_camera[primary_camera_id],
+                         prob.camera_instrinsics_by_camera[primary_camera_id], 
+                         prob.camera_extrinsics_by_camera[primary_camera_id], prob.tracks);
+
+    // check if we need SLAM optimization
+    vslam_types::FrameId current_end_frame_idx = prob.robot_poses.size();
+    if (current_end_frame_idx >= prob.start_frame_idx + problem_params.n_interval_frames) {
+      // solve SLAM
+      solver.SolveSLAM<vslam_types::StructuredVisionFeatureTrack,
                     vslam_solver::StructuredSlamProblemParams>(
         structured_vision_constraint_adder,
         callback_creator,
         problem_params,
         prob,
-        adjusted_to_zero_answer);
-    if (1) { // do it here bc of type incompatibility
-      std::ofstream of_points;
-      of_points.open(FLAGS_output_path + "features/" + std::to_string(prob.start_frame_id) + ".txt", std::ios::trunc);
-      for (const auto& it : prob.tracks) {
-        of_points << it.first << " " << it.second.point[0] 
-                              << " " << it.second.point[1] 
-                              << " " << it.second.point[2] << endl;
-      }
-      of_points.close();
+        prob.robot_poses);
+      is_last_iter_optimized = true;
+      ++prob.start_frame_idx;
     }
-    prob.start_frame_id = second_valid_frame_id;
-    prob.end_frame_id   = second_valid_frame_id; // FIXME: redundant computation
+    ++t;
   }
 
   if (FLAGS_save_poses) {
-    vslam_util::SaveKITTIPoses(FLAGS_output_path + "answer_batch_increment.txt",
-                               adjusted_to_zero_answer);
+    vslam_util::SaveKITTIPoses(FLAGS_output_path + "answer.txt",
+                               prob.robot_poses);
   }
-# endif
   return 0;
 }
