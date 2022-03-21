@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <experimental/filesystem> 
 
 #include "slam_backend_solver.h"
 #include "slam_solver_optimizer_params.h"
@@ -28,9 +29,16 @@ DEFINE_bool(
 
 using std::cout;
 using std::endl;
+namespace fs = std::experimental::filesystem;
+
+// This is a dummy structure to simulate what we want from ros
+struct ObservationTrack {
+  vslam_types::RobotPose velocity; // transformation from prev pose to curr pose
+  std::unordered_map<vslam_types::CameraId, std::unordered_map<vslam_types::FeatureId, Eigen::Vector2f>> measurements_by_camera;
+  std::unordered_map<vslam_types::CameraId, std::unordered_map<vslam_types::FeatureId, float>> depths_by_camera;
+};
 
 int main(int argc, char **argv) {
-  cout << "start main" << endl;
   google::InitGoogleLogging(argv[0]);
   google::ParseCommandLineFlags(&argc, &argv, true);
 
@@ -39,11 +47,60 @@ int main(int argc, char **argv) {
   // Make empty structured slam problem
   vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack> prob;
 
-  // Load structured slam problem and intrinsic calibration K
-  cout << "start loading problem" << endl;
-  vslam_io::LoadStructuredUTSLAMProblem(FLAGS_dataset_path, prob);
-  cout << "finish loading problem" << endl;
+  // Set up optimization params
+  vslam_solver::SLAMSolverOptimizerParams optimizer_params;
+  vslam_solver::SLAMSolver solver(optimizer_params);
 
+  // Load Camera Extrinsics and Instrinsics
+  vslam_io::LoadCameraCalibrationData(FLAGS_dataset_path, prob.camera_instrinsics_by_camera, prob.camera_extrinsics_by_camera);
+
+  /**
+   * Temporary Solution for sliding window: 
+   * Load everything as an ObservationTrack into Memory at once
+   * Need to take in subscribe to rostopic later
+   */
+  for (const auto& entry : fs::directory_iterator(fs::path(FLAGS_dataset_path))) {
+    const auto file_extension = entry.path().extension().string();
+    if (!fs::is_regular_file(entry) || file_extension != ".txt") {
+      continue;
+    }
+    std::ifstream data_file_stream(entry.path());
+    if (data_file_stream.fail()) {
+      LOG(FATAL) << "Failed to load: " << entry.path()
+                 << " are you sure this a valid data file? ";
+      return false;
+    }
+
+    // Start loading data files
+    std::string line;
+
+    // Read frame ID from 1st line
+    // Skip it; not the frame ID we want
+    std::getline(data_file_stream, line);
+
+    // Read frame/robot pose from 2nd line
+    std::getline(data_file_stream, line);
+    std::stringstream ss_pose(line);
+    float x, y, z, qx, qy, qz, qw;
+    ss_pose >> x >> y >> z >> qx >> qy >> qz >> qw;
+    Eigen::Vector3f loc(x, y, z);
+    Eigen::Quaternionf angle_q(qw, qx, qy, qz);
+    angle_q.normalize();
+    Eigen::AngleAxisf angle(angle_q);
+    vslam_types::RobotPose pose(0, loc, angle); // Don't want frame ID in this case
+
+  }
+
+  // init starting position from zero
+  // NOTE: frame_id starts at 0 translation and 0 rotation
+  vslam_types::RobotPose start_pose(0, Eigen::Vector3f(0, 0, 0), Eigen::AngleAxisf(Eigen::Quaternionf(1, 0, 0, 0)));
+
+  // Use while instead of for, as we want "while" ultimately 
+  // while () {
+    // 
+  // }
+
+# if 0
   // Solve
   vslam_solver::SLAMSolverOptimizerParams optimizer_params;
   vslam_solver::SLAMSolver solver(optimizer_params);
@@ -197,6 +254,6 @@ int main(int argc, char **argv) {
     vslam_util::SaveKITTIPoses(FLAGS_output_path + "answer_batch_increment.txt",
                                adjusted_to_zero_answer);
   }
-
+# endif
   return 0;
 }

@@ -351,7 +351,7 @@ int main(int argc, char** argv) {
     ParseCommandLineFlags(&argc, &argv, true);
 
     unordered_map<FeatureId, FeatureProjector> features_map;
-    LoadFeaturesWithAbsPoses(FLAGS_dataset_path, features_map);
+    LoadFeaturesWithRelPoses(FLAGS_dataset_path, features_map);
     // LoadFeaturesWithAbsPosesByFrameId(FLAGS_dataset_path, 500, features_map);
     // intrinsics: project 3D point from camera's baselink frame to 2D measurement
     unordered_map<CameraId, CameraIntrinsics> intrinsics_map;  
