@@ -92,11 +92,18 @@ struct FeatureProjector {
     
 };
 
+// TODO need to figure out a cleanner transform
 RobotPose getCurrentRobotPose(const RobotPose& prev_robot_pose, const RobotPose& velocity) {
-    Eigen::Affine3f robotToWorldTF = velocity.RobotToWorldTF() * prev_robot_pose.RobotToWorldTF();
-    return RobotPose(prev_robot_pose.frame_idx+1, 
-                     robotToWorldTF.translation(),
-                     AngleAxisf(robotToWorldTF.rotation()) );
+    Eigen::Affine3f velocity_matrix = velocity.RobotToWorldTF();
+    Eigen::Affine3f prev_pose_matrix = prev_robot_pose.RobotToWorldTF();
+    velocity_matrix = velocity_matrix.inverse();
+    prev_pose_matrix = prev_pose_matrix.inverse();
+    Eigen::Affine3f curr_pose_matrix = velocity_matrix * prev_pose_matrix;
+    curr_pose_matrix = curr_pose_matrix.inverse();
+    RobotPose pose = RobotPose(prev_robot_pose.frame_idx+1, 
+                     curr_pose_matrix.translation(),
+                     AngleAxisf(curr_pose_matrix.rotation()) );
+    return pose;
 }
 
 void LoadVelocityToAbsPose(const string& dataset_path, unordered_map<FeatureId, FeatureProjector>& features) {
@@ -128,7 +135,8 @@ void LoadVelocityToAbsPose(const string& dataset_path, unordered_map<FeatureId, 
     // convert all relative poses to absolute ones
     size_t nframes = velocities_by_frame_id.size() + 1;
     unordered_map<FrameId, RobotPose> poses_by_frame_id;
-    poses_by_frame_id[1] = RobotPose(1, Vector3f(0, 0, 0), AngleAxisf(Quaternionf(1, 0, 0, 0)));
+    // NOTE hardcode first pose
+    poses_by_frame_id[1] = RobotPose(1, Vector3f(-0.00654, -0.00277, 0.965), AngleAxisf(Quaternionf(1, 0.00226, 0.000729, -0.00036)));
     for (size_t curr_frame_id = 2; curr_frame_id <= nframes; ++curr_frame_id) {
         size_t prev_frame_id = curr_frame_id - 1;
         poses_by_frame_id[curr_frame_id] = getCurrentRobotPose(poses_by_frame_id[prev_frame_id], 
