@@ -16,7 +16,7 @@ struct StructuredSlamProblemParams {
    */
   // TODO set this to a useful value
   double reprojection_error_std_dev = 1.0;
-  size_t n_interval_frames = 10;
+  size_t n_interval_frames = 20;
 };
 }  // namespace vslam_solver
 

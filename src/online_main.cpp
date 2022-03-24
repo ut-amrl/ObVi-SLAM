@@ -245,6 +245,39 @@ void LoadObservationTrack(const vslam_types::RobotPose& robot_pose,
   }
 }
 
+// TODO use generic types instead
+void CleanFeatureTrackInProb(const vslam_solver::StructuredSlamProblemParams& prob_params,
+                             vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack>& prob) {
+  vslam_types::FeatureId feature_id;
+  vslam_types::FrameId start_frame_id = prob.start_frame_idx;
+  // use unordered_set bc even if there're duplicates in rare cases, we don't care
+  std::unordered_set<vslam_types::FeatureId> feature_ids_to_delete;
+  for (auto& track_by_feature_id : prob.tracks) {
+    feature_id = track_by_feature_id.first;
+    auto& vision_features = track_by_feature_id.second.feature_track.track;
+    // delete tracks related to old frame IDs
+    for (auto iter = vision_features.begin(); iter != vision_features.end(); ) {
+      if (iter->frame_idx < start_frame_id) {
+        iter = vision_features.erase(iter);
+      } else {
+        ++iter;
+      }
+    }
+    // after deletion, check if there's no vision feature associated with some feature ID
+    if (vision_features.size() == 0) {
+      feature_ids_to_delete.emplace(feature_id);
+    }
+  }
+  // delete all feature_ids whose associated feature track is empty
+  for (auto iter = prob.tracks.begin(); iter != prob.tracks.end(); ) {
+    if (feature_ids_to_delete.find(iter->first) != feature_ids_to_delete.end()) {
+      iter = prob.tracks.erase(iter);
+    } else {
+      ++iter;
+    }
+  }
+}
+
 int main(int argc, char **argv) {
   google::InitGoogleLogging(argv[0]);
   google::ParseCommandLineFlags(&argc, &argv, true);
@@ -269,10 +302,12 @@ int main(int argc, char **argv) {
   
   // use a hardcoded solution for now
   // TODO: fix this in ORB_SLAM
+  // vslam_types::RobotPose first_pose = vslam_types::RobotPose(1, 
+  //                                     Eigen::Vector3f(-0.00654, -0.00277, 0.965), 
+  //                                     Eigen::AngleAxisf(Eigen::Quaternionf(1, 0.00226, 0.000729, -0.00036)));
   vslam_types::RobotPose first_pose = vslam_types::RobotPose(1, 
-                                      Eigen::Vector3f(-0.00654, -0.00277, 0.965), 
-                                      Eigen::AngleAxisf(Eigen::Quaternionf(1, 0.00226, 0.000729, -0.00036)));
-
+                                      Eigen::Vector3f(0, 0, 0), 
+                                      Eigen::AngleAxisf(Eigen::Quaternionf(1, 0, 0, 0)));
   /**
    * set up solveSLAM function parameters
    */
@@ -297,8 +332,6 @@ int main(int argc, char **argv) {
             return feature_track.feature_track.track;
           };
 
-  // TODO change it to AddStructuredVisionFactorsOnline; 
-  // TODO fix AddStructuredVisionFactorsOnline and AddStructuredVisionFactorsOffline
   std::function<void(
       const vslam_solver::StructuredSlamProblemParams &,
       vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack> &,
@@ -327,12 +360,12 @@ int main(int argc, char **argv) {
   const float MIN_ROTATION_OPT = M_1_PI / 18; // 10 degree
   // use t to index through observationTracks
   size_t t = 1;
-  const size_t ntimes = 800;
+  const size_t ntimes = observationTracks.size();
   // Use while instead of for, as we want "while" ultimately 
   prob.start_frame_idx = 0; // this id starts from 0
 
   vslam_solver::StructuredSlamProblemParams problem_params;
-  vslam_types::RobotPose prev_pose;
+  vslam_types::RobotPose prev_added_robot_pose; // TODO move me to some header file/struct
   vslam_types::FrameId next_frame_idx;
   std::vector<vslam_types::RobotPose> answer;
   bool is_last_iter_optimized = false;
@@ -341,12 +374,13 @@ int main(int argc, char **argv) {
     next_frame_idx =  prob.robot_poses.size();
     if (t == 1) {
       observationTracks[t].robot_pose = first_pose;
-      prev_pose = observationTracks[t].robot_pose;
+      prev_added_robot_pose = observationTracks[t].robot_pose;
       // add first pose to robot_pose
       prob.robot_poses.emplace_back(next_frame_idx, 
                                     observationTracks[t].robot_pose.loc, 
                                     observationTracks[t].robot_pose.angle);
     } else {
+      prev_added_robot_pose = prob.robot_poses[next_frame_idx-1];
       vslam_types::RobotPose prev_robot_pose;
       /**
        * If in the last iteration, we have solved SLAM. Then, prev_robot_pose is 
@@ -362,8 +396,8 @@ int main(int argc, char **argv) {
                                                             observationTracks[t].velocity);
     }
     
-    float dist_traveled = (observationTracks[t].robot_pose.loc - prev_pose.loc).norm();
-    Eigen::Quaternionf q_prev(prev_pose.angle);
+    float dist_traveled = (observationTracks[t].robot_pose.loc - prev_added_robot_pose.loc).norm();
+    Eigen::Quaternionf q_prev(prev_added_robot_pose.angle);
     Eigen::Quaternionf q_curr(observationTracks[t].robot_pose.angle);
     float angle_rotated = abs(q_curr.angularDistance(q_prev));
 
@@ -396,6 +430,8 @@ int main(int argc, char **argv) {
     vslam_types::FrameId current_end_frame_idx = prob.robot_poses.size();
     if (current_end_frame_idx >= prob.start_frame_idx + problem_params.n_interval_frames) {
       // solve SLAM
+      cout << "solving frame " << prob.start_frame_idx << " to " << prob.start_frame_idx + problem_params.n_interval_frames;
+      cout << "; total times: " << ntimes << endl;
       solver.SolveSLAM<vslam_types::StructuredVisionFeatureTrack,
                     vslam_solver::StructuredSlamProblemParams>(
         structured_vision_constraint_adder,
@@ -407,6 +443,7 @@ int main(int argc, char **argv) {
       ++prob.start_frame_idx;
     }
     ++t;
+    CleanFeatureTrackInProb(problem_params, prob);
   }
 
   if (FLAGS_save_poses) {

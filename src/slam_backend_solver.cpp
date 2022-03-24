@@ -78,7 +78,6 @@ bool SLAMSolver::SolveSLAM(
   vision_constraint_adder(problem_params, slam_problem, problem, &slam_nodes);
 
   // Set the first pose constant
-  // problem.SetParameterBlockConstant(slam_nodes[0].pose);
   problem.SetParameterBlockConstant(slam_nodes[slam_problem.start_frame_idx].pose); 
 
 #if 0
@@ -231,15 +230,20 @@ void AddStructuredVisionFactorsOnline(
     std::vector<vslam_types::SLAMNode> *updated_solved_nodes) {
 
   std::cout << "AddStructuredVisionFactors online" << std::endl;
+  size_t n_added_constraints = 0;
   std::vector<vslam_types::SLAMNode> &solution = *updated_solved_nodes;
   for (auto &feature_track_by_id : slam_problem.tracks) {
     double *feature_position_block = feature_track_by_id.second.point.data();
     for (const vslam_types::VisionFeature &feature :
          feature_track_by_id.second.feature_track.track) {
       double *pose_block = solution[feature.frame_idx].pose;
+      // TODO delete this if statement
       if (feature.frame_idx <  slam_problem.start_frame_idx || 
           feature.frame_idx >= slam_problem.start_frame_idx + solver_optimization_params.n_interval_frames)
-      { continue; }
+      { 
+        cout << "!!! Something wrong in CleanFeatureTrackInProb !!!" << endl;
+        continue; 
+      }
       #if 0
       cout << endl;
       cout << "feature.frame_idx: " << feature.frame_idx << endl;
@@ -248,6 +252,7 @@ void AddStructuredVisionFactorsOnline(
       cout << "measurement (primary camera): " << feature.pixel_by_camera_id.at(1).transpose() << endl;
       #endif
       for (const auto &camera_id_and_pixel : feature.pixel_by_camera_id) {
+        ++n_added_constraints;
         ceres_problem.AddResidualBlock(
             ReprojectionCostFunctor::create(
                 slam_problem.camera_instrinsics_by_camera.at(
@@ -262,7 +267,7 @@ void AddStructuredVisionFactorsOnline(
       }
     }
   }
-
+  cout << "#added constraints: " << n_added_constraints << endl;
 }
 
 template bool SLAMSolver::SolveSLAM<vslam_types::VisionFeatureTrack,
