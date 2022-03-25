@@ -35,51 +35,6 @@ bool findEllipsoidEstimates(
     std::vector<vslam_types::EllipsoidEstimate> &updated_ellipsoid_estimates);
 
 /**
- * Create an ellipsoid node from a ellipsoid estimate data structure.
- *
- * @param ellipsoid_estimate Ellispoid estimate.
- *
- * @return Ellipsoid estimate node.
- */
-vslam_types::EllipsoidEstimateNode FromEllipsoidEstimate(
-    const vslam_types::EllipsoidEstimate &ellipsoid_estimate);
-
-/**
- * Create an ellipsoid estimate from an ellipsoid estimate node.
- *
- * @param ellipsoid_node Ellipsoid node.
- *
- * @return Ellipsoid estimate.
- */
-vslam_types::EllipsoidEstimate FromEllipsoidNode(
-    const vslam_types::EllipsoidEstimateNode &ellipsoid_node);
-
-/**
- * Add nodes to the nodes list that correspond to the information in the
- * ellipsoid estimates.
- *
- * @param ellispoid_estimates[in]   Ellipsoid estimates that should have slam
- *                                  nodes created for them.
- * @param nodes[out]                Nodes list that now contains entries for
- *                                  each ellipsoid estimate.
- */
-void EllipsoidEstimatesToNodes(
-    const std::vector<vslam_types::EllipsoidEstimate> &ellipsoid_estimates,
-    std::vector<vslam_types::EllipsoidEstimateNode> &nodes);
-
-/**
- * Clear the updated estimates list and create new entries from the nodes.
- *
- * @param ellipsoid_nodes[in]       SLAM nodes that contain the ellipsoid
- *                                  estimates poses after optimization.
- * @param updated_estimates[out]    Vector to update with optimized ellipsoid
- *                                  estimates.
- */
-void EllipsoidNodesToEllipsoidEstimates(
-    const std::vector<vslam_types::EllipsoidEstimateNode> &ellipsoid_nodes,
-    std::vector<vslam_types::EllipsoidEstimate> &updated_estimates);
-
-/**
  * Add ellipsoid factors (semantic shape prior + bounding box) to the ceres
  * problem.
  *

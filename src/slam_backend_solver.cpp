@@ -2,40 +2,11 @@
 #include <pairwise_2d_feature_cost_functor.h>
 #include <reprojection_cost_functor.h>
 #include <slam_backend_solver.h>
+#include <vslam_type_conversion_util.h>
+
+using namespace vslam_util;
 
 namespace vslam_solver {
-
-void RobotPosesToSLAMNodes(
-    const std::vector<vslam_types::RobotPose> &robot_poses,
-    std::vector<vslam_types::SLAMNode> &nodes) {
-  for (const vslam_types::RobotPose &robot_pose : robot_poses) {
-    nodes.emplace_back(FromRobotPose(robot_pose));
-  }
-}
-
-void SLAMNodesToRobotPoses(const std::vector<vslam_types::SLAMNode> &slam_nodes,
-                           std::vector<vslam_types::RobotPose> &updated_poses) {
-  updated_poses.clear();
-  for (const vslam_types::SLAMNode &node : slam_nodes) {
-    updated_poses.emplace_back(FromSLAMNode(node));
-  }
-}
-
-vslam_types::SLAMNode FromRobotPose(const vslam_types::RobotPose &robot_pose) {
-  return vslam_types::SLAMNode(
-      robot_pose.frame_idx, robot_pose.loc, robot_pose.angle);
-}
-
-vslam_types::RobotPose FromSLAMNode(const vslam_types::SLAMNode &slam_node) {
-  Eigen::Vector3f rotation_axis(
-      slam_node.pose[3], slam_node.pose[4], slam_node.pose[5]);
-
-  Eigen::AngleAxisf rotation_aa = vslam_types::VectorToAxisAngle(rotation_axis);
-
-  Eigen::Vector3f transl(
-      slam_node.pose[0], slam_node.pose[1], slam_node.pose[2]);
-  return vslam_types::RobotPose(slam_node.node_idx, transl, rotation_aa);
-}
 
 // TODO make all class methods lower case ?
 template <typename FeatureTrackType, typename ProblemParams>

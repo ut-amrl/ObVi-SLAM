@@ -3,6 +3,7 @@
 
 #include <ceres/autodiff_cost_function.h>
 #include <vslam_types.h>
+#include <vslam_math_util.h>
 
 #include <eigen3/Eigen/Dense>
 
@@ -53,7 +54,7 @@ class ReprojectionCostFunctor {
   bool operator()(const T *pose, const T *point, T *residual) const {
     // Transform from world to current robot pose
     Eigen::Transform<T, 3, Eigen::Affine> world_to_robot_current =
-        vslam_types::PoseArrayToAffine(&(pose[3]), &(pose[0])).inverse();
+        vslam_util::PoseArrayToAffine(&(pose[3]), &(pose[0])).inverse();
 
     // Point in world frame
     Eigen::Matrix<T, 3, 1> point_world(point[0], point[1], point[2]);

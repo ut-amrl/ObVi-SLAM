@@ -25,6 +25,52 @@ struct EllipsoidVisibilityParams {
    * This should be considered before adding noise and also after.
    */
   int minimum_bounding_box_size_pixels = 20;
+
+  double min_visibility_percentage = 0.6;
+};
+
+/**
+ * Data structure for data generated for the synthetic problem.
+ * @tparam FeatureTrackType
+ */
+template <typename FeatureTrackType>
+struct SyntheticProblemGeneratedData {
+  /**
+   * The problem created.
+   */
+  vslam_types::UTObjectSLAMProblem<FeatureTrackType> created_slam_problem;
+
+  /**
+   * Parameters for the SLAM problem.
+   */
+  vslam_solver::ObjectSlamProblemParams object_slam_problem_params;
+
+  /**
+   * Initial ellipsoid estimates.
+   */
+  std::vector<vslam_types::EllipsoidEstimate> initial_ellipsoid_estimates;
+
+  /**
+   * Observed corner locations (noise added).
+   */
+  std::unordered_map<
+      uint64_t,
+      std::unordered_map<
+          vslam_types::CameraId,
+          std::unordered_map<uint64_t,
+                             std::pair<Eigen::Vector2f, Eigen::Vector2f>>>>
+      observed_corner_locations;
+
+  /**
+   * Ground truth corner locations.
+   */
+  std::unordered_map<
+      uint64_t,
+      std::unordered_map<
+          vslam_types::CameraId,
+          std::unordered_map<uint64_t,
+                             std::pair<Eigen::Vector2f, Eigen::Vector2f>>>>
+      gt_corner_locations;
 };
 
 /**
@@ -69,6 +115,45 @@ Eigen::Vector4f getGroundTruthBoundingBoxObservation(
     const vslam_types::CameraExtrinsics &cam_extrinsics);
 
 /**
+ * TODO not implemented
+ *
+ * Filter the generated bounding box to remove those that would be heavily
+ * occluded.
+ *
+ * @param ground_truth_ellipsoids                   Ground truth ellipsoids.
+ * @param ground_truth_robot_poses                  Ground truth robot poses.
+ * @param extrinsics                                Map of camera id to
+ *                                                  extrinsics.
+ * @param ellipsoid_visibility_params               Visibility parameters for
+ *                                                  the ellipsoids.
+ * @param unfiltered_bounding_boxes                 The unfiltered bounding
+ *                                                  boxes. Includes those that
+ *                                                  would be out of frame. Also
+ *                                                  does not reflect any
+ *                                                  detection failures.
+ * @param gt_and_noisy_bounding_boxes_unfiltered    The ground truth and noisy
+ *                                                  bounding boxes before
+ *                                                  being filtered to remove the
+ *                                                  heavily occluded ones.
+ *
+ * @return Ground ruth and noisy bounding boxes, with those that would be
+ * heavily occluded removed.
+ */
+std::pair<std::vector<vslam_types::ObjectImageBoundingBoxDetection>,
+          std::vector<vslam_types::ObjectImageBoundingBoxDetection>>
+filterByVisibility(
+    const std::vector<vslam_types::EllipsoidEstimate> &ground_truth_ellipsoids,
+    const std::vector<vslam_types::RobotPose> &ground_truth_robot_poses,
+    const std::unordered_map<vslam_types::CameraId,
+                             vslam_types::CameraExtrinsics> &extrinsics,
+    const EllipsoidVisibilityParams &ellipsoid_visibility_params,
+    const std::vector<vslam_types::ObjectImageBoundingBoxDetection>
+        &unfiltered_bounding_boxes,
+    const std::pair<std::vector<vslam_types::ObjectImageBoundingBoxDetection>,
+                    std::vector<vslam_types::ObjectImageBoundingBoxDetection>>
+        &gt_and_noisy_bounding_boxes_unfiltered);
+
+/**
  * Generate bounding box detections from ground truth ellipsoids and poses.
  *
  * @param ground_truth_ellipsoids               Ground truth ellipsoids.
@@ -99,9 +184,10 @@ Eigen::Vector4f getGroundTruthBoundingBoxObservation(
  *                                              detections.
  * @param random_gen                            Random number generator.
  *
- * @return Bounding box detections (with added noise).
+ * @return Ground truth bounding boxes and noisy bounding box detections.
  */
-std::vector<vslam_types::ObjectImageBoundingBoxDetection>
+std::pair<std::vector<vslam_types::ObjectImageBoundingBoxDetection>,
+          std::vector<vslam_types::ObjectImageBoundingBoxDetection>>
 generateBoundingBoxDetectionsFromGroundTruthEllipsoidsAndPoses(
     const std::vector<vslam_types::EllipsoidEstimate> &ground_truth_ellipsoids,
     const std::vector<vslam_types::RobotPose> &ground_truth_robot_poses,
@@ -160,12 +246,11 @@ generateBoundingBoxDetectionsFromGroundTruthEllipsoidsAndPoses(
  *                                                  bounding box detections.
  * @param random_gen                                Random number generator.
  *
- * @return Pair of the generated SLAM problem and the Object SLAM problem
- * parameters.
+ * @return Synthetic problem output (slam problem, problem params, generated
+ * data).
  */
 template <typename FeatureTrackType>
-std::pair<vslam_types::UTObjectSLAMProblem<FeatureTrackType>,
-          vslam_solver::ObjectSlamProblemParams>
+SyntheticProblemGeneratedData<FeatureTrackType>
 createEllipsoidOnlySyntheticProblemFromEllipsoidsAndCameraPoses(
     const std::vector<vslam_types::EllipsoidEstimate> &ground_truth_ellipsoids,
     const std::vector<vslam_types::RobotPose> &ground_truth_robot_poses,

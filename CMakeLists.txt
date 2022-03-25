@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.1.0)
 project(ut_vslam)
 
-set(CMAKE_CXX_STANDARD 11)
+#set(CMAKE_CXX_STANDARD 11)
+SET(CMAKE_CXX_FLAGS "-std=c++17 -lstdc++fs")
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 INCLUDE($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
@@ -30,6 +31,7 @@ set(LIBS
         stdc++fs
         glog
         gflags
+        cv_bridge
         amrl_shared_lib
         ${CERES_LIBRARIES}
         ${OpenCV_LIBS}
@@ -44,10 +46,13 @@ add_library(ut_vslam src/vslam_io.cpp
         src/reprojection_cost_functor.cpp
         src/slam_backend_solver.cpp
         src/pose_viewer.cpp
-        src/vslam_util.cpp
         src/shape_prior_factor.cpp
         src/bounding_box_factor.cpp
         src/object_slam_backend_solver.cpp
+        src/vslam_type_conversion_util.cpp
+        src/vslam_types_math_util.cpp
+        src/vslam_noise_util.cpp
+        src/ellipsoid_utils.cpp
         src/synthetic_problem/noise_addition_utils.cpp
         src/synthetic_problem/synthetic_problem_generator.cpp
         src/synthetic_problem/synthetic_problem_construction_utils.cpp

@@ -9,46 +9,7 @@
 
 namespace vslam_solver {
 
-/**
- * Create an SLAM node from a robot pose data structure.
- *
- * @param robot_pose Robot pose.
- *
- * @return SLAM node.
- */
-vslam_types::SLAMNode FromRobotPose(const vslam_types::RobotPose &robot_pose);
 
-/**
- * Create a robot pose from an SLAM node.
- *
- * @param slam_node SLAM node.
- *
- * @return Robot pose data structure.
- */
-vslam_types::RobotPose FromSLAMNode(const vslam_types::SLAMNode &slam_node);
-
-/**
- * Add nodes to the nodes list that correspond to the information in the robot
- * poses. Will only add to the nodes vector.
- *
- * @param robot_poses[in]   Robot poses that should have slam nodes
- *                          created for them.
- * @param nodes[out]        Nodes list that now contains entries for each
- *                          robot pose in the robot poses vector.
- */
-void RobotPosesToSLAMNodes(
-    const std::vector<vslam_types::RobotPose> &robot_poses,
-    std::vector<vslam_types::SLAMNode> &nodes);
-
-/**
- * Clear the updated poses list and create new entries from the SLAM nodes.
- *
- * @param slam_nodes[in]      SLAM nodes that contain the robot poses after
- *                            optimization.
- * @param updated_poses[out]  Vector to update with optimized robot poses.
- */
-void SLAMNodesToRobotPoses(const std::vector<vslam_types::SLAMNode> &slam_nodes,
-                           std::vector<vslam_types::RobotPose> &updated_poses);
 
 /**
  * Class for updating the robot poses given the SLAM problem constraints between

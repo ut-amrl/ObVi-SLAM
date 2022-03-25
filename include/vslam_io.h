@@ -209,6 +209,9 @@ void LoadCameraIntrinsicsAndExtrinsicsMicrosoftDataset(
         camera_intrinsics_by_camera_id,
     std::unordered_map<vslam_types::CameraId, vslam_types::CameraExtrinsics>&
         camera_extrinsics_by_camera_id);
+
+void SaveKITTIPoses(const std::string& filename,
+                    const std::vector<vslam_types::RobotPose>& poses);
 }  // namespace vslam_io
 
 #endif  // __VSLAM_IO_H__

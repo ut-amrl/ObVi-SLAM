@@ -7,8 +7,10 @@
 #include "slam_solver_optimizer_params.h"
 #include "visual_slam_ceres_visualization_callback.h"
 #include "vslam_io.h"
+#include "vslam_math_util.h"
 #include "vslam_types.h"
-#include "vslam_util.h"
+#include <vslam_noise_util.h>
+#include <vslam_types_math_util.h>
 
 DEFINE_string(dataset_path,
               "",
@@ -51,7 +53,7 @@ int main(int argc, char **argv) {
   vslam_util::AdjustTrajectoryToStartAtZero(answer, gt_robot_poses);
 
   if (FLAGS_save_poses) {
-    vslam_util::SaveKITTIPoses(FLAGS_output_path + "gt.txt", gt_robot_poses);
+    vslam_io::SaveKITTIPoses(FLAGS_output_path + "gt.txt", gt_robot_poses);
   }
 
   Eigen::Matrix<double, 2, 1> odom_alphas(.1, .1);
@@ -60,7 +62,7 @@ int main(int argc, char **argv) {
   vslam_util::AdjustTrajectoryToStartAtZero(answer, adjusted_to_zero_answer);
 
   if (FLAGS_save_poses) {
-    vslam_util::SaveKITTIPoses(FLAGS_output_path + "start.txt",
+    vslam_io::SaveKITTIPoses(FLAGS_output_path + "start.txt",
                                adjusted_to_zero_answer);
   }
 
@@ -134,7 +136,7 @@ int main(int argc, char **argv) {
   }
 
   if (FLAGS_save_poses) {
-    vslam_util::SaveKITTIPoses(FLAGS_output_path + "answer.txt",
+    vslam_io::SaveKITTIPoses(FLAGS_output_path + "answer.txt",
                                adjusted_to_zero_answer);
   }
 

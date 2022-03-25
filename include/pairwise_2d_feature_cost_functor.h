@@ -2,8 +2,8 @@
 #define UT_VSLAM_PAIRWISE_2D_FEATURE_COST_FUNCTOR_H
 
 #include <ceres/autodiff_cost_function.h>
+#include <vslam_math_util.h>
 #include <vslam_types.h>
-#include <vslam_util.h>
 
 #include <eigen3/Eigen/Dense>
 
