@@ -4,7 +4,9 @@
 
 #include <glog/logging.h>
 #include <synthetic_problem/noise_addition_utils.h>
-#include <vslam_util.h>
+#include <vslam_math_util.h>
+#include <vslam_types_math_util.h>
+using namespace vslam_util;
 
 namespace synthetic_problem {
 
@@ -15,8 +17,7 @@ Eigen::AngleAxisf addNoiseToAngleAxisDiagonalCov(
   Eigen::Vector3f rotation_noise_vec = addNoiseToVectorDiagonalCov(
       Eigen::Vector3f(0, 0, 0), std_devs, random_gen);
 
-  Eigen::AngleAxisf rotation_aa =
-      vslam_types::VectorToAxisAngle(rotation_noise_vec);
+  Eigen::AngleAxisf rotation_aa = VectorToAxisAngle(rotation_noise_vec);
 
   return Eigen::AngleAxisf(orig_val * rotation_aa);
 }
@@ -32,9 +33,6 @@ vslam_types::EllipsoidEstimate addNoiseToEllipsoidEstimate(
                                                   standard_deviations(2, 0)),
                                   random_gen);
 
-  LOG(INFO) << "Old loc " << ellipsoid_est.loc;
-  LOG(INFO) << "New Loc for ellipsoid " << new_loc;
-
   Eigen::AngleAxisf new_orientation =
       addNoiseToAngleAxisDiagonalCov(ellipsoid_est.orientation,
                                      Eigen::Vector3f(standard_deviations(3, 0),
@@ -42,22 +40,12 @@ vslam_types::EllipsoidEstimate addNoiseToEllipsoidEstimate(
                                                      standard_deviations(5, 0)),
                                      random_gen);
 
-
-  LOG(INFO) << "Old orient axis" << ellipsoid_est.orientation.axis();
-  LOG(INFO) << "Old orient angle" << ellipsoid_est.orientation.angle();
-  LOG(INFO) << "New orient axis for ellipsoid " << new_orientation.axis();
-  LOG(INFO) << "New orient angle for ellipsoid " << new_orientation.angle();
-
   Eigen::Vector3f new_dim =
       addNoiseToVectorDiagonalCov(ellipsoid_est.ellipsoid_dim,
                                   Eigen::Vector3f(standard_deviations(6, 0),
                                                   standard_deviations(7, 0),
                                                   standard_deviations(8, 0)),
                                   random_gen);
-
-
-  LOG(INFO) << "Old dim " << ellipsoid_est.ellipsoid_dim;
-  LOG(INFO) << "New dim for ellipsoid " << new_dim;
 
   return vslam_types::EllipsoidEstimate(new_loc,
                                         new_orientation,
@@ -88,7 +76,7 @@ vslam_types::RobotPose applyNoiseToRelativePoseWithScaledMagnitude(
       (angle * axis.array() * unscaled_orientation_noise_vec.array()).matrix();
 
   Eigen::AngleAxisf scaled_orientation_noise =
-      vslam_types::VectorToAxisAngle(scaled_orientation_noise_vec);
+      VectorToAxisAngle(scaled_orientation_noise_vec);
 
   Eigen::AngleAxisf new_orientation =
       Eigen::AngleAxisf(pose_to_corrupt.angle * scaled_orientation_noise);

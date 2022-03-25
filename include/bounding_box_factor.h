@@ -5,6 +5,7 @@
 #include <ellipsoid_utils.h>
 #include <glog/logging.h>
 #include <vslam_types.h>
+#include <vslam_type_conversion_util.h>
 
 #include <eigen3/Eigen/Dense>
 
@@ -60,64 +61,26 @@ class BoundingBoxFactor {
   bool operator()(const T *ellipsoid,
                   const T *robot_pose,
                   T *residuals_ptr) const {
-    Eigen::Transform<T, 3, Eigen::Affine> robot_to_world_current =
-        vslam_types::PoseArrayToAffine(&(robot_pose[3]), &(robot_pose[0]));
-
-    for (int i= 0; i < 9; i++) {
-      LOG(INFO) << ellipsoid[i];
-    }
-    LOG(INFO) << robot_to_world_current.matrix();
-
-    // Robot to world defines the robot's pose in the world frame
-    // Cam to robot defines the camera pose in the robot's frame
-    // We want the world's pose in the camera frame
-    Eigen::Transform<T, 3, Eigen::Affine> world_to_camera =
-        robot_to_cam_tf_.template cast<T>() * robot_to_world_current.inverse();
-    Eigen::Transform<T, 3, Eigen::AffineCompact> world_to_camera_compact =
-        world_to_camera;
-    LOG(INFO) << world_to_camera_compact.matrix();
-    Eigen::Matrix<T, 4, 4> ellipsoid_dual_rep =
-        vslam_util::createDualRepresentationForEllipsoid(ellipsoid);
-    LOG(INFO) << "Ellipsoid dual rep\n" << ellipsoid_dual_rep;
-
-    Eigen::Matrix<T, 3, 3> g_mat =
-        camera_intrinsics_mat_.template cast<T>() *
-        world_to_camera_compact.matrix() * ellipsoid_dual_rep *
-        world_to_camera_compact.matrix().transpose() *
-        camera_intrinsics_mat_.transpose().template cast<T>();
-    LOG(INFO) << "gmat\n" << g_mat;
-
-//    T g1_1 = g_mat(1, 1);
-//    T g1_3 = g_mat(1, 3);
-//    T g2_2 = g_mat(2, 2);
-//    T g2_3 = g_mat(2, 3);
-//    T g3_3 = g_mat(3, 3);
-    T g1_1 = g_mat(0, 0);
-    T g1_3 = g_mat(0, 2);
-    T g2_2 = g_mat(1, 1);
-    T g2_3 = g_mat(1, 2);
-    T g3_3 = g_mat(2, 2);
-    LOG(INFO) << "G entries\n(1, 1)" << g1_1 <<"\n(1, 3)" << g1_3 << "\n(2, 2)" << g2_2 << "\n(2, 3)" << g2_3 << "\n(3, 3)" << g3_3;
-    T x_sqrt_component = sqrt(pow(g1_3, 2) - (g1_1 * g3_3));
-    T y_sqrt_component = sqrt(pow(g2_3, 2) - (g2_2 * g3_3));
-    LOG(INFO) << "Sqrt components\n" << x_sqrt_component << "\n" << y_sqrt_component;
-
-    // TODO Verify once we have real data that these are in the right order?
-    //  is min and max actually the min and max?
-    Eigen::Matrix<T, 4, 1> corner_results(g1_3 - x_sqrt_component,
-                                          g1_3 + x_sqrt_component,
-                                          g2_3 - y_sqrt_component,
-                                          g2_3 + y_sqrt_component);
-    corner_results = corner_results / g3_3;
-    LOG(INFO) << "Corner results\n" << corner_results;
+    Eigen::Matrix<T, 4, 1> corner_results;
+    vslam_util::getCornerLocationsVector<T>(ellipsoid,
+                                         robot_pose,
+                                         robot_to_cam_tf_.cast<T>(),
+                                         camera_intrinsics_mat_.cast<T>(),
+                                         corner_results);
+    //    LOG(INFO) << "Corner results\n" << corner_results;
 
     Eigen::Matrix<T, 4, 1> deviation =
         corner_results - corner_detections_.template cast<T>();
+    //    LOG(INFO) << "Detection " << corner_detections_;
+    //    LOG(INFO) << "Deviation " << deviation;
+    //    LOG(INFO) << "Sqrt inf mat bounding box " <<
+    //    sqrt_inf_mat_bounding_box_corners_;
 
     Eigen::Map<Eigen::Matrix<T, 4, 1>> residuals(residuals_ptr);
     residuals =
         sqrt_inf_mat_bounding_box_corners_.template cast<T>() * deviation;
 
+    //    LOG(INFO) << "Residuals " << residuals;
     return true;
   }
 
@@ -138,11 +101,9 @@ class BoundingBoxFactor {
           const vslam_types::CameraIntrinsics &camera_intrinsics,
           const vslam_types::CameraExtrinsics &camera_extrinsics,
           const Eigen::Matrix4f &bounding_box_covariance) {
-    Eigen::Vector4f corner_locations_vector(
-        object_detection.pixel_corner_locations.first.x(),
-        object_detection.pixel_corner_locations.second.x(),
-        object_detection.pixel_corner_locations.first.y(),
-        object_detection.pixel_corner_locations.second.y());
+    Eigen::Vector4f corner_locations_vector =
+        vslam_util::cornerLocationsPairToVector(
+            object_detection.pixel_corner_locations);
     BoundingBoxFactor *factor = new BoundingBoxFactor(camera_intrinsics,
                                                       camera_extrinsics,
                                                       corner_locations_vector,

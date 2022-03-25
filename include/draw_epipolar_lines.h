@@ -3,8 +3,8 @@
 
 // https://hasper.info/opencv-draw-epipolar-lines/
 
+#include <vslam_math_util.h>
 #include <vslam_types.h>
-#include <vslam_util.h>
 
 #include <cmath>
 #include <opencv2/calib3d/calib3d.hpp>

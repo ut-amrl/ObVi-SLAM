@@ -16,6 +16,7 @@
   <depend package="roscpp"/>
   <depend package="rosbag" />
   <depend package="tf"/>
+  <depend package="cv_bridge" />
 
 </package>
 

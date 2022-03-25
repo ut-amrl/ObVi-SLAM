@@ -16,11 +16,6 @@ namespace vslam_types {
 typedef uint64_t CameraId;
 
 /**
- * Threshold for a small angle when creating a axis-angle representation.
- */
-const double kSmallAngleThreshold = 1e-8;
-
-/**
  * A structureless vision feature describes the association between a
  * measurement (pixel), an identified feature (feature_idx), and the camera it
  * was captured by (frame_idx).
@@ -395,6 +390,10 @@ struct CameraIntrinsics {
    * Camera matrix.
    */
   Eigen::Matrix3f camera_mat;
+
+  uint32_t image_width;
+
+  uint32_t image_height;
 };
 
 /**
@@ -509,63 +508,6 @@ struct UTObjectSLAMProblem : public UTSLAMProblem<FeatureTrackType> {
         ellipsoid_estimates(ellipsoid_estimates) {}
 };
 
-// TODO  Move these functions to a utility file
-
-/**
- * Convert from a vector that stores the axis-angle representation (with
- * angle as the magnitude of the vector) to the Eigen AxisAngle
- * representation.
- *
- * @tparam T                Type of each field.
- * @param axis_angle_vec    Vector encoding the axis of rotation (as the
- *                          direction) and the angle as the magnitude of the
- *                          vector.
- *
- * @return Eigen AxisAngle representation for the rotation.
- */
-template <typename T>
-Eigen::AngleAxis<T> VectorToAxisAngle(
-    const Eigen::Matrix<T, 3, 1> axis_angle_vec) {
-  const T rotation_angle = axis_angle_vec.norm();
-  if (rotation_angle > kSmallAngleThreshold) {
-    return Eigen::AngleAxis<T>(rotation_angle, axis_angle_vec / rotation_angle);
-  } else {
-    return Eigen::AngleAxis<T>(T(0), Eigen::Matrix<T, 3, 1>{T(1), T(0), T(0)});
-  }
-}
-
-/**
- * Create an Eigen Affine transform from the rotation and translation.
- *
- * @tparam T            Type to use in the matrix.
- * @param rotation      Three entry array containing the axis-angle form of
- * the rotation. Magnitude gives the angle of the rotation and the direction
- * gives the axis of rotation.
- * @param translation   Three entry array containing the translation.
- *
- * @return Eigen Affine transform for the rotation and translation.
- */
-template <typename T>
-Eigen::Transform<T, 3, Eigen::Affine> PoseArrayToAffine(const T* rotation,
-                                                        const T* translation) {
-  const Eigen::Matrix<T, 3, 1> rotation_axis(
-      rotation[0], rotation[1], rotation[2]);
-  const T rotation_angle = rotation_axis.norm();
-
-  Eigen::AngleAxis<T> rotation_aa;
-  if (rotation_angle < T(kSmallAngleThreshold)) {
-    rotation_aa =
-        Eigen::AngleAxis<T>(T(0), Eigen::Matrix<T, 3, 1>(T(0), T(0), T(1)));
-  } else {
-    rotation_aa = VectorToAxisAngle(rotation_axis);
-  }
-
-  const Eigen::Translation<T, 3> translation_tf(
-      translation[0], translation[1], translation[2]);
-  const Eigen::Transform<T, 3, Eigen::Affine> transform =
-      translation_tf * rotation_aa;
-  return transform;
-}
 }  // namespace vslam_types
 
 #endif  // __VSLAM_TYPES_H__
