@@ -314,9 +314,9 @@ struct CameraExtrinsics {
 template <typename FeatureTrackType>
 struct UTSLAMProblem {
   FrameId start_frame_idx;
-  FrameId end_frame_id;
+  FrameId end_frame_id; // TODO delete me
   std::string output;
-  std::unordered_set<FrameId> valid_frame_ids;
+  std::unordered_set<FrameId> valid_frame_ids; // TODO delete me
   /**
    * Unordered map representing the database of tracks - indexed by
    * track/feature ID.

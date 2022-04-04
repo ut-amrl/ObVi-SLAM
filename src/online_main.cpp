@@ -40,7 +40,7 @@ const vslam_types::CameraId primary_camera_id = 1;
 // This is a dummy structure to simulate what we want from ros
 struct ObservationTrack {
   vslam_types::RobotPose velocity; // transformation from prev pose to curr pose
-  vslam_types::RobotPose robot_pose;
+  vslam_types::RobotPose robot_pose; // TODO delete me
   // using map instead of unordered_map to ensure no collision
   std::map<vslam_types::CameraId, std::map<vslam_types::FeatureId, Eigen::Vector2f>> measurements_by_camera;
   std::map<vslam_types::CameraId, std::map<vslam_types::FeatureId, float>> depths_by_camera;
@@ -281,12 +281,10 @@ void CleanFeatureTrackInProb(const vslam_solver::StructuredSlamProblemParams& pr
 int main(int argc, char **argv) {
   google::InitGoogleLogging(argv[0]);
   google::ParseCommandLineFlags(&argc, &argv, true);
-
+#if 1
   FLAGS_logtostderr = true;  // Don't log to disk - log to terminal
-
   // Make empty structured slam problem
   vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack> prob;
-
   // Set up optimization params
   vslam_solver::SLAMSolverOptimizerParams optimizer_params;
   vslam_solver::SLAMSolver solver(optimizer_params);
@@ -370,6 +368,8 @@ int main(int argc, char **argv) {
   std::vector<vslam_types::RobotPose> answer;
   bool is_last_iter_optimized = false;
   cout << "start loop" << endl;
+
+  prob.output = FLAGS_output_path;
   while (t < ntimes) {
     next_frame_idx =  prob.robot_poses.size();
     if (t == 1) {
@@ -379,6 +379,12 @@ int main(int argc, char **argv) {
       prob.robot_poses.emplace_back(next_frame_idx, 
                                     observationTracks[t].robot_pose.loc, 
                                     observationTracks[t].robot_pose.angle);
+      #if 1
+        std::ofstream of_time;
+        of_time.open(prob.output + "time/" + std::to_string(next_frame_idx) + ".txt", ios::trunc);
+        of_time << t << endl;
+        of_time.close();
+      #endif
     } else {
       prev_added_robot_pose = prob.robot_poses[next_frame_idx-1];
       vslam_types::RobotPose prev_robot_pose;
@@ -414,6 +420,12 @@ int main(int argc, char **argv) {
       ++t;
       continue;
     }
+    #if 1
+      std::ofstream of_time;
+      of_time.open(prob.output + "time/" + std::to_string(next_frame_idx) + ".txt", ios::trunc);
+      of_time << t << endl;
+      of_time.close();
+    #endif
     // add current pose to robot_pose
     prob.robot_poses.emplace_back(next_frame_idx, 
                                   observationTracks[t].robot_pose.loc, 
@@ -449,6 +461,61 @@ int main(int argc, char **argv) {
   if (FLAGS_save_poses) {
     vslam_util::SaveKITTIPoses(FLAGS_output_path + "answer.txt",
                                prob.robot_poses);
+  }
+#endif
+  if (FLAGS_save_poses) {
+    vslam_types::UTSLAMProblem<vslam_types::StructuredVisionFeatureTrack> prob_dump;
+    vslam_io::LoadStructuredUTSLAMProblem(FLAGS_dataset_path, prob_dump);
+    std::vector<vslam_types::RobotPose> start(prob_dump.robot_poses);
+    std::vector<vslam_types::RobotPose> adjusted_to_zero_start;
+    vslam_util::AdjustTrajectoryToStartAtZero(start, adjusted_to_zero_start);
+    vslam_util::SaveKITTIPoses(FLAGS_output_path + "start.txt",
+                               adjusted_to_zero_start);
+#if 0
+    std::vector<vslam_types::RobotPose> gt;
+    std::vector<vslam_types::RobotPose> adjusted_to_zero_gt;
+    std::ifstream gt_file_stream;
+    gt_file_stream.open("/robodata/taijing/KITTI/dataset/poses/10.txt", ios::in);
+    float x, y, z, r0, r1, r2, r3, r4, r5, r6, r7, r8;
+    std::string line;
+    while ( std::getline(gt_file_stream, line) ) {
+      std::stringstream ss_pose(line);
+      ss_pose >> r0 >> r1 >> r2 >> x 
+              >> r3 >> r4 >> r5 >> y
+              >> r6 >> r7 >> r8 >> z;
+      Eigen::Matrix3f rot_matrix;
+      rot_matrix << r0, r1, r2, 
+                    r3, r4, r5, 
+                    r6, r7, r8;
+      gt.emplace_back(0, Eigen::Vector3f(x, y, z), Eigen::AngleAxisf(rot_matrix));
+    }
+    gt_file_stream.close();
+    gt.erase(gt.begin());
+    vslam_util::AdjustTrajectoryToStartAtZero(gt, adjusted_to_zero_gt);
+    vslam_util::SaveKITTIPoses(FLAGS_output_path + "gt.txt", adjusted_to_zero_gt);
+    cout << "gt saved!" << endl;
+
+    std::vector<vslam_types::RobotPose> orb;
+    std::vector<vslam_types::RobotPose> adjusted_to_zero_orb;
+    std::ifstream orb_file_stream;
+    orb_file_stream.open("/robodata/taijing/orb_trajs/KITTI10_CameraTrajectory.txt", ios::in);
+    while ( std::getline(orb_file_stream, line) ) {
+      std::stringstream ss_pose(line);
+      ss_pose >> r0 >> r1 >> r2 >> x 
+              >> r3 >> r4 >> r5 >> y
+              >> r6 >> r7 >> r8 >> z;
+      Eigen::Matrix3f rot_matrix;
+      rot_matrix << r0, r1, r2, 
+                    r3, r4, r5, 
+                    r6, r7, r8;
+      orb.emplace_back(0, Eigen::Vector3f(x, y, z), Eigen::AngleAxisf(rot_matrix));
+    }
+    orb_file_stream.close();
+    orb.erase(orb.begin());
+    vslam_util::AdjustTrajectoryToStartAtZero(orb, adjusted_to_zero_orb);
+    vslam_util::SaveKITTIPoses(FLAGS_output_path + "orb.txt", adjusted_to_zero_orb);
+    cout << "orb saved!" << endl;
+#endif
   }
   return 0;
 }
