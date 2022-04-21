@@ -17,6 +17,9 @@
   <depend package="rosbag" />
   <depend package="tf"/>
   <depend package="cv_bridge" />
+  <depend package="amrl_msgs" />
+  <depend package="darknet_ros_msgs" />
+<!--  <depend package="cartographer_ros_msgs" />-->
 
 </package>
 
