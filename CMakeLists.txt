@@ -16,11 +16,14 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 find_package(Ceres REQUIRED)
 find_package(OpenCV 4.0 REQUIRED)
 find_package(Pangolin REQUIRED)
+#find_package(darknet_ros_msgs)
+#find_package(catkin REQUIRED COMPONENTS darknet_ros_msgs)
 
 include_directories(include
         ${CERES_INCLUDE_DIRS}
         ${OpenCV_INCLUDE_DIRS}
-        ${Pangolin_INCLUDE_DIRS})
+        ${Pangolin_INCLUDE_DIRS}
+        /home/amanda/darknet_ros_catkin_ws/install/include/darknet_ros_msgs)
 
 option(TESTING "Build tests" ON)
 
@@ -28,6 +31,7 @@ set(LIBS
         roslib
         roscpp
         rosbag
+#        darknet_ros_msgs
         stdc++fs
         glog
         gflags
@@ -60,11 +64,20 @@ add_library(ut_vslam src/vslam_io.cpp
 
 target_compile_features(ut_vslam PRIVATE cxx_std_17)
 
-ROSBUILD_ADD_EXECUTABLE(main src/main.cpp)
-target_link_libraries(main ut_vslam ${LIBS})
+#ROSBUILD_ADD_EXECUTABLE(main src/main.cpp)
+#target_link_libraries(main ut_vslam ${LIBS})
+#
+#ROSBUILD_ADD_EXECUTABLE(structured_main src/structured_main.cpp)
+#target_link_libraries(structured_main ut_vslam ${LIBS})
+#
+#ROSBUILD_ADD_EXECUTABLE(ellipsoid_estimator_main src/ellipsoid_estimator_main.cpp)
+#target_link_libraries(ellipsoid_estimator_main ut_vslam ${LIBS})
 
-ROSBUILD_ADD_EXECUTABLE(structured_main src/structured_main.cpp)
-target_link_libraries(structured_main ut_vslam ${LIBS})
-
-ROSBUILD_ADD_EXECUTABLE(ellipsoid_estimator_main src/ellipsoid_estimator_main.cpp)
-target_link_libraries(ellipsoid_estimator_main ut_vslam ${LIBS})
+ROSBUILD_ADD_EXECUTABLE(ellipsoid_estimator_real_data_main src/ellipsoid_estimator_real_data_main.cpp)
+target_link_libraries(ellipsoid_estimator_real_data_main ut_vslam ${LIBS})
+#
+#ROSBUILD_ADD_EXECUTABLE(approx_depth_bounding_box_extractor src/data_preprocessing_utils/approx_depth_bounding_box_extractor.cpp)
+#target_link_libraries(approx_depth_bounding_box_extractor ut_vslam ${LIBS})
+#
+#ROSBUILD_ADD_EXECUTABLE(localization_rosbag_extraction_and_interpolation_for_bounding_boxes src/data_preprocessing_utils/localization_rosbag_extraction_and_interpolation_for_bounding_boxes.cpp)
+#target_link_libraries(localization_rosbag_extraction_and_interpolation_for_bounding_boxes ut_vslam ${LIBS})

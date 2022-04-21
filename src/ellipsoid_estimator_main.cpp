@@ -253,6 +253,7 @@ int main(int argc, char **argv) {
   std_msgs::ColorRGBA initial_ellipsoid_color;
   initial_ellipsoid_color.a = 0.5;
   initial_ellipsoid_color.b = 1.0;
+  initial_ellipsoid_color.g = 0.5;
   viz->visualizeEllipsoids(synthetic_prob_data.initial_ellipsoid_estimates,
                            "initial_ellipsoids",
                            initial_ellipsoid_color);

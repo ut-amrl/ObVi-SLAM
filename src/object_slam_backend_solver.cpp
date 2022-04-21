@@ -102,6 +102,12 @@ void AddEllipsoidFactors(
 
   for (const vslam_types::ObjectImageBoundingBoxDetection &bounding_box :
        slam_problem.bounding_boxes) {
+    LOG(INFO) << "Frame id " << bounding_box.frame_idx;
+    if (bounding_box.frame_idx >= robot_pose_nodes.size()) {
+      LOG(WARNING) << "Skipping bounding box observation because the frame number did not match a robot pose " << bounding_box.frame_idx;
+      continue;
+    }
+
     vslam_types::EllipsoidEstimateNode &observed_ellipsoid =
         ellipsoid_nodes[bounding_box.ellipsoid_idx];
     vslam_types::SLAMNode &observed_at_node =

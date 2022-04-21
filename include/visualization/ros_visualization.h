@@ -35,6 +35,7 @@ class RosVisualization {
 
     observed_bounding_box_color_.a = 1;
     observed_bounding_box_color_.b = 1;
+    observed_bounding_box_color_.g = 0.5;
 
     predicted_bounding_box_from_optimized_color_.a = 1;
     predicted_bounding_box_from_optimized_color_.r = 1;
@@ -289,6 +290,10 @@ class RosVisualization {
           continue;
         }
 
+        if (intrinsics.find(cam_id_and_extrinsics.first) == intrinsics.end()) {
+          LOG(WARNING) << "No intrinsics found for camera " << cam_id_and_extrinsics.first;
+          continue;
+        }
         vslam_types::CameraIntrinsics cam_intrinsics =
             intrinsics.at(cam_id_and_extrinsics.first);
 
@@ -612,6 +617,7 @@ class RosVisualization {
             cam_id_and_extrinsics.second.rotation.z();
         cam_transform.transform.rotation.w =
             cam_id_and_extrinsics.second.rotation.w();
+        LOG(INFO) << "Publishing transform from " << cam_transform.header.frame_id << " to " << cam_transform.child_frame_id;
         static_tf_broadcaster_.sendTransform(cam_transform);
       }
     }
@@ -676,10 +682,13 @@ class RosVisualization {
     cv_bridge::CvImagePtr cv_ptr;
     ros::Time image_stamp;
     if (image.has_value()) {
-      image_stamp = image.value()->header.stamp;
+//      image_stamp = image.value()->header.stamp;
       try {
         cv_ptr = cv_bridge::toCvCopy(image.value(),
                                      sensor_msgs::image_encodings::BGR8);
+        cv_ptr->header.frame_id = frame_id;
+        image_stamp = ros::Time::now();
+        cv_ptr->header.stamp = image_stamp;
       } catch (cv_bridge::Exception &e) {
         LOG(ERROR) << "cv_bridge exception: " << e.what();
         exit(1);
@@ -727,6 +736,7 @@ class RosVisualization {
     }
 
     // Publish image and camera info
+//    LOG(INFO) << "Publishing to " << image_pub.getTopic();
     image_pub.publish(cv_ptr->toImageMsg());
     publishCameraInfo(frame_id, image_stamp, intrinsics, intrinsics_pub);
   }
@@ -882,6 +892,8 @@ class RosVisualization {
                          const ros::Time &header_stamp,
                          const vslam_types::CameraIntrinsics &intrinsics,
                          ros::Publisher &camera_info_publisher) {
+
+    LOG(INFO) << "Camera intrinsics for frame " << frame_id << ": " << intrinsics.camera_mat;
     sensor_msgs::CameraInfo cam_info;
     cam_info.header.stamp = header_stamp;
     cam_info.header.frame_id = frame_id;
@@ -895,6 +907,10 @@ class RosVisualization {
     cam_info.K[7] = intrinsics.camera_mat(2, 1);
     cam_info.K[8] = intrinsics.camera_mat(2, 2);
 
+    for (const double &k_val : cam_info.K) {
+      LOG(INFO) << "K " << k_val;
+    }
+
     cam_info.width = intrinsics.image_width;
     cam_info.height = intrinsics.image_height;
 
@@ -904,9 +920,13 @@ class RosVisualization {
     cam_info.P[4] = cam_info.K[3];
     cam_info.P[5] = cam_info.K[4];
     cam_info.P[6] = cam_info.K[5];
-    cam_info.P[7] = cam_info.K[6];
-    cam_info.P[8] = cam_info.K[7];
-    cam_info.P[9] = cam_info.K[8];
+    cam_info.P[8] = cam_info.K[6];
+    cam_info.P[9] = cam_info.K[7];
+    cam_info.P[10] = cam_info.K[8];
+
+    for (const double &p_val : cam_info.P) {
+      LOG(INFO) << "P " << p_val;
+    }
 
     cam_info.distortion_model = "plumb_bob";
 
@@ -944,9 +964,9 @@ class RosVisualization {
     cam_info.P[4] = cam_info.K[3];
     cam_info.P[5] = cam_info.K[4];
     cam_info.P[6] = cam_info.K[5];
-    cam_info.P[7] = cam_info.K[6];
-    cam_info.P[8] = cam_info.K[7];
-    cam_info.P[9] = cam_info.K[8];
+    cam_info.P[8] = cam_info.K[6];
+    cam_info.P[9] = cam_info.K[7];
+    cam_info.P[10] = cam_info.K[8];
 
     cam_info.distortion_model = "plumb_bob";
 
