@@ -32,20 +32,21 @@ const string depths_path = "depths/";
 
 struct FeatureProjector {
     CameraId camera_id; // TODO redundant, delete me & fix constructor
+    FrameId frame_id;
     FeatureId feature_id; // TODO redundant, delete me & fix constructor
     Vector2f measurement;
     RobotPose robot_pose;
     float depth;    
 
     FeatureProjector() {}
-    FeatureProjector(const CameraId camera_id, const FeatureId feature_id, const Vector2f& measurement, const RobotPose& robot_pose) {
-        this->camera_id = camera_id;
+    FeatureProjector(const FrameId frame_id, const FeatureId feature_id, const Vector2f& measurement, const RobotPose& robot_pose) {
+        this->frame_id = frame_id;
         this->feature_id = feature_id;
         this->measurement = measurement;
         this->robot_pose = robot_pose;
     }
-    FeatureProjector(const CameraId camera_id, const FeatureId feature_id, const Vector2f& measurement, const RobotPose& robot_pose, const float depth) {
-        this->camera_id = camera_id;
+    FeatureProjector(const FrameId frame_id, const FeatureId feature_id, const Vector2f& measurement, const RobotPose& robot_pose, const float depth) {
+        this->frame_id = frame_id;
         this->feature_id = feature_id;
         this->measurement = measurement;
         this->depth = depth;
@@ -122,7 +123,7 @@ void LoadFeatures(const string& dataset_path,
         while ( getline(data_file_stream, line) ) {
             stringstream ss_depth(line);
             ss_depth >> feature_id >> depth;
-            if (features[feature_id].feature_id == feature_id) {
+            if (features[feature_id].frame_id == frame_id) {
                 features[feature_id].depth = depth;
             }
         }
