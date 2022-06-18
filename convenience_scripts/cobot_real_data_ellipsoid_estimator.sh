@@ -1,6 +1,7 @@
 #!/bin/bash
 
-rosbag_base_name=cobot_orbit_blue_chair_2022-03-16-15-40-13
+#rosbag_base_name=cobot_orbit_blue_chair_2022-03-16-15-40-13
+rosbag_base_name=cobot_orbit_red_chair_slower_2022-03-16-15-26-05
 
 intrinsics_file_base_name=cobot_kinect_intrinsics
 extrinsics_file_base_name=cobot_kinect_extrinsics_2022_03_16

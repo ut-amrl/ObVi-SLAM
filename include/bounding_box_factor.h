@@ -4,8 +4,8 @@
 #include <ceres/autodiff_cost_function.h>
 #include <ellipsoid_utils.h>
 #include <glog/logging.h>
-#include <vslam_types.h>
 #include <vslam_type_conversion_util.h>
+#include <vslam_types.h>
 
 #include <eigen3/Eigen/Dense>
 
@@ -63,24 +63,24 @@ class BoundingBoxFactor {
                   T *residuals_ptr) const {
     Eigen::Matrix<T, 4, 1> corner_results;
     vslam_util::getCornerLocationsVector<T>(ellipsoid,
-                                         robot_pose,
-                                         robot_to_cam_tf_.cast<T>(),
-                                         camera_intrinsics_mat_.cast<T>(),
-                                         corner_results);
-        LOG(INFO) << "Corner results\n" << corner_results;
+                                            robot_pose,
+                                            robot_to_cam_tf_.cast<T>(),
+                                            camera_intrinsics_mat_.cast<T>(),
+                                            corner_results);
+    LOG(INFO) << "Corner results\n" << corner_results;
 
     Eigen::Matrix<T, 4, 1> deviation =
         corner_results - corner_detections_.template cast<T>();
-        LOG(INFO) << "Detection " << corner_detections_;
-        LOG(INFO) << "Deviation " << deviation;
-        LOG(INFO) << "Sqrt inf mat bounding box " <<
-        sqrt_inf_mat_bounding_box_corners_;
+    LOG(INFO) << "Detection " << corner_detections_;
+    LOG(INFO) << "Deviation " << deviation;
+    LOG(INFO) << "Sqrt inf mat bounding box "
+              << sqrt_inf_mat_bounding_box_corners_;
 
     Eigen::Map<Eigen::Matrix<T, 4, 1>> residuals(residuals_ptr);
     residuals =
         sqrt_inf_mat_bounding_box_corners_.template cast<T>() * deviation;
 
-        LOG(INFO) << "Residuals " << residuals;
+    LOG(INFO) << "Residuals " << residuals;
     return true;
   }
 
@@ -97,7 +97,7 @@ class BoundingBoxFactor {
    */
   static ceres::AutoDiffCostFunction<BoundingBoxFactor, 4, 9, 6>
       *createBoundingBoxFactor(
-          const vslam_types::ObjectImageBoundingBoxDetection &object_detection,
+          const vslam_types::RawImageBoundingBoxDetection &object_detection,
           const vslam_types::CameraIntrinsics &camera_intrinsics,
           const vslam_types::CameraExtrinsics &camera_extrinsics,
           const Eigen::Matrix4f &bounding_box_covariance) {

@@ -72,10 +72,10 @@ class ShapePriorFactor {
   static ceres::AutoDiffCostFunction<ShapePriorFactor, 3, 9>
       *createUsingSemanticClassMapping(
           const vslam_types::EllipsoidEstimateNode &init_ellipsoid_est,
+          const std::string &semantic_class,
           const std::unordered_map<std::string,
                                    std::pair<Eigen::Vector3f, Eigen::Matrix3f>>
               &mean_and_cov_by_semantic_class) {
-    std::string semantic_class = init_ellipsoid_est.semantic_class;
     if (mean_and_cov_by_semantic_class.find(semantic_class) ==
         mean_and_cov_by_semantic_class.end()) {
       LOG(WARNING) << "No mean and covariance on shape dimensions for class "

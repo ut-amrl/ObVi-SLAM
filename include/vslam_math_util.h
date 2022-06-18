@@ -1,12 +1,12 @@
 #ifndef UT_VSLAM_SLAM_MATH_UTIL_H
 #define UT_VSLAM_SLAM_MATH_UTIL_H
 
-#include <random>
-#include <vector>
+#include <glog/logging.h>
 
 #include <eigen3/Eigen/Dense>
-#include <glog/logging.h>
+#include <random>
 #include <unsupported/Eigen/MatrixFunctions>
+#include <vector>
 
 namespace {
 const double kEpsilon = 1e-7;
@@ -24,6 +24,30 @@ namespace vslam_util {
  * angle as the magnitude of the vector) to the Eigen AxisAngle
  * representation.
  *
+ * @tparam T                    Type of each field.
+ * @param axis_angle_vec[in]    Vector encoding the axis of rotation (as the
+ *                              direction) and the angle as the magnitude of the
+ *                              vector.
+ * @param angle_axis[out]       Eigen AxisAngle representation for the rotation.
+ */
+template <typename T>
+void VectorToAxisAngle(const Eigen::Matrix<T, 3, 1>& axis_angle_vec,
+                       Eigen::AngleAxis<T>& angle_axis) {
+  const T rotation_angle = axis_angle_vec.norm();
+  if (rotation_angle > kSmallAngleThreshold) {
+    angle_axis =
+        Eigen::AngleAxis<T>(rotation_angle, axis_angle_vec / rotation_angle);
+  } else {
+    angle_axis =
+        Eigen::AngleAxis<T>(T(0), Eigen::Matrix<T, 3, 1>{T(1), T(0), T(0)});
+  }
+}
+
+/**
+ * Convert from a vector that stores the axis-angle representation (with
+ * angle as the magnitude of the vector) to the Eigen AxisAngle
+ * representation.
+ *
  * @tparam T                Type of each field.
  * @param axis_angle_vec    Vector encoding the axis of rotation (as the
  *                          direction) and the angle as the magnitude of the
@@ -34,12 +58,9 @@ namespace vslam_util {
 template <typename T>
 Eigen::AngleAxis<T> VectorToAxisAngle(
     const Eigen::Matrix<T, 3, 1> axis_angle_vec) {
-  const T rotation_angle = axis_angle_vec.norm();
-  if (rotation_angle > kSmallAngleThreshold) {
-    return Eigen::AngleAxis<T>(rotation_angle, axis_angle_vec / rotation_angle);
-  } else {
-    return Eigen::AngleAxis<T>(T(0), Eigen::Matrix<T, 3, 1>{T(1), T(0), T(0)});
-  }
+  Eigen::AngleAxis<T> angle_axis;
+  VectorToAxisAngle(axis_angle_vec, angle_axis);
+  return angle_axis;
 }
 
 /**
@@ -98,13 +119,11 @@ Eigen::Matrix<T, 3, 3> CalcEssentialMatrix(
     Eigen::Transform<T, 3, Eigen::Affine> cam_to_robot_tf_node_2) {
   // Convert pose init to rotation
   Eigen::Transform<T, 3, Eigen::Affine> first_robot_pose_in_world =
-      PoseArrayToAffine(&(node_1_pose_array[3]),
-                                     &(node_1_pose_array[0]));
+      PoseArrayToAffine(&(node_1_pose_array[3]), &(node_1_pose_array[0]));
 
   // Convert pose current to rotation
   Eigen::Transform<T, 3, Eigen::Affine> second_robot_pose_in_world =
-      PoseArrayToAffine(&(node_2_pose_array[3]),
-                                     &(node_2_pose_array[0]));
+      PoseArrayToAffine(&(node_2_pose_array[3]), &(node_2_pose_array[0]));
 
   // Want to get rotation and translation of camera frame 1 relative to
   // camera frame 2 (pose of camera 2 in camera 1)
@@ -227,7 +246,7 @@ Eigen::Matrix<T, 3, 3> GetRodriguesJacobian(const Eigen::Matrix<T, 3, 1>& w) {
  */
 template <int N>
 Eigen::Matrix<float, N, N> createDiagCovFromStdDevs(
-    const Eigen::Matrix<float, N, 1>& std_devs, const float &min_std_dev = 0) {
+    const Eigen::Matrix<float, N, 1>& std_devs, const float& min_std_dev = 0) {
   float min_variance = pow(min_std_dev, 2);
   Eigen::Matrix<float, N, 1> variances = std_devs.array().pow(2);
   for (int i = 0; i < N; i++) {
