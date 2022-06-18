@@ -14,6 +14,8 @@
 namespace vslam_types {
 
 typedef uint64_t CameraId;
+typedef uint64_t FrameId;
+typedef uint64_t EllipsoidId;
 
 /**
  * A structureless vision feature describes the association between a
@@ -29,7 +31,7 @@ struct VisionFeature {
   /**
    * Index of the frame/camera/robot_pose this feature was acquired at.
    */
-  uint64_t frame_idx;
+  FrameId frame_idx;
   /**
    * Camera pixel location of feature by the camera id that captured them.
    *
@@ -50,7 +52,7 @@ struct VisionFeature {
    */
   VisionFeature(
       const uint64_t& feature_idx,
-      const uint64_t& frame_idx,
+      const FrameId & frame_idx,
       const std::unordered_map<CameraId, Eigen::Vector2f>& pixel_by_camera_id,
       const CameraId& primary_camera_id)
       : feature_idx(feature_idx),
@@ -156,7 +158,7 @@ struct RobotPose {
    * Index of the robot pose/frame - each feature capture at each time step has
    * the frame_idx of the robot pose it was captured at.
    */
-  uint64_t frame_idx;
+  FrameId frame_idx;
   /**
    * Robot location.
    */
@@ -172,7 +174,7 @@ struct RobotPose {
   /**
    * Convenience constructor: initialize everything.
    */
-  RobotPose(const uint64_t& frame_idx,
+  RobotPose(const FrameId& frame_idx,
             const Eigen::Vector3f& loc,
             const Eigen::AngleAxisf& angle)
       : frame_idx(frame_idx), loc(loc), angle(angle) {}
@@ -206,11 +208,11 @@ struct RobotPose {
  * optimization because it is harder to update.
  */
 struct EllipsoidEstimate {
-  /**
-   * Index of the ellipsoid. Indices should be consecutive and index should
-   * match index of the ellipsoid in the list.
-   */
-  uint64_t ellipsoid_idx;
+//  /**
+//   * Index of the ellipsoid. Indices should be consecutive and index should
+//   * match index of the ellipsoid in the list.
+//   */
+//  uint64_t ellipsoid_idx;
   /**
    * Location of the ellipsoid's center.
    */
@@ -223,27 +225,33 @@ struct EllipsoidEstimate {
    * Dimension of the ellipsoid along each of the major axes.
    */
   Eigen::Vector3f ellipsoid_dim;
-  /**
-   * Semantic class of the ellipsoid.
-   *
-   * TODO should this be an index instead of a string? That's more efficient,
-   * but we don't have a great idea of the classes at the moment.
-   */
-  std::string semantic_class;
+//  /**
+//   * Semantic class of the ellipsoid.
+//   *
+//   * TODO should this be an index instead of a string? That's more efficient,
+//   * but we don't have a great idea of the classes at the moment.
+//   */
+//  std::string semantic_class;
 
   /**
    * Convenience constructor: initialize everything.
    */
   EllipsoidEstimate(const Eigen::Vector3f& loc,
                     const Eigen::AngleAxisf& orientation,
-                    const Eigen::Vector3f& ellipsoid_dim,
-                    const std::string& semantic_class,
-                    const uint64_t& ellipsoid_idx)
+                    const Eigen::Vector3f& ellipsoid_dim
+//                    ,
+//                    const std::string& semantic_class
+  )
+//                    ,
+//                    const uint64_t& ellipsoid_idx)
       : loc(loc),
         orientation(orientation),
-        ellipsoid_dim(ellipsoid_dim),
-        semantic_class(semantic_class),
-        ellipsoid_idx(ellipsoid_idx) {}
+        ellipsoid_dim(ellipsoid_dim)
+//        ,
+//        semantic_class(semantic_class)
+//                          ,
+//        ellipsoid_idx(ellipsoid_idx)
+          {}
 };
 
 /**
@@ -295,7 +303,7 @@ struct EllipsoidEstimateNode {
    * Index of the ellipsoid. Indices should be consecutive and index should
    * match index of the ellipsoid in the list..
    */
-  uint64_t ellipsoid_idx;
+  EllipsoidId ellipsoid_idx;
 
   /**
    * 9DOF parameters: tx, ty, tx, angle_x, angle_y, angle_z, dim_x, dim_y,
@@ -303,12 +311,12 @@ struct EllipsoidEstimateNode {
    */
   double pose[9];
 
-  /**
-   * TODO should this be here? It's needed during optimization to determine
-   * which POM to use (since there's a different one per semantic class), but
-   * isn't changed during optimization
-   */
-  std::string semantic_class;
+//  /**
+//   * TODO should this be here? It's needed during optimization to determine
+//   * which POM to use (since there's a different one per semantic class), but
+//   * isn't changed during optimization
+//   */
+//  std::string semantic_class;
 
   /**
    * Default constructor.
@@ -331,9 +339,11 @@ struct EllipsoidEstimateNode {
   EllipsoidEstimateNode(const Eigen::Vector3f& pose_transl,
                         const Eigen::AngleAxisf& pose_rot,
                         const Eigen::Vector3f& ellipsoid_dim,
-                        const std::string& semantic_class,
-                        const uint64_t& ellipsoid_idx)
-      : semantic_class(semantic_class), ellipsoid_idx(ellipsoid_idx) {
+//                        const std::string& semantic_class,
+                        const EllipsoidId& ellipsoid_idx)
+      :
+//        semantic_class(semantic_class),
+        ellipsoid_idx(ellipsoid_idx) {
     pose[0] = pose_transl.x();
     pose[1] = pose_transl.y();
     pose[2] = pose_transl.z();
@@ -350,12 +360,7 @@ struct EllipsoidEstimateNode {
  * Data structure representing the bounding box detection of an object in an
  * image.
  */
-struct ObjectImageBoundingBoxDetection {
-  /**
-   * Index of the ellipsoid that this bounding box corresponds to.
-   */
-  uint64_t ellipsoid_idx;
-
+struct RawImageBoundingBoxDetection {
   /**
    * Pixel coordinates of the two opposite corners that define the bounding box
    * of an object within an image. The first of the pair should have the smaller
@@ -374,12 +379,32 @@ struct ObjectImageBoundingBoxDetection {
   /**
    * Index of the frame/camera/robot_pose this bounding box was acquired at.
    */
-  uint64_t frame_idx;
+  FrameId frame_idx;
 
   /**
    * Id of the camera that captured this boundign box.
    */
   CameraId camera_id;
+};
+
+template <typename AppearanceInfo>
+struct BoundingBoxDetectionWithAppearanceInfo {
+  AppearanceInfo appearance_info;
+
+  RawImageBoundingBoxDetection bounding_box;
+};
+
+template <typename AppearanceInfo>
+struct AssociatedBoundingBoxDetectionWithAppearanceInfo {
+  /**
+   * Index of the ellipsoid that this bounding box corresponds to.
+   */
+  EllipsoidId ellipsoid_idx;
+
+  /**
+   * Bounding box detection with appearance info.
+   */
+  BoundingBoxDetectionWithAppearanceInfo<AppearanceInfo> bounding_box_detection;
 };
 
 /**
@@ -459,6 +484,26 @@ struct UTSLAMProblem {
         camera_instrinsics_by_camera(camera_intrinsics_by_camera) {}
 };
 
+template <typename AppearanceInfo>
+struct ObjectInfo {
+
+  /**
+   * Ellipsoid estimate. If we don't have enough information to initialize it,
+   */
+  std::optional<EllipsoidEstimate> ellipsoid_estimate;
+
+  // TODO should this be here or in the ellispoid estimate?
+  /**
+   * Semantic class of the ellipsoid.
+   *
+   * TODO should this be an index instead of a string? That's more efficient,
+   * but we don't have a great idea of the classes at the moment.
+   */
+  std::string semantic_class;
+
+  std::unordered_map<FrameId, std::unordered_map<CameraId, AssociatedBoundingBoxDetectionWithAppearanceInfo<AppearanceInfo>>> bounding_box_detections;
+};
+
 /**
  * Extension of the SLAM problem that also approximates ellipsoids for objects
  * in the scene based on bounding box detections of objects in images.
@@ -466,20 +511,22 @@ struct UTSLAMProblem {
  * @tparam FeatureTrackType Type of the feature track to use in performing
  * low-level visual SLAM.
  */
-template <typename FeatureTrackType>
+template <typename FeatureTrackType, typename AppearanceInfo>
 struct UTObjectSLAMProblem : public UTSLAMProblem<FeatureTrackType> {
-  /**
-   * List of object detections (as bounding boxes).
-   *
-   * TODO do we want to store these by their frame index?
-   */
-  std::vector<ObjectImageBoundingBoxDetection> bounding_boxes;
+//  /**
+//   * List of object detections (as bounding boxes).
+//   *
+//   * TODO do we want to store these by their frame index?
+//   */
+//  std::vector<ObjectImageBoundingBoxDetection> bounding_boxes;
+//
+//  /**
+//   * Estimates of the ellipsoids for objects in the scene. Order should match
+//   * the ids for each ellipsoid.
+//   */
+//  std::vector<EllipsoidEstimate> ellipsoid_estimates;
 
-  /**
-   * Estimates of the ellipsoids for objects in the scene. Order should match
-   * the ids for each ellipsoid.
-   */
-  std::vector<EllipsoidEstimate> ellipsoid_estimates;
+  std::unordered_map<EllipsoidId, ObjectInfo<AppearanceInfo>> object_info_;
 
   // TODO do we need a data structure in here for the class-specific dimension
   //  priors?
@@ -503,9 +550,9 @@ struct UTObjectSLAMProblem : public UTSLAMProblem<FeatureTrackType> {
   UTObjectSLAMProblem(
       std::unordered_map<uint64_t, FeatureTrackType> const& tracks,
       const std::vector<RobotPose>& robot_poses,
-      const std::vector<EllipsoidEstimate>& ellipsoid_estimates)
+      const std::unordered_map<EllipsoidId, ObjectInfo<AppearanceInfo>>& object_info)
       : UTSLAMProblem<FeatureTrackType>(tracks, robot_poses),
-        ellipsoid_estimates(ellipsoid_estimates) {}
+        object_info_(object_info) {}
 };
 
 }  // namespace vslam_types
