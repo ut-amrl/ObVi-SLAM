@@ -6,10 +6,10 @@
 #define UT_VSLAM_OBJECT_POSE_GRAPH_H
 
 #include <base_lib/basic_utils.h>
-#include <refactoring/low_level_feature_pose_graph.h>
-#include <refactoring/vslam_basic_types_refactor.h>
-#include <refactoring/vslam_obj_opt_types_refactor.h>
-#include <refactoring/vslam_types_refactor.h>
+#include <glog/logging.h>
+#include <refactoring/optimization/low_level_feature_pose_graph.h>
+#include <refactoring/types/vslam_basic_types_refactor.h>
+#include <refactoring/types/vslam_obj_opt_types_refactor.h>
 
 namespace vslam_types_refactor {
 
@@ -24,6 +24,10 @@ struct EllipsoidEstimateNode {
   EllipsoidEstimateNode(const RawPose3d<double> &pose,
                         const ObjectDim<double> &dimensions) {
     updateEllipsoidParams(pose, dimensions);
+  }
+
+  EllipsoidEstimateNode(const RawEllipsoid<double> &raw_ellipsoid_data) {
+    updateEllipsoidParams(raw_ellipsoid_data);
   }
 
   void updatePoseData(const RawPose3d<double> &pose) {
@@ -75,6 +79,8 @@ struct ShapeDimPriorFactor {
   ObjectDim<double> mean_shape_dim_;
   Covariance<double, 3> shape_dim_cov_;
 
+  ShapeDimPriorFactor() = default;
+
   ShapeDimPriorFactor(const ObjectId &object_id,
                       const ObjectDim<double> &mean_shape_dim,
                       const Covariance<double, 3> &shape_dim_cov)
@@ -88,6 +94,20 @@ template <typename VisualFeatureFactorType>
 class ObjAndLowLevelFeaturePoseGraph
     : public virtual LowLevelFeaturePoseGraph<VisualFeatureFactorType> {
  public:
+  ObjAndLowLevelFeaturePoseGraph(
+      const std::unordered_map<
+          std::string,
+          std::pair<ObjectDim<double>, Covariance<double, 3>>>
+          &mean_and_cov_by_semantic_class,
+      const std::unordered_map<CameraId, CameraExtrinsics<double>>
+          &camera_extrinsics_by_camera,
+      const std::unordered_map<CameraId, CameraIntrinsicsMat<double>>
+          &camera_intrinsics_by_camera)
+      : LowLevelFeaturePoseGraph<VisualFeatureFactorType>(
+            camera_extrinsics_by_camera, camera_intrinsics_by_camera),
+        mean_and_cov_by_semantic_class_(mean_and_cov_by_semantic_class) {}
+
+  virtual ~ObjAndLowLevelFeaturePoseGraph() = default;
   ObjectId addNewEllipsoid(const ObjectDim<double> &object_dim,
                            const RawPose3d<double> &object_pose,
                            const std::string &semantic_class) {
@@ -95,8 +115,8 @@ class ObjAndLowLevelFeaturePoseGraph
     return addNewEllipsoid(new_node, semantic_class);
   }
 
-  ObjectId addNewEllipsoid(const EllipsoidEstimateNode &new_node,
-                           const std::string &semantic_class) {
+  virtual ObjectId addNewEllipsoid(const EllipsoidEstimateNode &new_node,
+                                   const std::string &semantic_class) {
     ObjectId new_object_id = max_object_id_ + 1;
     max_object_id_ = new_object_id;
 
@@ -110,15 +130,15 @@ class ObjAndLowLevelFeaturePoseGraph
     return new_object_id;
   }
 
-  void updateEllipsoid(const ObjectId &object_id,
-                       const EllipsoidEstimateNode &ellipsoid_node) {
+  virtual void updateEllipsoid(const ObjectId &object_id,
+                               const EllipsoidEstimateNode &ellipsoid_node) {
     // TODO need to make sure nothing records the pointers of the old one -- if
     // so, need to copy the data into the existing one
     ellipsoid_estimates_[object_id].updateEllipsoidParams(
         ellipsoid_node.ellipsoid_);
   }
 
-  FeatureFactorId addShapeDimPriorBasedOnSemanticClass(
+  virtual FeatureFactorId addShapeDimPriorBasedOnSemanticClass(
       const ObjectId &object_id) {
     std::pair<ObjectDim<double>, Covariance<double, 3>> shape_prior_params =
         mean_and_cov_by_semantic_class_[semantic_class_for_object_[object_id]];
@@ -132,7 +152,7 @@ class ObjAndLowLevelFeaturePoseGraph
     return new_shape_prior_factor_id;
   }
 
-  FeatureFactorId addObjectObservation(
+  virtual FeatureFactorId addObjectObservation(
       const ObjectObservationFactor &observation_factor) {
     ObjectId object_id = observation_factor.object_id_;
     FrameId frame_id = observation_factor.frame_id_;
@@ -163,7 +183,7 @@ class ObjAndLowLevelFeaturePoseGraph
     return new_feature_factor_id;
   }
 
-  std::vector<std::pair<FactorType, FeatureFactorId>> pruneFrame(
+  virtual std::vector<std::pair<FactorType, FeatureFactorId>> pruneFrame(
       const FrameId &frame_id) {
     // TODO need to remove parameter blocks from ceres problem before doing this
     // Should this optionally take in a ceres problem to clean it up? or just
@@ -185,8 +205,7 @@ class ObjAndLowLevelFeaturePoseGraph
       } else {
         LOG(WARNING) << "Unexpected factor type in observation factors list";
       }
-      removed_factor_ids.emplace_back(
-          std::make_pair(kObjectObservationFactorTypeId, feature_factor_id));
+      removed_factor_ids.emplace_back(feature_factor_id);
     }
     // TODO if we're resetting the mins/maxes for factors, need to make sure
     // that the optimizer's state is cleaned up before reusing factor ids
@@ -224,8 +243,8 @@ class ObjAndLowLevelFeaturePoseGraph
     return removed_factor_ids;
   }
 
-  bool getObjectParamPointers(const ObjectId &object_id,
-                              double **ellipsoid_ptr) {
+  virtual bool getObjectParamPointers(const ObjectId &object_id,
+                                      double **ellipsoid_ptr) {
     if (ellipsoid_estimates_.find(object_id) == ellipsoid_estimates_.end()) {
       return false;
     }
@@ -234,8 +253,8 @@ class ObjAndLowLevelFeaturePoseGraph
     return true;
   }
 
-  bool getLastObservedFrameForObject(const ObjectId &object_id,
-                                     FrameId &frame_id) {
+  virtual bool getLastObservedFrameForObject(const ObjectId &object_id,
+                                             FrameId &frame_id) {
     if (last_observed_frame_by_object_.find(object_id) !=
         last_observed_frame_by_object_.end()) {
       frame_id = last_observed_frame_by_object_[object_id];
@@ -244,8 +263,8 @@ class ObjAndLowLevelFeaturePoseGraph
     return false;
   }
 
-  bool getFirstObservedFrameForObject(const ObjectId &object_id,
-                                      FrameId &frame_id) {
+  virtual bool getFirstObservedFrameForObject(const ObjectId &object_id,
+                                              FrameId &frame_id) {
     if (first_observed_frame_by_object_.find(object_id) !=
         first_observed_frame_by_object_.end()) {
       frame_id = first_observed_frame_by_object_[object_id];
@@ -254,7 +273,7 @@ class ObjAndLowLevelFeaturePoseGraph
     return false;
   }
 
-  void getObjectsViewedBetweenFramesInclusive(
+  virtual void getObjectsViewedBetweenFramesInclusive(
       const FrameId &min_frame_id,
       const FrameId &max_frame_id,
       std::unordered_set<ObjectId> &matching_objects) {
@@ -273,7 +292,7 @@ class ObjAndLowLevelFeaturePoseGraph
     }
   }
 
-  void getObservationFactorsBetweenFrameIdsInclusive(
+  virtual void getObservationFactorsBetweenFrameIdsInclusive(
       const FrameId &min_frame_id,
       const FrameId &max_frame_id,
       util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
@@ -288,7 +307,7 @@ class ObjAndLowLevelFeaturePoseGraph
     }
   }
 
-  void getOnlyObjectFactorsForObjects(
+  virtual void getOnlyObjectFactorsForObjects(
       const std::unordered_set<ObjectId> &objects,
       const bool &use_pom,
       util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
@@ -302,6 +321,75 @@ class ObjAndLowLevelFeaturePoseGraph
       }
     }
     // TODO add pom someday
+  }
+
+  virtual void getObjectEstimates(
+      std::unordered_map<ObjectId, RawEllipsoid<double>> &object_estimates)
+      const {
+    for (const auto &pg_obj_est : ellipsoid_estimates_) {
+      object_estimates[pg_obj_est.first] = *(pg_obj_est.second.ellipsoid_);
+    }
+  }
+
+  virtual bool getObjectObservationFactor(
+      const FeatureFactorId &factor_id,
+      ObjectObservationFactor &obs_factor) const {
+    if (object_observation_factors_.find(factor_id) ==
+        object_observation_factors_.end()) {
+      return false;
+    }
+    obs_factor = object_observation_factors_.at(factor_id);
+    return true;
+  }
+
+  virtual bool getShapeDimPriorFactor(
+      const FeatureFactorId &factor_id,
+      ShapeDimPriorFactor &shape_dim_factor) const {
+    if (shape_dim_prior_factors_.find(factor_id) ==
+        shape_dim_prior_factors_.end()) {
+      return false;
+    }
+    shape_dim_factor = shape_dim_prior_factors_.at(factor_id);
+    return true;
+  }
+
+  virtual void addFrame(const FrameId &frame_id,
+                        const Pose3D<double> &initial_pose_estimate) override {
+    LowLevelFeaturePoseGraph<VisualFeatureFactorType>::addFrame(
+        frame_id, initial_pose_estimate);
+    if (observation_factors_by_frame_.find(frame_id) ==
+        observation_factors_by_frame_.end()) {
+      observation_factors_by_frame_[frame_id] = {};
+    }
+  }
+
+  virtual std::optional<ObjectDim<double>> getShapeDimMean(
+      const std::string &semantic_class) {
+    if (mean_and_cov_by_semantic_class_.find(semantic_class) ==
+        mean_and_cov_by_semantic_class_.end()) {
+      return {};
+    }
+    return mean_and_cov_by_semantic_class_.at(semantic_class).first;
+  }
+
+  virtual std::unordered_set<ObjectId> getObjectsWithSemanticClass(
+      const std::string &semantic_class) const {
+    std::unordered_set<ObjectId> objs;
+    for (const auto &obj_id_and_class : semantic_class_for_object_) {
+      if (obj_id_and_class.second == semantic_class) {
+        objs.insert(obj_id_and_class.first);
+      }
+    }
+    return objs;
+  }
+
+  std::optional<EllipsoidState<double>> getEllipsoidEst(
+      const ObjectId &obj_id) {
+    if (ellipsoid_estimates_.find(obj_id) == ellipsoid_estimates_.end()) {
+      return {};
+    }
+    return convertToEllipsoidState(
+        RawEllipsoid<double>(*(ellipsoid_estimates_.at(obj_id).ellipsoid_)));
   }
 
  protected:
@@ -341,12 +429,32 @@ class ObjAndLowLevelFeaturePoseGraph
 };
 
 class ObjectAndReprojectionFeaturePoseGraph
-    : public ObjAndLowLevelFeaturePoseGraph<ReprojectionErrorFactor>,
-      public ReprojectionLowLevelFeaturePoseGraph {
+    : public ReprojectionLowLevelFeaturePoseGraph,
+      public ObjAndLowLevelFeaturePoseGraph<ReprojectionErrorFactor> {
  public:
+  ObjectAndReprojectionFeaturePoseGraph(
+      const std::unordered_map<
+          std::string,
+          std::pair<ObjectDim<double>, Covariance<double, 3>>>
+          &mean_and_cov_by_semantic_class,
+      const std::unordered_map<CameraId, CameraExtrinsics<double>>
+          &camera_extrinsics_by_camera,
+      const std::unordered_map<CameraId, CameraIntrinsicsMat<double>>
+          &camera_intrinsics_by_camera)
+      : ReprojectionLowLevelFeaturePoseGraph(camera_extrinsics_by_camera,
+                                             camera_intrinsics_by_camera),
+        LowLevelFeaturePoseGraph<ReprojectionErrorFactor>(
+            camera_extrinsics_by_camera, camera_intrinsics_by_camera),
+        ObjAndLowLevelFeaturePoseGraph<ReprojectionErrorFactor>(
+            mean_and_cov_by_semantic_class,
+            camera_extrinsics_by_camera,
+            camera_intrinsics_by_camera) {}
+  virtual ~ObjectAndReprojectionFeaturePoseGraph() = default;
+
  protected:
  private:
 };
+
 }  // namespace vslam_types_refactor
 
 #endif  // UT_VSLAM_OBJECT_POSE_GRAPH_H

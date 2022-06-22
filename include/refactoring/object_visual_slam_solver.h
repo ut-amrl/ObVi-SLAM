@@ -1,8 +1,0 @@
-//
-// Created by amanda on 6/9/22.
-//
-
-#ifndef UT_VSLAM_OBJECT_VISUAL_SLAM_SOLVER_H
-#define UT_VSLAM_OBJECT_VISUAL_SLAM_SOLVER_H
-
-#endif  // UT_VSLAM_OBJECT_VISUAL_SLAM_SOLVER_H

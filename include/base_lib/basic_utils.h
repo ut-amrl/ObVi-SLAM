@@ -16,6 +16,8 @@ using BoostHashSet = std::unordered_set<EntryType, boost::hash<EntryType>>;
 template <typename KeyType, typename ValueType>
 using BoostHashMap =
     std::unordered_map<KeyType, ValueType, boost::hash<KeyType>>;
+
+struct EmptyStruct {};
 }  // namespace util
 
 #endif  // UT_VSLAM_BASIC_UTILS_H

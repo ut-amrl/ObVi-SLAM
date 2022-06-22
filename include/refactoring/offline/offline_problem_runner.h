@@ -6,8 +6,8 @@
 #define UT_VSLAM_OFFLINE_PROBLEM_RUNNER_H
 
 #include <ceres/problem.h>
-#include <refactoring/object_pose_graph.h>
-#include <refactoring/object_pose_graph_optimizer.h>
+#include <refactoring/optimization/object_pose_graph.h>
+#include <refactoring/optimization/object_pose_graph_optimizer.h>
 
 namespace vslam_types_refactor {
 
@@ -19,74 +19,62 @@ enum VisualizationTypeEnum {
 };
 
 struct OptimizationFactorsEnabledParams {
-  bool include_object_factors_;
-  bool include_visual_factors_;
-  bool fix_poses_;
-  bool fix_objects_;
-  bool fix_visual_features_;
-  bool use_pom_;
+  bool include_object_factors_ = true;
+  bool include_visual_factors_ = true;
+  bool fix_poses_ = true;
+  bool fix_objects_ = true;
+  bool fix_visual_features_ = true;
+  bool use_pom_ = false;
 };
 
 template <typename InputProblemData,
           typename VisualFeatureFactorType,
           typename OutputProblemData,
-          typename CachedFactorInfo>
+          typename CachedFactorInfo,
+          typename PoseGraphType>
 class OfflineProblemRunner {
  public:
   OfflineProblemRunner(
+      const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &residual_params,
       const std::function<bool()> &continue_opt_checker,
       const std::function<FrameId(const FrameId &)> &window_provider_func,
       const std::function<
           bool(const std::pair<vslam_types_refactor::FactorType,
-                               vslam_types_refactor::FeatureFactorId>,
-               const std::shared_ptr<
-                   vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-                       VisualFeatureFactorType>> &pose_graph,
-               const CachedFactorInfo &factor_info)> &refresh_residual_checker,
+                               vslam_types_refactor::FeatureFactorId> &,
+               const std::shared_ptr<PoseGraphType> &,
+               const CachedFactorInfo &)> &refresh_residual_checker,
       const std::function<
           bool(const std::pair<vslam_types_refactor::FactorType,
-                               vslam_types_refactor::FeatureFactorId>,
-               const std::shared_ptr<
-                   vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-                       VisualFeatureFactorType>> &,
+                               vslam_types_refactor::FeatureFactorId> &,
+               const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
+               const std::shared_ptr<PoseGraphType> &,
                ceres::Problem *,
                ceres::ResidualBlockId &,
-               CachedFactorInfo &factor_info)> &residual_creator,
-      const std::function<
-          void(const InputProblemData &,
-               const std::shared_ptr<
-                   vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-                       VisualFeatureFactorType>> &)> &pose_graph_creator,
-      const std::function<
-          void(const InputProblemData &,
-               const std::shared_ptr<
-                   vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-                       VisualFeatureFactorType>> &,
-               const FrameId &)> &frame_data_adder,
-      const std::function<
-          void(const InputProblemData &,
-               const std::shared_ptr<
-                   const vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-                       VisualFeatureFactorType>> &,
-               OutputProblemData &)> &output_data_extractor,
+               CachedFactorInfo &)> &residual_creator,
+      const std::function<void(const InputProblemData &,
+                               std::shared_ptr<PoseGraphType> &)>
+          &pose_graph_creator,
+      const std::function<void(const InputProblemData &,
+                               const std::shared_ptr<PoseGraphType> &,
+                               const FrameId &)> &frame_data_adder,
+      const std::function<void(const InputProblemData &,
+                               const std::shared_ptr<PoseGraphType> &,
+                               OutputProblemData &)> &output_data_extractor,
       const std::function<
           std::vector<std::shared_ptr<ceres::IterationCallback>>(
               const InputProblemData &,
-              const std::shared_ptr<
-                  vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-                      VisualFeatureFactorType>> &,
+              const std::shared_ptr<PoseGraphType> &,
               const FrameId &,
               const FrameId &)> &ceres_callback_creator,
-      const std::function<
-          void(const InputProblemData &,
-               const std::shared_ptr<
-                   vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-                       VisualFeatureFactorType>> &,
-               const FrameId &,
-               const FrameId &,
-               const VisualizationTypeEnum &)> &visualization_callback,
+      const std::function<void(const InputProblemData &,
+                               const std::shared_ptr<PoseGraphType> &,
+                               const FrameId &,
+                               const FrameId &,
+                               const VisualizationTypeEnum &)>
+          &visualization_callback,
       const pose_graph_optimization::OptimizationSolverParams &solver_params)
-      : continue_opt_checker_(continue_opt_checker),
+      : residual_params_(residual_params),
+        continue_opt_checker_(continue_opt_checker),
         window_provider_func_(window_provider_func),
         optimizer_(refresh_residual_checker, residual_creator),
         pose_graph_creator_(pose_graph_creator),
@@ -100,9 +88,7 @@ class OfflineProblemRunner {
                        const OptimizationFactorsEnabledParams
                            &optimization_factors_enabled_params,
                        OutputProblemData &output_problem_data) {
-    std::shared_ptr<vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-        VisualFeatureFactorType>>
-        pose_graph;
+    std::shared_ptr<PoseGraphType> pose_graph;
 
     ceres::Problem problem;
     pose_graph_creator_(problem_data, pose_graph);
@@ -143,7 +129,7 @@ class OfflineProblemRunner {
       optimization_scope_params.max_frame_id_ = next_frame_id;
 
       optimizer_.buildPoseGraphOptimization(
-          optimization_scope_params, pose_graph, &problem);
+          optimization_scope_params, residual_params_, pose_graph, &problem);
 
       visualization_callback_(problem_data,
                               pose_graph,
@@ -177,6 +163,7 @@ class OfflineProblemRunner {
   }
 
  private:
+  pose_graph_optimization::ObjectVisualPoseGraphResidualParams residual_params_;
   pose_graph_optimizer::ObjectPoseGraphOptimizer<VisualFeatureFactorType,
                                                  CachedFactorInfo>
       optimizer_;
@@ -185,37 +172,26 @@ class OfflineProblemRunner {
   std::function<FrameId(const FrameId &)> window_provider_func_;
 
   std::function<void(const InputProblemData &,
-                     const std::shared_ptr<
-                         vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-                             VisualFeatureFactorType>> &)>
+                     std::shared_ptr<PoseGraphType> &)>
       pose_graph_creator_;
 
   std::function<void(const InputProblemData &,
-                     const std::shared_ptr<
-                         vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-                             VisualFeatureFactorType>> &,
+                     const std::shared_ptr<PoseGraphType> &,
                      const FrameId &)>
       frame_data_adder_;
-  std::function<void(
-      const InputProblemData &,
-      const std::shared_ptr<
-          const vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-              VisualFeatureFactorType>> &,
-      OutputProblemData &)>
+  std::function<void(const InputProblemData &,
+                     const std::shared_ptr<PoseGraphType> &,
+                     OutputProblemData &)>
       output_data_extractor_;
 
   std::function<std::vector<std::shared_ptr<ceres::IterationCallback>>(
       const InputProblemData &,
-      const std::shared_ptr<
-          vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-              VisualFeatureFactorType>> &,
+      const std::shared_ptr<PoseGraphType> &,
       const FrameId &,
       const FrameId &)>
       ceres_callback_creator_;
   std::function<void(const InputProblemData &,
-                     const std::shared_ptr<
-                         vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-                             VisualFeatureFactorType>> &,
+                     const std::shared_ptr<PoseGraphType> &,
                      const FrameId &,
                      const FrameId &,
                      const VisualizationTypeEnum &)>
