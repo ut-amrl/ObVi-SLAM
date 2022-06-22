@@ -30,49 +30,41 @@ struct OptimizationScopeParams {
   // that we have min_frame_id (held constant) and all poses above that
 };
 
-template <typename VisualFeatureFactorType>
-bool getParamBlockForPose(
-    const vslam_types_refactor::FrameId &frame_id,
-    const std::shared_ptr<vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-        VisualFeatureFactorType>> &pose_graph,
-    double **param_block_ptr) {
+template <typename PoseGraphType>
+bool getParamBlockForPose(const vslam_types_refactor::FrameId &frame_id,
+                          const std::shared_ptr<PoseGraphType> &pose_graph,
+                          double **param_block_ptr) {
   return pose_graph->getPosePointers(frame_id, param_block_ptr);
 }
 
-template <typename VisualFeatureFactorType>
-bool getParamBlockForFeature(
-    const vslam_types_refactor::FeatureId &feature_id,
-    const std::shared_ptr<vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-        VisualFeatureFactorType>> &pose_graph,
-    double **param_block_ptr) {
+template <typename PoseGraphType>
+bool getParamBlockForFeature(const vslam_types_refactor::FeatureId &feature_id,
+                             const std::shared_ptr<PoseGraphType> &pose_graph,
+                             double **param_block_ptr) {
   return pose_graph->getFeaturePointers(feature_id, param_block_ptr);
 }
 
-template <typename VisualFeatureFactorType>
-bool getParamBlockForObject(
-    const vslam_types_refactor::ObjectId &object_id,
-    const std::shared_ptr<vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-        VisualFeatureFactorType>> &pose_graph,
-    double **param_block_ptr) {
+template <typename PoseGraphType>
+bool getParamBlockForObject(const vslam_types_refactor::ObjectId &object_id,
+                            const std::shared_ptr<PoseGraphType> &pose_graph,
+                            double **param_block_ptr) {
   return pose_graph->getObjectParamPointers(object_id, param_block_ptr);
 }
 
-template <typename VisualFeatureFactorType>
-bool getFrameIdForFrameId(
+template <typename PoseGraphType>
+bool getFrameIdsForFrameId(
     const vslam_types_refactor::FrameId &in_frame_id,
-    const std::shared_ptr<vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-        VisualFeatureFactorType>> &pose_graph,
+    const std::shared_ptr<PoseGraphType> &pose_graph,
     std::pair<vslam_types_refactor::FrameId, vslam_types_refactor::FrameId>
         &min_max_frame_id) {
   min_max_frame_id = std::make_pair(in_frame_id, in_frame_id);
   return true;
 }
 
-template <typename VisualFeatureFactorType>
+template <typename PoseGraphType>
 bool getMinMaxFramesForFeatureId(
     const vslam_types_refactor::FeatureId &feature_id,
-    const std::shared_ptr<vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-        VisualFeatureFactorType>> &pose_graph,
+    const std::shared_ptr<PoseGraphType> &pose_graph,
     std::pair<vslam_types_refactor::FrameId, vslam_types_refactor::FrameId>
         &min_max_frame_id) {
   vslam_types_refactor::FrameId max_frame_id;
@@ -88,11 +80,10 @@ bool getMinMaxFramesForFeatureId(
   return false;
 }
 
-template <typename VisualFeatureFactorType>
+template <typename PoseGraphType>
 bool getLatestObservedFrameForObjectId(
     const vslam_types_refactor::ObjectId &object_id,
-    const std::shared_ptr<vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-        VisualFeatureFactorType>> &pose_graph,
+    const std::shared_ptr<PoseGraphType> &pose_graph,
     std::pair<vslam_types_refactor::FrameId, vslam_types_refactor::FrameId>
         &min_max_frame_id) {
   vslam_types_refactor::FrameId max_frame_id;
@@ -108,24 +99,22 @@ bool getLatestObservedFrameForObjectId(
   return false;
 }
 
-template <typename VisualFeatureFactorType, typename CachedFactorInfo>
+template <typename VisualFeatureFactorType,
+          typename CachedFactorInfo,
+          typename PoseGraphType>
 class ObjectPoseGraphOptimizer {
  public:
   ObjectPoseGraphOptimizer(
       const std::function<
           bool(const std::pair<vslam_types_refactor::FactorType,
                                vslam_types_refactor::FeatureFactorId> &,
-               const std::shared_ptr<
-                   vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-                       VisualFeatureFactorType>> &,
+               const std::shared_ptr<PoseGraphType> &,
                const CachedFactorInfo &)> &refresh_residual_checker,
       const std::function<bool(
           const std::pair<vslam_types_refactor::FactorType,
                           vslam_types_refactor::FeatureFactorId> &,
           const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
-          const std::shared_ptr<
-              vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-                  VisualFeatureFactorType>> &pose_graph,
+          const std::shared_ptr<PoseGraphType> &pose_graph,
           ceres::Problem *,
           ceres::ResidualBlockId &,
           CachedFactorInfo &)> &residual_creator)
@@ -136,8 +125,7 @@ class ObjectPoseGraphOptimizer {
       const OptimizationScopeParams &optimization_scope,
       const pose_graph_optimization::ObjectVisualPoseGraphResidualParams
           &residual_params,
-      std::shared_ptr<vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-          VisualFeatureFactorType>> &pose_graph,
+      std::shared_ptr<PoseGraphType> &pose_graph,
       ceres::Problem *problem) {
     // Check for invalid combinations of scope and reject
     CHECK(checkInvalidOptimizationScopeParams(optimization_scope));
@@ -270,18 +258,20 @@ class ObjectPoseGraphOptimizer {
       setVariabilityForParamBlocks(optimized_frames,
                                    true,
                                    kPoseTypeStr,
-                                   getParamBlockForPose,
+                                   getParamBlockForPose<PoseGraphType>,
                                    pose_graph,
                                    problem);
     } else {
       // Set only first pose param block constant (or add Gaussian prior
       // later...?)
-      setVariabilityForParamBlocks({optimization_scope.min_frame_id_},
-                                   true,
-                                   kPoseTypeStr,
-                                   getParamBlockForPose,
-                                   pose_graph,
-                                   problem);
+      setVariabilityForParamBlocks(
+          (std::unordered_set<vslam_types_refactor::FrameId>){
+              optimization_scope.min_frame_id_},
+          true,
+          kPoseTypeStr,
+          getParamBlockForPose<PoseGraphType>,
+          pose_graph,
+          problem);
       // Set all others not-constant (if were set constant)
       std::unordered_set<vslam_types_refactor::FrameId> variable_frames =
           optimized_frames;
@@ -289,7 +279,7 @@ class ObjectPoseGraphOptimizer {
       setVariabilityForParamBlocks(variable_frames,
                                    false,
                                    kPoseTypeStr,
-                                   getParamBlockForPose,
+                                   getParamBlockForPose<PoseGraphType>,
                                    pose_graph,
                                    problem);
     }
@@ -298,9 +288,9 @@ class ObjectPoseGraphOptimizer {
         optimization_scope.min_frame_id_,
         optimization_scope.max_frame_id_,
         last_optimized_nodes_,
-        getFrameIdForFrameId,
+        getFrameIdsForFrameId<PoseGraphType>,
         kPoseTypeStr,
-        getParamBlockForPose,
+        getParamBlockForPose<PoseGraphType>,
         pose_graph,
         problem);
     last_optimized_nodes_ = optimized_frames;
@@ -322,17 +312,19 @@ class ObjectPoseGraphOptimizer {
         // Set all others not-constant (if were set constant)
         set_constant = false;
       }
-      removeParamBlocksWithMinFrameId(min_latest_observation,
-                                      last_optimized_features_,
-                                      getMinMaxFramesForFeatureId,
-                                      kFeatureTypeStr,
-                                      getParamBlockForFeature,
-                                      pose_graph,
-                                      problem);
+      removeParamBlocksWithFrameIdOutsideWindowInclusive(
+          min_latest_observation,
+          optimization_scope.max_frame_id_,
+          last_optimized_features_,
+          getMinMaxFramesForFeatureId<PoseGraphType>,
+          kFeatureTypeStr,
+          getParamBlockForFeature<PoseGraphType>,
+          pose_graph,
+          problem);
       setVariabilityForParamBlocks(optimized_features,
                                    set_constant,
                                    kFeatureTypeStr,
-                                   getParamBlockForFeature,
+                                   getParamBlockForFeature<PoseGraphType>,
                                    pose_graph,
                                    problem);
       last_optimized_features_ = optimized_features;
@@ -340,7 +332,7 @@ class ObjectPoseGraphOptimizer {
       // Remove all visual feature param blocks
       removeParamBlocksWithIdentifiers(last_optimized_features_,
                                        kFeatureTypeStr,
-                                       getParamBlockForFeature,
+                                       getParamBlockForFeature<PoseGraphType>,
                                        pose_graph,
                                        problem);
       last_optimized_features_ = {};
@@ -364,17 +356,19 @@ class ObjectPoseGraphOptimizer {
         set_constant = false;
       }
 
-      removeParamBlocksWithMinFrameId(min_latest_observation,
-                                      last_optimized_objects_,
-                                      getLatestObservedFrameForObjectId,
-                                      kObjTypeStr,
-                                      getParamBlockForObject,
-                                      pose_graph,
-                                      problem);
+      removeParamBlocksWithFrameIdOutsideWindowInclusive(
+          min_latest_observation,
+          optimization_scope.max_frame_id_,
+          last_optimized_objects_,
+          getLatestObservedFrameForObjectId<PoseGraphType>,
+          kObjTypeStr,
+          getParamBlockForObject<PoseGraphType>,
+          pose_graph,
+          problem);
       setVariabilityForParamBlocks(optimized_objects,
                                    set_constant,
                                    kObjTypeStr,
-                                   getParamBlockForObject,
+                                   getParamBlockForObject<PoseGraphType>,
                                    pose_graph,
                                    problem);
       last_optimized_objects_ = optimized_objects;
@@ -382,7 +376,7 @@ class ObjectPoseGraphOptimizer {
       // Remove all object param blocks
       removeParamBlocksWithIdentifiers(last_optimized_objects_,
                                        kObjTypeStr,
-                                       getParamBlockForObject,
+                                       getParamBlockForObject<PoseGraphType>,
                                        pose_graph,
                                        problem);
       last_optimized_objects_ = {};
@@ -392,13 +386,17 @@ class ObjectPoseGraphOptimizer {
   bool solveOptimization(
       ceres::Problem *problem,
       const pose_graph_optimization::OptimizationSolverParams &solver_params,
-      const std::vector<ceres::IterationCallback *> callbacks) {
+      const std::vector<std::shared_ptr<ceres::IterationCallback>> callbacks) {
     CHECK(problem != NULL);
     ceres::Solver::Options options;
     // TODO configure options
 
     // Set up callbacks
-    options.callbacks = callbacks;
+    //    options.callbacks = callbacks;
+    for (const std::shared_ptr<ceres::IterationCallback> &callback_smart_ptr :
+         callbacks) {
+      options.callbacks.emplace_back(callback_smart_ptr.get());
+    }
     if (!callbacks.empty()) {
       options.update_state_every_iteration = true;
     }
@@ -435,18 +433,14 @@ class ObjectPoseGraphOptimizer {
   // TODO include pose graph in the signature?
   std::function<bool(const std::pair<vslam_types_refactor::FactorType,
                                      vslam_types_refactor::FeatureFactorId> &,
-                     const std::shared_ptr<
-                         vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-                             VisualFeatureFactorType>> &,
+                     const std::shared_ptr<PoseGraphType> &,
                      const CachedFactorInfo &)>
       refresh_residual_checker_;
   std::function<bool(
       const std::pair<vslam_types_refactor::FactorType,
                       vslam_types_refactor::FeatureFactorId> &,
       const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
-      const std::shared_ptr<
-          vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-              VisualFeatureFactorType>> &,
+      const std::shared_ptr<PoseGraphType> &,
       ceres::Problem *,
       ceres::ResidualBlockId &,
       CachedFactorInfo &)>
@@ -457,23 +451,16 @@ class ObjectPoseGraphOptimizer {
       const vslam_types_refactor::FrameId &min_frame_id,
       const vslam_types_refactor::FrameId &max_frame_id,
       const std::unordered_set<IdentifierType> &identifiers_to_check,
-      const std::function<
-          bool(const IdentifierType &,
-               const std::shared_ptr<
-                   vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-                       VisualFeatureFactorType>> &,
-               std::pair<vslam_types_refactor::FrameId,
-                         vslam_types_refactor::FrameId> &)> &frame_retriever,
+      const std::function<bool(const IdentifierType &,
+                               const std::shared_ptr<PoseGraphType> &,
+                               std::pair<vslam_types_refactor::FrameId,
+                                         vslam_types_refactor::FrameId> &)>
+          &frame_retriever,
       const std::string &identifier_type,
-      const std::function<
-          bool(const IdentifierType &,
-               const std::shared_ptr<
-                   vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-                       VisualFeatureFactorType>> &,
-               double **)> &param_block_retriever,
-      const std::shared_ptr<
-          vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-              VisualFeatureFactorType>> &pose_graph,
+      const std::function<bool(const IdentifierType &,
+                               const std::shared_ptr<PoseGraphType> &,
+                               double **)> &param_block_retriever,
+      const std::shared_ptr<PoseGraphType> &pose_graph,
       ceres::Problem *problem) {
     std::unordered_set<IdentifierType> identifiers_to_remove;
     for (const IdentifierType &identifier_to_check : identifiers_to_check) {
@@ -504,19 +491,14 @@ class ObjectPoseGraphOptimizer {
       const std::unordered_set<IdentifierType> &param_identifiers,
       const bool &set_constant,
       const std::string &identifier_type,
-      const std::function<
-          bool(const IdentifierType &,
-               const std::shared_ptr<
-                   vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-                       VisualFeatureFactorType>> &,
-               double **)> &param_block_retriever,
-      const std::shared_ptr<
-          vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-              VisualFeatureFactorType>> &pose_graph,
+      const std::function<bool(const IdentifierType &,
+                               const std::shared_ptr<PoseGraphType> &,
+                               double **)> &param_block_retriever,
+      const std::shared_ptr<PoseGraphType> &pose_graph,
       ceres::Problem *problem) {
     for (const IdentifierType &param_identifier : param_identifiers) {
       double *param_ptr = NULL;
-      if (param_block_retriever(param_identifier, pose_graph, param_ptr)) {
+      if (param_block_retriever(param_identifier, pose_graph, &param_ptr)) {
         if (set_constant) {
           problem->SetParameterBlockConstant(param_ptr);
         } else {
@@ -534,15 +516,10 @@ class ObjectPoseGraphOptimizer {
   void removeParamBlocksWithIdentifiers(
       const std::unordered_set<IdentifierType> &identifiers,
       const std::string &identifier_type,
-      const std::function<
-          bool(const IdentifierType &,
-               const std::shared_ptr<
-                   vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-                       VisualFeatureFactorType>> &,
-               double **)> &param_block_retriever,
-      const std::shared_ptr<
-          vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-              VisualFeatureFactorType>> &pose_graph,
+      const std::function<bool(const IdentifierType &,
+                               const std::shared_ptr<PoseGraphType> &,
+                               double **)> &param_block_retriever,
+      const std::shared_ptr<PoseGraphType> &pose_graph,
       ceres::Problem *problem) {
     for (const IdentifierType &id_to_remove : identifiers) {
       double *param_block;
@@ -563,9 +540,7 @@ class ObjectPoseGraphOptimizer {
           vslam_types_refactor::FactorType,
           std::unordered_set<vslam_types_refactor::FeatureFactorId>>
           &required_feature_factors,
-      const std::shared_ptr<
-          vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-              VisualFeatureFactorType>> &pose_graph,
+      const std::shared_ptr<PoseGraphType> &pose_graph,
       ceres::Problem *problem) {
     for (const auto &factor_type_and_required_factors :
          required_feature_factors) {

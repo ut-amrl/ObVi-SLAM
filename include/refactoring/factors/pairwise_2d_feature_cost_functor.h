@@ -85,10 +85,11 @@ class Pairwise2dFeatureCostFunctor {
                   const T *pose_current,
                   T *residual) const {
     Eigen::Matrix<T, 3, 3> essential_mat =
-        vslam_util::CalcEssentialMatrix(pose_init,
-                                        pose_current,
-                                        cam_to_robot_tf_feature_1_.cast<T>(),
-                                        cam_to_robot_tf_feature_2_.cast<T>());
+        vslam_types_refactor::CalcEssentialMatrix(
+            pose_init,
+            pose_current,
+            cam_to_robot_tf_feature_1_.cast<T>(),
+            cam_to_robot_tf_feature_2_.cast<T>());
 
     Eigen::Matrix<T, 1, 1> epipolar_error_unscaled =
         feature_1_image_coords_.transpose().cast<T>() * essential_mat *

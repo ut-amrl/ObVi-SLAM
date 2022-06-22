@@ -55,7 +55,7 @@ class ReprojectionCostFunctor {
   bool operator()(const T *pose, const T *point, T *residual) const {
     // Transform from world to current robot pose
     Eigen::Transform<T, 3, Eigen::Affine> world_to_robot_current =
-        vslam_util::PoseArrayToAffine(&(pose[3]), &(pose[0])).inverse();
+        vslam_types_refactor::PoseArrayToAffine(&(pose[3]), &(pose[0])).inverse();
 
     // Point in world frame
     Eigen::Matrix<T, 3, 1> point_world(point[0], point[1], point[2]);

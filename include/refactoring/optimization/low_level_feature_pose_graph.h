@@ -21,12 +21,18 @@ static const FactorType kPairwiseErrorFactorTypeId = 1;
 struct RobotPoseNode {
   RawPose3dPtr<double> pose_;
 
+  RobotPoseNode()
+      : pose_(std::make_shared<RawPose3d<double>>(RawPose3d<double>())) {}
+
   RobotPoseNode(RawPose3d<double> &pose)
       : pose_(std::make_shared<RawPose3d<double>>(pose)) {}
 };
 
 struct VisualFeatureNode {
   Position3dPtr<double> position_;
+
+  VisualFeatureNode()
+      : position_(std::make_shared<Position3d<double>>(Position3d<double>())) {}
 
   VisualFeatureNode(const Position3d<double> &position)
       : position_(std::make_shared<Position3d<double>>(position)) {}
@@ -237,6 +243,7 @@ class LowLevelFeaturePoseGraph {
         (first_observed_frame_by_feature_.at(feature_id) > smallest_frame_id)) {
       first_observed_frame_by_feature_[feature_id] = smallest_frame_id;
     }
+    return factor_id;
   }
 
   virtual std::optional<RawPose3d<double>> getRobotPose(

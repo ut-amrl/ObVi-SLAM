@@ -110,10 +110,7 @@ std::size_t hash_value(const BbCorners<NumType> &bb) {
   return hasher(cornerLocationsVectorToPair(bb));
 }
 
-bool operator==(const RawBoundingBox &bb_1, const RawBoundingBox &bb_2) {
-  return (bb_1.semantic_class_ == bb_2.semantic_class_) &&
-         (bb_1.pixel_corner_locations_ == bb_2.pixel_corner_locations_);
-}
+bool operator==(const RawBoundingBox &bb_1, const RawBoundingBox &bb_2);
 
 template <typename NumType>
 std::size_t hash_value(const RawBoundingBox &bb) {

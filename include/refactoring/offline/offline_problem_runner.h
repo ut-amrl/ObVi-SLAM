@@ -35,7 +35,8 @@ template <typename InputProblemData,
 class OfflineProblemRunner {
  public:
   OfflineProblemRunner(
-      const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &residual_params,
+      const pose_graph_optimization::ObjectVisualPoseGraphResidualParams
+          &residual_params,
       const std::function<bool()> &continue_opt_checker,
       const std::function<FrameId(const FrameId &)> &window_provider_func,
       const std::function<
@@ -43,14 +44,14 @@ class OfflineProblemRunner {
                                vslam_types_refactor::FeatureFactorId> &,
                const std::shared_ptr<PoseGraphType> &,
                const CachedFactorInfo &)> &refresh_residual_checker,
-      const std::function<
-          bool(const std::pair<vslam_types_refactor::FactorType,
-                               vslam_types_refactor::FeatureFactorId> &,
-               const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
-               const std::shared_ptr<PoseGraphType> &,
-               ceres::Problem *,
-               ceres::ResidualBlockId &,
-               CachedFactorInfo &)> &residual_creator,
+      const std::function<bool(
+          const std::pair<vslam_types_refactor::FactorType,
+                          vslam_types_refactor::FeatureFactorId> &,
+          const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
+          const std::shared_ptr<PoseGraphType> &,
+          ceres::Problem *,
+          ceres::ResidualBlockId &,
+          CachedFactorInfo &)> &residual_creator,
       const std::function<void(const InputProblemData &,
                                std::shared_ptr<PoseGraphType> &)>
           &pose_graph_creator,
@@ -136,13 +137,14 @@ class OfflineProblemRunner {
                               start_opt_with_frame,
                               next_frame_id,
                               VisualizationTypeEnum::BEFORE_EACH_OPTIMIZATION);
-      std::vector<ceres::IterationCallback *> ceres_callbacks =
+      std::vector<std::shared_ptr<ceres::IterationCallback>> ceres_callbacks =
           ceres_callback_creator_(
               problem_data, pose_graph, start_opt_with_frame, next_frame_id);
       bool opt_success = optimizer_.solveOptimization(
-          problem, solver_params_, ceres_callbacks);
+          &problem, solver_params_, ceres_callbacks);
 
       visualization_callback_(problem_data,
+                              pose_graph,
                               start_opt_with_frame,
                               next_frame_id,
                               VisualizationTypeEnum::AFTER_EACH_OPTIMIZATION);
@@ -164,13 +166,13 @@ class OfflineProblemRunner {
 
  private:
   pose_graph_optimization::ObjectVisualPoseGraphResidualParams residual_params_;
-  pose_graph_optimizer::ObjectPoseGraphOptimizer<VisualFeatureFactorType,
-                                                 CachedFactorInfo>
-      optimizer_;
 
   std::function<bool()> continue_opt_checker_;
   std::function<FrameId(const FrameId &)> window_provider_func_;
-
+  pose_graph_optimizer::ObjectPoseGraphOptimizer<VisualFeatureFactorType,
+                                                 CachedFactorInfo,
+                                                 PoseGraphType>
+      optimizer_;
   std::function<void(const InputProblemData &,
                      std::shared_ptr<PoseGraphType> &)>
       pose_graph_creator_;

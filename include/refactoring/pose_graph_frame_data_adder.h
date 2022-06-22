@@ -5,6 +5,7 @@
 #ifndef UT_VSLAM_POSE_GRAPH_FRAME_DATA_ADDER_H
 #define UT_VSLAM_POSE_GRAPH_FRAME_DATA_ADDER_H
 
+#include <refactoring/bounding_box_front_end.h>
 #include <refactoring/offline/offline_problem_data.h>
 #include <refactoring/optimization/object_pose_graph.h>
 
@@ -68,6 +69,10 @@ void addVisualFeatureFactorsForFrame(
 }
 
 // TODO maybe make generic to both types of object pose graphs
+template <typename ObjectAssociationInfo,
+          typename RawBoundingBoxContextInfo,
+          typename RefinedBoundingBoxContextInfo,
+          typename SingleBbContextInfo>
 void addFrameDataAssociatedBoundingBox(
     const AssociatedBoundingBoxOfflineProblemData<StructuredVisionFeatureTrack,
                                                   RawBoundingBoxObservation,
@@ -92,7 +97,12 @@ void addFrameDataAssociatedBoundingBox(
         const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &,
         const FrameId &,
         const ObjectId &,
-        const CameraId &)> &bb_covariance_provider) {
+        const CameraId &)> &bb_covariance_provider,
+    const AbstractBoundingBoxFrontEnd<ReprojectionErrorFactor,
+                                      ObjectAssociationInfo,
+                                      RawBoundingBoxContextInfo,
+                                      RefinedBoundingBoxContextInfo,
+                                      SingleBbContextInfo> &bb_associator) {
   Pose3D<double> pose_at_frame;
   if (!input_problem_data.getRobotPoseEstimateForFrame(frame_to_add,
                                                        pose_at_frame)) {
@@ -120,6 +130,8 @@ void addFrameDataAssociatedBoundingBox(
           std::unordered_map<ObjectId, RawBoundingBoxObservation>>>
       bb_obs = input_problem_data.getBoundingBoxes();
 
+
+
   // Add initial ellipsoid estimate
   // TODO
   for (const auto &frame_id_and_bbs : bb_obs) {
@@ -135,12 +147,13 @@ void addFrameDataAssociatedBoundingBox(
         obs_factor.object_id_ = obj_id;
         obs_factor.camera_id_ = camera_id;
         obs_factor.frame_id_ = frame_id_and_bbs.first;
-        obs_factor.bounding_box_corners_ =
-            cornerLocationsPairToVector(bb.bb_detection_.pixel_corner_locations_);
+        obs_factor.bounding_box_corners_ = cornerLocationsPairToVector(
+            bb.bb_detection_.pixel_corner_locations_);
         obs_factor.bounding_box_corners_covariance_ = bb_covariance_provider(
             input_problem_data, pose_graph, frame_to_add, obj_id, camera_id);
       }
     }
+
   }
 }
 }  // namespace vslam_types_refactor

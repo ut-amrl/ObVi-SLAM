@@ -40,8 +40,10 @@ void createPoseGraph(
     std::shared_ptr<vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph>
         &pose_graph) {
   pose_graph = std::make_shared<
-      vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph>(input_problem_data.getObjDimMeanAndCovByClass(), input_problem_data.getCameraExtrinsicsByCamera(), input_problem_data.getCameraIntrinsicsByCamera());
-
+      vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph>(
+      input_problem_data.getObjDimMeanAndCovByClass(),
+      input_problem_data.getCameraExtrinsicsByCamera(),
+      input_problem_data.getCameraIntrinsicsByCamera());
 }
 
 void visualizationStub(
@@ -126,8 +128,7 @@ int main(int argc, char **argv) {
       ceres::ResidualBlockId &,
       bool &)>
       residual_creator =
-          [&](
-              const std::pair<vslam_types_refactor::FactorType,
+          [&](const std::pair<vslam_types_refactor::FactorType,
                               vslam_types_refactor::FeatureFactorId> &factor_id,
               const pose_graph_optimization::ObjectVisualPoseGraphResidualParams
                   &solver_residual_params,

@@ -8,6 +8,7 @@
 #include <unsupported/Eigen/MatrixFunctions>
 #include <vector>
 
+namespace vslam_types_refactor {
 namespace {
 const double kEpsilon = 1e-7;
 
@@ -16,8 +17,6 @@ const double kEpsilon = 1e-7;
  */
 const double kSmallAngleThreshold = 1e-8;
 }  // namespace
-
-namespace vslam_util {
 
 /**
  * Convert from a vector that stores the axis-angle representation (with
@@ -256,6 +255,6 @@ Eigen::Matrix<float, N, N> createDiagCovFromStdDevs(
   Eigen::DiagonalMatrix<float, N> cov(variances);
   return cov;
 }
-}  // namespace vslam_util
+}  // namespace vslam_types_refactor
 
 #endif  // UT_VSLAM_VSLAM_MATH_UTIL_H
