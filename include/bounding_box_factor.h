@@ -97,7 +97,7 @@ class BoundingBoxFactor {
    */
   static ceres::AutoDiffCostFunction<BoundingBoxFactor, 4, 9, 6>
       *createBoundingBoxFactor(
-          const vslam_types::RawImageBoundingBoxDetection &object_detection,
+          const vslam_types::ObjectImageBoundingBoxDetection &object_detection,
           const vslam_types::CameraIntrinsics &camera_intrinsics,
           const vslam_types::CameraExtrinsics &camera_extrinsics,
           const Eigen::Matrix4f &bounding_box_covariance) {
