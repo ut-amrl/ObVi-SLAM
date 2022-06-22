@@ -464,7 +464,7 @@ struct UTSLAMProblem {
   /**
    * Intrinsics for each camera.
    */
-  std::unordered_map<CameraId, CameraIntrinsics> camera_instrinsics_by_camera;
+  std::unordered_map<CameraId, CameraIntrinsics> camera_intrinsics_by_camera;
   /**
    * Default constructor: do nothing.
    */
@@ -481,7 +481,7 @@ struct UTSLAMProblem {
       : tracks(tracks),
         robot_poses(robot_poses),
         camera_extrinsics_by_camera(camera_extrinsics_by_camera),
-        camera_instrinsics_by_camera(camera_intrinsics_by_camera) {}
+        camera_intrinsics_by_camera(camera_intrinsics_by_camera) {}
 };
 
 template <typename AppearanceInfo>

@@ -5,8 +5,7 @@
 #ifndef UT_VSLAM_OFFLINE_PROBLEM_DATA_H
 #define UT_VSLAM_OFFLINE_PROBLEM_DATA_H
 
-#include <refactoring/vslam_obj_opt_types_refactor.h>
-#include <refactoring/vslam_types_refactor.h>
+#include <refactoring/types/vslam_obj_opt_types_refactor.h>
 
 namespace vslam_types_refactor {
 
@@ -40,6 +39,7 @@ struct VisionFeature {
 struct VisionFeatureTrack {
   FeatureId feature_id_;
 
+  // Assumes this is sorted by frame id
   std::vector<VisionFeature> feature_observations_;
 
   /**
@@ -81,36 +81,46 @@ struct StructuredVisionFeatureTrack {
       : feature_pos_(feature_pos), feature_track(feature_track){};
 };
 
-struct RawBoundingBoxObservation {
-  /**
-   * Pixel coordinates of the two opposite corners that define the bounding box
-   * of an object within an image. The first of the pair should have the smaller
-   * x and y values.
-   */
-  BbCornerPair<double> pixel_corner_locations;
-
-  /**
-   * Semantic class of the detected bounding box
-   *
-   * TODO should this instead be an index? Should it store a set of
-   * possible semantic classes with their likelihood?
-   */
-  std::string semantic_class;
-
-  /**
-   * Index of the frame/camera/robot_pose this bounding box was acquired at.
-   */
-  FrameId frame_idx;
-
-  /**
-   * Id of the camera that captured this boundign box.
-   */
-  CameraId camera_id;
-};
-
 template <typename FeatureTrackType>
 class AbstractOfflineProblemData {
  public:
+  FrameId getMaxFrameId() { return max_frame_id_; }
+
+  std::unordered_map<CameraId, CameraIntrinsicsMat<double>>
+  getCameraIntrinsicsByCamera() const {
+    return camera_intrinsics_by_camera_;
+  }
+
+  std::unordered_map<CameraId, CameraExtrinsics<double>>
+  getCameraExtrinsicsByCamera() const {
+    return camera_extrinsics_by_camera_;
+  }
+
+  std::unordered_map<std::string,
+                     std::pair<ObjectDim<double>, Covariance<double, 3>>>
+  getObjDimMeanAndCovByClass() const {
+    return mean_and_cov_by_semantic_class_;
+  }
+
+  std::unordered_map<FrameId, Pose3D<double>> getRobotPoseEstimates() const {
+    return robot_poses_;
+  }
+
+  bool getRobotPoseEstimateForFrame(const FrameId& frame_id,
+                                    Pose3D<double>& est_out) const {
+    if (robot_poses_.find(frame_id) == robot_poses_.end()) {
+      return false;
+    }
+    est_out = robot_poses_.at(frame_id);
+    return true;
+  }
+
+  // TODO figure out some intermediate storage so that we can store this at
+  // least sort of by frame id
+  std::unordered_map<FeatureId, FeatureTrackType> getVisualFeatures() const {
+    return visual_features_;
+  };
+
  protected:
   std::unordered_map<CameraId, CameraIntrinsicsMat<double>>
       camera_intrinsics_by_camera_;
@@ -118,6 +128,10 @@ class AbstractOfflineProblemData {
       camera_extrinsics_by_camera_;
   std::unordered_map<FeatureId, FeatureTrackType> visual_features_;
   std::unordered_map<FrameId, Pose3D<double>> robot_poses_;
+  std::unordered_map<std::string,
+                     std::pair<ObjectDim<double>, Covariance<double, 3>>>
+      mean_and_cov_by_semantic_class_;
+  FrameId max_frame_id_;
 };
 
 // Keeping bounding box type abstracted because we may want to store some
@@ -130,6 +144,14 @@ template <typename FeatureTrackType,
 class AssociatedBoundingBoxOfflineProblemData
     : public AbstractOfflineProblemData<FeatureTrackType> {
  public:
+  std::unordered_map<
+      FrameId,
+      std::unordered_map<CameraId,
+                         std::unordered_map<ObjectId, BoundingBoxType>>>
+  getBoundingBoxes() const {
+    return bounding_boxes_;
+  }
+
  protected:
   // Bounding boxes (by object)
   std::unordered_map<

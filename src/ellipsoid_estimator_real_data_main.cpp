@@ -301,7 +301,7 @@ int main(int argc, char **argv) {
   ut_slam_problem.robot_poses = robot_poses;
   ut_slam_problem.bounding_boxes = bounding_box_detections;
   ut_slam_problem.camera_extrinsics_by_camera = extrinsics;
-  ut_slam_problem.camera_instrinsics_by_camera = intrinsics;
+  ut_slam_problem.camera_intrinsics_by_camera = intrinsics;
 
   vslam_solver::SLAMSolverOptimizerParams optimizer_params;
 

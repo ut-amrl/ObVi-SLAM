@@ -5,10 +5,15 @@
 #ifndef UT_VSLAM_VSLAM_OPT_TYPES_REFACTOR_H
 #define UT_VSLAM_VSLAM_OPT_TYPES_REFACTOR_H
 
+#include <boost/functional/hash.hpp>
 #include <eigen3/Eigen/Dense>
 #include <memory>
 
 namespace vslam_types_refactor {
+
+typedef uint64_t CameraId;
+typedef uint64_t FrameId;
+typedef uint64_t FeatureId;
 
 template <typename NumType>
 using CameraIntrinsicsMat = Eigen::Matrix<NumType, 3, 3>;
@@ -47,9 +52,24 @@ struct Pose3D {
 
   Pose3D() = default;
   Pose3D(const Position3d<NumType> &transl,
-           const Orientation3D<NumType> &orientation)
+         const Orientation3D<NumType> &orientation)
       : transl_(transl), orientation_(orientation) {}
 };
+
+template <typename NumType>
+using CameraExtrinsics = Pose3D<NumType>;
+
+template <typename NumType>
+bool operator==(const PixelCoord<NumType> &px_1,
+                const PixelCoord<NumType> &px_2) {
+  return (std::make_pair(px_1(0), px_1(1)) == std::make_pair(px_2(0), px_2(1)));
+}
+
+template <typename NumType>
+std::size_t hash_value(const PixelCoord<NumType> &px) {
+  boost::hash<std::pair<NumType, NumType>> hasher;
+  return hasher(std::make_pair(px(0), px(1)));
+}
 
 }  // namespace vslam_types_refactor
 

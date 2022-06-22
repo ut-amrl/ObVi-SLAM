@@ -1,34 +1,61 @@
 #include <gflags/gflags.h>
 #include <glog/logging.h>
-#include <vslam_noise_util.h>
-#include <vslam_types_math_util.h>
+#include <refactoring/offline/offline_problem_data.h>
+#include <refactoring/offline/offline_problem_runner.h>
+#include <refactoring/optimization/residual_creator.h>
+#include <refactoring/output_problem_data.h>
+#include <refactoring/output_problem_data_extraction.h>
+#include <ros/ros.h>
+#include <sensor_msgs/Image.h>
 
-#include <iostream>
+std::vector<std::shared_ptr<ceres::IterationCallback>>
+dummyCeresCallbackCreator(
+    const vslam_types_refactor::UnassociatedBoundingBoxOfflineProblemData<
+        vslam_types_refactor::StructuredVisionFeatureTrack,
+        sensor_msgs::Image::ConstPtr,
+        vslam_types_refactor::RawBoundingBoxObservation> &input_problem_data,
+    const std::shared_ptr<
+        vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph>
+        &pose_graph,
+    const vslam_types_refactor::FrameId &min_frame_optimized,
+    const vslam_types_refactor::FrameId &max_frame_optimized) {
+  // TODO replace with actual code later
+  return {};
+}
 
-#include "slam_backend_solver.h"
-#include "slam_solver_optimizer_params.h"
-#include "visual_slam_ceres_visualization_callback.h"
-#include "vslam_io.h"
-#include "vslam_math_util.h"
-#include "vslam_types.h"
+bool checkFactorRefresh(
+    const std::pair<vslam_types_refactor::FactorType,
+                    vslam_types_refactor::FeatureFactorId> &factor,
+    const std::shared_ptr<
+        vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph> &,
+    const bool &) {
+  return false;
+}
 
-DEFINE_string(dataset_path,
-              "",
-              "\nPath to folder containing the dataset. Structured as - \n"
-              "vslam_setX/\n\tcalibration/camera_matrix.txt\n\tfeatures/"
-              "features.txt\n\t0000x.txt\n\n");
+void createPoseGraph(
+    const vslam_types_refactor::UnassociatedBoundingBoxOfflineProblemData<
+        vslam_types_refactor::StructuredVisionFeatureTrack,
+        sensor_msgs::Image::ConstPtr,
+        vslam_types_refactor::RawBoundingBoxObservation> &input_problem_data,
+    std::shared_ptr<vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph>
+        &pose_graph) {
+  pose_graph = std::make_shared<
+      vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph>(input_problem_data.getObjDimMeanAndCovByClass(), input_problem_data.getCameraExtrinsicsByCamera(), input_problem_data.getCameraIntrinsicsByCamera());
 
-DEFINE_string(output_path,
-              "",
-              "\nPath to folder where we want to write output trajectories to");
+}
 
-DEFINE_bool(
-    save_poses,
-    false,
-    "\nIf true poses will be saved in Kitti format to the output_path file");
-
-using std::cout;
-using std::endl;
+void visualizationStub(
+    const vslam_types_refactor::UnassociatedBoundingBoxOfflineProblemData<
+        vslam_types_refactor::StructuredVisionFeatureTrack,
+        sensor_msgs::Image::ConstPtr,
+        vslam_types_refactor::RawBoundingBoxObservation> &input_problem_data,
+    std::shared_ptr<vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
+        vslam_types_refactor::ReprojectionErrorFactor>> &pose_graph,
+    const vslam_types_refactor::FrameId &min_frame_optimized,
+    const vslam_types_refactor::FrameId &max_frame_optimized,
+    const vslam_types_refactor::VisualizationTypeEnum &visualization_stage) {
+  // TODO fill in with actual visualization
+}
 
 int main(int argc, char **argv) {
   google::InitGoogleLogging(argv[0]);
@@ -54,97 +81,195 @@ int main(int argc, char **argv) {
   // data association as a preprocessing step or as it is running -- probably as
   // it is running?
   // TODO create pose graph from offline data
-  // TODO (another file) create runner that works through  offline data adding 1 node at a time (with optional window)
-  // TODO run optimizer
 
-  // Make empty unstructured slam problem
-  vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> prob;
+  std::function<bool()> continue_opt_checker = []() { return ros::ok(); };
 
-  // Load unstructured slam problem and intrinsic calibration K
-  vslam_io::LoadStructurelessUTSLAMProblem(FLAGS_dataset_path, prob);
+  std::function<vslam_types_refactor::FrameId(
+      const vslam_types_refactor::FrameId &)>
+      window_provider_func = [](const vslam_types_refactor::FrameId &) {
+        // For now, we'll just optimize the whole trajectory (so return 0 so we
+        // start the optimization with node 0
+        return 0;
+      };
 
-  // Solve
-  vslam_solver::SLAMSolverOptimizerParams optimizer_params;
-  vslam_solver::SLAMSolver solver(optimizer_params);
+  std::function<bool(
+      const std::pair<vslam_types_refactor::FactorType,
+                      vslam_types_refactor::FeatureFactorId> &,
+      const std::shared_ptr<
+          vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph> &,
+      const bool &)>
+      refresh_residual_checker = checkFactorRefresh;
 
-  // These are the poses that are going to be optimized
-  std::vector<vslam_types::RobotPose> answer(prob.robot_poses);
-  std::vector<vslam_types::RobotPose> gt_robot_poses;
-  vslam_util::AdjustTrajectoryToStartAtZero(answer, gt_robot_poses);
-
-  if (FLAGS_save_poses) {
-    vslam_io::SaveKITTIPoses(FLAGS_output_path + "gt.txt", gt_robot_poses);
-  }
-
-  // A1 - rotation error due to rotation -- A1 -translation error due to
-  // translation
-  Eigen::Matrix<double, 2, 1> odom_alphas(0.25, 0.25);
-  vslam_util::CorruptRobotPoses(odom_alphas, answer);
-  std::vector<vslam_types::RobotPose> adjusted_to_zero_answer;
-  vslam_util::AdjustTrajectoryToStartAtZero(answer, adjusted_to_zero_answer);
-
-  if (FLAGS_save_poses) {
-    vslam_io::SaveKITTIPoses(FLAGS_output_path + "start.txt",
-                             adjusted_to_zero_answer);
-  }
-
-  std::function<void(
-      const vslam_solver::StructurelessSlamProblemParams &,
-      vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &,
-      ceres::Problem &,
-      std::vector<vslam_types::SLAMNode> *)>
-      structureless_vision_constraint_adder =
-          vslam_solver::AddStructurelessVisionFactors;
-
-  std::function<std::vector<vslam_types::VisionFeature>(
-      const vslam_types::VisionFeatureTrack &)>
-      feature_retriever =
-          [](const vslam_types::VisionFeatureTrack &feature_track) {
-            return feature_track.track;
+  std::function<bool(
+      const std::pair<vslam_types_refactor::FactorType,
+                      vslam_types_refactor::FeatureFactorId> &,
+      const std::shared_ptr<
+          vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph> &,
+      bool &)>
+      cached_info_creator =
+          [](const std::pair<vslam_types_refactor::FactorType,
+                             vslam_types_refactor::FeatureFactorId>
+                 &factor_info,
+             const std::shared_ptr<
+                 vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph>
+                 &pose_graph,
+             bool &cached_info) {
+            return true;  // TODO maybe fill in with real info some day
           };
+  std::function<bool(
+      const std::pair<vslam_types_refactor::FactorType,
+                      vslam_types_refactor::FeatureFactorId> &,
+      const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
+      const std::shared_ptr<
+          vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph> &,
+      ceres::Problem *,
+      ceres::ResidualBlockId &,
+      bool &)>
+      residual_creator =
+          [&](
+              const std::pair<vslam_types_refactor::FactorType,
+                              vslam_types_refactor::FeatureFactorId> &factor_id,
+              const pose_graph_optimization::ObjectVisualPoseGraphResidualParams
+                  &solver_residual_params,
+              const std::shared_ptr<
+                  vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph>
+                  &pose_graph,
+              ceres::Problem *problem,
+              ceres::ResidualBlockId &residual_id,
+              bool &cached_info) {
+            return vslam_types_refactor::createResidual(factor_id,
+                                                        pose_graph,
+                                                        solver_residual_params,
+                                                        cached_info_creator,
+                                                        problem,
+                                                        residual_id,
+                                                        cached_info);
+          };
+  std::function<void(
+      const vslam_types_refactor::UnassociatedBoundingBoxOfflineProblemData<
+          vslam_types_refactor::StructuredVisionFeatureTrack,
+          sensor_msgs::Image::ConstPtr,
+          vslam_types_refactor::RawBoundingBoxObservation> &,
+      std::shared_ptr<
+          vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph> &)>
+      pose_graph_creator = createPoseGraph;
+  std::function<void(
+      const vslam_types_refactor::UnassociatedBoundingBoxOfflineProblemData<
+          vslam_types_refactor::StructuredVisionFeatureTrack,
+          sensor_msgs::Image::ConstPtr,
+          vslam_types_refactor::RawBoundingBoxObservation> &,
+      const std::shared_ptr<
+          vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph> &,
+      const vslam_types_refactor::FrameId &)>
+      frame_data_adder;  // TODO
+  std::function<void(
+      const vslam_types_refactor::UnassociatedBoundingBoxOfflineProblemData<
+          vslam_types_refactor::StructuredVisionFeatureTrack,
+          sensor_msgs::Image::ConstPtr,
+          vslam_types_refactor::RawBoundingBoxObservation> &,
+      const std::shared_ptr<
+          const vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph> &,
+      vslam_types_refactor::SpatialEstimateOnlyResults &)>
+      output_data_extractor =
+          [](const vslam_types_refactor::
+                 UnassociatedBoundingBoxOfflineProblemData<
+                     vslam_types_refactor::StructuredVisionFeatureTrack,
+                     sensor_msgs::Image::ConstPtr,
+                     vslam_types_refactor::RawBoundingBoxObservation>
+                     &input_problem_data,
+             const std::shared_ptr<const vslam_types_refactor::
+                                       ObjectAndReprojectionFeaturePoseGraph>
+                 &pose_graph,
+             vslam_types_refactor::SpatialEstimateOnlyResults
+                 &output_problem_data) {
+            vslam_types_refactor::extractSpatialEstimateOnlyResults(
+                pose_graph, output_problem_data);
+          };
+  std::function<std::vector<std::shared_ptr<ceres::IterationCallback>>(
+      const vslam_types_refactor::UnassociatedBoundingBoxOfflineProblemData<
+          vslam_types_refactor::StructuredVisionFeatureTrack,
+          sensor_msgs::Image::ConstPtr,
+          vslam_types_refactor::RawBoundingBoxObservation> &,
+      const std::shared_ptr<
+          vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph> &,
+      const vslam_types_refactor::FrameId &,
+      const vslam_types_refactor::FrameId &)>
+      ceres_callback_creator = dummyCeresCallbackCreator;
+  std::function<void(
+      const vslam_types_refactor::UnassociatedBoundingBoxOfflineProblemData<
+          vslam_types_refactor::StructuredVisionFeatureTrack,
+          sensor_msgs::Image::ConstPtr,
+          vslam_types_refactor::RawBoundingBoxObservation> &,
+      const std::shared_ptr<
+          vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph> &,
+      const vslam_types_refactor::FrameId &,
+      const vslam_types_refactor::FrameId &,
+      const vslam_types_refactor::VisualizationTypeEnum &)>
+      visualization_callback =
+          [](const vslam_types_refactor::
+                 UnassociatedBoundingBoxOfflineProblemData<
+                     vslam_types_refactor::StructuredVisionFeatureTrack,
+                     sensor_msgs::Image::ConstPtr,
+                     vslam_types_refactor::RawBoundingBoxObservation>
+                     &input_problem_data,
+             const std::shared_ptr<
+                 vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph>
+                 &pose_graph,
+             const vslam_types_refactor::FrameId &min_frame_id,
+             const vslam_types_refactor::FrameId &max_frame_id,
+             const vslam_types_refactor::VisualizationTypeEnum
+                 &visualization_type) {
+            std::shared_ptr<
+                vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
+                    vslam_types_refactor::ReprojectionErrorFactor>>
+                superclass_ptr = pose_graph;
+            visualizationStub(input_problem_data,
+                              superclass_ptr,
+                              min_frame_id,
+                              max_frame_id,
+                              visualization_type);
+          };
+  pose_graph_optimization::OptimizationSolverParams solver_params;  // TODO
+  pose_graph_optimization::ObjectVisualPoseGraphResidualParams residual_params;
 
-  // Got the casting solution from
-  // https://stackoverflow.com/questions/30393285/stdfunction-fails-to-distinguish-overloaded-functions
-  typedef std::shared_ptr<vslam_viz::VisualSlamCeresVisualizationCallback<
-      vslam_types::VisionFeatureTrack>> (*funtype)(
-      const vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &,
-      const std::function<std::vector<vslam_types::VisionFeature>(
-          const vslam_types::VisionFeatureTrack &)> &,
-      const std::vector<vslam_types::RobotPose> &,
-      std::vector<vslam_types::SLAMNode> *);
-  funtype func = vslam_viz::VisualSlamCeresVisualizationCallback<
-      vslam_types::VisionFeatureTrack>::create;
+  vslam_types_refactor::OfflineProblemRunner<
+      vslam_types_refactor::UnassociatedBoundingBoxOfflineProblemData<
+          vslam_types_refactor::StructuredVisionFeatureTrack,
+          sensor_msgs::Image::ConstPtr,
+          vslam_types_refactor::RawBoundingBoxObservation>,
+      vslam_types_refactor::ReprojectionErrorFactor,
+      vslam_types_refactor::SpatialEstimateOnlyResults,
+      bool,
+      vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph>
+      offline_problem_runner(residual_params,
+                             continue_opt_checker,
+                             window_provider_func,
+                             refresh_residual_checker,
+                             residual_creator,
+                             pose_graph_creator,
+                             frame_data_adder,
+                             output_data_extractor,
+                             ceres_callback_creator,
+                             visualization_callback,
+                             solver_params);
 
-  std::function<std::shared_ptr<ceres::IterationCallback>(
-      const vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &,
-      const std::function<std::vector<vslam_types::VisionFeature>(
-          const vslam_types::VisionFeatureTrack &)> &,
-      const std::vector<vslam_types::RobotPose> &,
-      std::vector<vslam_types::SLAMNode> *)>
-      unbound_callback_creator = func;
+  vslam_types_refactor::UnassociatedBoundingBoxOfflineProblemData<
+      vslam_types_refactor::StructuredVisionFeatureTrack,
+      sensor_msgs::Image::ConstPtr,
+      vslam_types_refactor::RawBoundingBoxObservation>
+      input_problem_data;  // TODO
 
-  std::function<std::shared_ptr<ceres::IterationCallback>(
-      const vslam_types::UTSLAMProblem<vslam_types::VisionFeatureTrack> &,
-      std::vector<vslam_types::SLAMNode> *)>
-      callback_creator = std::bind(unbound_callback_creator,
-                                   std::placeholders::_1,
-                                   feature_retriever,
-                                   gt_robot_poses,
-                                   std::placeholders::_2);
+  vslam_types_refactor::OptimizationFactorsEnabledParams
+      optimization_factors_enabled_params;
+  optimization_factors_enabled_params.use_pom_ = false;
+  optimization_factors_enabled_params.include_visual_factors_ = false;
 
-  vslam_solver::StructurelessSlamProblemParams problem_params;
+  vslam_types_refactor::SpatialEstimateOnlyResults output_results;
 
-  solver.SolveSLAM<vslam_types::VisionFeatureTrack>(
-      structureless_vision_constraint_adder,
-      callback_creator,
-      problem_params,
-      prob,
-      adjusted_to_zero_answer);
+  offline_problem_runner.runOptimization(
+      input_problem_data, optimization_factors_enabled_params, output_results);
 
-  if (FLAGS_save_poses) {
-    vslam_io::SaveKITTIPoses(FLAGS_output_path + "answer.txt",
-                             adjusted_to_zero_answer);
-  }
+  // TODO save output results somewhere
 
   return 0;
 }

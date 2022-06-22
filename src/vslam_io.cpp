@@ -45,7 +45,7 @@ void LoadStructurelessUTSLAMProblem(
 
   // Load camera calibration data
   vslam_io::LoadCameraCalibrationData(dataset_path,
-                                      prob.camera_instrinsics_by_camera,
+                                      prob.camera_intrinsics_by_camera,
                                       prob.camera_extrinsics_by_camera);
 }
 
@@ -141,7 +141,7 @@ void LoadStructurelessUTSLAMProblemMicrosoft(
   SetRobotPosesInSlamProblem(poses_by_id, prob);
 
   vslam_io::LoadCameraIntrinsicsAndExtrinsicsMicrosoftDataset(
-      prob.camera_instrinsics_by_camera, prob.camera_extrinsics_by_camera);
+      prob.camera_intrinsics_by_camera, prob.camera_extrinsics_by_camera);
 }
 
 void LoadStructurelessUTSLAMProblemTartan(
@@ -214,7 +214,7 @@ void LoadStructurelessUTSLAMProblemTartan(
   SetRobotPosesInSlamProblem(poses_by_id, prob);
 
   vslam_io::LoadCameraIntrinsicsAndExtrinsicsTartanDataset(
-      prob.camera_instrinsics_by_camera, prob.camera_extrinsics_by_camera);
+      prob.camera_intrinsics_by_camera, prob.camera_extrinsics_by_camera);
 }
 
 void LoadCameraIntrinsicsAndExtrinsicsMicrosoftDataset(
@@ -317,7 +317,7 @@ void LoadStructuredUTSLAMProblem(
 
   // Load camera calibration data
   vslam_io::LoadCameraCalibrationData(dataset_path,
-                                      prob.camera_instrinsics_by_camera,
+                                      prob.camera_intrinsics_by_camera,
                                       prob.camera_extrinsics_by_camera);
 }
 

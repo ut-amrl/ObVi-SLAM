@@ -70,7 +70,7 @@ void AddStructurelessVisionFactors(
       vslam_types::VisionFeature f1 = feature_track_by_id.second.track[i];
       vslam_types::CameraId f1_primary_camera_id = f1.primary_camera_id;
       vslam_types::CameraIntrinsics feature_1_primary_cam_intrinsics =
-          slam_problem.camera_instrinsics_by_camera.at(f1_primary_camera_id);
+          slam_problem.camera_intrinsics_by_camera.at(f1_primary_camera_id);
       vslam_types::CameraExtrinsics feature_1_primary_cam_extrinsics =
           slam_problem.camera_extrinsics_by_camera.at(f1_primary_camera_id);
       Eigen::Vector2f feature_1_primary_pixel =
@@ -87,7 +87,7 @@ void AddStructurelessVisionFactors(
             Pairwise2dFeatureCostFunctor::create(
                 feature_1_primary_cam_intrinsics,
                 feature_1_primary_cam_extrinsics,
-                slam_problem.camera_instrinsics_by_camera.at(
+                slam_problem.camera_intrinsics_by_camera.at(
                     other_feat_camera_id),
                 slam_problem.camera_extrinsics_by_camera.at(
                     other_feat_camera_id),
@@ -109,7 +109,7 @@ void AddStructurelessVisionFactors(
             Pairwise2dFeatureCostFunctor::create(
                 feature_1_primary_cam_intrinsics,
                 feature_1_primary_cam_extrinsics,
-                slam_problem.camera_instrinsics_by_camera.at(
+                slam_problem.camera_intrinsics_by_camera.at(
                     f2.primary_camera_id),
                 slam_problem.camera_extrinsics_by_camera.at(
                     f2.primary_camera_id),
@@ -140,7 +140,7 @@ void AddStructuredVisionFactors(
       for (const auto &camera_id_and_pixel : feature.pixel_by_camera_id) {
         ceres_problem.AddResidualBlock(
             ReprojectionCostFunctor::create(
-                slam_problem.camera_instrinsics_by_camera.at(
+                slam_problem.camera_intrinsics_by_camera.at(
                     camera_id_and_pixel.first),
                 slam_problem.camera_extrinsics_by_camera.at(
                     camera_id_and_pixel.first),

@@ -5,7 +5,7 @@
 #ifndef UT_VSLAM_VSLAM_TYPES_CONVERSION_H
 #define UT_VSLAM_VSLAM_TYPES_CONVERSION_H
 
-#include <refactoring/vslam_basic_types_refactor.h>
+#include <refactoring/types/vslam_basic_types_refactor.h>
 #include <vslam_math_util.h>
 
 namespace vslam_types_refactor {
@@ -47,7 +47,7 @@ Position3d<NumType> extractPosition(const RawPose3d<NumType> &raw_pose) {
 
 template <typename NumType>
 void extractOrientation(const RawPose3d<NumType> &raw_pose,
-                     Orientation3D<NumType> &orientation) {
+                        Orientation3D<NumType> &orientation) {
   vslam_util::VectorToAxisAngle(raw_pose.template bottomRows<3>(), orientation);
 }
 
@@ -59,7 +59,8 @@ Orientation3D<NumType> extractOrientation(const RawPose3d<NumType> &raw_pose) {
 }
 
 template <typename NumType>
-void convertToPose3D(const RawPose3d<NumType> &raw_pose, Pose3D<NumType> &pose) {
+void convertToPose3D(const RawPose3d<NumType> &raw_pose,
+                     Pose3D<NumType> &pose) {
   extractPosition(raw_pose, pose.transl_);
   extractOrientation(raw_pose, pose.orientation_);
 }

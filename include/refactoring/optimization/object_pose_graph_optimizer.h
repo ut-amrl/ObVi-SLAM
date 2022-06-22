@@ -8,8 +8,8 @@
 #include <base_lib/basic_utils.h>
 #include <ceres/ceres.h>
 #include <glog/logging.h>
-#include <refactoring/object_pose_graph.h>
-#include <refactoring/optimization_solver_params.h>
+#include <refactoring/optimization/object_pose_graph.h>
+#include <refactoring/optimization/optimization_solver_params.h>
 
 namespace pose_graph_optimizer {
 
@@ -114,25 +114,28 @@ class ObjectPoseGraphOptimizer {
   ObjectPoseGraphOptimizer(
       const std::function<
           bool(const std::pair<vslam_types_refactor::FactorType,
-                               vslam_types_refactor::FeatureFactorId>,
+                               vslam_types_refactor::FeatureFactorId> &,
                const std::shared_ptr<
                    vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-                       VisualFeatureFactorType>> &pose_graph,
-               const CachedFactorInfo &factor_info)> &refresh_residual_checker,
-      const std::function<
-          bool(const std::pair<vslam_types_refactor::FactorType,
-                               vslam_types_refactor::FeatureFactorId>,
-               const std::shared_ptr<
-                   vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-                       VisualFeatureFactorType>> &pose_graph,
-               ceres::Problem *,
-               ceres::ResidualBlockId &,
-               CachedFactorInfo &factor_info)> &residual_creator)
+                       VisualFeatureFactorType>> &,
+               const CachedFactorInfo &)> &refresh_residual_checker,
+      const std::function<bool(
+          const std::pair<vslam_types_refactor::FactorType,
+                          vslam_types_refactor::FeatureFactorId> &,
+          const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
+          const std::shared_ptr<
+              vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
+                  VisualFeatureFactorType>> &pose_graph,
+          ceres::Problem *,
+          ceres::ResidualBlockId &,
+          CachedFactorInfo &)> &residual_creator)
       : refresh_residual_checker_(refresh_residual_checker),
         residual_creator_(residual_creator) {}
 
   void buildPoseGraphOptimization(
       const OptimizationScopeParams &optimization_scope,
+      const pose_graph_optimization::ObjectVisualPoseGraphResidualParams
+          &residual_params,
       std::shared_ptr<vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
           VisualFeatureFactorType>> &pose_graph,
       ceres::Problem *problem) {
@@ -260,7 +263,7 @@ class ObjectPoseGraphOptimizer {
     // Add residual blocks that are required but not added and refresh any that
     // exist but are stale
     addOrRefreshResidualBlocksForRequiredFactors(
-        required_feature_factors, pose_graph, problem);
+        residual_params, required_feature_factors, pose_graph, problem);
 
     if (fix_pose_param_blocks) {
       // Set all pose param blocks constant
@@ -431,20 +434,22 @@ class ObjectPoseGraphOptimizer {
 
   // TODO include pose graph in the signature?
   std::function<bool(const std::pair<vslam_types_refactor::FactorType,
-                                     vslam_types_refactor::FeatureFactorId>,
+                                     vslam_types_refactor::FeatureFactorId> &,
                      const std::shared_ptr<
                          vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-                             VisualFeatureFactorType>> &pose_graph,
-                     const CachedFactorInfo &factor_info)>
+                             VisualFeatureFactorType>> &,
+                     const CachedFactorInfo &)>
       refresh_residual_checker_;
-  std::function<bool(const std::pair<vslam_types_refactor::FactorType,
-                                     vslam_types_refactor::FeatureFactorId>,
-                     const std::shared_ptr<
-                         vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
-                             VisualFeatureFactorType>> &pose_graph,
-                     ceres::Problem *,
-                     ceres::ResidualBlockId &,
-                     CachedFactorInfo &factor_info)>
+  std::function<bool(
+      const std::pair<vslam_types_refactor::FactorType,
+                      vslam_types_refactor::FeatureFactorId> &,
+      const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
+      const std::shared_ptr<
+          vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
+              VisualFeatureFactorType>> &,
+      ceres::Problem *,
+      ceres::ResidualBlockId &,
+      CachedFactorInfo &)>
       residual_creator_;
 
   template <typename IdentifierType>
@@ -552,6 +557,8 @@ class ObjectPoseGraphOptimizer {
   }
 
   void addOrRefreshResidualBlocksForRequiredFactors(
+      const pose_graph_optimization::ObjectVisualPoseGraphResidualParams
+          &residual_params,
       const std::unordered_map<
           vslam_types_refactor::FactorType,
           std::unordered_set<vslam_types_refactor::FeatureFactorId>>
@@ -595,6 +602,7 @@ class ObjectPoseGraphOptimizer {
           ceres::ResidualBlockId residual_id;
           CachedFactorInfo cached_info;
           bool residual_success = residual_creator_(factor_type_id_pair,
+                                                    residual_params,
                                                     pose_graph,
                                                     problem,
                                                     residual_id,

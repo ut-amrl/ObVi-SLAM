@@ -116,7 +116,7 @@ void AddEllipsoidFactors(
     vslam_types::CameraExtrinsics extrinsics =
         slam_problem.camera_extrinsics_by_camera[bounding_box.camera_id];
     vslam_types::CameraIntrinsics intrinsics =
-        slam_problem.camera_instrinsics_by_camera[bounding_box.camera_id];
+        slam_problem.camera_intrinsics_by_camera[bounding_box.camera_id];
 
     ceres::ResidualBlockId residual_block = ceres_problem.AddResidualBlock(
         BoundingBoxFactor::createBoundingBoxFactor(

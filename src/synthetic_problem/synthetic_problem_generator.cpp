@@ -407,7 +407,7 @@ createEllipsoidOnlySyntheticProblemFromEllipsoidsAndCameraPoses(
   slam_problem.ellipsoid_estimates = noisy_ellipsoid_estimates;
   slam_problem.robot_poses = noisy_robot_poses;
   slam_problem.bounding_boxes = gt_and_noisy_bounding_boxes.second;
-  slam_problem.camera_instrinsics_by_camera = intrinsics;
+  slam_problem.camera_intrinsics_by_camera = intrinsics;
   slam_problem.camera_extrinsics_by_camera = extrinsics;
 
   vslam_solver::ObjectSlamProblemParams object_slam_params;
