@@ -253,6 +253,7 @@ bool createResidual(
   } else if (factor_info.first == kObjectObservationFactorTypeId) {
     return createObjectObservationResidual(factor_info.second,
                                            pose_graph,
+                                           residual_params,
                                            cached_info_creator,
                                            problem,
                                            residual_id,
@@ -261,6 +262,7 @@ bool createResidual(
   } else if (factor_info.first == kReprojectionErrorFactorTypeId) {
     return createReprojectionErrorResidual(factor_info.second,
                                            pose_graph,
+                                           residual_params,
                                            cached_info_creator,
                                            problem,
                                            residual_id,
@@ -268,6 +270,7 @@ bool createResidual(
   } else if (factor_info.first == kShapeDimPriorFactorTypeId) {
     return createObjectShapeDimPriorResidual(factor_info.second,
                                              pose_graph,
+                                             residual_params,
                                              cached_info_creator,
                                              problem,
                                              residual_id,

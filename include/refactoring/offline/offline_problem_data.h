@@ -84,7 +84,7 @@ struct StructuredVisionFeatureTrack {
 template <typename FeatureTrackType>
 class AbstractOfflineProblemData {
  public:
-  FrameId getMaxFrameId() { return max_frame_id_; }
+  FrameId getMaxFrameId() const { return max_frame_id_; }
 
   std::unordered_map<CameraId, CameraIntrinsicsMat<double>>
   getCameraIntrinsicsByCamera() const {
