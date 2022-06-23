@@ -5,7 +5,7 @@
 #ifndef UT_VSLAM_POSE_GRAPH_FRAME_DATA_ADDER_H
 #define UT_VSLAM_POSE_GRAPH_FRAME_DATA_ADDER_H
 
-#include <refactoring/bounding_box_front_end.h>
+#include <refactoring/bounding_box_frontend/bounding_box_front_end.h>
 #include <refactoring/offline/offline_problem_data.h>
 #include <refactoring/optimization/object_pose_graph.h>
 

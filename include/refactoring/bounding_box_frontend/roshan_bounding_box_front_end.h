@@ -6,7 +6,7 @@
 #define UT_VSLAM_ROSHAN_BOUNDING_BOX_FRONT_END_H
 
 #include <cv_bridge/cv_bridge.h>
-#include <refactoring/bounding_box_front_end.h>
+#include <refactoring/bounding_box_frontend/bounding_box_front_end.h>
 #include <refactoring/types/vslam_types_math_util.h>
 #include <sensor_msgs/Image.h>
 
