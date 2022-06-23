@@ -75,8 +75,8 @@ target_compile_features(ut_vslam PRIVATE cxx_std_17)
 #ROSBUILD_ADD_EXECUTABLE(structured_main src/structured_main.cpp)
 #target_link_libraries(structured_main ut_vslam ${LIBS})
 #
-#ROSBUILD_ADD_EXECUTABLE(ellipsoid_estimator_main src/ellipsoid_estimator_main.cpp)
-#target_link_libraries(ellipsoid_estimator_main ut_vslam ${LIBS})
+ROSBUILD_ADD_EXECUTABLE(ellipsoid_estimator_main src/ellipsoid_estimator_main.cpp)
+target_link_libraries(ellipsoid_estimator_main ut_vslam ${LIBS})
 
 ROSBUILD_ADD_EXECUTABLE(ellipsoid_estimator_real_data_main src/ellipsoid_estimator_real_data_main.cpp)
 target_link_libraries(ellipsoid_estimator_real_data_main ut_vslam ${LIBS})
@@ -87,6 +87,6 @@ target_link_libraries(offline_object_visual_slam_main ut_vslam ${LIBS})
 #
 #ROSBUILD_ADD_EXECUTABLE(approx_depth_bounding_box_extractor src/data_preprocessing_utils/approx_depth_bounding_box_extractor.cpp)
 #target_link_libraries(approx_depth_bounding_box_extractor ut_vslam ${LIBS})
-#
-#ROSBUILD_ADD_EXECUTABLE(localization_rosbag_extraction_and_interpolation_for_bounding_boxes src/data_preprocessing_utils/localization_rosbag_extraction_and_interpolation_for_bounding_boxes.cpp)
-#target_link_libraries(localization_rosbag_extraction_and_interpolation_for_bounding_boxes ut_vslam ${LIBS})
+
+ROSBUILD_ADD_EXECUTABLE(localization_rosbag_extraction_and_interpolation_for_bounding_boxes src/data_preprocessing_utils/localization_rosbag_extraction_and_interpolation_for_bounding_boxes.cpp)
+target_link_libraries(localization_rosbag_extraction_and_interpolation_for_bounding_boxes ut_vslam ${LIBS})
