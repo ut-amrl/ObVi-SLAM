@@ -22,10 +22,14 @@ DEFINE_string(
     localization_topic,
     "/Cobot/AmrlLocalization",
     "Topic name for localization (assumes amrl_msgs/Localization2DMsg");
-DEFINE_string(bb_by_timestamp_file,
+DEFINE_string(bb_by_timestamp_file_with_association,
               "",
               "File name that contains bounding boxes by timestamp (already "
               "data associated)");
+DEFINE_string(
+    bb_by_timestamp_file_no_association,
+    "",
+    "File name that contains bounding boxes by timestamp (not associated)");
 DEFINE_string(bb_by_node_out_file,
               "",
               "File name to write bounding boxes by node id");
@@ -64,49 +68,18 @@ struct timestamp_sort {
   }
 };
 
-int main(int argc, char **argv) {
-  google::ParseCommandLineFlags(&argc, &argv, false);
-
-  google::InitGoogleLogging(argv[0]);
-  FLAGS_logtostderr = true;
-
-  std::string param_prefix = FLAGS_param_prefix;
-  std::string node_prefix = FLAGS_param_prefix;
-  if (!param_prefix.empty()) {
-    param_prefix = "/" + param_prefix + "/";
-    node_prefix += "_";
-  }
-  LOG(INFO) << "Prefix: " << param_prefix;
-
-  ros::init(
-      argc, argv, node_prefix + "wheel_odom_rosbag_extractor_semantic_points");
-  ros::NodeHandle n;
-
-  if (FLAGS_rosbag_file_name.empty()) {
-    LOG(INFO) << "No rosbag file provided for localization estimates ";
-    exit(1);
-  }
-
-  if (FLAGS_bb_by_timestamp_file.empty()) {
-    LOG(INFO) << "No bounding box by timestamp file provided";
-    exit(1);
-  }
-
-  if (FLAGS_bb_by_node_out_file.empty()) {
-    LOG(INFO) << "No bounding box by node file provided";
-    exit(1);
-  }
-
-  if (FLAGS_localization_est_out_file.empty()) {
-    LOG(INFO) << "No bounding box by node file provided";
-    exit(1);
-  }
-
-  if (FLAGS_timestamp_by_node_id_file.empty()) {
-    LOG(INFO) << "No bounding box by node file provided";
-    exit(1);
-  }
-
+template <typename BbByTimestampType, typename BbByNodeType>
+void interpolateTimestamps(
+    const std::string &bb_by_timestamp_file_name,
+    const std::function<void(const std::string &,
+                             std::vector<BbByTimestampType> &)>
+        &bb_by_timestamp_reader,
+    const std::string &bb_by_node_file_name,
+    const std::function<BbByNodeType(
+        const BbByTimestampType &, const uint64_t &node_id)> bb_by_node_creator,
+    const std::function<void(const std::string &,
+                             const std::vector<BbByNodeType> &)>
+        &bb_out_writer) {
   rosbag::Bag bag;
   bag.open(FLAGS_rosbag_file_name, rosbag::bagmode::Read);
 
@@ -142,14 +115,23 @@ int main(int argc, char **argv) {
             << full_timestamps.back().second;
 
   std::unordered_set<Timestamp, pair_hash> bounding_boxes_timestamp_set;
-  LOG(INFO) << "Getting timestamps from file " << FLAGS_bb_by_timestamp_file;
-  std::vector<file_io::BoundingBoxWithTimestampAndId>
-      bounding_boxes_by_timestamp;
-  file_io::readBoundingBoxWithTimestampAndIdsFromFile(
-      FLAGS_bb_by_timestamp_file, bounding_boxes_by_timestamp);
+//  LOG(INFO) << "Getting timestamps from file "
+//            << FLAGS_bb_by_timestamp_file_with_association;
+  //  std::vector<file_io::BoundingBoxWithTimestampAndId>
+  //      bounding_boxes_by_timestamp;
+  //  file_io::readBoundingBoxWithTimestampAndIdsFromFile(
+  //      FLAGS_bb_by_timestamp_file_with_association,
+  //      bounding_boxes_by_timestamp);
 
-  for (const file_io::BoundingBoxWithTimestampAndId
-           &bounding_box_with_timestamp : bounding_boxes_by_timestamp) {
+  std::vector<BbByTimestampType> bounding_boxes_by_timestamp;
+  bb_by_timestamp_reader(bb_by_timestamp_file_name,
+                         bounding_boxes_by_timestamp);
+
+  //  for (const file_io::BoundingBoxWithTimestampAndId
+  //           &bounding_box_with_timestamp : bounding_boxes_by_timestamp) {
+
+  for (const BbByTimestampType &bounding_box_with_timestamp :
+       bounding_boxes_by_timestamp) {
     bounding_boxes_timestamp_set.insert(
         std::make_pair(bounding_box_with_timestamp.seconds,
                        bounding_box_with_timestamp.nano_seconds));
@@ -287,23 +269,31 @@ int main(int argc, char **argv) {
   bag.close();
 
   // Write bounding boxes by node id to file
-  std::vector<file_io::BoundingBoxWithNodeIdAndId> bounding_boxes_with_node_id;
-  for (const file_io::BoundingBoxWithTimestampAndId &bounding_box :
-       bounding_boxes_by_timestamp) {
-    file_io::BoundingBoxWithNodeIdAndId bb_with_node;
-    bb_with_node.semantic_class = bounding_box.semantic_class;
-    bb_with_node.min_pixel_x = bounding_box.min_pixel_x;
-    bb_with_node.min_pixel_y = bounding_box.min_pixel_y;
-    bb_with_node.max_pixel_x = bounding_box.max_pixel_x;
-    bb_with_node.max_pixel_y = bounding_box.max_pixel_y;
-    bb_with_node.ellipsoid_idx = bounding_box.ellipsoid_idx;
-    bb_with_node.camera_id = bounding_box.camera_id;
-    bb_with_node.node_id = nodes_by_timestamp[std::make_pair(
-        bounding_box.seconds, bounding_box.nano_seconds)];
-    bounding_boxes_with_node_id.emplace_back(bb_with_node);
+  //  std::vector<file_io::BoundingBoxWithNodeIdAndId>
+  //  bounding_boxes_with_node_id;
+  std::vector<BbByNodeType> bounding_boxes_with_node_id;
+  //  for (const file_io::BoundingBoxWithTimestampAndId &bounding_box :
+  //       bounding_boxes_by_timestamp) {
+  for (const BbByTimestampType &bounding_box : bounding_boxes_by_timestamp) {
+    //    file_io::BoundingBoxWithNodeIdAndId bb_with_node;
+    //    bb_with_node.semantic_class = bounding_box.semantic_class;
+    //    bb_with_node.min_pixel_x = bounding_box.min_pixel_x;
+    //    bb_with_node.min_pixel_y = bounding_box.min_pixel_y;
+    //    bb_with_node.max_pixel_x = bounding_box.max_pixel_x;
+    //    bb_with_node.max_pixel_y = bounding_box.max_pixel_y;
+    //    bb_with_node.ellipsoid_idx = bounding_box.ellipsoid_idx;
+    //    bb_with_node.camera_id = bounding_box.camera_id;
+    //    bb_with_node.node_id = nodes_by_timestamp[std::make_pair(
+    //        bounding_box.seconds, bounding_box.nano_seconds)];
+    //    bounding_boxes_with_node_id.emplace_back(bb_with_node);
+    bounding_boxes_with_node_id.emplace_back(bb_by_node_creator(
+        bounding_box,
+        nodes_by_timestamp[std::make_pair(bounding_box.seconds,
+                                          bounding_box.nano_seconds)]));
   }
-  file_io::writeBoundingBoxWithNodeIdAndIdsToFile(FLAGS_bb_by_node_out_file,
-                                                  bounding_boxes_with_node_id);
+  //  file_io::writeBoundingBoxWithNodeIdAndIdsToFile(FLAGS_bb_by_node_out_file,
+  //                                                  bounding_boxes_with_node_id);
+  bb_out_writer(bb_by_node_file_name, bounding_boxes_with_node_id);
 
   LOG(INFO) << "Trajectory nodes size " << poses_rel_to_origin.size();
   std::vector<std::pair<uint64_t, pose::Pose3d>> pose_3ds_with_nodes;
@@ -329,6 +319,111 @@ int main(int argc, char **argv) {
               << nodes_with_timestamps.size() << ", num poses "
               << poses_rel_to_origin.size();
   }
+}
 
+int main(int argc, char **argv) {
+  google::ParseCommandLineFlags(&argc, &argv, false);
+
+  google::InitGoogleLogging(argv[0]);
+  FLAGS_logtostderr = true;
+
+  std::string param_prefix = FLAGS_param_prefix;
+  std::string node_prefix = FLAGS_param_prefix;
+  if (!param_prefix.empty()) {
+    param_prefix = "/" + param_prefix + "/";
+    node_prefix += "_";
+  }
+  LOG(INFO) << "Prefix: " << param_prefix;
+
+  ros::init(
+      argc, argv, node_prefix + "wheel_odom_rosbag_extractor_semantic_points");
+  ros::NodeHandle n;
+
+  if (FLAGS_rosbag_file_name.empty()) {
+    LOG(INFO) << "No rosbag file provided for localization estimates ";
+    exit(1);
+  }
+
+  if (FLAGS_bb_by_timestamp_file_with_association.empty() &&
+      FLAGS_bb_by_timestamp_file_no_association.empty()) {
+    LOG(INFO) << "No bounding box by timestamp file provided";
+    exit(1);
+  }
+
+  if (FLAGS_bb_by_node_out_file.empty()) {
+    LOG(INFO) << "No bounding box by node file provided";
+    exit(1);
+  }
+
+  if (FLAGS_localization_est_out_file.empty()) {
+    LOG(INFO) << "No bounding box by node file provided";
+    exit(1);
+  }
+
+  if (FLAGS_timestamp_by_node_id_file.empty()) {
+    LOG(INFO) << "No bounding box by node file provided";
+    exit(1);
+  }
+
+  if (!FLAGS_bb_by_timestamp_file_with_association.empty()) {
+    //  std::vector<file_io::BoundingBoxWithTimestampAndId>
+    //      bounding_boxes_by_timestamp;
+    //  file_io::readBoundingBoxWithTimestampAndIdsFromFile(
+    //      FLAGS_bb_by_timestamp_file_with_association,
+    //      bounding_boxes_by_timestamp);
+
+  LOG(INFO) << "Getting timestamps from file "
+            << FLAGS_bb_by_timestamp_file_with_association;
+    std::function<file_io::BoundingBoxWithNodeIdAndId(
+        const file_io::BoundingBoxWithTimestampAndId &,
+        const uint64_t &node_id)>
+        bb_by_node_creator =
+            [](const file_io::BoundingBoxWithTimestampAndId &bb_with_timestamp,
+               const uint64_t &node_id) {
+              file_io::BoundingBoxWithNodeIdAndId bb_with_node;
+              bb_with_node.semantic_class = bb_with_timestamp.semantic_class;
+              bb_with_node.min_pixel_x = bb_with_timestamp.min_pixel_x;
+              bb_with_node.min_pixel_y = bb_with_timestamp.min_pixel_y;
+              bb_with_node.max_pixel_x = bb_with_timestamp.max_pixel_x;
+              bb_with_node.max_pixel_y = bb_with_timestamp.max_pixel_y;
+              bb_with_node.ellipsoid_idx = bb_with_timestamp.ellipsoid_idx;
+              bb_with_node.camera_id = bb_with_timestamp.camera_id;
+              bb_with_node.node_id = node_id;
+              return bb_with_node;
+            };
+    interpolateTimestamps<file_io::BoundingBoxWithTimestampAndId,
+                          file_io::BoundingBoxWithNodeIdAndId>(
+        FLAGS_bb_by_timestamp_file_with_association,
+        file_io::readBoundingBoxWithTimestampAndIdsFromFile,
+        FLAGS_bb_by_node_out_file,
+        bb_by_node_creator,
+        file_io::writeBoundingBoxWithNodeIdAndIdsToFile);
+  } else {
+
+    LOG(INFO) << "Getting timestamps from file "
+              << FLAGS_bb_by_timestamp_file_no_association;
+    std::function<file_io::BoundingBoxWithNodeId(
+        const file_io::BoundingBoxWithTimestamp &, const uint64_t &node_id)>
+        bb_by_node_creator =
+            [](const file_io::BoundingBoxWithTimestamp &bb_with_timestamp,
+               const uint64_t &node_id) {
+              file_io::BoundingBoxWithNodeId bb_with_node;
+              bb_with_node.semantic_class = bb_with_timestamp.semantic_class;
+              bb_with_node.min_pixel_x = bb_with_timestamp.min_pixel_x;
+              bb_with_node.min_pixel_y = bb_with_timestamp.min_pixel_y;
+              bb_with_node.max_pixel_x = bb_with_timestamp.max_pixel_x;
+              bb_with_node.max_pixel_y = bb_with_timestamp.max_pixel_y;
+              bb_with_node.camera_id = bb_with_timestamp.camera_id;
+              bb_with_node.node_id = node_id;
+              return bb_with_node;
+            };
+    interpolateTimestamps<file_io::BoundingBoxWithTimestamp,
+                          file_io::BoundingBoxWithNodeId>(
+        FLAGS_bb_by_timestamp_file_no_association,
+        file_io::readBoundingBoxWithTimestampsFromFile,
+        FLAGS_bb_by_node_out_file,
+        bb_by_node_creator,
+        file_io::writeBoundingBoxesWithNodeIdToFile);
+  }
   return 0;
 }
