@@ -23,7 +23,7 @@ struct RoshanBbAssociationParams {
 };
 
 struct RoshanImageSummaryInfo {
-  cv::Mat hsv_img_;
+  std::optional<cv::Mat> hsv_img_ = std::nullopt;
 };
 
 struct RoshanBbInfo {
@@ -40,7 +40,7 @@ template <typename VisualFeatureFactorType>
 class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
                              VisualFeatureFactorType,
                              RoshanAggregateBbInfo,
-                             sensor_msgs::Image::ConstPtr,
+                             std::optional<sensor_msgs::Image::ConstPtr>,
                              RoshanImageSummaryInfo,
                              RoshanBbInfo> {
  public:
@@ -56,7 +56,7 @@ class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
           &covariance_generator)
       : AbstractUnknownDataAssociationBbFrontEnd<VisualFeatureFactorType,
                                     RoshanAggregateBbInfo,
-                                    sensor_msgs::Image::ConstPtr,
+                                    std::optional<sensor_msgs::Image::ConstPtr>,
                                     RoshanImageSummaryInfo,
                                     RoshanBbInfo>(pose_graph),
         association_params_(association_params),
@@ -79,7 +79,7 @@ class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
                      bb.pixel_corner_locations_.first.y(),
                      bb_dim.x(),
                      bb_dim.y());
-    cv::Mat bb_img = refined_context.hsv_img_(bb_rect);
+    cv::Mat bb_img = (refined_context.hsv_img_.value())(bb_rect);
     RoshanBbInfo bb_info;
     int hist_size[] = {association_params_.hue_histogram_bins,
                        association_params_.saturation_histogram_bins};
@@ -179,22 +179,29 @@ class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
       const CameraId &camera_id,
       const RawBoundingBox &bounding_box,
       const std::vector<AssociatedObjectIdentifier> &candidate_matches) override {
+    if (candidate_matches.empty()) {
+      return {};
+    }
     std::vector<AssociatedObjectIdentifier> pruned_candidates;
+    std::optional<EllipsoidEstimateNode> raw_est = std::nullopt;
     for (const AssociatedObjectIdentifier &candidate : candidate_matches) {
       if (!candidate.initialized_ellipsoid_) {
         continue;
       }
-      EllipsoidEstimateNode raw_est;
-      if (!initializeEllipsoid(
-              frame_id,
-              camera_id,
-              bounding_box.semantic_class_,
-              cornerLocationsPairToVector(bounding_box.pixel_corner_locations_),
-              raw_est)) {
-        continue;
+
+      if (!raw_est.has_value()) {
+        raw_est = std::make_optional(EllipsoidEstimateNode());
+        if (!initializeEllipsoid(frame_id,
+                                 camera_id,
+                                 bounding_box.semantic_class_,
+                                 cornerLocationsPairToVector(
+                                     bounding_box.pixel_corner_locations_),
+                                 *raw_est)) {
+          return {};
+        }
       }
       EllipsoidState<double> ellipsoid_state =
-          convertToEllipsoidState(*(raw_est.ellipsoid_));
+          convertToEllipsoidState(*(raw_est.value().ellipsoid_));
       std::optional<EllipsoidState<double>> candidate_ellispoid_state_opt =
           RoshanBbFrontEnd::pose_graph_->getEllipsoidEst(candidate.object_id_);
       if (!candidate_ellispoid_state_opt.has_value()) {
@@ -247,6 +254,7 @@ class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
           &match_candidates_with_scores) override {
     // TODO for now we're just doing this more or less greedily. Should change
     //  to find best overall matching
+    LOG(INFO) << "Candidates with scores size " << match_candidates_with_scores.size();
     std::vector<
         std::pair<uint64_t, std::pair<AssociatedObjectIdentifier, double>>>
         flattened_scores;
@@ -291,6 +299,7 @@ class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
     std::vector<AssociatedObjectIdentifier> final_assignments;
     for (size_t bb_idx = 0; bb_idx < match_candidates_with_scores.size();
          bb_idx++) {
+      LOG(INFO) << "Computing final assignment for bb " << bb_idx;
       if (assignments_map.find(bb_idx) != assignments_map.end()) {
         final_assignments.emplace_back(assignments_map.at(bb_idx));
       } else {
@@ -305,15 +314,22 @@ class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
   }
 
   virtual RoshanImageSummaryInfo generateRefinedBbContextInfo(
-      const sensor_msgs::Image::ConstPtr &bb_context,
+      const std::optional<sensor_msgs::Image::ConstPtr> &bb_context,
       const FrameId &frame_id,
       const CameraId &camera_id) override {
-    // TODO is this the right way to specify encoding?
-    cv_bridge::CvImageConstPtr cv_img =
-        cv_bridge::toCvShare(bb_context, "bgr8");
     RoshanImageSummaryInfo summary_info;
-    // TODO is this the right code to switch to HSV?
-    cv::cvtColor(cv_img->image, summary_info.hsv_img_, cv::COLOR_BGR2HSV);
+    LOG(INFO) << "Checking for value";
+    if (bb_context.has_value()) {
+      // TODO is this the right way to specify encoding?
+      LOG(INFO) << "Converting to cv image";
+      cv_bridge::CvImageConstPtr cv_img =
+          cv_bridge::toCvShare(bb_context.value(), "bgr8");
+      summary_info.hsv_img_ = std::make_optional(cv::Mat());
+      LOG(INFO) << "Converting to HSV image";
+      // TODO is this the right code to switch to HSV?
+      cv::cvtColor(cv_img->image, *(summary_info.hsv_img_), cv::COLOR_BGR2HSV);
+      LOG(INFO) << "Got HSV image";
+    }
     return summary_info;
   }
 
@@ -321,7 +337,7 @@ class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
       const vslam_types_refactor::FrameId &frame_id,
       const vslam_types_refactor::CameraId &camera_id,
       const std::vector<RawBoundingBox> &bounding_boxes,
-      const sensor_msgs::Image::ConstPtr &raw_bb_context,
+      const std::optional<sensor_msgs::Image::ConstPtr> &raw_bb_context,
       const RoshanImageSummaryInfo &refined_bb_context) override {}
 
   virtual void cleanupBbAssociationRound(
@@ -339,11 +355,13 @@ class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
       return false;
     }
 
-    return initializeEllipsoid(factors.front().frame_id_,
+    bool init_result = initializeEllipsoid(factors.front().frame_id_,
                                factors.front().camera_id_,
                                semantic_class,
                                factors.front().bounding_box_corners_,
                                ellipsoid_est);
+    LOG(INFO) << "Init result " << init_result;
+    return init_result;
   }
 
  private:
@@ -373,6 +391,7 @@ class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
       const std::string &semantic_class,
       const BbCorners<double> &bb,
       vslam_types_refactor::EllipsoidEstimateNode &ellipsoid_est) {
+    LOG(INFO) << "In initializing, getting mean dim for semantic class " << semantic_class;
     std::optional<ObjectDim<double>> mean_dim_for_class =
         RoshanBbFrontEnd::pose_graph_->getShapeDimMean(semantic_class);
 
@@ -383,10 +402,13 @@ class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
       return false;
     }
     ObjectDim<double> dim = mean_dim_for_class.value();
+    LOG(INFO) << "Getting intrinsics";
     CameraIntrinsicsMat<double> intrinsics;
     RoshanBbFrontEnd::pose_graph_->getIntrinsicsForCamera(camera_id,
                                                           intrinsics);
+    LOG(INFO) << "Got intrinsics";
     BbCornerPair<double> bb_pair = cornerLocationsVectorToPair(bb);
+    LOG(INFO) << "Geting depth";
     double depth = getObjectDepth(bb_pair, dim, intrinsics(1, 1));
     PixelCoord<double> bb_center = (bb_pair.first + bb_pair.second) / 2;
     Eigen::Vector3d bb_center_homogeneous(bb_center.x(), bb_center.y(), 1);
@@ -401,12 +423,16 @@ class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
       return false;
     }
     Pose3D<double> robot_pose = convertToPose3D(raw_robot_pose.value());
+    LOG(INFO) << "Getting extrinsics";
     CameraExtrinsics<double> extrinsics;
     RoshanBbFrontEnd::pose_graph_->getExtrinsicsForCamera(camera_id,
                                                           extrinsics);
+    LOG(INFO) << "Got extrinsics";
     Pose3D<double> camera_pose = combinePoses(robot_pose, extrinsics);
     Pose3D<double> global_pose = combinePoses(camera_pose, pose_rel_to_cam);
+    LOG(INFO) << "Setting ellipsoid est";
     ellipsoid_est.updateEllipsoidParams(convertPoseToArray(global_pose), dim);
+    LOG(INFO) << "Initialized";
     return true;
   }
 };
@@ -428,7 +454,7 @@ class RoshanBbFrontEndCreator {
   std::shared_ptr<
       AbstractUnknownDataAssociationBbFrontEnd<VisualFeatureFactorType,
                                                RoshanAggregateBbInfo,
-                                               sensor_msgs::Image::ConstPtr,
+                                               std::optional<sensor_msgs::Image::ConstPtr>,
                                                RoshanImageSummaryInfo,
                                                RoshanBbInfo>>
   getDataAssociator(const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph>
@@ -453,7 +479,7 @@ class RoshanBbFrontEndCreator {
   std::shared_ptr<
       AbstractUnknownDataAssociationBbFrontEnd<VisualFeatureFactorType,
                                                RoshanAggregateBbInfo,
-                                               sensor_msgs::Image::ConstPtr,
+                                               std::optional<sensor_msgs::Image::ConstPtr>,
                                                RoshanImageSummaryInfo,
                                                RoshanBbInfo>>
       roshan_front_end_;

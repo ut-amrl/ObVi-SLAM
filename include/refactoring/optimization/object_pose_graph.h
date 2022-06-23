@@ -17,17 +17,19 @@ static const FactorType kObjectObservationFactorTypeId = 2;
 static const FactorType kShapeDimPriorFactorTypeId = 3;
 
 struct EllipsoidEstimateNode {
-  vslam_types_refactor::RawEllipsoidPtr<double> ellipsoid_;
+  RawEllipsoidPtr<double> ellipsoid_;
 
-  EllipsoidEstimateNode() = default;
+  EllipsoidEstimateNode()
+      : ellipsoid_(std::make_shared<RawEllipsoid<double>>()) {}
 
   EllipsoidEstimateNode(const RawPose3d<double> &pose,
-                        const ObjectDim<double> &dimensions) {
+                        const ObjectDim<double> &dimensions)
+      : EllipsoidEstimateNode() {
     updateEllipsoidParams(pose, dimensions);
   }
 
-  EllipsoidEstimateNode(const RawEllipsoid<double> &raw_ellipsoid_data) {
-    updateEllipsoidParams(raw_ellipsoid_data);
+  EllipsoidEstimateNode(const RawEllipsoid<double> &raw_ellipsoid_data)
+      : ellipsoid_(std::make_shared<RawEllipsoid<double>>(raw_ellipsoid_data)) {
   }
 
   void updatePoseData(const RawPose3d<double> &pose) {
@@ -277,8 +279,11 @@ class ObjAndLowLevelFeaturePoseGraph
       const FrameId &min_frame_id,
       const FrameId &max_frame_id,
       std::unordered_set<ObjectId> &matching_objects) {
+    LOG(INFO) << "Target range: " << min_frame_id << ", " << max_frame_id;
     for (const auto &object_id_and_most_recent_frame :
          last_observed_frame_by_object_) {
+      LOG(INFO) << "Object observation at frame "
+                << object_id_and_most_recent_frame.second;
       if (object_id_and_most_recent_frame.second >= min_frame_id) {
         if (first_observed_frame_by_object_.find(
                 object_id_and_most_recent_frame.first) !=
@@ -365,6 +370,12 @@ class ObjAndLowLevelFeaturePoseGraph
 
   virtual std::optional<ObjectDim<double>> getShapeDimMean(
       const std::string &semantic_class) {
+    LOG(INFO) << "Mean and cov size? "
+              << mean_and_cov_by_semantic_class_.size();
+    LOG(INFO) << "Available classes ";
+    for (const auto &sem_class_and_data : mean_and_cov_by_semantic_class_) {
+      LOG(INFO) << sem_class_and_data.first;
+    }
     if (mean_and_cov_by_semantic_class_.find(semantic_class) ==
         mean_and_cov_by_semantic_class_.end()) {
       return {};

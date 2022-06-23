@@ -101,7 +101,6 @@ readBoundingBoxesFromFile(const std::string &file_name) {
   std::vector<file_io::BoundingBoxWithNodeId> bounding_boxes_by_node_id;
   file_io::readBoundingBoxesWithNodeIdFromFile(file_name,
                                                bounding_boxes_by_node_id);
-
   std::unordered_map<
       vtr::FrameId,
       std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>>
@@ -156,10 +155,12 @@ getImagesFromRosbag(const std::string &rosbag_file_name,
   // Read the images
   rosbag::Bag bag;
   bag.open(FLAGS_rosbag_file, rosbag::bagmode::Read);
+  // TODO do we want to make a new back with uncompressed images or handle the compression here?
 
   std::vector<std::string> topics;
   for (const auto &camera_topic_and_id : camera_topic_to_camera_id) {
     topics.emplace_back(camera_topic_and_id.first);
+    LOG(INFO) << "Checking topic " << camera_topic_and_id.first;
   }
 
   rosbag::View view(bag, rosbag::TopicQuery(topics));
@@ -169,14 +170,18 @@ getImagesFromRosbag(const std::string &rosbag_file_name,
       std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>>
       images_by_frame_and_cam;
   for (const rosbag::MessageInstance &m : view) {
+//    LOG(INFO) << "Checking image message";
     sensor_msgs::Image::ConstPtr msg = m.instantiate<sensor_msgs::Image>();
     pose::Timestamp img_timestamp =
         std::make_pair(msg->header.stamp.sec, msg->header.stamp.nsec);
     if (nodes_for_timestamps_map.find(img_timestamp) !=
         nodes_for_timestamps_map.end()) {
+//      LOG(INFO) << "Found image for timestamp ";
       vtr::CameraId cam = camera_topic_to_camera_id.at(m.getTopic());
       vtr::FrameId frame_id = nodes_for_timestamps_map[img_timestamp];
       images_by_frame_and_cam[frame_id][cam] = msg;
+    } else {
+//      LOG(INFO) << "No image for timestamp";
     }
   }
   return images_by_frame_and_cam;
@@ -286,8 +291,8 @@ int main(int argc, char **argv) {
       vslam_util::createDiagCovFromStdDevs(bounding_box_std_devs);
 
   // TODO read this from file
-  std::unordered_map<std::string, vtr::CameraId>
-      camera_topic_to_camera_id = {{"/camera/rgb/image_raw/", 0}};
+  std::unordered_map<std::string, vtr::CameraId> camera_topic_to_camera_id = {
+      {"/camera/rgb/image_raw", 0}};
 
   // Post-processing of the hard-coded values ---------------------------
   std::unordered_map<
@@ -381,7 +386,7 @@ int main(int argc, char **argv) {
             // part
             return 0.0;
           };
-  std::function<sensor_msgs::Image::ConstPtr(
+  std::function<std::optional<sensor_msgs::Image::ConstPtr>(
       const vtr::FrameId &,
       const vtr::CameraId &,
       const vtr::UnassociatedBoundingBoxOfflineProblemData<
@@ -393,6 +398,8 @@ int main(int argc, char **argv) {
              const vtr::UnassociatedBoundingBoxOfflineProblemData<
                  vtr::StructuredVisionFeatureTrack,
                  sensor_msgs::Image::ConstPtr> &problem_data) {
+            LOG(INFO) << "Getting image for frame " << frame_id
+                      << " and camera " << camera_id;
             return problem_data.getImageForFrameAndCamera(frame_id, camera_id);
           };
 
@@ -414,7 +421,7 @@ int main(int argc, char **argv) {
   std::function<std::shared_ptr<
       vtr::AbstractBoundingBoxFrontEnd<vtr::ReprojectionErrorFactor,
                                        vtr::RoshanAggregateBbInfo,
-                                       sensor_msgs::Image::ConstPtr,
+                                       std::optional<sensor_msgs::Image::ConstPtr>,
                                        vtr::RoshanImageSummaryInfo,
                                        vtr::RoshanBbInfo>>(
       const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph> &,
@@ -536,13 +543,26 @@ int main(int argc, char **argv) {
       std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>>
       bounding_boxes =
           readBoundingBoxesFromFile(FLAGS_bounding_boxes_by_node_id_file);
+  //  LOG(INFO) << "Bounding boxes for " << bounding_boxes.size() << " frames ";
   std::unordered_map<vtr::FrameId, vtr::Pose3D<double>> robot_poses =
       readRobotPosesFromFile(FLAGS_poses_by_node_id_file);
   std::unordered_map<
       vtr::FrameId,
       std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>>
-      images = getImagesFromRosbag(FLAGS_rosbag_file, FLAGS_nodes_by_timestamp_file,
+      images = getImagesFromRosbag(FLAGS_rosbag_file,
+                                   FLAGS_nodes_by_timestamp_file,
                                    camera_topic_to_camera_id);
+
+  LOG(INFO) << "Images for " << images.size() << " frames ";
+  for (const auto &img_pair : images) {
+    LOG(INFO) << "Frame " << img_pair.first << " has " << img_pair.second.size()
+              << " cameras ";
+    for (const auto &cam_img_pair : img_pair.second) {
+      LOG(INFO) << "Cam " << cam_img_pair.first;
+      break;
+    }
+    break;
+  }
 
   vtr::UnassociatedBoundingBoxOfflineProblemData<
       vtr::StructuredVisionFeatureTrack,
@@ -558,6 +578,8 @@ int main(int argc, char **argv) {
   vtr::OptimizationFactorsEnabledParams optimization_factors_enabled_params;
   optimization_factors_enabled_params.use_pom_ = false;
   optimization_factors_enabled_params.include_visual_factors_ = false;
+  optimization_factors_enabled_params.fix_poses_ = true;
+  optimization_factors_enabled_params.fix_objects_ = false;
   // TODO should we also optimize the poses?
 
   vtr::SpatialEstimateOnlyResults output_results;

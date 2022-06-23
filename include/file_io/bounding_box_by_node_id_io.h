@@ -6,6 +6,7 @@
 #define UT_VSLAM_BOUNDING_BOX_BY_NODE_ID_IO_H
 
 #include <file_io/file_io_utils.h>
+#include <boost/algorithm/string.hpp>
 
 #include <cstdint>
 #include <string>
@@ -36,11 +37,13 @@ struct BoundingBoxWithNodeId {
 
 std::vector<std::string> convertBoundingBoxWithNodeIdToStringList(
     const BoundingBoxWithNodeId &bounding_box) {
+  std::string sem_class = bounding_box.semantic_class;
+  boost::algorithm::trim(sem_class);
   return {std::to_string(bounding_box.min_pixel_x),
           std::to_string(bounding_box.min_pixel_y),
           std::to_string(bounding_box.max_pixel_x),
           std::to_string(bounding_box.max_pixel_y),
-          bounding_box.semantic_class,
+          sem_class,
           std::to_string(bounding_box.node_id),
           std::to_string(bounding_box.camera_id)};
 }
@@ -73,6 +76,7 @@ void readBoundingBoxWithNodeIdLine(
   bounding_box.max_pixel_y = std::stod(entries_in_file_line[list_idx++]);
 
   bounding_box.semantic_class = entries_in_file_line[list_idx++];
+  boost::algorithm::trim(bounding_box.semantic_class);
 
   std::istringstream node_id_stream(entries_in_file_line[list_idx++]);
   node_id_stream >> bounding_box.node_id;
@@ -116,12 +120,14 @@ struct BoundingBoxWithNodeIdAndId {
 
 std::vector<std::string> convertBoundingBoxWithNodeIdAndIdToStringList(
     const BoundingBoxWithNodeIdAndId &bounding_box) {
+  std::string sem_class = bounding_box.semantic_class;
+  boost::algorithm::trim(sem_class);
   return {std::to_string(bounding_box.ellipsoid_idx),
           std::to_string(bounding_box.min_pixel_x),
           std::to_string(bounding_box.min_pixel_y),
           std::to_string(bounding_box.max_pixel_x),
           std::to_string(bounding_box.max_pixel_y),
-          bounding_box.semantic_class,
+          sem_class,
           std::to_string(bounding_box.node_id),
           std::to_string(bounding_box.camera_id)};
 }
@@ -158,6 +164,7 @@ void readBoundingBoxWithNodeIdAndIdLine(
   bounding_box.max_pixel_y = std::stod(entries_in_file_line[list_idx++]);
 
   bounding_box.semantic_class = entries_in_file_line[list_idx++];
+  boost::algorithm::trim(bounding_box.semantic_class);
 
   std::istringstream node_id_stream(entries_in_file_line[list_idx++]);
   node_id_stream >> bounding_box.node_id;
