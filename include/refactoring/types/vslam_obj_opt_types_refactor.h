@@ -82,6 +82,20 @@ EllipsoidState<NumType> convertToEllipsoidState(
 }
 
 template <typename NumType>
+void convertToRawEllipsoid(const EllipsoidState<NumType> &ellipsoid_state,
+                           RawEllipsoid<NumType> &raw_ellipsoid) {
+  raw_ellipsoid.topRows(6) = convertPoseToArray(ellipsoid_state.pose_);
+  raw_ellipsoid.bottomRows(3) = ellipsoid_state.dimensions_;
+}
+
+template <typename NumType>
+RawEllipsoid<NumType> convertToRawEllipsoid(const EllipsoidState<NumType> &ellipsoid_state) {
+  RawEllipsoid<NumType> raw_ellipsoid;
+  convertToRawEllipsoid(ellipsoid_state, raw_ellipsoid);
+  return raw_ellipsoid;
+}
+
+template <typename NumType>
 BbCornerPair<NumType> cornerLocationsVectorToPair(
     const BbCorners<NumType> &corner_vec) {
   return std::make_pair(PixelCoord<NumType>(corner_vec(0), corner_vec(2)),
