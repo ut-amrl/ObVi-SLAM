@@ -3,3 +3,5 @@ bin/*
 lib/*
 build/*
 media/*
+.idea/*
+cmake-build-debug/*
