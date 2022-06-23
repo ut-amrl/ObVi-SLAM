@@ -40,14 +40,12 @@ struct AssociatedObjectIdentifier {
   ObjectId object_id_;
 };
 
-template <typename NumType>
 bool operator==(const AssociatedObjectIdentifier &assoc_1,
                 const AssociatedObjectIdentifier &assoc_2) {
   return std::make_pair(assoc_1.initialized_ellipsoid_, assoc_1.object_id_) ==
          std::make_pair(assoc_2.initialized_ellipsoid_, assoc_2.object_id_);
 }
 
-template <typename NumType>
 std::size_t hash_value(const AssociatedObjectIdentifier &assoc) {
   boost::hash<std::pair<bool, ObjectId>> hasher;
   return hasher(std::make_pair(assoc.initialized_ellipsoid_, assoc.object_id_));
@@ -114,7 +112,7 @@ class AbstractBoundingBoxFrontEnd {
       AssociatedObjectIdentifier associated_obj =
           bounding_box_assignments[bb_index];
       Covariance<double, 4> bb_cov =
-          generateBoundingBoxCovariance(bb, frame_id, camera_id, bb_cov);
+          generateBoundingBoxCovariance(bb, frame_id, camera_id, refined_context);
       BbCorners<double> bb_corners =
           vslam_types_refactor::cornerLocationsPairToVector(
               bb.pixel_corner_locations_);
@@ -153,7 +151,7 @@ class AbstractBoundingBoxFrontEnd {
               camera_id,
               refined_context,
               single_bb_info,
-              uninitialized_object_info_[associated_obj.object_id_]);
+              uninitialized_object_info_[associated_obj.object_id_].appearance_info_);
         }
       }
     }
@@ -277,7 +275,7 @@ class AbstractBoundingBoxFrontEnd {
   virtual RefinedBoundingBoxContextInfo generateRefinedBbContextInfo(
       const RawBoundingBoxContextInfo &bb_context,
       const FrameId &frame_id,
-      CameraId &camera_id) = 0;
+      const CameraId &camera_id) = 0;
 
   virtual void setupBbAssociationRound(
       const vslam_types_refactor::FrameId &frame_id,
@@ -462,7 +460,7 @@ class KnownAssociationsOptionalEllipsoidEstBoundingBoxFrontEnd
   virtual RefinedBoundingBoxContextInfo generateRefinedBbContextInfo(
       const RawBoundingBoxContextInfo &bb_context,
       const FrameId &frame_id,
-      CameraId &camera_id) {
+      const CameraId &camera_id) {
     return bb_context_refiner_(bb_context, frame_id, camera_id);
   }
 
@@ -685,7 +683,7 @@ class AbstractUnknownDataAssociationBbFrontEnd
   virtual RefinedBoundingBoxContextInfo generateRefinedBbContextInfo(
       const RawBoundingBoxContextInfo &bb_context,
       const FrameId &frame_id,
-      CameraId &camera_id) = 0;
+      const CameraId &camera_id) = 0;
 
   virtual void setupBbAssociationRound(
       const vslam_types_refactor::FrameId &frame_id,

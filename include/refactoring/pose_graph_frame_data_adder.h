@@ -11,18 +11,13 @@
 
 namespace vslam_types_refactor {
 
+template <typename ProblemDataType>
 void addVisualFeatureFactorsForFrame(
-    const AssociatedBoundingBoxOfflineProblemData<StructuredVisionFeatureTrack,
-                                                  RawBoundingBoxObservation,
-                                                  EllipsoidState<double>>
-        &input_problem_data,
+    const ProblemDataType &input_problem_data,
     const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
     const FrameId &frame_to_add,
     const std::function<
-        double(const AssociatedBoundingBoxOfflineProblemData<
-                   StructuredVisionFeatureTrack,
-                   RawBoundingBoxObservation,
-                   EllipsoidState<double>> &,
+        double(const ProblemDataType &,
                const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &,
                const FrameId &,
                const FeatureId &,
@@ -72,37 +67,29 @@ void addVisualFeatureFactorsForFrame(
 template <typename ObjectAssociationInfo,
           typename RawBoundingBoxContextInfo,
           typename RefinedBoundingBoxContextInfo,
-          typename SingleBbContextInfo>
+          typename SingleBbContextInfo,
+          typename ProblemDataType>
 void addFrameDataAssociatedBoundingBox(
-    const AssociatedBoundingBoxOfflineProblemData<StructuredVisionFeatureTrack,
-                                                  RawBoundingBoxObservation,
-                                                  EllipsoidState<double>>
-        &input_problem_data,
+    const ProblemDataType &input_problem_data,
     const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
     const FrameId &frame_to_add,
     const std::function<
-        double(const AssociatedBoundingBoxOfflineProblemData<
-                   StructuredVisionFeatureTrack,
-                   RawBoundingBoxObservation,
-                   EllipsoidState<double>> &,
+        double(const ProblemDataType &,
                const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &,
                const FrameId &,
                const FeatureId &,
                const CameraId &)> &reprojection_error_provider,
-    const std::function<Covariance<double, 4>(
-        const AssociatedBoundingBoxOfflineProblemData<
-            StructuredVisionFeatureTrack,
-            RawBoundingBoxObservation,
-            EllipsoidState<double>> &,
+    const std::function<std::shared_ptr<
+        AbstractBoundingBoxFrontEnd<ReprojectionErrorFactor,
+                                    ObjectAssociationInfo,
+                                    RawBoundingBoxContextInfo,
+                                    RefinedBoundingBoxContextInfo,
+                                    SingleBbContextInfo>>(
         const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &,
-        const FrameId &,
-        const ObjectId &,
-        const CameraId &)> &bb_covariance_provider,
-    const AbstractBoundingBoxFrontEnd<ReprojectionErrorFactor,
-                                      ObjectAssociationInfo,
-                                      RawBoundingBoxContextInfo,
-                                      RefinedBoundingBoxContextInfo,
-                                      SingleBbContextInfo> &bb_associator) {
+        const ProblemDataType &)> bb_associator_retriever,
+    const std::function<RawBoundingBoxContextInfo(
+        const FrameId &, const CameraId &, const ProblemDataType &)>
+        &bb_context_retriever) {
   Pose3D<double> pose_at_frame;
   if (!input_problem_data.getRobotPoseEstimateForFrame(frame_to_add,
                                                        pose_at_frame)) {
@@ -112,6 +99,11 @@ void addFrameDataAssociatedBoundingBox(
                << "; not adding frame";
     return;
   }
+
+  // TODO tweak this to get difference between frame and previous and then use
+  // the latest pose estimate for the previous frame to update the estimate for
+  // the current
+
   // Add initial estimate for pose
   pose_graph->addFrame(frame_to_add, pose_at_frame);
 
@@ -123,39 +115,28 @@ void addFrameDataAssociatedBoundingBox(
                                   reprojection_error_provider);
 
   // Add bounding box observations
-  std::unordered_map<
-      FrameId,
-      std::unordered_map<
-          CameraId,
-          std::unordered_map<ObjectId, RawBoundingBoxObservation>>>
+  std::unordered_map<FrameId,
+                     std::unordered_map<CameraId, std::vector<RawBoundingBox>>>
       bb_obs = input_problem_data.getBoundingBoxes();
+  std::shared_ptr<AbstractBoundingBoxFrontEnd<ReprojectionErrorFactor,
+                                              ObjectAssociationInfo,
+                                              RawBoundingBoxContextInfo,
+                                              RefinedBoundingBoxContextInfo,
+                                              SingleBbContextInfo>>
+      bb_associator = bb_associator_retriever(pose_graph, input_problem_data);
 
-
-
-  // Add initial ellipsoid estimate
-  // TODO
-  for (const auto &frame_id_and_bbs : bb_obs) {
-    if (frame_id_and_bbs.first != frame_to_add) {
-      continue;
+  if (bb_obs.find(frame_to_add) != bb_obs.end()) {
+    for (const auto &cam_id_and_bbs : bb_obs.at(frame_to_add)) {
+      bb_associator->addBoundingBoxObservations(
+          frame_to_add,
+          cam_id_and_bbs.first,
+          cam_id_and_bbs.second,
+          bb_context_retriever(
+              frame_to_add, cam_id_and_bbs.first, input_problem_data));
     }
-    for (const auto &cam_id_and_bbs : frame_id_and_bbs.second) {
-      CameraId camera_id = cam_id_and_bbs.first;
-      for (const auto &obj_id_and_bb : cam_id_and_bbs.second) {
-        ObjectId obj_id = obj_id_and_bb.first;
-        RawBoundingBoxObservation bb = obj_id_and_bb.second;
-        ObjectObservationFactor obs_factor;
-        obs_factor.object_id_ = obj_id;
-        obs_factor.camera_id_ = camera_id;
-        obs_factor.frame_id_ = frame_id_and_bbs.first;
-        obs_factor.bounding_box_corners_ = cornerLocationsPairToVector(
-            bb.bb_detection_.pixel_corner_locations_);
-        obs_factor.bounding_box_corners_covariance_ = bb_covariance_provider(
-            input_problem_data, pose_graph, frame_to_add, obj_id, camera_id);
-      }
-    }
-
   }
 }
+
 }  // namespace vslam_types_refactor
 
 #endif  // UT_VSLAM_POSE_GRAPH_FRAME_DATA_ADDER_H
