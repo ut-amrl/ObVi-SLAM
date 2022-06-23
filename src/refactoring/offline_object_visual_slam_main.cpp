@@ -14,6 +14,7 @@
 #include <refactoring/optimization/residual_creator.h>
 #include <refactoring/output_problem_data.h>
 #include <refactoring/output_problem_data_extraction.h>
+#include <refactoring/visualization/ros_visualization.h>
 #include <ros/ros.h>
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
@@ -155,7 +156,8 @@ getImagesFromRosbag(const std::string &rosbag_file_name,
   // Read the images
   rosbag::Bag bag;
   bag.open(FLAGS_rosbag_file, rosbag::bagmode::Read);
-  // TODO do we want to make a new back with uncompressed images or handle the compression here?
+  // TODO do we want to make a new back with uncompressed images or handle the
+  // compression here?
 
   std::vector<std::string> topics;
   for (const auto &camera_topic_and_id : camera_topic_to_camera_id) {
@@ -170,18 +172,18 @@ getImagesFromRosbag(const std::string &rosbag_file_name,
       std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>>
       images_by_frame_and_cam;
   for (const rosbag::MessageInstance &m : view) {
-//    LOG(INFO) << "Checking image message";
+    //    LOG(INFO) << "Checking image message";
     sensor_msgs::Image::ConstPtr msg = m.instantiate<sensor_msgs::Image>();
     pose::Timestamp img_timestamp =
         std::make_pair(msg->header.stamp.sec, msg->header.stamp.nsec);
     if (nodes_for_timestamps_map.find(img_timestamp) !=
         nodes_for_timestamps_map.end()) {
-//      LOG(INFO) << "Found image for timestamp ";
+      //      LOG(INFO) << "Found image for timestamp ";
       vtr::CameraId cam = camera_topic_to_camera_id.at(m.getTopic());
       vtr::FrameId frame_id = nodes_for_timestamps_map[img_timestamp];
       images_by_frame_and_cam[frame_id][cam] = msg;
     } else {
-//      LOG(INFO) << "No image for timestamp";
+      //      LOG(INFO) << "No image for timestamp";
     }
   }
   return images_by_frame_and_cam;
@@ -288,7 +290,7 @@ int main(int argc, char **argv) {
   bounding_box_std_devs(2) = 30;
   bounding_box_std_devs(3) = 30;
   vtr::Covariance<double, 4> bounding_box_covariance =
-      vslam_util::createDiagCovFromStdDevs(bounding_box_std_devs);
+      vtr::createDiagCovFromStdDevs(bounding_box_std_devs);
 
   // TODO read this from file
   std::unordered_map<std::string, vtr::CameraId> camera_topic_to_camera_id = {
@@ -303,7 +305,7 @@ int main(int argc, char **argv) {
        shape_mean_and_std_devs_by_semantic_class) {
     mean_and_cov_by_semantic_class[shape_mean_and_std_dev_for_class.first] =
         std::make_pair(shape_mean_and_std_dev_for_class.second.first,
-                       vslam_util::createDiagCovFromStdDevs(
+                       vtr::createDiagCovFromStdDevs(
                            shape_mean_and_std_dev_for_class.second.second));
   }
 
@@ -418,12 +420,12 @@ int main(int argc, char **argv) {
 
   vtr::RoshanBbFrontEndCreator<vtr::ReprojectionErrorFactor>
       roshan_associator_creator(roshan_associator_params, covariance_generator);
-  std::function<std::shared_ptr<
-      vtr::AbstractBoundingBoxFrontEnd<vtr::ReprojectionErrorFactor,
-                                       vtr::RoshanAggregateBbInfo,
-                                       std::optional<sensor_msgs::Image::ConstPtr>,
-                                       vtr::RoshanImageSummaryInfo,
-                                       vtr::RoshanBbInfo>>(
+  std::function<std::shared_ptr<vtr::AbstractBoundingBoxFrontEnd<
+      vtr::ReprojectionErrorFactor,
+      vtr::RoshanAggregateBbInfo,
+      std::optional<sensor_msgs::Image::ConstPtr>,
+      vtr::RoshanImageSummaryInfo,
+      vtr::RoshanBbInfo>>(
       const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph> &,
       const vtr::UnassociatedBoundingBoxOfflineProblemData<
           vtr::StructuredVisionFeatureTrack,

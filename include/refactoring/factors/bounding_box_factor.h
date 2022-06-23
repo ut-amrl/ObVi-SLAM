@@ -2,8 +2,8 @@
 #define UT_VSLAM_REFACTORING_BOUNDING_BOX_FACTOR_H
 
 #include <ceres/autodiff_cost_function.h>
-#include <ellipsoid_utils.h>
 #include <glog/logging.h>
+#include <refactoring/types/ellipsoid_utils.h>
 #include <refactoring/types/vslam_basic_types_refactor.h>
 #include <refactoring/types/vslam_obj_opt_types_refactor.h>
 
@@ -68,25 +68,25 @@ class BoundingBoxFactor {
     // through the covariance (very wide covariance for sides we don't care
     // about)
     Eigen::Matrix<T, 4, 1> corner_results;
-    vslam_util::getCornerLocationsVector<T>(ellipsoid,
-                                            robot_pose,
-                                            robot_to_cam_tf_.cast<T>(),
-                                            camera_intrinsics_mat_.cast<T>(),
-                                            corner_results);
-//    LOG(INFO) << "Corner results\n" << corner_results;
+    getCornerLocationsVector<T>(ellipsoid,
+                                robot_pose,
+                                robot_to_cam_tf_.cast<T>(),
+                                camera_intrinsics_mat_.cast<T>(),
+                                corner_results);
+    LOG(INFO) << "Corner results\n" << corner_results;
 
     Eigen::Matrix<T, 4, 1> deviation =
         corner_results - corner_detections_.template cast<T>();
-//    LOG(INFO) << "Detection " << corner_detections_;
-//    LOG(INFO) << "Deviation " << deviation;
-//    LOG(INFO) << "Sqrt inf mat bounding box "
-//              << sqrt_inf_mat_bounding_box_corners_;
+    LOG(INFO) << "Detection " << corner_detections_;
+    LOG(INFO) << "Deviation " << deviation;
+    LOG(INFO) << "Sqrt inf mat bounding box "
+              << sqrt_inf_mat_bounding_box_corners_;
 
     Eigen::Map<Eigen::Matrix<T, 4, 1>> residuals(residuals_ptr);
     residuals =
         sqrt_inf_mat_bounding_box_corners_.template cast<T>() * deviation;
 
-//    LOG(INFO) << "Residuals " << residuals;
+    LOG(INFO) << "Residuals " << residuals;
     return true;
   }
 
