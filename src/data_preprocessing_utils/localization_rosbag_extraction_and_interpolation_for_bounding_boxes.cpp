@@ -45,6 +45,7 @@ const double kMaxPoseIncThresholdTransl = 1.0;
 const double kMaxPoseIncThresholdRot = 0.25;  // TODO?
 
 const double kPoseEquivTolerance = 1e-3;
+//const double kPoseEquivTolerance = 0;
 
 using namespace pose;
 
@@ -226,6 +227,8 @@ void interpolateTimestamps(
                              kPoseEquivTolerance,
                              kPoseEquivTolerance)) {
     poses_to_use.emplace_back(last_pose);
+  } else {
+    LOG(INFO) << "Deduped";
   }
 
   std::vector<pose::Pose2d> poses_rel_to_origin;
@@ -256,14 +259,18 @@ void interpolateTimestamps(
                                kPoseEquivTolerance,
                                kPoseEquivTolerance)) {
       deduped_poses_rel_to_origin.emplace_back(poses_rel_to_origin[i]);
-    }
 
-    file_io::NodeIdAndTimestamp node_with_timestamp;
-    node_with_timestamp.node_id_ = deduped_poses_rel_to_origin.size() - 1;
-    node_with_timestamp.seconds_ = timestamps_to_use[i].first;
-    node_with_timestamp.nano_seconds_ = timestamps_to_use[i].second;
-    nodes_with_timestamps.emplace_back(node_with_timestamp);
-    nodes_by_timestamp[timestamps_to_use[i]] = node_with_timestamp.node_id_;
+      file_io::NodeIdAndTimestamp node_with_timestamp;
+      node_with_timestamp.node_id_ = deduped_poses_rel_to_origin.size() - 1;
+      node_with_timestamp.seconds_ = timestamps_to_use[i].first;
+      node_with_timestamp.nano_seconds_ = timestamps_to_use[i].second;
+      nodes_with_timestamps.emplace_back(node_with_timestamp);
+      nodes_by_timestamp[timestamps_to_use[i]] = node_with_timestamp.node_id_;
+    }
+//    else {
+//      LOG(INFO) << "Deduped";
+//    }
+
   }
 
   bag.close();
@@ -275,21 +282,25 @@ void interpolateTimestamps(
   //  for (const file_io::BoundingBoxWithTimestampAndId &bounding_box :
   //       bounding_boxes_by_timestamp) {
   for (const BbByTimestampType &bounding_box : bounding_boxes_by_timestamp) {
-    //    file_io::BoundingBoxWithNodeIdAndId bb_with_node;
-    //    bb_with_node.semantic_class = bounding_box.semantic_class;
-    //    bb_with_node.min_pixel_x = bounding_box.min_pixel_x;
-    //    bb_with_node.min_pixel_y = bounding_box.min_pixel_y;
-    //    bb_with_node.max_pixel_x = bounding_box.max_pixel_x;
-    //    bb_with_node.max_pixel_y = bounding_box.max_pixel_y;
-    //    bb_with_node.ellipsoid_idx = bounding_box.ellipsoid_idx;
-    //    bb_with_node.camera_id = bounding_box.camera_id;
-    //    bb_with_node.node_id = nodes_by_timestamp[std::make_pair(
-    //        bounding_box.seconds, bounding_box.nano_seconds)];
-    //    bounding_boxes_with_node_id.emplace_back(bb_with_node);
-    bounding_boxes_with_node_id.emplace_back(bb_by_node_creator(
-        bounding_box,
-        nodes_by_timestamp[std::make_pair(bounding_box.seconds,
-                                          bounding_box.nano_seconds)]));
+    Timestamp bb_timestamp = std::make_pair(bounding_box.seconds, bounding_box.nano_seconds);
+    if (nodes_by_timestamp.find(bb_timestamp) != nodes_by_timestamp.end()) {
+      //    file_io::BoundingBoxWithNodeIdAndId bb_with_node;
+      //    bb_with_node.semantic_class = bounding_box.semantic_class;
+      //    bb_with_node.min_pixel_x = bounding_box.min_pixel_x;
+      //    bb_with_node.min_pixel_y = bounding_box.min_pixel_y;
+      //    bb_with_node.max_pixel_x = bounding_box.max_pixel_x;
+      //    bb_with_node.max_pixel_y = bounding_box.max_pixel_y;
+      //    bb_with_node.ellipsoid_idx = bounding_box.ellipsoid_idx;
+      //    bb_with_node.camera_id = bounding_box.camera_id;
+      //    bb_with_node.node_id = nodes_by_timestamp[std::make_pair(
+      //        bounding_box.seconds, bounding_box.nano_seconds)];
+      //    bounding_boxes_with_node_id.emplace_back(bb_with_node);
+      bounding_boxes_with_node_id.emplace_back(bb_by_node_creator(
+          bounding_box,
+          nodes_by_timestamp.at(bb_timestamp)));
+    } else {
+      LOG(INFO) << "Skipping bounding box because timestamp was skipped";
+    }
   }
   //  file_io::writeBoundingBoxWithNodeIdAndIdsToFile(FLAGS_bb_by_node_out_file,
   //                                                  bounding_boxes_with_node_id);

@@ -90,6 +90,7 @@ void addFrameDataAssociatedBoundingBox(
     const std::function<RawBoundingBoxContextInfo(
         const FrameId &, const CameraId &, const ProblemDataType &)>
         &bb_context_retriever) {
+  LOG(INFO) << "addFrameDataAssociatedBoundingBox, frame: " << frame_to_add;
   Pose3D<double> pose_at_frame;
   if (!input_problem_data.getRobotPoseEstimateForFrame(frame_to_add,
                                                        pose_at_frame)) {
@@ -97,6 +98,7 @@ void addFrameDataAssociatedBoundingBox(
     // instead of just failing?
     LOG(ERROR) << "Could not find initial estimate for frame " << frame_to_add
                << "; not adding frame";
+    exit(1);
     return;
   }
 
@@ -104,9 +106,11 @@ void addFrameDataAssociatedBoundingBox(
   // the latest pose estimate for the previous frame to update the estimate for
   // the current
 
+  LOG(INFO) << "Adding frame " << frame_to_add;
   // Add initial estimate for pose
   pose_graph->addFrame(frame_to_add, pose_at_frame);
 
+  LOG(INFO) << "Adding visual features for frame ";
   // Get visual feature factors and the visual features that appear first in
   // this frame
   addVisualFeatureFactorsForFrame(input_problem_data,
@@ -118,22 +122,33 @@ void addFrameDataAssociatedBoundingBox(
   std::unordered_map<FrameId,
                      std::unordered_map<CameraId, std::vector<RawBoundingBox>>>
       bb_obs = input_problem_data.getBoundingBoxes();
+  LOG(INFO) << "Got bbs for frames, size  " << bb_obs.size();
   std::shared_ptr<AbstractBoundingBoxFrontEnd<ReprojectionErrorFactor,
                                               ObjectAssociationInfo,
                                               RawBoundingBoxContextInfo,
                                               RefinedBoundingBoxContextInfo,
                                               SingleBbContextInfo>>
       bb_associator = bb_associator_retriever(pose_graph, input_problem_data);
+  LOG(INFO) << "Checking for bbs at frame " << frame_to_add;
+  LOG(INFO) << "Bbs exist at frames: ";
+//  for (const auto &bb_entry : bb_obs) {
+//    LOG(INFO) << "Frame " << bb_entry.first << " has " << bb_entry.second.size() << "cameras ";
+//  }
 
   if (bb_obs.find(frame_to_add) != bb_obs.end()) {
+    LOG(INFO) << "Got bbs for frame  " << frame_to_add;
     for (const auto &cam_id_and_bbs : bb_obs.at(frame_to_add)) {
+      LOG(INFO) << "Getting bbs for camera " << cam_id_and_bbs.first;
       bb_associator->addBoundingBoxObservations(
           frame_to_add,
           cam_id_and_bbs.first,
           cam_id_and_bbs.second,
           bb_context_retriever(
               frame_to_add, cam_id_and_bbs.first, input_problem_data));
+      LOG(INFO) << "Done adding bbs";
     }
+  } else {
+    LOG(INFO) << "No bbs";
   }
 }
 

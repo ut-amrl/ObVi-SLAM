@@ -99,7 +99,7 @@ if __name__ == "__main__":
         if (len(msg.bounding_boxes) > 0):
             bounding_boxes = msg.bounding_boxes
             for bb in bounding_boxes:
-                bb_out = BoundingBoxWithTimestamp(bb.xmin, bb.ymin, bb.xmax, bb.ymax, bb.Class, header.stamp.secs, header.stamp.nsecs)
+                bb_out = BoundingBoxWithTimestamp(bb.xmin, bb.ymin, bb.xmax, bb.ymax, bb.Class, header.stamp.secs, header.stamp.nsecs, 0)
                 bounding_boxes_out.append(bb_out)
     bag.close()
 

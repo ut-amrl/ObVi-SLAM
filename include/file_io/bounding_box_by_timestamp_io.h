@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <string>
+#include <boost/algorithm/string.hpp>
 
 namespace file_io {
 
@@ -64,12 +65,14 @@ struct BoundingBoxWithTimestamp {
 
 std::vector<std::string> convertBoundingBoxWithTimestampAndIdToStringList(
     const BoundingBoxWithTimestampAndId &bounding_box) {
+  std::string sem_class = bounding_box.semantic_class;
+  boost::algorithm::trim(sem_class);
   return {std::to_string(bounding_box.ellipsoid_idx),
           std::to_string(bounding_box.min_pixel_x),
           std::to_string(bounding_box.min_pixel_y),
           std::to_string(bounding_box.max_pixel_x),
           std::to_string(bounding_box.max_pixel_y),
-          bounding_box.semantic_class,
+          sem_class,
           std::to_string(bounding_box.seconds),
           std::to_string(bounding_box.nano_seconds),
           std::to_string(bounding_box.camera_id)};
@@ -77,11 +80,13 @@ std::vector<std::string> convertBoundingBoxWithTimestampAndIdToStringList(
 
 std::vector<std::string> convertBoundingBoxWithTimestampToStringList(
     const BoundingBoxWithTimestamp &bounding_box) {
+  std::string sem_class = bounding_box.semantic_class;
+  boost::algorithm::trim(sem_class);
   return {std::to_string(bounding_box.min_pixel_x),
           std::to_string(bounding_box.min_pixel_y),
           std::to_string(bounding_box.max_pixel_x),
           std::to_string(bounding_box.max_pixel_y),
-          bounding_box.semantic_class,
+          sem_class,
           std::to_string(bounding_box.seconds),
           std::to_string(bounding_box.nano_seconds),
           std::to_string(bounding_box.camera_id)};
@@ -140,6 +145,7 @@ void readBoundingBoxWithTimestampAndIdLine(
   bounding_box.max_pixel_y = std::stod(entries_in_file_line[list_idx++]);
 
   bounding_box.semantic_class = entries_in_file_line[list_idx++];
+  boost::algorithm::trim(bounding_box.semantic_class);
 
   std::istringstream seconds_stream(entries_in_file_line[list_idx++]);
   seconds_stream >> bounding_box.seconds;
@@ -164,6 +170,7 @@ void readBoundingBoxWithTimestampLine(
   bounding_box.max_pixel_y = std::stod(entries_in_file_line[list_idx++]);
 
   bounding_box.semantic_class = entries_in_file_line[list_idx++];
+  boost::algorithm::trim(bounding_box.semantic_class);
 
   std::istringstream seconds_stream(entries_in_file_line[list_idx++]);
   seconds_stream >> bounding_box.seconds;

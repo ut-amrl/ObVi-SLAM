@@ -83,6 +83,8 @@ class AbstractBoundingBoxFrontEnd {
       return;
     }
 
+    LOG(INFO) << "Num bbs: " << bounding_boxes.size();
+    LOG(INFO) << "Getting refined context";
     RefinedBoundingBoxContextInfo refined_context =
         generateRefinedBbContextInfo(bb_context, frame_id, camera_id);
     setupBbAssociationRound(
@@ -104,6 +106,7 @@ class AbstractBoundingBoxFrontEnd {
                               refined_context,
                               single_bb_appearance_infos,
                               bounding_box_assignments);
+    LOG(INFO) << "Bb assignments size: " << bounding_box_assignments.size();
 
     // Add bbs and update the association info with the context for this bb
     for (size_t bb_index = 0; bb_index < bounding_box_assignments.size();
@@ -118,6 +121,7 @@ class AbstractBoundingBoxFrontEnd {
               bb.pixel_corner_locations_);
       SingleBbContextInfo single_bb_info = single_bb_appearance_infos[bb_index];
       if (associated_obj.initialized_ellipsoid_) {
+        LOG(INFO) << "Bb at " << bb_index << " associated with ellipsoid " << associated_obj.object_id_;
         addObservationForObject(
             frame_id, camera_id, associated_obj.object_id_, bb_corners, bb_cov);
         mergeSingleBbContextIntoObjectAssociationInfo(
@@ -128,6 +132,8 @@ class AbstractBoundingBoxFrontEnd {
             single_bb_info,
             object_appearance_info_[associated_obj.object_id_]);
       } else {
+
+        LOG(INFO) << "Bb at " << bb_index << " associated with uninitialized obj";
         UninitializedObjectFactor uninitialized_object_factor;
         uninitialized_object_factor.frame_id_ = frame_id;
         uninitialized_object_factor.camera_id_ = camera_id;
@@ -171,6 +177,7 @@ class AbstractBoundingBoxFrontEnd {
         // TODO try refining estimate by initializing with all new data and
         // seeing if the cost is lower than current estimate
       } else {
+        LOG(INFO) << "Attempting to intialize bb " << i;
         UninitializedEllispoidInfo<ObjectAssociationInfo>
             uninitialized_bb_info =
                 uninitialized_object_info_[bounding_box_assignment.object_id_];
@@ -183,6 +190,7 @@ class AbstractBoundingBoxFrontEnd {
                                    uninitialized_bb_info.semantic_class_,
                                    false,
                                    object_est);
+        LOG(INFO) << "Object for bb " << i << " initialized? " << initialized;
         if (initialized) {
           ObjectId new_obj_id = pose_graph_->addNewEllipsoid(
               object_est, uninitialized_bb_info.semantic_class_);
@@ -648,6 +656,7 @@ class AbstractUnknownDataAssociationBbFrontEnd
               std::make_pair(candidate, score));
         }
       }
+      match_candidates_with_scores.emplace_back(candidates_with_scores_for_bb);
     }
 
     // Assign bounding boxes to objects/uninitialized objects based on
