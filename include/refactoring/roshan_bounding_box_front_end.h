@@ -54,7 +54,7 @@ class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
                                                 const CameraId &,
                                                 const RoshanImageSummaryInfo &)>
           &covariance_generator)
-      : AbstractBoundingBoxFrontEnd<VisualFeatureFactorType,
+      : AbstractUnknownDataAssociationBbFrontEnd<VisualFeatureFactorType,
                                     RoshanAggregateBbInfo,
                                     sensor_msgs::Image::ConstPtr,
                                     RoshanImageSummaryInfo,
@@ -66,13 +66,13 @@ class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
   virtual void updateAppearanceInfoWithObjectIdAssignmentAndInitialization(
       const ObjectId &obj_id,
       const EllipsoidEstimateNode &est,
-      RoshanAggregateBbInfo &info_to_update) {}
+      RoshanAggregateBbInfo &info_to_update) override {}
 
   virtual RoshanBbInfo generateSingleBoundingBoxContextInfo(
       const RawBoundingBox &bb,
       const FrameId &frame_id,
       const CameraId &camera_id,
-      const RoshanImageSummaryInfo &refined_context) {
+      const RoshanImageSummaryInfo &refined_context) override {
     Eigen::Vector2d bb_dim =
         bb.pixel_corner_locations_.second - bb.pixel_corner_locations_.first;
     cv::Rect bb_rect(bb.pixel_corner_locations_.first.x(),
@@ -112,7 +112,7 @@ class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
       const CameraId &camera_id,
       const UninitializedObjectFactor &uninitialized_factor,
       const RoshanImageSummaryInfo &refined_context,
-      const RoshanBbInfo &single_bb_context_info) {
+      const RoshanBbInfo &single_bb_context_info) override {
     UninitializedEllispoidInfo<RoshanAggregateBbInfo> uninitalized_info;
     uninitalized_info.semantic_class_ = semantic_class;
     uninitalized_info.observation_factors_.emplace_back(uninitialized_factor);
@@ -127,7 +127,7 @@ class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
       const CameraId &camera_id,
       const RoshanImageSummaryInfo &refined_bb_context_info,
       const RoshanBbInfo &single_bb_context_info,
-      RoshanAggregateBbInfo &association_info_to_update) {
+      RoshanAggregateBbInfo &association_info_to_update) override {
     association_info_to_update.infos_for_observed_bbs_.emplace_back(
         single_bb_context_info);
   }
@@ -136,15 +136,16 @@ class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
       const RawBoundingBox &raw_bb,
       const FrameId &frame_id,
       const CameraId &camera_id,
-      const RoshanImageSummaryInfo &refined_bb_context) {
+      const RoshanImageSummaryInfo &refined_bb_context) override {
     // TODO do we need additional parameters here?
-    return covariance_generator_(raw_bb, frame_id, camera_id, refined_bb_context);
+    return covariance_generator_(
+        raw_bb, frame_id, camera_id, refined_bb_context);
   }
 
   virtual std::vector<AssociatedObjectIdentifier> identifyCandidateMatches(
       const FrameId &frame_id,
       const CameraId &camera_id,
-      const RawBoundingBox &bounding_box) {
+      const RawBoundingBox &bounding_box) override {
     std::vector<AssociatedObjectIdentifier> associated_obj_candidates;
     for (size_t uninitialized_obj_idx = 0;
          uninitialized_obj_idx <
@@ -161,7 +162,7 @@ class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
     }
 
     std::unordered_set<ObjectId> pg_candidates =
-        RoshanBbFrontEnd::getObjectsWithSemanticClass(
+        RoshanBbFrontEnd::pose_graph_->getObjectsWithSemanticClass(
             bounding_box.semantic_class_);
     for (const ObjectId &candidate : pg_candidates) {
       AssociatedObjectIdentifier assoc_obj;
@@ -177,7 +178,7 @@ class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
       const FrameId &frame_id,
       const CameraId &camera_id,
       const RawBoundingBox &bounding_box,
-      const std::vector<AssociatedObjectIdentifier> &candidate_matches) {
+      const std::vector<AssociatedObjectIdentifier> &candidate_matches) override {
     std::vector<AssociatedObjectIdentifier> pruned_candidates;
     for (const AssociatedObjectIdentifier &candidate : candidate_matches) {
       if (!candidate.initialized_ellipsoid_) {
@@ -218,7 +219,7 @@ class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
       const CameraId &camera_id,
       const RawBoundingBox &bounding_box,
       const AssociatedObjectIdentifier &candidate,
-      const RoshanBbInfo &bounding_box_appearance_info) {
+      const RoshanBbInfo &bounding_box_appearance_info) override {
     if (!candidate.initialized_ellipsoid_) {
       return -1 * std::numeric_limits<double>::infinity();
     }
@@ -243,7 +244,7 @@ class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
   virtual std::vector<AssociatedObjectIdentifier> assignBoundingBoxes(
       const std::vector<
           std::vector<std::pair<AssociatedObjectIdentifier, double>>>
-          &match_candidates_with_scores) {
+          &match_candidates_with_scores) override {
     // TODO for now we're just doing this more or less greedily. Should change
     //  to find best overall matching
     std::vector<
@@ -306,7 +307,7 @@ class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
   virtual RoshanImageSummaryInfo generateRefinedBbContextInfo(
       const sensor_msgs::Image::ConstPtr &bb_context,
       const FrameId &frame_id,
-      CameraId &camera_id) {
+      const CameraId &camera_id) override {
     // TODO is this the right way to specify encoding?
     cv_bridge::CvImageConstPtr cv_img =
         cv_bridge::toCvShare(bb_context, "bgr8");
@@ -321,11 +322,11 @@ class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
       const vslam_types_refactor::CameraId &camera_id,
       const std::vector<RawBoundingBox> &bounding_boxes,
       const sensor_msgs::Image::ConstPtr &raw_bb_context,
-      const RoshanImageSummaryInfo &refined_bb_context) {}
+      const RoshanImageSummaryInfo &refined_bb_context) override {}
 
   virtual void cleanupBbAssociationRound(
       const vslam_types_refactor::FrameId &frame_id,
-      const vslam_types_refactor::CameraId &camera_id) {}
+      const vslam_types_refactor::CameraId &camera_id) override {}
 
   bool tryInitializeEllipsoid(
       const RoshanImageSummaryInfo &refined_bb_context,
@@ -333,7 +334,7 @@ class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
       const std::vector<UninitializedObjectFactor> &factors,
       const std::string &semantic_class,
       const bool &already_init,
-      vslam_types_refactor::EllipsoidEstimateNode &ellipsoid_est) {
+      vslam_types_refactor::EllipsoidEstimateNode &ellipsoid_est) override {
     if (factors.empty()) {
       return false;
     }
@@ -355,7 +356,7 @@ class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
       covariance_generator_;
 
   double getObjectDepth(const BbCornerPair<double> &bb,
-                        const ObjectDim<double> mean_dim_for_class,
+                        const ObjectDim<double> &mean_dim_for_class,
                         const double &fy) {
     double y_diff = bb.second.y() - bb.first.y();
     // TODO this isn't a valid way to do it, because this assumes the points
@@ -408,6 +409,54 @@ class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
     ellipsoid_est.updateEllipsoidParams(convertPoseToArray(global_pose), dim);
     return true;
   }
+};
+
+template <typename VisualFeatureFactorType>
+class RoshanBbFrontEndCreator {
+ public:
+  RoshanBbFrontEndCreator(
+      const RoshanBbAssociationParams &association_params,
+      const std::function<Covariance<double, 4>(const RawBoundingBox &,
+                                                const FrameId &,
+                                                const CameraId &,
+                                                const RoshanImageSummaryInfo &)>
+          &covariance_generator)
+      : association_params_(association_params),
+        covariance_generator_(covariance_generator),
+        initialized_(false) {}
+
+  std::shared_ptr<
+      AbstractUnknownDataAssociationBbFrontEnd<VisualFeatureFactorType,
+                                               RoshanAggregateBbInfo,
+                                               sensor_msgs::Image::ConstPtr,
+                                               RoshanImageSummaryInfo,
+                                               RoshanBbInfo>>
+  getDataAssociator(const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph>
+                        &pose_graph) {
+    if (!initialized_) {
+      roshan_front_end_ =
+          std::make_shared<RoshanBbFrontEnd<VisualFeatureFactorType>>(
+              pose_graph, association_params_, covariance_generator_);
+      initialized_ = true;
+    }
+    return roshan_front_end_;
+  }
+
+ private:
+  RoshanBbAssociationParams association_params_;
+  std::function<Covariance<double, 4>(const RawBoundingBox &,
+                                      const FrameId &,
+                                      const CameraId &,
+                                      const RoshanImageSummaryInfo &)>
+      covariance_generator_;
+  bool initialized_;
+  std::shared_ptr<
+      AbstractUnknownDataAssociationBbFrontEnd<VisualFeatureFactorType,
+                                               RoshanAggregateBbInfo,
+                                               sensor_msgs::Image::ConstPtr,
+                                               RoshanImageSummaryInfo,
+                                               RoshanBbInfo>>
+      roshan_front_end_;
 };
 
 }  // namespace vslam_types_refactor
