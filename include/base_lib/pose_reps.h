@@ -13,6 +13,11 @@ namespace pose {
     typedef std::pair<Eigen::Vector2d, double> Pose2d;
     typedef std::pair<Eigen::Vector3d, Eigen::Quaterniond> Pose3d;
 
+    std::ostream &operator<<(std::ostream& os, const Pose2d& pose) {
+      os << pose.first.x() << ", " << pose.first.y() << ", " << pose.second;
+      return os;
+    }
+
     Pose2d createPose2d(const double &x, const double &y, const double &theta) {
         return std::make_pair(Eigen::Vector2d(x, y), theta);
     }

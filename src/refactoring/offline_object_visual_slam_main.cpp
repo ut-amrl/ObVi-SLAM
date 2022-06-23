@@ -22,6 +22,7 @@
 
 namespace vtr = vslam_types_refactor;
 
+DEFINE_string(param_prefix, "", "param_prefix");
 DEFINE_string(intrinsics_file, "", "File with camera intrinsics");
 DEFINE_string(extrinsics_file, "", "File with camera extrinsics");
 DEFINE_string(bounding_boxes_by_node_id_file,
@@ -220,15 +221,32 @@ void createPoseGraph(
       input_problem_data.getCameraIntrinsicsByCamera());
 }
 
-void visualizationStub(const vtr::UnassociatedBoundingBoxOfflineProblemData<
-                           vtr::StructuredVisionFeatureTrack,
-                           sensor_msgs::Image::ConstPtr> &input_problem_data,
-                       std::shared_ptr<vtr::ObjAndLowLevelFeaturePoseGraph<
-                           vtr::ReprojectionErrorFactor>> &pose_graph,
-                       const vtr::FrameId &min_frame_optimized,
-                       const vtr::FrameId &max_frame_optimized,
-                       const vtr::VisualizationTypeEnum &visualization_stage) {
+void visualizationStub(
+    const std::shared_ptr<vtr::RosVisualization> &vis_manager,
+    const vtr::UnassociatedBoundingBoxOfflineProblemData<
+        vtr::StructuredVisionFeatureTrack,
+        sensor_msgs::Image::ConstPtr> &input_problem_data,
+    std::shared_ptr<
+        vtr::ObjAndLowLevelFeaturePoseGraph<vtr::ReprojectionErrorFactor>>
+        &pose_graph,
+    const vtr::FrameId &min_frame_optimized,
+    const vtr::FrameId &max_frame_optimized,
+    const vtr::VisualizationTypeEnum &visualization_stage) {
   // TODO fill in with actual visualization
+  switch (visualization_stage) {
+    case vtr::BEFORE_ANY_OPTIMIZATION:
+      vis_manager->publishTransformsForEachCamera(
+          input_problem_data.getMaxFrameId(),
+          input_problem_data.getRobotPoseEstimates(),
+          input_problem_data.getCameraExtrinsicsByCamera());
+
+      sleep(3);
+    case vtr::BEFORE_EACH_OPTIMIZATION:
+    case vtr::AFTER_EACH_OPTIMIZATION:
+    case vtr::AFTER_ALL_OPTIMIZATION:
+    default:
+      break;
+  }
 }
 
 int main(int argc, char **argv) {
@@ -236,6 +254,13 @@ int main(int argc, char **argv) {
   google::ParseCommandLineFlags(&argc, &argv, true);
 
   FLAGS_logtostderr = true;  // Don't log to disk - log to terminal
+
+  std::string param_prefix = FLAGS_param_prefix;
+  std::string node_prefix = FLAGS_param_prefix;
+  if (!param_prefix.empty()) {
+    param_prefix = "/" + param_prefix + "/";
+    node_prefix += "_";
+  }
 
   if (FLAGS_extrinsics_file.empty()) {
     LOG(ERROR) << "No extrinsics file provided";
@@ -264,6 +289,10 @@ int main(int argc, char **argv) {
   if (FLAGS_nodes_by_timestamp_file.empty()) {
     LOG(WARNING) << "No nodes by timestamp file";
   }
+  LOG(INFO) << "Prefix: " << param_prefix;
+
+  ros::init(argc, argv, node_prefix + "ellipsoid_estimator_real_data");
+  ros::NodeHandle n;
 
   // Hard-coded values -----------------------------------------------------
   std::unordered_map<std::string,
@@ -309,7 +338,45 @@ int main(int argc, char **argv) {
                            shape_mean_and_std_dev_for_class.second.second));
   }
 
+  // Read necessary data in from file -----------------------------------------
+  std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
+      camera_intrinsics_by_camera =
+          readCameraIntrinsicsByCameraFromFile(FLAGS_intrinsics_file);
+  std::unordered_map<vtr::CameraId, vtr::CameraExtrinsics<double>>
+      camera_extrinsics_by_camera =
+          readCameraExtrinsicsByCameraFromFile(FLAGS_extrinsics_file);
+  std::unordered_map<vtr::FeatureId, vtr::StructuredVisionFeatureTrack>
+      visual_features;  // TODO read this when we actually have this
+  std::unordered_map<
+      vtr::FrameId,
+      std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>>
+      bounding_boxes =
+          readBoundingBoxesFromFile(FLAGS_bounding_boxes_by_node_id_file);
+  //  LOG(INFO) << "Bounding boxes for " << bounding_boxes.size() << " frames ";
+  std::unordered_map<vtr::FrameId, vtr::Pose3D<double>> robot_poses =
+      readRobotPosesFromFile(FLAGS_poses_by_node_id_file);
+  std::unordered_map<
+      vtr::FrameId,
+      std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>>
+      images = getImagesFromRosbag(FLAGS_rosbag_file,
+                                   FLAGS_nodes_by_timestamp_file,
+                                   camera_topic_to_camera_id);
+
+  vtr::UnassociatedBoundingBoxOfflineProblemData<
+      vtr::StructuredVisionFeatureTrack,
+      sensor_msgs::Image::ConstPtr>
+      input_problem_data(camera_intrinsics_by_camera,
+                         camera_extrinsics_by_camera,
+                         visual_features,
+                         robot_poses,
+                         mean_and_cov_by_semantic_class,
+                         bounding_boxes,
+                         images);
+
   // Connect up functions needed for the optimizer --------------------------
+  std::shared_ptr<vtr::RosVisualization> vis_manager =
+      std::make_shared<vtr::RosVisualization>(n);
+
   std::function<bool()> continue_opt_checker = []() { return ros::ok(); };
 
   std::function<vtr::FrameId(const vtr::FrameId &)> window_provider_func =
@@ -494,18 +561,19 @@ int main(int argc, char **argv) {
       const vtr::FrameId &,
       const vtr::VisualizationTypeEnum &)>
       visualization_callback =
-          [](const vtr::UnassociatedBoundingBoxOfflineProblemData<
-                 vtr::StructuredVisionFeatureTrack,
-                 sensor_msgs::Image::ConstPtr> &input_problem_data,
-             const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph>
-                 &pose_graph,
-             const vtr::FrameId &min_frame_id,
-             const vtr::FrameId &max_frame_id,
-             const vtr::VisualizationTypeEnum &visualization_type) {
+          [&](const vtr::UnassociatedBoundingBoxOfflineProblemData<
+                  vtr::StructuredVisionFeatureTrack,
+                  sensor_msgs::Image::ConstPtr> &input_problem_data,
+              const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph>
+                  &pose_graph,
+              const vtr::FrameId &min_frame_id,
+              const vtr::FrameId &max_frame_id,
+              const vtr::VisualizationTypeEnum &visualization_type) {
             std::shared_ptr<vtr::ObjAndLowLevelFeaturePoseGraph<
                 vtr::ReprojectionErrorFactor>>
                 superclass_ptr = pose_graph;
-            visualizationStub(input_problem_data,
+            visualizationStub(vis_manager,
+                              input_problem_data,
                               superclass_ptr,
                               min_frame_id,
                               max_frame_id,
@@ -530,52 +598,6 @@ int main(int argc, char **argv) {
                              ceres_callback_creator,
                              visualization_callback,
                              solver_params);
-
-  // Read necessary data in from file -----------------------------------------
-  std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
-      camera_intrinsics_by_camera =
-          readCameraIntrinsicsByCameraFromFile(FLAGS_intrinsics_file);
-  std::unordered_map<vtr::CameraId, vtr::CameraExtrinsics<double>>
-      camera_extrinsics_by_camera =
-          readCameraExtrinsicsByCameraFromFile(FLAGS_extrinsics_file);
-  std::unordered_map<vtr::FeatureId, vtr::StructuredVisionFeatureTrack>
-      visual_features;  // TODO read this when we actually have this
-  std::unordered_map<
-      vtr::FrameId,
-      std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>>
-      bounding_boxes =
-          readBoundingBoxesFromFile(FLAGS_bounding_boxes_by_node_id_file);
-  //  LOG(INFO) << "Bounding boxes for " << bounding_boxes.size() << " frames ";
-  std::unordered_map<vtr::FrameId, vtr::Pose3D<double>> robot_poses =
-      readRobotPosesFromFile(FLAGS_poses_by_node_id_file);
-  std::unordered_map<
-      vtr::FrameId,
-      std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>>
-      images = getImagesFromRosbag(FLAGS_rosbag_file,
-                                   FLAGS_nodes_by_timestamp_file,
-                                   camera_topic_to_camera_id);
-
-  LOG(INFO) << "Images for " << images.size() << " frames ";
-  for (const auto &img_pair : images) {
-    LOG(INFO) << "Frame " << img_pair.first << " has " << img_pair.second.size()
-              << " cameras ";
-    for (const auto &cam_img_pair : img_pair.second) {
-      LOG(INFO) << "Cam " << cam_img_pair.first;
-      break;
-    }
-    break;
-  }
-
-  vtr::UnassociatedBoundingBoxOfflineProblemData<
-      vtr::StructuredVisionFeatureTrack,
-      sensor_msgs::Image::ConstPtr>
-      input_problem_data(camera_intrinsics_by_camera,
-                         camera_extrinsics_by_camera,
-                         visual_features,
-                         robot_poses,
-                         mean_and_cov_by_semantic_class,
-                         bounding_boxes,
-                         images);
 
   vtr::OptimizationFactorsEnabledParams optimization_factors_enabled_params;
   optimization_factors_enabled_params.use_pom_ = false;
