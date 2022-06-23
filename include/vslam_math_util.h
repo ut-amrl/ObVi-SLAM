@@ -244,16 +244,17 @@ Eigen::Matrix<T, 3, 3> GetRodriguesJacobian(const Eigen::Matrix<T, 3, 1>& w) {
  * @return Covariance matrix created using the standard deviations to form the
  * diagonal.
  */
-template <int N>
-Eigen::Matrix<float, N, N> createDiagCovFromStdDevs(
-    const Eigen::Matrix<float, N, 1>& std_devs, const float& min_std_dev = 0) {
-  float min_variance = pow(min_std_dev, 2);
-  Eigen::Matrix<float, N, 1> variances = std_devs.array().pow(2);
+template <typename NumType, int N>
+Eigen::Matrix<NumType, N, N> createDiagCovFromStdDevs(
+    const Eigen::Matrix<NumType, N, 1>& std_devs,
+    const NumType& min_std_dev = 0) {
+  NumType min_variance = pow(min_std_dev, 2);
+  Eigen::Matrix<NumType, N, 1> variances = std_devs.array().pow(2);
   for (int i = 0; i < N; i++) {
     variances(i) = std::max(min_variance, variances(i));
   }
 
-  Eigen::DiagonalMatrix<float, N> cov(variances);
+  Eigen::DiagonalMatrix<NumType, N> cov(variances);
   return cov;
 }
 }  // namespace vslam_util
