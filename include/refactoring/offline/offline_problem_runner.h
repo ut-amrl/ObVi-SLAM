@@ -148,7 +148,7 @@ class OfflineProblemRunner {
                               start_opt_with_frame,
                               next_frame_id,
                               VisualizationTypeEnum::AFTER_EACH_OPTIMIZATION);
-      exit(1);
+//      exit(1);
       if (!opt_success) {
         // TODO do we want to quit or just silently let this iteration fail?
         LOG(ERROR) << "Optimization failed at max frame id " << next_frame_id;

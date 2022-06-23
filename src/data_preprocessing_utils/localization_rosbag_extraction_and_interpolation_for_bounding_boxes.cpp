@@ -40,12 +40,20 @@ DEFINE_string(
 DEFINE_string(timestamp_by_node_id_file,
               "",
               "File name to write node id to timestamp correspondence");
+DEFINE_bool(merge_deduped_poses,
+            false,
+            "True if deduped poses should have their bbs merged; false if the "
+            "dupes should just be dropped");
+
 
 const double kMaxPoseIncThresholdTransl = 1.0;
 const double kMaxPoseIncThresholdRot = 0.25;  // TODO?
 
-const double kPoseEquivTolerance = 1e-3;
-//const double kPoseEquivTolerance = 0;
+// const double kPoseEquivTolerance = 1e-3;
+
+const double kPoseEquivToleranceTransl = 0.2;
+const double kPoseEquivToleranceRot = 0.2;
+// const double kPoseEquivTolerance = 0;
 
 using namespace pose;
 
@@ -68,6 +76,24 @@ struct timestamp_sort {
     return timestamp1.second <= timestamp2.second;
   }
 };
+
+template <typename BbByTimestampType>
+
+void readBbsAndFilterBySemanticClass(
+    const std::string &bb_file_name,
+    const std::unordered_set<std::string> &acceptable_semantic_classes,
+    const std::function<void(const std::string &,
+                             std::vector<BbByTimestampType> &)> &bb_reader,
+    std::vector<BbByTimestampType> &bb_out) {
+  std::vector<BbByTimestampType> unfiltered_bbs;
+  bb_reader(bb_file_name, unfiltered_bbs);
+  for (const BbByTimestampType &bb_by_timestamp : unfiltered_bbs) {
+    if (acceptable_semantic_classes.find(bb_by_timestamp.semantic_class) !=
+        acceptable_semantic_classes.end()) {
+      bb_out.emplace_back(bb_by_timestamp);
+    }
+  }
+}
 
 template <typename BbByTimestampType, typename BbByNodeType>
 void interpolateTimestamps(
@@ -116,8 +142,8 @@ void interpolateTimestamps(
             << full_timestamps.back().second;
 
   std::unordered_set<Timestamp, pair_hash> bounding_boxes_timestamp_set;
-//  LOG(INFO) << "Getting timestamps from file "
-//            << FLAGS_bb_by_timestamp_file_with_association;
+  //  LOG(INFO) << "Getting timestamps from file "
+  //            << FLAGS_bb_by_timestamp_file_with_association;
   //  std::vector<file_io::BoundingBoxWithTimestampAndId>
   //      bounding_boxes_by_timestamp;
   //  file_io::readBoundingBoxWithTimestampAndIdsFromFile(
@@ -185,28 +211,46 @@ void interpolateTimestamps(
 
     pose::Pose2d curr_pose = full_odom_frame_poses[i];
     Timestamp curr_timestamp = full_timestamps[i];
-    if (index_next_semantic_point_timestamp_to_check <
-        sorted_bb_timestamps.size()) {
-      Timestamp next_semantic_point_timestamp =
-          sorted_bb_timestamps[index_next_semantic_point_timestamp_to_check];
-      if (timestamp_sort()(next_semantic_point_timestamp, curr_timestamp)) {
-        if ((next_semantic_point_timestamp.first == curr_timestamp.first) &&
-            (next_semantic_point_timestamp.second == curr_timestamp.second)) {
-          timestamps_to_use.emplace_back(curr_timestamp);
-          poses_to_use.emplace_back(full_odom_frame_poses[i]);
-        } else {
-          pose::Pose2d prev_pose = full_odom_frame_poses[i - 1];
-          Timestamp prev_timestamp = full_timestamps[i - 1];
+    bool keep_checking = true;
+    while (keep_checking) {
+      if (index_next_semantic_point_timestamp_to_check <
+          sorted_bb_timestamps.size()) {
+        Timestamp next_semantic_point_timestamp =
+            sorted_bb_timestamps[index_next_semantic_point_timestamp_to_check];
+        if (timestamp_sort()(next_semantic_point_timestamp, curr_timestamp)) {
+          if ((next_semantic_point_timestamp.first == curr_timestamp.first) &&
+              (next_semantic_point_timestamp.second == curr_timestamp.second)) {
+            timestamps_to_use.emplace_back(curr_timestamp);
+            poses_to_use.emplace_back(full_odom_frame_poses[i]);
+          } else {
+            pose::Pose2d prev_pose = full_odom_frame_poses[i - 1];
+            Timestamp prev_timestamp = full_timestamps[i - 1];
 
-          pose::Pose2d rel_pose_interp_global =
-              pose::interpolatePoses(std::make_pair(prev_timestamp, prev_pose),
-                                     std::make_pair(curr_timestamp, curr_pose),
-                                     next_semantic_point_timestamp);
-          timestamps_to_use.emplace_back(next_semantic_point_timestamp);
-          poses_to_use.emplace_back(rel_pose_interp_global);
+            pose::Pose2d rel_pose_interp_global = pose::interpolatePoses(
+                std::make_pair(prev_timestamp, prev_pose),
+                std::make_pair(curr_timestamp, curr_pose),
+                next_semantic_point_timestamp);
+            LOG(INFO) << "Prev:   " << prev_pose;
+            LOG(INFO) << "Interp: " << rel_pose_interp_global;
+            LOG(INFO) << "Curr:   " << curr_pose;
+            LOG(INFO) << "Prev:   " << prev_timestamp;
+            LOG(INFO) << "Interp: " << next_semantic_point_timestamp;
+            LOG(INFO) << "Curr:   " << curr_timestamp;
+            if (timestamp_sort()(next_semantic_point_timestamp,
+                                 prev_timestamp)) {
+              LOG(ERROR) << "Out of order timestamps";
+              exit(1);
+            }
+            timestamps_to_use.emplace_back(next_semantic_point_timestamp);
+            poses_to_use.emplace_back(rel_pose_interp_global);
+          }
+          added_pose = true;
+          index_next_semantic_point_timestamp_to_check++;
+        } else {
+          keep_checking = false;
         }
-        added_pose = true;
-        index_next_semantic_point_timestamp_to_check++;
+      } else {
+        keep_checking = false;
       }
     }
     if (!added_pose) {
@@ -224,8 +268,8 @@ void interpolateTimestamps(
   pose::Pose2d last_pose = full_odom_frame_poses.back();
   if (!pose::posesAlmostSame(last_pose,
                              last_pose_in_used_list,
-                             kPoseEquivTolerance,
-                             kPoseEquivTolerance)) {
+                             kPoseEquivToleranceTransl,
+                             kPoseEquivToleranceRot)) {
     poses_to_use.emplace_back(last_pose);
   } else {
     LOG(INFO) << "Deduped";
@@ -254,12 +298,23 @@ void interpolateTimestamps(
   for (size_t i = 1; i < poses_rel_to_origin.size(); i++) {
     //        if (!pose::posesSame(poses_rel_to_origin[i - 1],
     //        poses_rel_to_origin[i])) {
-    if (!pose::posesAlmostSame(poses_rel_to_origin[i - 1],
+    if (!pose::posesAlmostSame(deduped_poses_rel_to_origin.back(),
                                poses_rel_to_origin[i],
-                               kPoseEquivTolerance,
-                               kPoseEquivTolerance)) {
+                               kPoseEquivToleranceTransl,
+                               kPoseEquivToleranceRot)) {
       deduped_poses_rel_to_origin.emplace_back(poses_rel_to_origin[i]);
 
+      if (!FLAGS_merge_deduped_poses) {
+        file_io::NodeIdAndTimestamp node_with_timestamp;
+        node_with_timestamp.node_id_ = deduped_poses_rel_to_origin.size() - 1;
+        node_with_timestamp.seconds_ = timestamps_to_use[i].first;
+        node_with_timestamp.nano_seconds_ = timestamps_to_use[i].second;
+        nodes_with_timestamps.emplace_back(node_with_timestamp);
+        nodes_by_timestamp[timestamps_to_use[i]] = node_with_timestamp.node_id_;
+      }
+    }
+
+    if (FLAGS_merge_deduped_poses) {
       file_io::NodeIdAndTimestamp node_with_timestamp;
       node_with_timestamp.node_id_ = deduped_poses_rel_to_origin.size() - 1;
       node_with_timestamp.seconds_ = timestamps_to_use[i].first;
@@ -267,10 +322,6 @@ void interpolateTimestamps(
       nodes_with_timestamps.emplace_back(node_with_timestamp);
       nodes_by_timestamp[timestamps_to_use[i]] = node_with_timestamp.node_id_;
     }
-//    else {
-//      LOG(INFO) << "Deduped";
-//    }
-
   }
 
   bag.close();
@@ -282,28 +333,13 @@ void interpolateTimestamps(
   //  for (const file_io::BoundingBoxWithTimestampAndId &bounding_box :
   //       bounding_boxes_by_timestamp) {
   for (const BbByTimestampType &bounding_box : bounding_boxes_by_timestamp) {
-    Timestamp bb_timestamp = std::make_pair(bounding_box.seconds, bounding_box.nano_seconds);
+    Timestamp bb_timestamp =
+        std::make_pair(bounding_box.seconds, bounding_box.nano_seconds);
     if (nodes_by_timestamp.find(bb_timestamp) != nodes_by_timestamp.end()) {
-      //    file_io::BoundingBoxWithNodeIdAndId bb_with_node;
-      //    bb_with_node.semantic_class = bounding_box.semantic_class;
-      //    bb_with_node.min_pixel_x = bounding_box.min_pixel_x;
-      //    bb_with_node.min_pixel_y = bounding_box.min_pixel_y;
-      //    bb_with_node.max_pixel_x = bounding_box.max_pixel_x;
-      //    bb_with_node.max_pixel_y = bounding_box.max_pixel_y;
-      //    bb_with_node.ellipsoid_idx = bounding_box.ellipsoid_idx;
-      //    bb_with_node.camera_id = bounding_box.camera_id;
-      //    bb_with_node.node_id = nodes_by_timestamp[std::make_pair(
-      //        bounding_box.seconds, bounding_box.nano_seconds)];
-      //    bounding_boxes_with_node_id.emplace_back(bb_with_node);
       bounding_boxes_with_node_id.emplace_back(bb_by_node_creator(
-          bounding_box,
-          nodes_by_timestamp.at(bb_timestamp)));
-    } else {
-      LOG(INFO) << "Skipping bounding box because timestamp was skipped";
+          bounding_box, nodes_by_timestamp.at(bb_timestamp)));
     }
   }
-  //  file_io::writeBoundingBoxWithNodeIdAndIdsToFile(FLAGS_bb_by_node_out_file,
-  //                                                  bounding_boxes_with_node_id);
   bb_out_writer(bb_by_node_file_name, bounding_boxes_with_node_id);
 
   LOG(INFO) << "Trajectory nodes size " << poses_rel_to_origin.size();
@@ -377,14 +413,9 @@ int main(int argc, char **argv) {
   }
 
   if (!FLAGS_bb_by_timestamp_file_with_association.empty()) {
-    //  std::vector<file_io::BoundingBoxWithTimestampAndId>
-    //      bounding_boxes_by_timestamp;
-    //  file_io::readBoundingBoxWithTimestampAndIdsFromFile(
-    //      FLAGS_bb_by_timestamp_file_with_association,
-    //      bounding_boxes_by_timestamp);
 
-  LOG(INFO) << "Getting timestamps from file "
-            << FLAGS_bb_by_timestamp_file_with_association;
+    LOG(INFO) << "Getting timestamps from file "
+              << FLAGS_bb_by_timestamp_file_with_association;
     std::function<file_io::BoundingBoxWithNodeIdAndId(
         const file_io::BoundingBoxWithTimestampAndId &,
         const uint64_t &node_id)>
@@ -410,7 +441,6 @@ int main(int argc, char **argv) {
         bb_by_node_creator,
         file_io::writeBoundingBoxWithNodeIdAndIdsToFile);
   } else {
-
     LOG(INFO) << "Getting timestamps from file "
               << FLAGS_bb_by_timestamp_file_no_association;
     std::function<file_io::BoundingBoxWithNodeId(
@@ -428,10 +458,22 @@ int main(int argc, char **argv) {
               bb_with_node.node_id = node_id;
               return bb_with_node;
             };
+    std::unordered_set<std::string> acceptable_classes = {"chair"};
+    std::function<void(const std::string &,
+                       std::vector<file_io::BoundingBoxWithTimestamp> &)>
+        bb_reader = [&](const std::string &bb_file_name,
+                        std::vector<file_io::BoundingBoxWithTimestamp>
+                            &bb_out) {
+          readBbsAndFilterBySemanticClass<file_io::BoundingBoxWithTimestamp>(
+              bb_file_name,
+              acceptable_classes,
+              file_io::readBoundingBoxWithTimestampsFromFile,
+              bb_out);
+        };
     interpolateTimestamps<file_io::BoundingBoxWithTimestamp,
                           file_io::BoundingBoxWithNodeId>(
         FLAGS_bb_by_timestamp_file_no_association,
-        file_io::readBoundingBoxWithTimestampsFromFile,
+        bb_reader,
         FLAGS_bb_by_node_out_file,
         bb_by_node_creator,
         file_io::writeBoundingBoxesWithNodeIdToFile);

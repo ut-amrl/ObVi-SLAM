@@ -12,6 +12,11 @@ namespace pose {
 
     typedef std::pair<uint32_t, uint32_t> Timestamp;
 
+    std::ostream &operator<<(std::ostream& os, const Timestamp& timestamp) {
+      os << timestamp.first << ", " << timestamp.second;
+      return os;
+    }
+
     uint64_t timestampToMillis(const Timestamp &timestamp) {
         return timestamp.first * 1000 + (timestamp.second / 1e6);
     }
