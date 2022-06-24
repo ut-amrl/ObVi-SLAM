@@ -73,20 +73,20 @@ class BoundingBoxFactor {
                                 robot_to_cam_tf_.cast<T>(),
                                 camera_intrinsics_mat_.cast<T>(),
                                 corner_results);
-    LOG(INFO) << "Corner results\n" << corner_results;
+//    LOG(INFO) << "Corner results\n" << corner_results;
 
     Eigen::Matrix<T, 4, 1> deviation =
         corner_results - corner_detections_.template cast<T>();
-    LOG(INFO) << "Detection " << corner_detections_;
-    LOG(INFO) << "Deviation " << deviation;
-    LOG(INFO) << "Sqrt inf mat bounding box "
-              << sqrt_inf_mat_bounding_box_corners_;
+//    LOG(INFO) << "Detection " << corner_detections_;
+//    LOG(INFO) << "Deviation " << deviation;
+//    LOG(INFO) << "Sqrt inf mat bounding box "
+//              << sqrt_inf_mat_bounding_box_corners_;
 
     Eigen::Map<Eigen::Matrix<T, 4, 1>> residuals(residuals_ptr);
     residuals =
         sqrt_inf_mat_bounding_box_corners_.template cast<T>() * deviation;
 
-    LOG(INFO) << "Residuals " << residuals;
+//    LOG(INFO) << "Residuals " << residuals;
     return true;
   }
 

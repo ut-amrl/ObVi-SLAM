@@ -163,7 +163,7 @@ getImagesFromRosbag(const std::string &rosbag_file_name,
   std::vector<std::string> topics;
   for (const auto &camera_topic_and_id : camera_topic_to_camera_id) {
     topics.emplace_back(camera_topic_and_id.first);
-    LOG(INFO) << "Checking topic " << camera_topic_and_id.first;
+//    LOG(INFO) << "Checking topic " << camera_topic_and_id.first;
   }
 
   rosbag::View view(bag, rosbag::TopicQuery(topics));
@@ -223,6 +223,22 @@ void createPoseGraph(
 
 void visualizationStub(
     const std::shared_ptr<vtr::RosVisualization> &vis_manager,
+    const std::unordered_map<vtr::CameraId, vtr::CameraExtrinsics<double>>
+        &extrinsics,
+    const std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
+        &intrinsics,
+    const std::unordered_map<vtr::CameraId, std::pair<double, double>>
+        &img_heights_and_widths,
+    const std::unordered_map<
+        vtr::FrameId,
+        std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>>
+        &images,
+    const std::shared_ptr<std::unordered_map<
+        vtr::FrameId,
+        std::unordered_map<
+            vtr::CameraId,
+            std::unordered_map<vtr::ObjectId, vtr::BbCornerPair<double>>>>>
+        &observed_corner_locations,
     const vtr::UnassociatedBoundingBoxOfflineProblemData<
         vtr::StructuredVisionFeatureTrack,
         sensor_msgs::Image::ConstPtr> &input_problem_data,
@@ -241,9 +257,56 @@ void visualizationStub(
           input_problem_data.getCameraExtrinsicsByCamera());
 
       sleep(3);
+      break;
     case vtr::BEFORE_EACH_OPTIMIZATION:
-    case vtr::AFTER_EACH_OPTIMIZATION:
+      break;
+    case vtr::AFTER_EACH_OPTIMIZATION: {
+      std::unordered_map<vtr::FrameId, vtr::RawPose3d<double>>
+          optimized_robot_pose_estimates;
+      pose_graph->getRobotPoseEstimates(optimized_robot_pose_estimates);
+      std::unordered_map<vtr::FrameId, vtr::Pose3D<double>>
+          optimized_trajectory;
+      for (const auto &frame_raw_pose : optimized_robot_pose_estimates) {
+        optimized_trajectory[frame_raw_pose.first] =
+            vtr::convertToPose3D(frame_raw_pose.second);
+      }
+
+      std::unordered_map<vtr::ObjectId, vtr::RawEllipsoid<double>>
+          object_estimates;
+      pose_graph->getObjectEstimates(object_estimates);
+      std::unordered_map<vtr::ObjectId, vtr::EllipsoidState<double>>
+          optimized_ellipsoid_estimates;
+      for (const auto &obj_and_raw_est : object_estimates) {
+        optimized_ellipsoid_estimates[obj_and_raw_est.first] =
+            vtr::convertToEllipsoidState(obj_and_raw_est.second);
+      }
+      std_msgs::ColorRGBA optimized_ellipsoid_color;
+      optimized_ellipsoid_color.a = 0.5;
+//      optimized_ellipsoid_color.r = 1.0;
+      optimized_ellipsoid_color.g = 1;
+      vis_manager->visualizeEllipsoids(optimized_ellipsoid_estimates,
+                                       "estimated_ellipsoids",
+                                       optimized_ellipsoid_color);
+      vis_manager->visualizeCameraObservations(
+          max_frame_optimized,
+          input_problem_data.getRobotPoseEstimates(),
+          optimized_trajectory,
+          std::nullopt,
+          std::nullopt,  // TODO should we extract the initial ellipsoid
+                         // estimates from the front end?
+          optimized_ellipsoid_estimates,
+          std::nullopt,
+          extrinsics,
+          intrinsics,
+          img_heights_and_widths,
+          images,
+          *observed_corner_locations,
+          {},
+          false);
+      break;
+    }
     case vtr::AFTER_ALL_OPTIMIZATION:
+      break;
     default:
       break;
   }
@@ -362,6 +425,19 @@ int main(int argc, char **argv) {
                                    FLAGS_nodes_by_timestamp_file,
                                    camera_topic_to_camera_id);
 
+  std::unordered_map<vtr::CameraId, std::pair<double, double>>
+      img_heights_and_widths;
+  for (const auto &frame_and_imgs : images) {
+    for (const auto &cam_and_img : frame_and_imgs.second) {
+      if (img_heights_and_widths.find(cam_and_img.first) ==
+          img_heights_and_widths.end()) {
+        sensor_msgs::Image::ConstPtr img = cam_and_img.second;
+        img_heights_and_widths[cam_and_img.first] =
+            std::make_pair(img->height, img->width);
+      }
+    }
+  }
+
   vtr::UnassociatedBoundingBoxOfflineProblemData<
       vtr::StructuredVisionFeatureTrack,
       sensor_msgs::Image::ConstPtr>
@@ -467,8 +543,8 @@ int main(int argc, char **argv) {
              const vtr::UnassociatedBoundingBoxOfflineProblemData<
                  vtr::StructuredVisionFeatureTrack,
                  sensor_msgs::Image::ConstPtr> &problem_data) {
-            LOG(INFO) << "Getting image for frame " << frame_id
-                      << " and camera " << camera_id;
+//            LOG(INFO) << "Getting image for frame " << frame_id
+//                      << " and camera " << camera_id;
             return problem_data.getImageForFrameAndCamera(frame_id, camera_id);
           };
 
@@ -485,8 +561,20 @@ int main(int argc, char **argv) {
         return bounding_box_covariance;
       };
 
+  std::shared_ptr<std::unordered_map<
+      vtr::FrameId,
+      std::unordered_map<
+          vtr::CameraId,
+          std::unordered_map<vtr::ObjectId, vtr::BbCornerPair<double>>>>>
+      observed_corner_locations = std::make_shared<std::unordered_map<
+          vtr::FrameId,
+          std::unordered_map<
+              vtr::CameraId,
+              std::unordered_map<vtr::ObjectId, vtr::BbCornerPair<double>>>>>();
   vtr::RoshanBbFrontEndCreator<vtr::ReprojectionErrorFactor>
-      roshan_associator_creator(roshan_associator_params, covariance_generator);
+      roshan_associator_creator(roshan_associator_params,
+                                observed_corner_locations,
+                                covariance_generator);
   std::function<std::shared_ptr<vtr::AbstractBoundingBoxFrontEnd<
       vtr::ReprojectionErrorFactor,
       vtr::RoshanAggregateBbInfo,
@@ -573,6 +661,11 @@ int main(int argc, char **argv) {
                 vtr::ReprojectionErrorFactor>>
                 superclass_ptr = pose_graph;
             visualizationStub(vis_manager,
+                              camera_extrinsics_by_camera,
+                              camera_intrinsics_by_camera,
+                              img_heights_and_widths,
+                              images,
+                              observed_corner_locations,
                               input_problem_data,
                               superclass_ptr,
                               min_frame_id,
@@ -610,6 +703,8 @@ int main(int argc, char **argv) {
 
   offline_problem_runner.runOptimization(
       input_problem_data, optimization_factors_enabled_params, output_results);
+
+  LOG(INFO) << "Num ellipsoids " << output_results.ellipsoid_results_.ellipsoids_.size();
 
   // TODO save output results somewhere
 
