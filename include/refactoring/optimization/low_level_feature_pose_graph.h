@@ -101,14 +101,11 @@ class LowLevelFeaturePoseGraph {
   virtual bool getIntrinsicsForCamera(
       const CameraId &camera_id,
       CameraIntrinsicsMat<double> &intrinsics_return) {
-//    LOG(INFO) << "Getting intrinsics for camera " << camera_id;
     if (camera_intrinsics_by_camera_.find(camera_id) !=
         camera_intrinsics_by_camera_.end()) {
-//      LOG(INFO) << "Has intrinsics";
       intrinsics_return = camera_intrinsics_by_camera_[camera_id];
       return true;
     }
-//    LOG(INFO) << "No intrinsics";
     return false;
   }
 

@@ -142,20 +142,10 @@ void interpolateTimestamps(
             << full_timestamps.back().second;
 
   std::unordered_set<Timestamp, pair_hash> bounding_boxes_timestamp_set;
-  //  LOG(INFO) << "Getting timestamps from file "
-  //            << FLAGS_bb_by_timestamp_file_with_association;
-  //  std::vector<file_io::BoundingBoxWithTimestampAndId>
-  //      bounding_boxes_by_timestamp;
-  //  file_io::readBoundingBoxWithTimestampAndIdsFromFile(
-  //      FLAGS_bb_by_timestamp_file_with_association,
-  //      bounding_boxes_by_timestamp);
 
   std::vector<BbByTimestampType> bounding_boxes_by_timestamp;
   bb_by_timestamp_reader(bb_by_timestamp_file_name,
                          bounding_boxes_by_timestamp);
-
-  //  for (const file_io::BoundingBoxWithTimestampAndId
-  //           &bounding_box_with_timestamp : bounding_boxes_by_timestamp) {
 
   for (const BbByTimestampType &bounding_box_with_timestamp :
        bounding_boxes_by_timestamp) {
@@ -230,12 +220,6 @@ void interpolateTimestamps(
                 std::make_pair(prev_timestamp, prev_pose),
                 std::make_pair(curr_timestamp, curr_pose),
                 next_semantic_point_timestamp);
-            LOG(INFO) << "Prev:   " << prev_pose;
-            LOG(INFO) << "Interp: " << rel_pose_interp_global;
-            LOG(INFO) << "Curr:   " << curr_pose;
-            LOG(INFO) << "Prev:   " << prev_timestamp;
-            LOG(INFO) << "Interp: " << next_semantic_point_timestamp;
-            LOG(INFO) << "Curr:   " << curr_timestamp;
             if (timestamp_sort()(next_semantic_point_timestamp,
                                  prev_timestamp)) {
               LOG(ERROR) << "Out of order timestamps";
@@ -327,11 +311,7 @@ void interpolateTimestamps(
   bag.close();
 
   // Write bounding boxes by node id to file
-  //  std::vector<file_io::BoundingBoxWithNodeIdAndId>
-  //  bounding_boxes_with_node_id;
   std::vector<BbByNodeType> bounding_boxes_with_node_id;
-  //  for (const file_io::BoundingBoxWithTimestampAndId &bounding_box :
-  //       bounding_boxes_by_timestamp) {
   for (const BbByTimestampType &bounding_box : bounding_boxes_by_timestamp) {
     Timestamp bb_timestamp =
         std::make_pair(bounding_box.seconds, bounding_box.nano_seconds);
