@@ -637,21 +637,21 @@ class AbstractUnknownDataAssociationBbFrontEnd
       std::vector<std::pair<AssociatedObjectIdentifier, double>>
           candidates_with_scores_for_bb;
       RawBoundingBox bb = bounding_boxes[i];
+      SingleBbContextInfo bb_context = indiv_bb_contexts[i];
 
       // For each bounding box, identify candidates
       std::vector<AssociatedObjectIdentifier> candidates =
-          identifyCandidateMatches(frame_id, camera_id, bb);
+          identifyCandidateMatches(frame_id, camera_id, bb, bb_context);
 
       // For each bounding box, prune candidates using geometric checks
       candidates = pruneCandidateMatchesBasedOnGeometry(
-          frame_id, camera_id, bb, candidates);
+          frame_id, camera_id, bb, candidates, bb_context);
 
       // For each bounding box, calculate data association scores for each
       // candidate
-      SingleBbContextInfo bb_appearance_info = indiv_bb_contexts[i];
       for (const AssociatedObjectIdentifier &candidate : candidates) {
         double score = scoreCandidateMatch(
-            frame_id, camera_id, bb, candidate, bb_appearance_info);
+            frame_id, camera_id, bb, candidate, bb_context);
         // If the score is negative infinity, this should not be matched even
         // if there are no better matches (better to make new object)
         if (score != (-1 * std::numeric_limits<double>::infinity())) {
@@ -671,14 +671,16 @@ class AbstractUnknownDataAssociationBbFrontEnd
   virtual std::vector<AssociatedObjectIdentifier> identifyCandidateMatches(
       const FrameId &frame_id,
       const CameraId &camera_id,
-      const RawBoundingBox &bounding_box) = 0;
+      const RawBoundingBox &bounding_box,
+      const SingleBbContextInfo &bb_context) = 0;
 
   virtual std::vector<AssociatedObjectIdentifier>
   pruneCandidateMatchesBasedOnGeometry(
       const FrameId &frame_id,
       const CameraId &camera_id,
       const RawBoundingBox &bounding_box,
-      const std::vector<AssociatedObjectIdentifier> &candidate_matches) = 0;
+      const std::vector<AssociatedObjectIdentifier> &candidate_matches,
+      const SingleBbContextInfo &bb_context) = 0;
 
   virtual double scoreCandidateMatch(
       const FrameId &frame_id,
