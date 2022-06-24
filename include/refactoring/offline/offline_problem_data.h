@@ -279,11 +279,11 @@ class UnassociatedBoundingBoxOfflineProblemData
 
   virtual std::optional<ImageType> getImageForFrameAndCamera(const FrameId& frame,
                                               const CameraId& camera) const {
-    LOG(INFO) << "Retreiving image";
+//    LOG(INFO) << "Retreiving image";
     if (images_.find(frame) != images_.end()) {
       if ((images_.at(frame)).find(camera) != (images_.at(frame)).end()) {
         ImageType img = (images_.at(frame)).at(camera);
-        LOG(INFO) << "Got img";
+//        LOG(INFO) << "Got img";
         return img;
       }
     }

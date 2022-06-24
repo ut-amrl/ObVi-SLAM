@@ -103,6 +103,7 @@ class RosVisualization {
     }
   }
 
+  // TODO modify this to also take min frame
   void visualizeCameraObservations(
       const FrameId &max_frame,
       const std::unordered_map<FrameId, Pose3D<double>> &initial_trajectory,
@@ -123,7 +124,7 @@ class RosVisualization {
           &img_heights_and_widths,
       const std::unordered_map<
           FrameId,
-          std::unordered_map<CameraId, sensor_msgs::ImagePtr>> &images,
+          std::unordered_map<CameraId, sensor_msgs::Image::ConstPtr>> &images,
       const std::unordered_map<
           FrameId,
           std::unordered_map<
@@ -220,7 +221,7 @@ class RosVisualization {
           &img_heights_and_widths,
       const std::unordered_map<
           FrameId,
-          std::unordered_map<CameraId, sensor_msgs::ImagePtr>> &images,
+          std::unordered_map<CameraId, sensor_msgs::Image::ConstPtr>> &images,
       const std::unordered_map<
           FrameId,
           std::unordered_map<
@@ -251,8 +252,8 @@ class RosVisualization {
         continue;
       }
 
-      std::unordered_map<CameraId, sensor_msgs::ImagePtr> empty_images_map;
-      std::unordered_map<CameraId, sensor_msgs::ImagePtr> &images_for_pose =
+      std::unordered_map<CameraId, sensor_msgs::Image::ConstPtr> empty_images_map;
+      std::unordered_map<CameraId, sensor_msgs::Image::ConstPtr> &images_for_pose =
           empty_images_map;
       if (images.find(pose_idx) != images.end()) {
         images_for_pose = images.at(pose_idx);
@@ -300,9 +301,9 @@ class RosVisualization {
         std::pair<double, double> image_height_and_width =
             img_heights_and_widths.at(cam_id_and_extrinsics.first);
 
-        std::optional<sensor_msgs::ImagePtr> image =
+        std::optional<sensor_msgs::Image::ConstPtr> image =
             has_image_for_cam_at_pose
-                ? std::optional<sensor_msgs::ImagePtr>{images_for_pose.at(
+                ? std::optional<sensor_msgs::Image::ConstPtr>{images_for_pose.at(
                       cam_id_and_extrinsics.first)}
                 : std::nullopt;
 
@@ -611,9 +612,9 @@ class RosVisualization {
         cam_transform.transform.rotation.y = cam_extrinsics_quat.y();
         cam_transform.transform.rotation.z = cam_extrinsics_quat.z();
         cam_transform.transform.rotation.w = cam_extrinsics_quat.w();
-        LOG(INFO) << "Publishing transform from "
-                  << cam_transform.header.frame_id << " to "
-                  << cam_transform.child_frame_id;
+//        LOG(INFO) << "Publishing transform from "
+//                  << cam_transform.header.frame_id << " to "
+//                  << cam_transform.child_frame_id;
         static_tf_broadcaster_.sendTransform(cam_transform);
       }
     }
@@ -651,7 +652,7 @@ class RosVisualization {
       const CameraIntrinsicsMat<double>
           &intrinsics,  // Should we just take in cam info?
       const std::pair<double, double> &img_height_and_width,
-      const std::optional<sensor_msgs::ImagePtr> &image,
+      const std::optional<sensor_msgs::Image::ConstPtr> &image,
       const std::optional<std::unordered_map<ObjectId, BbCornerPair<double>>>
           &observed_corner_locations,
       const std::optional<std::unordered_map<ObjectId, BbCornerPair<double>>>
@@ -741,7 +742,8 @@ class RosVisualization {
 
   const static uint32_t kCameraInfoQueueSize = 100;
 
-  const static constexpr double kSleepAfterPubCreationTime = 0.5;
+//  const static constexpr double kSleepAfterPubCreationTime = 0.5;
+  const static constexpr double kSleepAfterPubCreationTime = 0.1;
 
   const static int kBoundingBoxLineThickness = 4;
 
@@ -888,8 +890,8 @@ class RosVisualization {
                          const CameraIntrinsicsMat<double> &intrinsics,
                          const std::pair<double, double> img_height_and_width,
                          ros::Publisher &camera_info_publisher) {
-    LOG(INFO) << "Camera intrinsics for frame " << frame_id << ": "
-              << intrinsics;
+//    LOG(INFO) << "Camera intrinsics for frame " << frame_id << ": "
+//              << intrinsics;
     sensor_msgs::CameraInfo cam_info;
     cam_info.header.stamp = header_stamp;
     cam_info.header.frame_id = frame_id;
@@ -903,9 +905,9 @@ class RosVisualization {
     cam_info.K[7] = intrinsics(2, 1);
     cam_info.K[8] = intrinsics(2, 2);
 
-    for (const double &k_val : cam_info.K) {
-      LOG(INFO) << "K " << k_val;
-    }
+//    for (const double &k_val : cam_info.K) {
+//      LOG(INFO) << "K " << k_val;
+//    }
 
     cam_info.width = img_height_and_width.second;
     cam_info.height = img_height_and_width.first;
@@ -920,9 +922,9 @@ class RosVisualization {
     cam_info.P[9] = cam_info.K[7];
     cam_info.P[10] = cam_info.K[8];
 
-    for (const double &p_val : cam_info.P) {
-      LOG(INFO) << "P " << p_val;
-    }
+//    for (const double &p_val : cam_info.P) {
+//      LOG(INFO) << "P " << p_val;
+//    }
 
     cam_info.distortion_model = "plumb_bob";
 
