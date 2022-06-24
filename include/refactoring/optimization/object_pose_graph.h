@@ -280,11 +280,8 @@ class ObjAndLowLevelFeaturePoseGraph
       const FrameId &min_frame_id,
       const FrameId &max_frame_id,
       std::unordered_set<ObjectId> &matching_objects) {
-//    LOG(INFO) << "Target range: " << min_frame_id << ", " << max_frame_id;
     for (const auto &object_id_and_most_recent_frame :
          last_observed_frame_by_object_) {
-//      LOG(INFO) << "Object observation at frame "
-//                << object_id_and_most_recent_frame.second;
       if (object_id_and_most_recent_frame.second >= min_frame_id) {
         if (first_observed_frame_by_object_.find(
                 object_id_and_most_recent_frame.first) !=
@@ -371,12 +368,6 @@ class ObjAndLowLevelFeaturePoseGraph
 
   virtual std::optional<ObjectDim<double>> getShapeDimMean(
       const std::string &semantic_class) {
-//    LOG(INFO) << "Mean and cov size? "
-//              << mean_and_cov_by_semantic_class_.size();
-//    LOG(INFO) << "Available classes ";
-//    for (const auto &sem_class_and_data : mean_and_cov_by_semantic_class_) {
-//      LOG(INFO) << sem_class_and_data.first;
-//    }
     if (mean_and_cov_by_semantic_class_.find(semantic_class) ==
         mean_and_cov_by_semantic_class_.end()) {
       return {};

@@ -353,15 +353,6 @@ class RosVisualization {
               continue;
             }
 
-            //            BbCornerPair<double>
-            //                predicted_corners_from_init_for_ellipsoid =
-            //                    getCornerLocationsPair(init_ellipsoid,
-            //                                           robot_pose,
-            //                                           cam_id_and_extrinsics.second,
-            //                                           cam_intrinsics);
-            //          pred_corners_from_initial_nonopt[init_ellipsoid.ellipsoid_idx]
-            //          =
-            //              predicted_corners_from_init_for_ellipsoid;
             if (optimized_ellipsoid_estimates.has_value()) {
               pred_corners_from_opt_nonopt[ellipsoid.first] =
                   getCornerLocationsPair(
@@ -370,15 +361,6 @@ class RosVisualization {
                       cam_id_and_extrinsics.second,
                       cam_intrinsics);
             }
-            //          if (gt_ellipsoid_estimates.has_value()) {
-            //            pred_corners_from_gt_nonopt[init_ellipsoid.ellipsoid_idx]
-            //            =
-            //                vslam_util::getCornerLocationsPair(
-            //                    gt_ellipsoid_estimates.value()[ellipsoid_entry_num],
-            //                    robot_pose,
-            //                    cam_id_and_extrinsics.second,
-            //                    cam_intrinsics);
-            //          }
           }
 
           predicted_corners_from_initial =
@@ -417,166 +399,11 @@ class RosVisualization {
     }
   }
 
-  //  void visualizeTrajectoryAndEllipsoidsWithTf(
-  //      const std::vector<vslam_types::RobotPose> &trajectory,
-  //      const std::unordered_map<ObjectId, EllipsoidState<double>>
-  //      &ellipsoids, const std::unordered_map<CameraId,
-  //                               CameraExtrinsics<double>> &extrinsics,
-  //      const std::unordered_map<CameraId,
-  //                               CameraIntrinsicsMat<double>> &intrinsics,
-  //      const std::string &prefix = "") {
-  //    publishEllipsoidTransforms(ellipsoids, prefix);
-  //
-  //    for (const vslam_types::RobotPose &robot_pose : trajectory) {
-  //      geometry_msgs::TransformStamped robot_transform;
-  //      robot_transform.header.stamp = ros::Time::now();
-  //      robot_transform.header.frame_id = kVizFrame;
-  //      robot_transform.child_frame_id =
-  //          createRobotPoseFrameId(robot_pose.frame_idx, prefix);
-  //      robot_transform.transform.translation.x = robot_pose.loc.x();
-  //      robot_transform.transform.translation.y = robot_pose.loc.y();
-  //      robot_transform.transform.translation.z = robot_pose.loc.z();
-  //      Eigen::Quaternionf robot_quat(robot_pose.angle);
-  //      robot_transform.transform.rotation.x = robot_quat.x();
-  //      robot_transform.transform.rotation.y = robot_quat.y();
-  //      robot_transform.transform.rotation.z = robot_quat.z();
-  //      robot_transform.transform.rotation.w = robot_quat.w();
-  //      static_tf_broadcaster_.sendTransform(robot_transform);
-  //
-  //      for (const auto &cam_id_and_extrinsics : extrinsics) {
-  //        geometry_msgs::TransformStamped cam_transform;
-  //        cam_transform.header.stamp = ros::Time::now();
-  //        cam_transform.header.frame_id = robot_transform.child_frame_id;
-  //        cam_transform.child_frame_id = createCameraPoseFrameIdRelRobot(
-  //            robot_pose.frame_idx, cam_id_and_extrinsics.first, prefix);
-  //        cam_transform.transform.translation.x =
-  //            cam_id_and_extrinsics.second.translation.x();
-  //        cam_transform.transform.translation.y =
-  //            cam_id_and_extrinsics.second.translation.y();
-  //        cam_transform.transform.translation.z =
-  //            cam_id_and_extrinsics.second.translation.z();
-  //        cam_transform.transform.rotation.x =
-  //            cam_id_and_extrinsics.second.rotation.x();
-  //        cam_transform.transform.rotation.y =
-  //            cam_id_and_extrinsics.second.rotation.y();
-  //        cam_transform.transform.rotation.z =
-  //            cam_id_and_extrinsics.second.rotation.z();
-  //        cam_transform.transform.rotation.w =
-  //            cam_id_and_extrinsics.second.rotation.w();
-  //        static_tf_broadcaster_.sendTransform(cam_transform);
-  //        if (intrinsics.find(cam_id_and_extrinsics.first) !=
-  //        intrinsics.end()) {
-  //          publishImageWithBoundingBoxes(
-  //              cam_transform.child_frame_id + "/image_raw",
-  //              cam_transform.child_frame_id + "/camera_info",
-  //              cam_transform.child_frame_id,
-  //              intrinsics.at(cam_id_and_extrinsics.first),
-  //              intrinsics.at(cam_id_and_extrinsics.first).camera_mat(0, 2) *
-  //              2, intrinsics.at(cam_id_and_extrinsics.first).camera_mat(1, 2)
-  //              * 2, std::nullopt, std::nullopt, std::nullopt, std::nullopt);
-  //          //
-  //          publishCameraIntrinsics(intrinsics.at(cam_id_and_extrinsics.first),
-  //          //                                  cam_transform.child_frame_id,
-  //          //                                  cam_transform.child_frame_id +
-  //          //                                  "/camera_info",
-  //          //                                  cam_transform.child_frame_id +
-  //          //                                  "/image_raw");
-  //        }
-  //
-  //        vslam_types::RobotPose extrinsics_pose(
-  //            robot_pose.frame_idx,
-  //            cam_id_and_extrinsics.second.translation,
-  //            Eigen::AngleAxisf(cam_id_and_extrinsics.second.rotation));
-  //        vslam_types::RobotPose cam_pose_in_world =
-  //            vslam_util::combinePoses(robot_pose, extrinsics_pose);
-  //        Eigen::Quaternionf cam_quat(cam_pose_in_world.angle);
-  //        geometry_msgs::TransformStamped alt_cam_transform;
-  //        alt_cam_transform.header.stamp = ros::Time::now();
-  //        alt_cam_transform.header.frame_id = kVizFrame;
-  //        alt_cam_transform.child_frame_id =
-  //            robot_transform.child_frame_id + "_cam" +
-  //            std::to_string(cam_id_and_extrinsics.first) + "_alt";
-  //        alt_cam_transform.transform.translation.x =
-  //        cam_pose_in_world.loc.x(); alt_cam_transform.transform.translation.y
-  //        = cam_pose_in_world.loc.y();
-  //        alt_cam_transform.transform.translation.z =
-  //        cam_pose_in_world.loc.z(); alt_cam_transform.transform.rotation.x =
-  //        cam_quat.x(); alt_cam_transform.transform.rotation.y = cam_quat.y();
-  //        alt_cam_transform.transform.rotation.z = cam_quat.z();
-  //        alt_cam_transform.transform.rotation.w = cam_quat.w();
-  //
-  //        static_tf_broadcaster_.sendTransform(alt_cam_transform);
-  //        for (const vslam_types::EllipsoidEstimate &ellipsoid_est :
-  //        ellipsoids) {
-  //          vslam_types::RobotPose ellipsoid_pose_in_world(
-  //              robot_pose.frame_idx,
-  //              ellipsoid_est.loc,
-  //              ellipsoid_est.orientation);
-  //
-  //          vslam_types::RobotPose ellipsoid_pose_rel_cam =
-  //              vslam_util::getPose2RelativeToPose1(cam_pose_in_world,
-  //                                                  ellipsoid_pose_in_world);
-  //          Eigen::Quaternionf ellipsoid_quat(ellipsoid_pose_rel_cam.angle);
-  //          geometry_msgs::TransformStamped rel_ellipsoid_transform;
-  //          rel_ellipsoid_transform.header.stamp = ros::Time::now();
-  //          rel_ellipsoid_transform.header.frame_id =
-  //              alt_cam_transform.child_frame_id;
-  //          rel_ellipsoid_transform.child_frame_id = createEllipsoidFrameId(
-  //              ellipsoid_est.ellipsoid_idx,
-  //              alt_cam_transform.child_frame_id);
-  //          rel_ellipsoid_transform.transform.translation.x =
-  //              ellipsoid_pose_rel_cam.loc.x();
-  //          rel_ellipsoid_transform.transform.translation.y =
-  //              ellipsoid_pose_rel_cam.loc.y();
-  //          rel_ellipsoid_transform.transform.translation.z =
-  //              ellipsoid_pose_rel_cam.loc.z();
-  //          rel_ellipsoid_transform.transform.rotation.x = ellipsoid_quat.x();
-  //          rel_ellipsoid_transform.transform.rotation.y = ellipsoid_quat.y();
-  //          rel_ellipsoid_transform.transform.rotation.z = ellipsoid_quat.z();
-  //          rel_ellipsoid_transform.transform.rotation.w = ellipsoid_quat.w();
-  //
-  //          static_tf_broadcaster_.sendTransform(rel_ellipsoid_transform);
-  //
-  //          vslam_types::RobotPose cam_pose_rel_ellispoid =
-  //              vslam_util::getPose2RelativeToPose1(ellipsoid_pose_in_world,
-  //                                                  cam_pose_in_world);
-  //          Eigen::Quaternionf cam_pose_rel_ellipsoid_quat(
-  //              cam_pose_rel_ellispoid.angle);
-  //          geometry_msgs::TransformStamped rel_cam_pose_transform;
-  //          rel_cam_pose_transform.header.stamp = ros::Time::now();
-  //          rel_cam_pose_transform.header.frame_id =
-  //              createEllipsoidFrameId(ellipsoid_est.ellipsoid_idx, prefix);
-  //          rel_cam_pose_transform.child_frame_id =
-  //              createEllipsoidFrameId(ellipsoid_est.ellipsoid_idx,
-  //                                     alt_cam_transform.child_frame_id) +
-  //              "_rel_cam";
-  //          rel_cam_pose_transform.transform.translation.x =
-  //              cam_pose_rel_ellispoid.loc.x();
-  //          rel_cam_pose_transform.transform.translation.y =
-  //              cam_pose_rel_ellispoid.loc.y();
-  //          rel_cam_pose_transform.transform.translation.z =
-  //              cam_pose_rel_ellispoid.loc.z();
-  //          rel_cam_pose_transform.transform.rotation.x =
-  //              cam_pose_rel_ellipsoid_quat.x();
-  //          rel_cam_pose_transform.transform.rotation.y =
-  //              cam_pose_rel_ellipsoid_quat.y();
-  //          rel_cam_pose_transform.transform.rotation.z =
-  //              cam_pose_rel_ellipsoid_quat.z();
-  //          rel_cam_pose_transform.transform.rotation.w =
-  //              cam_pose_rel_ellipsoid_quat.w();
-  //
-  //          static_tf_broadcaster_.sendTransform(rel_cam_pose_transform);
-  //        }
-  //      }
-  //    }
-  //  }
-
   void publishTransformsForEachCamera(
       const FrameId &max_frame,
       const std::unordered_map<FrameId, Pose3D<double>> &trajectory,
       const std::unordered_map<CameraId, CameraExtrinsics<double>> &extrinsics,
       const std::string &robot_pose_prefix = "") {
-    //    for (const vslam_types::RobotPose &robot_pose : trajectory) {
     for (FrameId frame = 0; frame <= max_frame; frame++) {
       Pose3D<double> robot_pose = trajectory.at(frame);
       geometry_msgs::TransformStamped robot_transform;
@@ -742,7 +569,6 @@ class RosVisualization {
 
   const static uint32_t kCameraInfoQueueSize = 100;
 
-//  const static constexpr double kSleepAfterPubCreationTime = 0.5;
   const static constexpr double kSleepAfterPubCreationTime = 0.1;
 
   const static int kBoundingBoxLineThickness = 4;
