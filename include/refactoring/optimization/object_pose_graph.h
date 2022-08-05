@@ -247,12 +247,12 @@ class ObjAndLowLevelFeaturePoseGraph
   }
 
   virtual bool getObjectParamPointers(const ObjectId &object_id,
-                                      double **ellipsoid_ptr) {
+                                      double **ellipsoid_ptr) const {
     if (ellipsoid_estimates_.find(object_id) == ellipsoid_estimates_.end()) {
       return false;
     }
 
-    *ellipsoid_ptr = ellipsoid_estimates_[object_id].ellipsoid_->data();
+    *ellipsoid_ptr = ellipsoid_estimates_.at(object_id).ellipsoid_->data();
     return true;
   }
 

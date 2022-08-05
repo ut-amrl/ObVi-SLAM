@@ -60,6 +60,7 @@ class OfflineProblemRunner {
                                const FrameId &)> &frame_data_adder,
       const std::function<void(const InputProblemData &,
                                const std::shared_ptr<PoseGraphType> &,
+                               ceres::Problem *,
                                OutputProblemData &)> &output_data_extractor,
       const std::function<
           std::vector<std::shared_ptr<ceres::IterationCallback>>(
@@ -160,7 +161,7 @@ class OfflineProblemRunner {
                             0,
                             max_frame_id,
                             VisualizationTypeEnum::AFTER_ALL_OPTIMIZATION);
-    output_data_extractor_(problem_data, pose_graph, output_problem_data);
+    output_data_extractor_(problem_data, pose_graph, &problem, output_problem_data);
     return true;
   }
 
@@ -183,6 +184,7 @@ class OfflineProblemRunner {
       frame_data_adder_;
   std::function<void(const InputProblemData &,
                      const std::shared_ptr<PoseGraphType> &,
+                     ceres::Problem *,
                      OutputProblemData &)>
       output_data_extractor_;
 

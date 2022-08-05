@@ -20,6 +20,9 @@
 #include <rosbag/view.h>
 #include <sensor_msgs/Image.h>
 
+// TODO remove
+#include <refactoring/long_term_map/long_term_map_extraction.h>
+
 namespace vtr = vslam_types_refactor;
 
 DEFINE_string(param_prefix, "", "param_prefix");
@@ -163,7 +166,7 @@ getImagesFromRosbag(const std::string &rosbag_file_name,
   std::vector<std::string> topics;
   for (const auto &camera_topic_and_id : camera_topic_to_camera_id) {
     topics.emplace_back(camera_topic_and_id.first);
-//    LOG(INFO) << "Checking topic " << camera_topic_and_id.first;
+    //    LOG(INFO) << "Checking topic " << camera_topic_and_id.first;
   }
 
   rosbag::View view(bag, rosbag::TopicQuery(topics));
@@ -282,7 +285,7 @@ void visualizationStub(
       }
       std_msgs::ColorRGBA optimized_ellipsoid_color;
       optimized_ellipsoid_color.a = 0.5;
-//      optimized_ellipsoid_color.r = 1.0;
+      //      optimized_ellipsoid_color.r = 1.0;
       optimized_ellipsoid_color.g = 1;
       vis_manager->visualizeEllipsoids(optimized_ellipsoid_estimates,
                                        "estimated_ellipsoids",
@@ -545,8 +548,8 @@ int main(int argc, char **argv) {
              const vtr::UnassociatedBoundingBoxOfflineProblemData<
                  vtr::StructuredVisionFeatureTrack,
                  sensor_msgs::Image::ConstPtr> &problem_data) {
-//            LOG(INFO) << "Getting image for frame " << frame_id
-//                      << " and camera " << camera_id;
+            //            LOG(INFO) << "Getting image for frame " << frame_id
+            //                      << " and camera " << camera_id;
             return problem_data.getImageForFrameAndCamera(frame_id, camera_id);
           };
 
@@ -622,6 +625,7 @@ int main(int argc, char **argv) {
           vtr::StructuredVisionFeatureTrack,
           sensor_msgs::Image::ConstPtr> &,
       const std::shared_ptr<const vtr::ObjectAndReprojectionFeaturePoseGraph> &,
+      ceres::Problem *,
       vtr::SpatialEstimateOnlyResults &)>
       output_data_extractor =
           [](const vtr::UnassociatedBoundingBoxOfflineProblemData<
@@ -629,6 +633,7 @@ int main(int argc, char **argv) {
                  sensor_msgs::Image::ConstPtr> &input_problem_data,
              const std::shared_ptr<
                  const vtr::ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
+             ceres::Problem *problem,
              vtr::SpatialEstimateOnlyResults &output_problem_data) {
             vtr::extractSpatialEstimateOnlyResults(pose_graph,
                                                    output_problem_data);
@@ -706,7 +711,8 @@ int main(int argc, char **argv) {
   offline_problem_runner.runOptimization(
       input_problem_data, optimization_factors_enabled_params, output_results);
 
-  LOG(INFO) << "Num ellipsoids " << output_results.ellipsoid_results_.ellipsoids_.size();
+  LOG(INFO) << "Num ellipsoids "
+            << output_results.ellipsoid_results_.ellipsoids_.size();
 
   // TODO save output results somewhere
 
