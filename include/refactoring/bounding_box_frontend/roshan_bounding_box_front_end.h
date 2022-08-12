@@ -43,12 +43,14 @@ struct RoshanAggregateBbInfo {
 };
 
 template <typename VisualFeatureFactorType>
-class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
-                             VisualFeatureFactorType,
-                             RoshanAggregateBbInfo,
-                             std::optional<sensor_msgs::Image::ConstPtr>,
-                             RoshanImageSummaryInfo,
-                             RoshanBbInfo> {
+class RoshanBbFrontEnd
+    : public AbstractUnknownDataAssociationBbFrontEnd<
+          VisualFeatureFactorType,
+          RoshanAggregateBbInfo,
+          std::optional<sensor_msgs::Image::ConstPtr>,
+          RoshanImageSummaryInfo,
+          RoshanBbInfo,
+          std::unordered_map<ObjectId, RoshanAggregateBbInfo>> {
  public:
   RoshanBbFrontEnd(
       const std::shared_ptr<
@@ -71,10 +73,25 @@ class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
             RoshanAggregateBbInfo,
             std::optional<sensor_msgs::Image::ConstPtr>,
             RoshanImageSummaryInfo,
-            RoshanBbInfo>(pose_graph),
+            RoshanBbInfo,
+            std::unordered_map<ObjectId, RoshanAggregateBbInfo>>(pose_graph),
         association_params_(association_params),
         covariance_generator_(covariance_generator),
         observed_corner_locations_(observed_corner_locations) {}
+
+  virtual bool getFrontEndObjMapData(
+      std::unordered_map<vslam_types_refactor::ObjectId, RoshanAggregateBbInfo>
+          &map_data) override {
+    map_data = AbstractBoundingBoxFrontEnd<
+        VisualFeatureFactorType,
+        RoshanAggregateBbInfo,
+        std::optional<sensor_msgs::Image::ConstPtr>,
+        RoshanImageSummaryInfo,
+        RoshanBbInfo,
+        std::unordered_map<vslam_types_refactor::ObjectId,
+                           RoshanAggregateBbInfo>>::object_appearance_info_;
+    return true;
+  }
 
  protected:
   virtual void updateAppearanceInfoWithObjectIdAssignmentAndInitialization(
@@ -421,11 +438,10 @@ class RoshanBbFrontEnd : public AbstractUnknownDataAssociationBbFrontEnd<
         RoshanAggregateBbInfo,
         std::optional<sensor_msgs::Image::ConstPtr>,
         RoshanImageSummaryInfo,
-        RoshanBbInfo>::addObservationForObject(frame_id,
-                                               camera_id,
-                                               object_id,
-                                               bb_corners,
-                                               bb_cov);
+        RoshanBbInfo,
+        std::unordered_map<ObjectId, RoshanAggregateBbInfo>>::
+        addObservationForObject(
+            frame_id, camera_id, object_id, bb_corners, bb_cov);
     (*observed_corner_locations_)[frame_id][camera_id][object_id] =
         cornerLocationsVectorToPair(bb_corners);
   }
@@ -527,7 +543,8 @@ class RoshanBbFrontEndCreator {
       RoshanAggregateBbInfo,
       std::optional<sensor_msgs::Image::ConstPtr>,
       RoshanImageSummaryInfo,
-      RoshanBbInfo>>
+      RoshanBbInfo,
+      std::unordered_map<ObjectId, RoshanAggregateBbInfo>>>
   getDataAssociator(const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph>
                         &pose_graph) {
     if (!initialized_) {
@@ -560,7 +577,8 @@ class RoshanBbFrontEndCreator {
       RoshanAggregateBbInfo,
       std::optional<sensor_msgs::Image::ConstPtr>,
       RoshanImageSummaryInfo,
-      RoshanBbInfo>>
+      RoshanBbInfo,
+      std::unordered_map<ObjectId, RoshanAggregateBbInfo>>>
       roshan_front_end_;
 };
 

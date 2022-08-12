@@ -68,7 +68,8 @@ template <typename ObjectAssociationInfo,
           typename RawBoundingBoxContextInfo,
           typename RefinedBoundingBoxContextInfo,
           typename SingleBbContextInfo,
-          typename ProblemDataType>
+          typename ProblemDataType,
+          typename FrontEndObjMapData>
 void addFrameDataAssociatedBoundingBox(
     const ProblemDataType &input_problem_data,
     const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
@@ -84,7 +85,8 @@ void addFrameDataAssociatedBoundingBox(
                                     ObjectAssociationInfo,
                                     RawBoundingBoxContextInfo,
                                     RefinedBoundingBoxContextInfo,
-                                    SingleBbContextInfo>>(
+                                    SingleBbContextInfo,
+                                    FrontEndObjMapData>>(
         const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &,
         const ProblemDataType &)> bb_associator_retriever,
     const std::function<RawBoundingBoxContextInfo(
@@ -124,7 +126,8 @@ void addFrameDataAssociatedBoundingBox(
                                               ObjectAssociationInfo,
                                               RawBoundingBoxContextInfo,
                                               RefinedBoundingBoxContextInfo,
-                                              SingleBbContextInfo>>
+                                              SingleBbContextInfo,
+                                              FrontEndObjMapData>>
       bb_associator = bb_associator_retriever(pose_graph, input_problem_data);
 
   if (bb_obs.find(frame_to_add) != bb_obs.end()) {
