@@ -108,7 +108,9 @@ class ObjAndLowLevelFeaturePoseGraph
       : LowLevelFeaturePoseGraph<VisualFeatureFactorType>(
             camera_extrinsics_by_camera, camera_intrinsics_by_camera),
         mean_and_cov_by_semantic_class_(mean_and_cov_by_semantic_class),
-        max_object_id_(0) {}
+        max_object_id_(0),
+        max_object_observation_factor_(0),
+        max_obj_specific_factor_(0) {}
 
   virtual ~ObjAndLowLevelFeaturePoseGraph() = default;
   ObjectId addNewEllipsoid(const ObjectDim<double> &object_dim,
@@ -396,6 +398,10 @@ class ObjAndLowLevelFeaturePoseGraph
   }
 
  protected:
+  std::unordered_map<std::string,
+                     std::pair<ObjectDim<double>, Covariance<double, 3>>>
+      mean_and_cov_by_semantic_class_;
+
   ObjectId min_object_id_;
   ObjectId max_object_id_;
 
@@ -425,10 +431,6 @@ class ObjAndLowLevelFeaturePoseGraph
   std::unordered_map<ObjectId,
                      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>
       object_only_factors_by_object_;
-
-  std::unordered_map<std::string,
-                     std::pair<ObjectDim<double>, Covariance<double, 3>>>
-      mean_and_cov_by_semantic_class_;
 };
 
 class ObjectAndReprojectionFeaturePoseGraph

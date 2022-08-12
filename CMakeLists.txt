@@ -64,8 +64,6 @@ add_library(ut_vslam src/vslam_io.cpp
         src/refactoring/factors/pairwise_2d_feature_cost_functor.cpp
         src/refactoring/factors/reprojection_cost_functor.cpp
         src/refactoring/factors/shape_prior_factor.cpp
-        src/refactoring/long_term_map/long_term_map.cpp
-        src/refactoring/long_term_map/long_term_map_extraction.cpp
         src/refactoring/types/vslam_obj_opt_types_refactor.cpp
         )
 

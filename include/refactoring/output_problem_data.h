@@ -25,5 +25,14 @@ struct SpatialEstimateOnlyResults {
   RobotPoseResults robot_pose_results_;
   VisualFeatureResults visual_feature_results_;
 };
+
+
+template <typename LongTermObjectMap>
+struct LongTermObjectMapAndResults {
+  LongTermObjectMap long_term_map_;
+  RobotPoseResults robot_pose_results_;
+  VisualFeatureResults visual_feature_results_;
+};
+
 }
 #endif  // UT_VSLAM_OUTPUT_PROBLEM_DATA_H

@@ -51,7 +51,8 @@ template <typename VisualFeatureFactorType,
           typename ObjectAssociationInfo,
           typename RawBoundingBoxContextInfo,
           typename RefinedBoundingBoxContextInfo,
-          typename SingleBbContextInfo>
+          typename SingleBbContextInfo,
+          typename FrontEndObjMapData>
 class AbstractBoundingBoxFrontEnd {
  public:
   AbstractBoundingBoxFrontEnd(
@@ -108,8 +109,8 @@ class AbstractBoundingBoxFrontEnd {
       RawBoundingBox bb = bounding_boxes[bb_index];
       AssociatedObjectIdentifier associated_obj =
           bounding_box_assignments[bb_index];
-      Covariance<double, 4> bb_cov =
-          generateBoundingBoxCovariance(bb, frame_id, camera_id, refined_context);
+      Covariance<double, 4> bb_cov = generateBoundingBoxCovariance(
+          bb, frame_id, camera_id, refined_context);
       BbCorners<double> bb_corners =
           vslam_types_refactor::cornerLocationsPairToVector(
               bb.pixel_corner_locations_);
@@ -125,7 +126,6 @@ class AbstractBoundingBoxFrontEnd {
             single_bb_info,
             object_appearance_info_[associated_obj.object_id_]);
       } else {
-
         UninitializedObjectFactor uninitialized_object_factor;
         uninitialized_object_factor.frame_id_ = frame_id;
         uninitialized_object_factor.camera_id_ = camera_id;
@@ -149,7 +149,8 @@ class AbstractBoundingBoxFrontEnd {
               camera_id,
               refined_context,
               single_bb_info,
-              uninitialized_object_info_[associated_obj.object_id_].appearance_info_);
+              uninitialized_object_info_[associated_obj.object_id_]
+                  .appearance_info_);
         }
       }
     }
@@ -218,6 +219,17 @@ class AbstractBoundingBoxFrontEnd {
 
     cleanupBbAssociationRound(frame_id, camera_id);
   }
+
+  /**
+   * Get the data from the bounding box front end that should be saved with the
+   * map.
+   *
+   * @param map_data[out]   Populate this variable with data to be saved with
+   *                        the map.
+   *
+   * @return True if the map data retrieval succeeded, false otherwise.
+   */
+  virtual bool getFrontEndObjMapData(FrontEndObjMapData &map_data) = 0;
 
  protected:
   std::shared_ptr<vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
@@ -296,10 +308,10 @@ class AbstractBoundingBoxFrontEnd {
       vslam_types_refactor::EllipsoidEstimateNode &ellipsoid_est) = 0;
 
   virtual void addObservationForObject(const FrameId &frame_id,
-                               const CameraId &camera_id,
-                               const ObjectId &object_id,
-                               const BbCorners<double> &bb_corners,
-                               const Covariance<double, 4> &bb_cov) {
+                                       const CameraId &camera_id,
+                                       const ObjectId &object_id,
+                                       const BbCorners<double> &bb_corners,
+                                       const Covariance<double, 4> &bb_cov) {
     ObjectObservationFactor factor;
     factor.frame_id_ = frame_id;
     factor.camera_id_ = camera_id;
@@ -310,7 +322,6 @@ class AbstractBoundingBoxFrontEnd {
   }
 
  private:
-
 };
 
 struct KnownAssociationObjAssociationInfo {
@@ -322,11 +333,14 @@ template <typename VisualFeatureFactorType,
           typename RawBoundingBoxContextInfo,
           typename RefinedBoundingBoxContextInfo>
 class KnownAssociationsOptionalEllipsoidEstBoundingBoxFrontEnd
-    : public AbstractBoundingBoxFrontEnd<VisualFeatureFactorType,
-                                         KnownAssociationObjAssociationInfo,
-                                         RawBoundingBoxContextInfo,
-                                         RefinedBoundingBoxContextInfo,
-                                         util::EmptyStruct> {
+    : public AbstractBoundingBoxFrontEnd<
+          VisualFeatureFactorType,
+          KnownAssociationObjAssociationInfo,
+          RawBoundingBoxContextInfo,
+          RefinedBoundingBoxContextInfo,
+          util::EmptyStruct,
+          std::unordered_map<vslam_types_refactor::ObjectId,
+                             KnownAssociationObjAssociationInfo>> {
  public:
   KnownAssociationsOptionalEllipsoidEstBoundingBoxFrontEnd(
       const std::shared_ptr<
@@ -353,15 +367,33 @@ class KnownAssociationsOptionalEllipsoidEstBoundingBoxFrontEnd
       const std::function<RefinedBoundingBoxContextInfo(
           const RawBoundingBoxContextInfo &, const FrameId &, CameraId &)>
           &bb_context_refiner)
-      : AbstractBoundingBoxFrontEnd<VisualFeatureFactorType,
-                                    KnownAssociationObjAssociationInfo,
-                                    RawBoundingBoxContextInfo,
-                                    RefinedBoundingBoxContextInfo,
-                                    util::EmptyStruct>(pose_graph),
+      : AbstractBoundingBoxFrontEnd<
+            VisualFeatureFactorType,
+            KnownAssociationObjAssociationInfo,
+            RawBoundingBoxContextInfo,
+            RefinedBoundingBoxContextInfo,
+            util::EmptyStruct,
+            std::unordered_map<vslam_types_refactor::ObjectId,
+                               KnownAssociationObjAssociationInfo>>(pose_graph),
         optional_initial_estimates_(optional_initial_estimates),
         initializer_function_(initializer_function),
         covariance_generator_(covariance_generator),
         bb_context_refiner_(bb_context_refiner) {}
+
+  virtual bool getFrontEndObjMapData(std::unordered_map<vslam_types_refactor::ObjectId,
+                                             KnownAssociationObjAssociationInfo>
+                              &map_data) override {
+    map_data = AbstractBoundingBoxFrontEnd<
+        VisualFeatureFactorType,
+        KnownAssociationObjAssociationInfo,
+        RawBoundingBoxContextInfo,
+        RefinedBoundingBoxContextInfo,
+        util::EmptyStruct,
+        std::unordered_map<vslam_types_refactor::ObjectId,
+                           KnownAssociationObjAssociationInfo>>::
+        object_appearance_info_;
+    return true;
+  }
 
  protected:
   virtual void updateAppearanceInfoWithObjectIdAssignmentAndInitialization(
@@ -561,13 +593,15 @@ template <typename VisualFeatureFactorType,
           typename ObjectAssociationInfo,
           typename RawBoundingBoxContextInfo,
           typename RefinedBoundingBoxContextInfo,
-          typename SingleBbContextInfo>
+          typename SingleBbContextInfo,
+          typename FrontEndObjMapData>
 class AbstractUnknownDataAssociationBbFrontEnd
     : public AbstractBoundingBoxFrontEnd<VisualFeatureFactorType,
                                          ObjectAssociationInfo,
                                          RawBoundingBoxContextInfo,
                                          RefinedBoundingBoxContextInfo,
-                                         SingleBbContextInfo> {
+                                         SingleBbContextInfo,
+                                         FrontEndObjMapData> {
  public:
   AbstractUnknownDataAssociationBbFrontEnd(
       const std::shared_ptr<
@@ -577,7 +611,8 @@ class AbstractUnknownDataAssociationBbFrontEnd
                                     ObjectAssociationInfo,
                                     RawBoundingBoxContextInfo,
                                     RefinedBoundingBoxContextInfo,
-                                    SingleBbContextInfo>(pose_graph) {}
+                                    SingleBbContextInfo,
+                                    FrontEndObjMapData>(pose_graph) {}
 
  protected:
   virtual void updateAppearanceInfoWithObjectIdAssignmentAndInitialization(
@@ -640,8 +675,8 @@ class AbstractUnknownDataAssociationBbFrontEnd
       // For each bounding box, calculate data association scores for each
       // candidate
       for (const AssociatedObjectIdentifier &candidate : candidates) {
-        double score = scoreCandidateMatch(
-            frame_id, camera_id, bb, candidate, bb_context);
+        double score =
+            scoreCandidateMatch(frame_id, camera_id, bb, candidate, bb_context);
         // If the score is negative infinity, this should not be matched even
         // if there are no better matches (better to make new object)
         if (score != (-1 * std::numeric_limits<double>::infinity())) {

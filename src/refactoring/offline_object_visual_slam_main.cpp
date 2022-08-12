@@ -21,7 +21,7 @@
 #include <sensor_msgs/Image.h>
 
 // TODO remove
-#include <refactoring/long_term_map/long_term_map_extraction.h>
+#include <refactoring/long_term_map/long_term_object_map_extraction.h>
 
 namespace vtr = vslam_types_refactor;
 
@@ -40,6 +40,10 @@ DEFINE_string(nodes_by_timestamp_file,
 DEFINE_string(rosbag_file,
               "",
               "ROS bag file name that contains the images for this run");
+DEFINE_string(long_term_map,
+              "",
+              "File name that stores the long-term map. If empty, will start "
+              "from scratch.");
 
 std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
 readCameraIntrinsicsByCameraFromFile(const std::string &file_name) {
@@ -585,7 +589,8 @@ int main(int argc, char **argv) {
       vtr::RoshanAggregateBbInfo,
       std::optional<sensor_msgs::Image::ConstPtr>,
       vtr::RoshanImageSummaryInfo,
-      vtr::RoshanBbInfo>>(
+      vtr::RoshanBbInfo,
+      std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>(
       const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph> &,
       const vtr::UnassociatedBoundingBoxOfflineProblemData<
           vtr::StructuredVisionFeatureTrack,
@@ -620,23 +625,88 @@ int main(int argc, char **argv) {
                                                    bb_context_retriever);
           };
 
+  //  std::function<void(
+  //      const vtr::UnassociatedBoundingBoxOfflineProblemData<
+  //          vtr::StructuredVisionFeatureTrack,
+  //          sensor_msgs::Image::ConstPtr> &,
+  //      const std::shared_ptr<const
+  //      vtr::ObjectAndReprojectionFeaturePoseGraph> &, ceres::Problem *,
+  //      vtr::SpatialEstimateOnlyResults &)>
+  //      output_data_extractor =
+  //          [](const vtr::UnassociatedBoundingBoxOfflineProblemData<
+  //                 vtr::StructuredVisionFeatureTrack,
+  //                 sensor_msgs::Image::ConstPtr> &input_problem_data,
+  //             const std::shared_ptr<
+  //                 const vtr::ObjectAndReprojectionFeaturePoseGraph>
+  //                 &pose_graph,
+  //             ceres::Problem *problem,
+  //             vtr::SpatialEstimateOnlyResults &output_problem_data) {
+  //            vtr::extractSpatialEstimateOnlyResults(pose_graph,
+  //                                                   output_problem_data);
+  //          };
+
+  vtr::PairwiseCovarianceExtractorParams ltm_covariance_params;
+  vtr::PairwiseCovarianceLongTermObjectMapExtractor<
+      std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>
+      ltm_extractor(ltm_covariance_params);
+
   std::function<void(
       const vtr::UnassociatedBoundingBoxOfflineProblemData<
           vtr::StructuredVisionFeatureTrack,
           sensor_msgs::Image::ConstPtr> &,
-      const std::shared_ptr<const vtr::ObjectAndReprojectionFeaturePoseGraph> &,
+      const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph> &,
       ceres::Problem *,
-      vtr::SpatialEstimateOnlyResults &)>
+      vtr::LongTermObjectMapAndResults<vtr::PairwiseCovarianceLongTermObjectMap<
+          std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>> &)>
       output_data_extractor =
-          [](const vtr::UnassociatedBoundingBoxOfflineProblemData<
-                 vtr::StructuredVisionFeatureTrack,
-                 sensor_msgs::Image::ConstPtr> &input_problem_data,
-             const std::shared_ptr<
-                 const vtr::ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
-             ceres::Problem *problem,
-             vtr::SpatialEstimateOnlyResults &output_problem_data) {
-            vtr::extractSpatialEstimateOnlyResults(pose_graph,
-                                                   output_problem_data);
+          [&](const vtr::UnassociatedBoundingBoxOfflineProblemData<
+                  vtr::StructuredVisionFeatureTrack,
+                  sensor_msgs::Image::ConstPtr> &input_problem_data,
+              const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph>
+                  &pose_graph,
+              ceres::Problem *problem,
+              vtr::LongTermObjectMapAndResults<
+                  vtr::PairwiseCovarianceLongTermObjectMap<
+                      std::unordered_map<vtr::ObjectId,
+                                         vtr::RoshanAggregateBbInfo>>>
+                  &output_problem_data) {
+            std::function<bool(
+                std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>
+                    &)>
+                front_end_map_data_extractor =
+                    [&](std::unordered_map<vtr::ObjectId,
+                                           vtr::RoshanAggregateBbInfo>
+                            &front_end_data) {
+                      roshan_associator_creator.getDataAssociator(pose_graph);
+                      return true;
+                    };
+            std::function<bool(
+                const std::shared_ptr<
+                    vtr::ObjectAndReprojectionFeaturePoseGraph> &,
+                ceres::Problem *,
+                vtr::PairwiseCovarianceLongTermObjectMap<
+                    std::unordered_map<vtr::ObjectId,
+                                       vtr::RoshanAggregateBbInfo>> &)>
+                long_term_object_map_extractor =
+                    [&](const std::shared_ptr<
+                            vtr::ObjectAndReprojectionFeaturePoseGraph>
+                            &ltm_pose_graph,
+                        ceres::Problem *ltm_problem,
+                        vtr::PairwiseCovarianceLongTermObjectMap<
+                            std::unordered_map<vtr::ObjectId,
+                                               vtr::RoshanAggregateBbInfo>>
+                            &ltm_extractor_out) {
+                      return ltm_extractor.extractLongTermObjectMap(
+                          ltm_pose_graph,
+                          ltm_problem,
+                          front_end_map_data_extractor,
+                          ltm_extractor_out);
+                    };  // TODO!
+            vtr::extractLongTermObjectMapAndResults(
+                pose_graph,
+                problem,
+                long_term_object_map_extractor,
+                output_problem_data);
           };
 
   std::function<std::vector<std::shared_ptr<ceres::IterationCallback>>(
@@ -680,13 +750,15 @@ int main(int argc, char **argv) {
                               visualization_type);
           };
 
-  vtr::OfflineProblemRunner<vtr::UnassociatedBoundingBoxOfflineProblemData<
-                                vtr::StructuredVisionFeatureTrack,
-                                sensor_msgs::Image::ConstPtr>,
-                            vtr::ReprojectionErrorFactor,
-                            vtr::SpatialEstimateOnlyResults,
-                            util::EmptyStruct,
-                            vtr::ObjectAndReprojectionFeaturePoseGraph>
+  vtr::OfflineProblemRunner<
+      vtr::UnassociatedBoundingBoxOfflineProblemData<
+          vtr::StructuredVisionFeatureTrack,
+          sensor_msgs::Image::ConstPtr>,
+      vtr::ReprojectionErrorFactor,
+      vtr::LongTermObjectMapAndResults<vtr::PairwiseCovarianceLongTermObjectMap<
+          std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>,
+      util::EmptyStruct,
+      vtr::ObjectAndReprojectionFeaturePoseGraph>
       offline_problem_runner(residual_params,
                              continue_opt_checker,
                              window_provider_func,
@@ -706,13 +778,16 @@ int main(int argc, char **argv) {
   optimization_factors_enabled_params.fix_objects_ = false;
   // TODO should we also optimize the poses?
 
-  vtr::SpatialEstimateOnlyResults output_results;
+  //  vtr::SpatialEstimateOnlyResults output_results;
+  vtr::LongTermObjectMapAndResults<vtr::PairwiseCovarianceLongTermObjectMap<
+      std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>
+      output_results;
 
   offline_problem_runner.runOptimization(
       input_problem_data, optimization_factors_enabled_params, output_results);
 
-  LOG(INFO) << "Num ellipsoids "
-            << output_results.ellipsoid_results_.ellipsoids_.size();
+  //  LOG(INFO) << "Num ellipsoids "
+  //            << output_results.ellipsoid_results_.ellipsoids_.size();
 
   // TODO save output results somewhere
 

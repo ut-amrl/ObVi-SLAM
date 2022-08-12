@@ -57,6 +57,25 @@ void extractSpatialEstimateOnlyResults(
                                         output_data.visual_feature_results_);
 }
 
+template <typename LongTermObjectMap>
+void extractLongTermObjectMapAndResults(
+    const std::shared_ptr<
+        vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph>
+        &pose_graph,
+    ceres::Problem *problem,
+    const std::function<
+        bool(const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &,
+             ceres::Problem *,
+             LongTermObjectMap &)> long_term_object_map_extractor,
+    vslam_types_refactor::LongTermObjectMapAndResults<LongTermObjectMap>
+        &output_data) {
+  long_term_object_map_extractor(
+      pose_graph, problem, output_data.long_term_map_);
+  extractRobotPoseEstimates(pose_graph, output_data.robot_pose_results_);
+  extractVisualFeaturePositionEstimates(pose_graph,
+                                        output_data.visual_feature_results_);
+}
+
 }  // namespace vslam_types_refactor
 
 #endif  // UT_VSLAM_OUTPUT_PROBLEM_DATA_EXTRACTION_H
