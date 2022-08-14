@@ -15,6 +15,7 @@ namespace vslam_types_refactor {
 
 static const FactorType kObjectObservationFactorTypeId = 2;
 static const FactorType kShapeDimPriorFactorTypeId = 3;
+static const FactorType kLongTermMapFactorTypeId = 4;
 
 struct EllipsoidEstimateNode {
   RawEllipsoidPtr<double> ellipsoid_;
@@ -104,15 +105,43 @@ class ObjAndLowLevelFeaturePoseGraph
       const std::unordered_map<CameraId, CameraExtrinsics<double>>
           &camera_extrinsics_by_camera,
       const std::unordered_map<CameraId, CameraIntrinsicsMat<double>>
-          &camera_intrinsics_by_camera)
+          &camera_intrinsics_by_camera,
+      const std::unordered_map<ObjectId,
+                               std::pair<std::string, RawEllipsoid<double>>>
+          &long_term_map_objects_with_semantic_class,
+      const std::function<bool(
+          util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
+                                       vslam_types_refactor::FeatureFactorId>>&)>
+          &long_term_map_factor_provider)
       : LowLevelFeaturePoseGraph<VisualFeatureFactorType>(
             camera_extrinsics_by_camera, camera_intrinsics_by_camera),
         mean_and_cov_by_semantic_class_(mean_and_cov_by_semantic_class),
         max_object_id_(0),
         max_object_observation_factor_(0),
-        max_obj_specific_factor_(0) {}
+        max_obj_specific_factor_(0),
+        long_term_map_factor_provider_(long_term_map_factor_provider) {
+    for (const auto &ltm_object : long_term_map_objects_with_semantic_class) {
+      long_term_map_object_ids_.insert(ltm_object.first);
+      max_object_id_ = std::max(max_object_id_, ltm_object.first);
+      initializeEllipsoidWithId(EllipsoidEstimateNode(ltm_object.second.second),
+                                ltm_object.first,
+                                ltm_object.second.first);
+    }
+  }
 
   virtual ~ObjAndLowLevelFeaturePoseGraph() = default;
+
+  /**
+   * Get the ids of the objects that are in the long-term map.
+   *
+   * @param ltm_object_ids[out] This variable will be updated with the ids of
+   * the long-term map objects.
+   */
+  virtual void getLongTermMapObjects(
+      std::unordered_set<ObjectId> &ltm_object_ids) {
+    ltm_object_ids = long_term_map_object_ids_;
+  }
+
   ObjectId addNewEllipsoid(const ObjectDim<double> &object_dim,
                            const RawPose3d<double> &object_pose,
                            const std::string &semantic_class) {
@@ -125,14 +154,22 @@ class ObjAndLowLevelFeaturePoseGraph
     ObjectId new_object_id = max_object_id_ + 1;
     max_object_id_ = new_object_id;
 
-    ellipsoid_estimates_[new_object_id] = new_node;
-    semantic_class_for_object_[new_object_id] = semantic_class;
-    object_only_factors_by_object_[new_object_id] = {};
-    observation_factors_by_object_[new_object_id] = {};
-
-    addShapeDimPriorBasedOnSemanticClass(new_object_id);
+    initializeEllipsoidWithId(new_node, new_object_id, semantic_class);
 
     return new_object_id;
+  }
+
+  void initializeEllipsoidWithId(const EllipsoidEstimateNode &new_node,
+                                 const ObjectId &obj_id,
+                                 const std::string &semantic_class) {
+    // TODO is it a problem that this function isn't virtual?
+
+    ellipsoid_estimates_[obj_id] = new_node;
+    semantic_class_for_object_[obj_id] = semantic_class;
+    object_only_factors_by_object_[obj_id] = {};
+    observation_factors_by_object_[obj_id] = {};
+
+    addShapeDimPriorBasedOnSemanticClass(obj_id);
   }
 
   virtual void updateEllipsoid(const ObjectId &object_id,
@@ -315,6 +352,7 @@ class ObjAndLowLevelFeaturePoseGraph
   virtual void getOnlyObjectFactorsForObjects(
       const std::unordered_set<ObjectId> &objects,
       const bool &use_pom,
+      const bool &include_ltm_factors,
       util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
           &matching_factors) {
     for (const ObjectId &object_id : objects) {
@@ -325,14 +363,24 @@ class ObjAndLowLevelFeaturePoseGraph
         matching_factors.insert(factors_for_obj.begin(), factors_for_obj.end());
       }
     }
+    if (include_ltm_factors) {
+      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>> ltm_factors;
+      if (!long_term_map_factor_provider_(ltm_factors)) {
+        LOG(ERROR) << "Could not add long term map factors to the set to "
+                      "include in the optimization. Skipping them.";
+      }
+      matching_factors.insert(ltm_factors.begin(), ltm_factors.end());
+    }
     // TODO add pom someday
   }
 
   virtual void getObjectEstimates(
-      std::unordered_map<ObjectId, RawEllipsoid<double>> &object_estimates)
-      const {
+      std::unordered_map<ObjectId, std::pair<std::string, RawEllipsoid<double>>>
+          &object_estimates) const {
     for (const auto &pg_obj_est : ellipsoid_estimates_) {
-      object_estimates[pg_obj_est.first] = *(pg_obj_est.second.ellipsoid_);
+      object_estimates[pg_obj_est.first] =
+          std::make_pair(semantic_class_for_object_.at(pg_obj_est.first),
+                         *(pg_obj_est.second.ellipsoid_));
     }
   }
 
@@ -416,6 +464,8 @@ class ObjAndLowLevelFeaturePoseGraph
   FeatureFactorId min_obj_specific_factor_;
   FeatureFactorId max_obj_specific_factor_;
 
+  std::unordered_set<ObjectId> long_term_map_object_ids_;
+
   std::unordered_map<FeatureFactorId, ObjectObservationFactor>
       object_observation_factors_;
   std::unordered_map<FeatureFactorId, ShapeDimPriorFactor>
@@ -431,6 +481,11 @@ class ObjAndLowLevelFeaturePoseGraph
   std::unordered_map<ObjectId,
                      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>
       object_only_factors_by_object_;
+
+  std::function<bool(
+      util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
+                                   vslam_types_refactor::FeatureFactorId>>&)>
+      long_term_map_factor_provider_;
 };
 
 class ObjectAndReprojectionFeaturePoseGraph
@@ -445,7 +500,14 @@ class ObjectAndReprojectionFeaturePoseGraph
       const std::unordered_map<CameraId, CameraExtrinsics<double>>
           &camera_extrinsics_by_camera,
       const std::unordered_map<CameraId, CameraIntrinsicsMat<double>>
-          &camera_intrinsics_by_camera)
+          &camera_intrinsics_by_camera,
+      const std::unordered_map<ObjectId,
+                               std::pair<std::string, RawEllipsoid<double>>>
+          &long_term_map_objects_with_semantic_class,
+      const std::function<bool(
+          util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
+                                       vslam_types_refactor::FeatureFactorId>>&)>
+          &long_term_map_factor_provider)
       : ReprojectionLowLevelFeaturePoseGraph(camera_extrinsics_by_camera,
                                              camera_intrinsics_by_camera),
         LowLevelFeaturePoseGraph<ReprojectionErrorFactor>(
@@ -453,7 +515,9 @@ class ObjectAndReprojectionFeaturePoseGraph
         ObjAndLowLevelFeaturePoseGraph<ReprojectionErrorFactor>(
             mean_and_cov_by_semantic_class,
             camera_extrinsics_by_camera,
-            camera_intrinsics_by_camera) {}
+            camera_intrinsics_by_camera,
+            long_term_map_objects_with_semantic_class,
+            long_term_map_factor_provider) {}
   virtual ~ObjectAndReprojectionFeaturePoseGraph() = default;
 
  protected:

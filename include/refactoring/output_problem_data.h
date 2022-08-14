@@ -9,7 +9,8 @@
 
 namespace vslam_types_refactor {
 struct EllipsoidResults {
-  std::unordered_map<ObjectId, EllipsoidState<double>> ellipsoids_;
+  std::unordered_map<ObjectId, std::pair<std::string, EllipsoidState<double>>>
+      ellipsoids_;
 };
 
 struct RobotPoseResults {
@@ -26,7 +27,6 @@ struct SpatialEstimateOnlyResults {
   VisualFeatureResults visual_feature_results_;
 };
 
-
 template <typename LongTermObjectMap>
 struct LongTermObjectMapAndResults {
   LongTermObjectMap long_term_map_;
@@ -34,5 +34,5 @@ struct LongTermObjectMapAndResults {
   VisualFeatureResults visual_feature_results_;
 };
 
-}
+}  // namespace vslam_types_refactor
 #endif  // UT_VSLAM_OUTPUT_PROBLEM_DATA_H

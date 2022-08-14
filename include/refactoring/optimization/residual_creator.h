@@ -243,6 +243,21 @@ bool createResidual(
              const std::shared_ptr<
                  vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph> &,
              CachedInfo &)> &cached_info_creator,
+    const std::function<bool(
+        const std::pair<vslam_types_refactor::FactorType,
+                        vslam_types_refactor::FeatureFactorId> &,
+        const std::shared_ptr<
+            vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph> &,
+        const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
+        const std::function<bool(
+            const std::pair<vslam_types_refactor::FactorType,
+                            vslam_types_refactor::FeatureFactorId> &,
+            const std::shared_ptr<
+                vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph> &,
+            CachedInfo &)> &,
+        ceres::Problem *,
+        ceres::ResidualBlockId &,
+        CachedInfo &)> &long_term_map_residual_creator,
     ceres::Problem *problem,
     ceres::ResidualBlockId &residual_id,
     CachedInfo &cached_info) {
@@ -275,6 +290,14 @@ bool createResidual(
                                              problem,
                                              residual_id,
                                              cached_info);
+  } else if (factor_info.first == kLongTermMapFactorTypeId) {
+    return long_term_map_residual_creator(factor_info,
+                                          pose_graph,
+                                          residual_params,
+                                          cached_info_creator,
+                                          problem,
+                                          residual_id,
+                                          cached_info);
   } else {
     LOG(ERROR) << "Unrecognized factor type " << factor_info.first
                << "; not adding residual";

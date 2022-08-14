@@ -17,11 +17,12 @@ void extractEllipsoidEstimates(
         const vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph>
         &pose_graph,
     EllipsoidResults &output_data) {
-  std::unordered_map<ObjectId, RawEllipsoid<double>> raw_ests;
+  std::unordered_map<ObjectId, std::pair<std::string, RawEllipsoid<double>>>
+      raw_ests;
   pose_graph->getObjectEstimates(raw_ests);
   for (const auto &raw_est : raw_ests) {
-    output_data.ellipsoids_[raw_est.first] =
-        convertToEllipsoidState(raw_est.second);
+    output_data.ellipsoids_[raw_est.first] = std::make_pair(
+        raw_est.second.first, convertToEllipsoidState(raw_est.second.second));
   }
 }
 

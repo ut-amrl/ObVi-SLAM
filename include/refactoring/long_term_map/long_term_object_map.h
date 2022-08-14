@@ -11,6 +11,8 @@
 
 namespace vslam_types_refactor {
 
+// TODO consider splitting this into back-end map data and front end and have a
+// structure that contains both
 template <typename FrontEndObjMapData>
 class AbsLongTermObjectMap {
  public:
@@ -25,6 +27,14 @@ class AbsLongTermObjectMap {
 
   virtual void setFrontEndObjMapData(const FrontEndObjMapData &front_end_data) {
     front_end_map_data_ = front_end_data;
+  }
+
+  virtual void getEllipsoidResults(EllipsoidResults &ellipsoids) {
+    ellipsoids = ellipsoids_;
+  }
+
+  virtual void getFrontEndObjMapData(FrontEndObjMapData &front_end_data) {
+    front_end_data = front_end_map_data_;
   }
 
  private:
@@ -57,6 +67,11 @@ class PairwiseCovarianceLongTermObjectMap
                          Eigen::Matrix<double, 9, 9>>
           &pairwise_ellipsoid_covariances) {
     pairwise_ellipsoid_covariances_ = pairwise_ellipsoid_covariances;
+  }
+
+  util::BoostHashMap<std::pair<ObjectId, ObjectId>, Eigen::Matrix<double, 9, 9>>
+  getPairwiseEllipsoidCovariances() {
+    return pairwise_ellipsoid_covariances_;
   }
 
  private:
