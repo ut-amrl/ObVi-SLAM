@@ -5,6 +5,7 @@
 #ifndef UT_VSLAM_OFFLINE_PROBLEM_DATA_H
 #define UT_VSLAM_OFFLINE_PROBLEM_DATA_H
 
+#include <refactoring/long_term_map/long_term_object_map.h>
 #include <refactoring/types/vslam_obj_opt_types_refactor.h>
 
 namespace vslam_types_refactor {
@@ -90,7 +91,7 @@ struct StructuredVisionFeatureTrack {
       : feature_pos_(feature_pos), feature_track(feature_track){};
 };
 
-template <typename FeatureTrackType>
+template <typename FeatureTrackType, typename LongTermObjectMapType>
 class AbstractOfflineProblemData {
  public:
   AbstractOfflineProblemData(
@@ -103,13 +104,15 @@ class AbstractOfflineProblemData {
       const std::unordered_map<
           std::string,
           std::pair<ObjectDim<double>, Covariance<double, 3>>>&
-          mean_and_cov_by_semantic_class)
+          mean_and_cov_by_semantic_class,
+      const std::shared_ptr<LongTermObjectMapType>& long_term_obj_map)
       : camera_intrinsics_by_camera_(camera_intrinsics_by_camera),
         camera_extrinsics_by_camera_(camera_extrinsics_by_camera),
         visual_features_(visual_features),
         robot_poses_(robot_poses),
         mean_and_cov_by_semantic_class_(mean_and_cov_by_semantic_class),
-        max_frame_id_(getMaxFrame(robot_poses)) {}
+        max_frame_id_(getMaxFrame(robot_poses)),
+        long_term_obj_map_(long_term_obj_map) {}
 
   virtual ~AbstractOfflineProblemData() = default;
   virtual FrameId getMaxFrameId() const { return max_frame_id_; }
@@ -157,6 +160,10 @@ class AbstractOfflineProblemData {
       std::unordered_map<CameraId, std::vector<RawBoundingBox>>>
   getBoundingBoxes() const = 0;
 
+  virtual std::shared_ptr<LongTermObjectMapType> getLongTermObjectMap() const {
+    return long_term_obj_map_;
+  }
+
  protected:
   std::unordered_map<CameraId, CameraIntrinsicsMat<double>>
       camera_intrinsics_by_camera_;
@@ -168,15 +175,20 @@ class AbstractOfflineProblemData {
                      std::pair<ObjectDim<double>, Covariance<double, 3>>>
       mean_and_cov_by_semantic_class_;
   FrameId max_frame_id_;
+
+  std::shared_ptr<LongTermObjectMapType> long_term_obj_map_;
 };
 
 // Keeping bounding box type abstracted because we may want to store some
 // appearance information with each bounding box
 // Keeping object estimate abstracted in case we want to try different (ex.
 // cuboid) object models with different parameters.
-template <typename FeatureTrackType, typename ObjectEstimateType>
+template <typename FeatureTrackType,
+          typename ObjectEstimateType,
+          typename LongTermObjectMapType>
 class AssociatedBoundingBoxOfflineProblemData
-    : public AbstractOfflineProblemData<FeatureTrackType> {
+    : public AbstractOfflineProblemData<FeatureTrackType,
+                                        LongTermObjectMapType> {
  public:
   AssociatedBoundingBoxOfflineProblemData(
       const std::unordered_map<CameraId, CameraIntrinsicsMat<double>>&
@@ -194,13 +206,16 @@ class AssociatedBoundingBoxOfflineProblemData
           std::unordered_map<CameraId,
                              std::vector<std::pair<ObjectId, RawBoundingBox>>>>&
           bounding_boxes,
+
+      const std::shared_ptr<LongTermObjectMapType>& long_term_obj_map,
       const std::unordered_map<ObjectId, ObjectEstimateType>& object_estimates)
-      : AbstractOfflineProblemData<FeatureTrackType>(
+      : AbstractOfflineProblemData<FeatureTrackType, LongTermObjectMapType>(
             camera_intrinsics_by_camera,
             camera_extrinsics_by_camera,
             visual_features,
             robot_poses,
-            mean_and_cov_by_semantic_class),
+            mean_and_cov_by_semantic_class,
+            long_term_obj_map),
         bounding_boxes_(bounding_boxes),
         object_estimates_(object_estimates) {}
   virtual std::unordered_map<
@@ -240,9 +255,12 @@ class AssociatedBoundingBoxOfflineProblemData
 
 // Keeping bounding box type abstracted because we may want to store some
 // appearance information with each bounding box
-template <typename FeatureTrackType, typename ImageType>
+template <typename FeatureTrackType,
+          typename ImageType,
+          typename LongTermObjectMapType>
 class UnassociatedBoundingBoxOfflineProblemData
-    : public AbstractOfflineProblemData<FeatureTrackType> {
+    : public AbstractOfflineProblemData<FeatureTrackType,
+                                        LongTermObjectMapType> {
  public:
   UnassociatedBoundingBoxOfflineProblemData(
       const std::unordered_map<CameraId, CameraIntrinsicsMat<double>>&
@@ -259,14 +277,16 @@ class UnassociatedBoundingBoxOfflineProblemData
           FrameId,
           std::unordered_map<CameraId, std::vector<RawBoundingBox>>>&
           bounding_boxes,
+      const std::shared_ptr<LongTermObjectMapType>& long_term_obj_map,
       const std::unordered_map<FrameId,
                                std::unordered_map<CameraId, ImageType>>& images)
-      : AbstractOfflineProblemData<FeatureTrackType>(
+      : AbstractOfflineProblemData<FeatureTrackType, LongTermObjectMapType>(
             camera_intrinsics_by_camera,
             camera_extrinsics_by_camera,
             visual_features,
             robot_poses,
-            mean_and_cov_by_semantic_class),
+            mean_and_cov_by_semantic_class,
+            long_term_obj_map),
         bounding_boxes_(bounding_boxes),
         images_(images) {}
 
@@ -277,8 +297,8 @@ class UnassociatedBoundingBoxOfflineProblemData
     return bounding_boxes_;
   }
 
-  virtual std::optional<ImageType> getImageForFrameAndCamera(const FrameId& frame,
-                                              const CameraId& camera) const {
+  virtual std::optional<ImageType> getImageForFrameAndCamera(
+      const FrameId& frame, const CameraId& camera) const {
     if (images_.find(frame) != images_.end()) {
       if ((images_.at(frame)).find(camera) != (images_.at(frame)).end()) {
         ImageType img = (images_.at(frame)).at(camera);

@@ -23,7 +23,8 @@ struct OptimizationScopeParams {
   bool fix_poses_;
   bool fix_objects_;
   bool fix_visual_features_;
-  bool use_pom_;  // Effectively false if fix_objects_ is true
+  bool use_pom_;          // Effectively false if fix_objects_ is true
+  bool fix_ltm_objects_;  // Effectively true if fix_objects_ is true
   vslam_types_refactor::FrameId min_frame_id_;
   vslam_types_refactor::FrameId max_frame_id_;
   // TODO consider adding set of nodes to optimize -- for now, we'll just assume
@@ -130,9 +131,10 @@ class ObjectPoseGraphOptimizer {
     // Check for invalid combinations of scope and reject
     CHECK(checkInvalidOptimizationScopeParams(optimization_scope));
 
-    std::unordered_set<vslam_types_refactor::ObjectId> optimized_objects;
+    std::unordered_set<vslam_types_refactor::ObjectId> observed_objects;
     std::unordered_set<vslam_types_refactor::FeatureId> optimized_features;
     std::unordered_set<vslam_types_refactor::FrameId> optimized_frames;
+    std::unordered_set<vslam_types_refactor::ObjectId> ltm_object_ids;
 
     bool use_object_only_factors = false;  // POM, shape prior, etc
     if (optimization_scope.include_object_factors_) {
@@ -145,6 +147,8 @@ class ObjectPoseGraphOptimizer {
     bool use_object_pose_factors = optimization_scope.include_object_factors_;
     bool use_object_param_blocks = optimization_scope.include_object_factors_;
     bool fix_object_param_blocks = optimization_scope.fix_objects_;
+    bool fix_ltm_param_blocks =
+        optimization_scope.fix_objects_ || optimization_scope.fix_ltm_objects_;
     bool use_visual_feature_param_blocks =
         optimization_scope.include_visual_factors_;
     bool fix_visual_feature_param_blocks =
@@ -161,14 +165,31 @@ class ObjectPoseGraphOptimizer {
     // information?)
 
     if (use_object_param_blocks) {
+      vslam_types_refactor::FrameId min_frame_for_obj;
+      if (fix_object_param_blocks) {
+        min_frame_for_obj = optimization_scope.min_frame_id_ + 1;
+      } else {
+        min_frame_for_obj = optimization_scope.min_frame_id_;
+      }
       pose_graph->getObjectsViewedBetweenFramesInclusive(
-          optimization_scope.min_frame_id_,
+          min_frame_for_obj,
           optimization_scope.max_frame_id_,
-          optimized_objects);
+          observed_objects);
+      // TODO -- if no objects in the long-term map are observed, then nothing
+      // in the long-term map will change,
+      //  so we could omit those objects, the object only factors, and the
+      //  factors relating objects in the long-term map
+      pose_graph->getLongTermMapObjects(ltm_object_ids);
     }
     if (use_visual_feature_param_blocks) {
+      vslam_types_refactor::FrameId min_frame_for_feats;
+      if (fix_visual_feature_param_blocks) {
+        min_frame_for_feats = optimization_scope.min_frame_id_ + 1;
+      } else {
+        min_frame_for_feats = optimization_scope.min_frame_id_;
+      }
       pose_graph->getFeaturesViewedBetweenFramesInclusive(
-          optimization_scope.min_frame_id_,
+          min_frame_for_feats,
           optimization_scope.max_frame_id_,
           optimized_features);
     }
@@ -182,18 +203,40 @@ class ObjectPoseGraphOptimizer {
     }
 
     if (use_object_only_factors) {
-//      LOG(INFO) << "Using object only factors";
+      //      LOG(INFO) << "Using object only factors";
       // Get the object-only factors that are required
-      std::unordered_set<
-          std::pair<vslam_types_refactor::FactorType,
-                    vslam_types_refactor::FeatureFactorId>,
-          boost::hash<std::pair<vslam_types_refactor::FactorType,
-                                vslam_types_refactor::FeatureFactorId>>>
+      util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
+                                   vslam_types_refactor::FeatureFactorId>>
           matching_obj_only_factors;
+      std::unordered_set<vslam_types_refactor::ObjectId>
+          objects_with_object_only_factors;
+      if (fix_ltm_param_blocks) {
+        // If the long term map is fixed, we only need the object-only factors
+        // for the objects not in the long-term map
+        // If at some point we marginalize mid-run, we may need to look for the
+        // LTM objects that are connected to the observed ones (rather than just
+        // the observed ones)
+        std::set_difference(
+            observed_objects.begin(),
+            observed_objects.end(),
+            ltm_object_ids.begin(),
+            ltm_object_ids.end(),
+            std::inserter(objects_with_object_only_factors,
+                          objects_with_object_only_factors.end()));
+      } else {
+        // If the long term map is not fixed, we need the object-only factors
+        // for the observed objects and those in the long-term map
+        objects_with_object_only_factors.insert(observed_objects.begin(),
+                                                observed_objects.end());
+        objects_with_object_only_factors.insert(ltm_object_ids.begin(),
+                                                ltm_object_ids.end());
+      }
 
-      pose_graph->getOnlyObjectFactorsForObjects(optimized_objects,
-                                                 optimization_scope.use_pom_,
-                                                 matching_obj_only_factors);
+      pose_graph->getOnlyObjectFactorsForObjects(
+          objects_with_object_only_factors,
+          optimization_scope.use_pom_,
+          !fix_ltm_param_blocks,
+          matching_obj_only_factors);
       for (const std::pair<vslam_types_refactor::FactorType,
                            vslam_types_refactor::FeatureFactorId>
                &obj_only_factor : matching_obj_only_factors) {
@@ -203,7 +246,7 @@ class ObjectPoseGraphOptimizer {
     }
 
     if (use_object_pose_factors) {
-//      LOG(INFO) << "Using object-pose factors";
+      //      LOG(INFO) << "Using object-pose factors";
       vslam_types_refactor::FrameId min_frame_id;
       if (fix_object_param_blocks) {
         // If the objects are fixed, including those attached to the min frame
@@ -227,7 +270,7 @@ class ObjectPoseGraphOptimizer {
     }
 
     if (use_feature_pose_factors) {
-//      LOG(INFO) << "Using feature-pose factors";
+      //      LOG(INFO) << "Using feature-pose factors";
       vslam_types_refactor::FrameId min_visual_feature_frame_id;
       if (fix_visual_feature_param_blocks) {
         min_visual_feature_frame_id = optimization_scope.min_frame_id_ + 1;
@@ -263,7 +306,7 @@ class ObjectPoseGraphOptimizer {
                                   problem);
 
     if (fix_pose_param_blocks) {
-//      LOG(INFO) << "Fixing pose blocks";
+      //      LOG(INFO) << "Fixing pose blocks";
       // Set all pose param blocks constant
       setVariabilityForParamBlocks(optimized_frames,
                                    true,
@@ -272,7 +315,8 @@ class ObjectPoseGraphOptimizer {
                                    pose_graph,
                                    problem);
     } else {
-//      LOG(INFO) << "Fixing first pose block and setting remaining variable";
+      //      LOG(INFO) << "Fixing first pose block and setting remaining
+      //      variable";
       // Set only first pose param block constant (or add Gaussian prior
       // later...?)
       setVariabilityForParamBlocks(
@@ -294,107 +338,141 @@ class ObjectPoseGraphOptimizer {
                                    pose_graph,
                                    problem);
     }
+
     // Remove unused poses
-    removeParamBlocksWithFrameIdOutsideWindowInclusive(
-        optimization_scope.min_frame_id_,
-        optimization_scope.max_frame_id_,
-        last_optimized_nodes_,
-        getFrameIdsForFrameId<PoseGraphType>,
-        kPoseTypeStr,
-        getParamBlockForPose<PoseGraphType>,
-        pose_graph,
-        problem);
+    std::unordered_set<vslam_types_refactor::FrameId> frames_to_remove;
+    std::set_difference(
+        last_optimized_nodes_.begin(),
+        last_optimized_nodes_.end(),
+        optimized_frames.begin(),
+        optimized_frames.end(),
+        std::inserter(frames_to_remove, frames_to_remove.end()));
+    removeParamBlocksWithIdentifiers(frames_to_remove,
+                                     kPoseTypeStr,
+                                     getParamBlockForPose<PoseGraphType>,
+                                     pose_graph,
+                                     problem);
     last_optimized_nodes_ = optimized_frames;
 
+    std::unordered_set<vslam_types_refactor::FrameId> features_to_remove;
+    std::unordered_set<vslam_types_refactor::FrameId>
+        next_last_optimized_features;
     if (use_visual_feature_param_blocks) {
-//      LOG(INFO) << "Setting variability of feature param blocks";
+      //      LOG(INFO) << "Setting variability of feature param blocks";
       bool set_constant;
-      vslam_types_refactor::FrameId min_latest_observation;
       if (fix_visual_feature_param_blocks) {
         // Fix all remaining visual feature param blocks
         set_constant = true;
-        // Remove old visual feature param blocks (visual features with
-        // last_sighted <= min_frame_id)
-        min_latest_observation = optimization_scope.min_frame_id_ + 1;
-
       } else {
-        // Remove old visual feature param blocks (visual features with
-        // last_sighted < min_frame_id)
-        min_latest_observation = optimization_scope.min_frame_id_;
         // Set all others not-constant (if were set constant)
         set_constant = false;
       }
-      removeParamBlocksWithFrameIdOutsideWindowInclusive(
-          min_latest_observation,
-          optimization_scope.max_frame_id_,
-          last_optimized_features_,
-          getMinMaxFramesForFeatureId<PoseGraphType>,
-          kFeatureTypeStr,
-          getParamBlockForFeature<PoseGraphType>,
-          pose_graph,
-          problem);
+
+      std::set_difference(
+          last_optimized_features_.begin(),
+          last_optimized_features_.end(),
+          optimized_features.begin(),
+          optimized_features.end(),
+          std::inserter(features_to_remove, features_to_remove.end()));
       setVariabilityForParamBlocks(optimized_features,
                                    set_constant,
                                    kFeatureTypeStr,
                                    getParamBlockForFeature<PoseGraphType>,
                                    pose_graph,
                                    problem);
-      last_optimized_features_ = optimized_features;
+      next_last_optimized_features = optimized_features;
     } else {
       // Remove all visual feature param blocks
-      removeParamBlocksWithIdentifiers(last_optimized_features_,
-                                       kFeatureTypeStr,
-                                       getParamBlockForFeature<PoseGraphType>,
-                                       pose_graph,
-                                       problem);
-      last_optimized_features_ = {};
+      features_to_remove = last_optimized_features_;
+      next_last_optimized_features = {};
     }
+    removeParamBlocksWithIdentifiers(features_to_remove,
+                                     kFeatureTypeStr,
+                                     getParamBlockForFeature<PoseGraphType>,
+                                     pose_graph,
+                                     problem);
+    last_optimized_features_ = next_last_optimized_features;
 
+    std::unordered_set<vslam_types_refactor::ObjectId> objects_to_remove;
+    std::unordered_set<vslam_types_refactor::ObjectId>
+        next_last_optimized_objects;
     if (use_object_param_blocks) {
-      bool set_constant;
-      vslam_types_refactor::FrameId min_latest_observation;
-      if (fix_object_param_blocks) {
-        // Fix all included object param blocks
-        set_constant = true;
-        // Remove old object param blocks (objects with last_sighted
-        // <= min_frame_id)
-        min_latest_observation = optimization_scope.min_frame_id_ + 1;
+      std::unordered_set<vslam_types_refactor::ObjectId>
+          constant_object_param_blocks;
+      std::unordered_set<vslam_types_refactor::ObjectId>
+          variable_object_param_blocks;
 
+      if (fix_object_param_blocks) {
+        constant_object_param_blocks = observed_objects;
+        next_last_optimized_objects = observed_objects;
+      } else if (fix_ltm_param_blocks) {
+        // The variable ones are those that are observed but not in the
+        // long-term map
+        std::set_difference(observed_objects.begin(),
+                            observed_objects.end(),
+                            ltm_object_ids.begin(),
+                            ltm_object_ids.end(),
+                            std::inserter(variable_object_param_blocks,
+                                          variable_object_param_blocks.end()));
+        // The constant ones are the ones that are observed and in the long-term
+        // map
+        std::set_intersection(
+            ltm_object_ids.begin(),
+            ltm_object_ids.end(),
+            observed_objects.begin(),
+            observed_objects.end(),
+            std::inserter(constant_object_param_blocks,
+                          constant_object_param_blocks.end()));
+        next_last_optimized_objects = observed_objects;
       } else {
-        // Remove old visual feature param blocks (visual features with
-        // last_sighted < min_frame_id)
-        min_latest_observation = optimization_scope.min_frame_id_;
-        // Set all used objects non-constant
-        set_constant = false;
+        std::set_union(observed_objects.begin(),
+                       observed_objects.end(),
+                       ltm_object_ids.begin(),
+                       ltm_object_ids.end(),
+                       std::inserter(variable_object_param_blocks,
+                                     variable_object_param_blocks.end()));
+        next_last_optimized_objects = variable_object_param_blocks;
       }
 
-//      LOG(INFO) << "Setting variability of object param blocks to " << set_constant;
-//      LOG(INFO) << "Optimizing " << optimized_objects.size() << " objects";
-      removeParamBlocksWithFrameIdOutsideWindowInclusive(
-          min_latest_observation,
-          optimization_scope.max_frame_id_,
-          last_optimized_objects_,
-          getLatestObservedFrameForObjectId<PoseGraphType>,
-          kObjTypeStr,
-          getParamBlockForObject<PoseGraphType>,
-          pose_graph,
-          problem);
-      setVariabilityForParamBlocks(optimized_objects,
-                                   set_constant,
-                                   kObjTypeStr,
-                                   getParamBlockForObject<PoseGraphType>,
-                                   pose_graph,
-                                   problem);
-      last_optimized_objects_ = optimized_objects;
+      // TODO we could also say that the next_last_optimized_objects is just a
+      // union of the constant and variable param blocks, but having it defined
+      // per case seems like less need for union when it may not be necessary
+      // Similarly, this next line could be done for all cases, but it seems
+      // wasteful to run when we know next_last... will be empty (as in the case
+      // where we don't have the object param blocks at all)
+      std::set_difference(
+          last_optimized_objects_.begin(),
+          last_optimized_objects_.end(),
+          next_last_optimized_objects.begin(),
+          next_last_optimized_objects.end(),
+          std::inserter(objects_to_remove, objects_to_remove.end()));
+
+      if (!constant_object_param_blocks.empty()) {
+        setVariabilityForParamBlocks(constant_object_param_blocks,
+                                     true,
+                                     kObjTypeStr,
+                                     getParamBlockForObject<PoseGraphType>,
+                                     pose_graph,
+                                     problem);
+      }
+      if (!variable_object_param_blocks.empty()) {
+        setVariabilityForParamBlocks(variable_object_param_blocks,
+                                     false,
+                                     kObjTypeStr,
+                                     getParamBlockForObject<PoseGraphType>,
+                                     pose_graph,
+                                     problem);
+      }
     } else {
-      // Remove all object param blocks
-      removeParamBlocksWithIdentifiers(last_optimized_objects_,
-                                       kObjTypeStr,
-                                       getParamBlockForObject<PoseGraphType>,
-                                       pose_graph,
-                                       problem);
-      last_optimized_objects_ = {};
+      objects_to_remove = last_optimized_objects_;
+      next_last_optimized_objects = {};
     }
+    removeParamBlocksWithIdentifiers(objects_to_remove,
+                                     kObjTypeStr,
+                                     getParamBlockForObject<PoseGraphType>,
+                                     pose_graph,
+                                     problem);
+    last_optimized_objects_ = next_last_optimized_objects;
   }
 
   bool solveOptimization(
@@ -426,6 +504,11 @@ class ObjectPoseGraphOptimizer {
     return summary.IsSolutionUsable();
   }
 
+  /**
+   * Clear the data stored related to optimization in this optimizer. Note that
+   * the ceres problem will also need to be cleaned up (or just construct a new
+   * one).
+   */
   void clearPastOptimizationData() {
     last_optimized_objects_.clear();
     last_optimized_features_.clear();
@@ -459,46 +542,6 @@ class ObjectPoseGraphOptimizer {
       ceres::ResidualBlockId &,
       CachedFactorInfo &)>
       residual_creator_;
-
-  template <typename IdentifierType>
-  void removeParamBlocksWithFrameIdOutsideWindowInclusive(
-      const vslam_types_refactor::FrameId &min_frame_id,
-      const vslam_types_refactor::FrameId &max_frame_id,
-      const std::unordered_set<IdentifierType> &identifiers_to_check,
-      const std::function<bool(const IdentifierType &,
-                               const std::shared_ptr<PoseGraphType> &,
-                               std::pair<vslam_types_refactor::FrameId,
-                                         vslam_types_refactor::FrameId> &)>
-          &frame_retriever,
-      const std::string &identifier_type,
-      const std::function<bool(const IdentifierType &,
-                               const std::shared_ptr<PoseGraphType> &,
-                               double **)> &param_block_retriever,
-      const std::shared_ptr<PoseGraphType> &pose_graph,
-      ceres::Problem *problem) {
-    std::unordered_set<IdentifierType> identifiers_to_remove;
-    for (const IdentifierType &identifier_to_check : identifiers_to_check) {
-      bool remove = true;
-      std::pair<vslam_types_refactor::FrameId, vslam_types_refactor::FrameId>
-          min_max_frame_id;
-      if (frame_retriever(identifier_to_check, pose_graph, min_max_frame_id)) {
-        if ((min_frame_id > min_max_frame_id.second) ||
-            (max_frame_id < min_max_frame_id.first)) {
-          remove = true;
-        } else {
-          remove = false;
-        }
-      }
-      if (remove) {
-        identifiers_to_remove.insert(identifier_to_check);
-      }
-    }
-    removeParamBlocksWithIdentifiers(identifiers_to_remove,
-                                     identifier_type,
-                                     param_block_retriever,
-                                     pose_graph,
-                                     problem);
-  }
 
   template <typename IdentifierType>
   void setVariabilityForParamBlocks(
@@ -557,13 +600,13 @@ class ObjectPoseGraphOptimizer {
       const std::shared_ptr<PoseGraphType> &pose_graph,
       const int &param_block_size,
       ceres::Problem *problem) {
-    for (const IdentifierType &id_to_remove : identifiers) {
+    for (const IdentifierType &id_to_add : identifiers) {
       double *param_block;
-      if (param_block_retriever(id_to_remove, pose_graph, &param_block)) {
+      if (param_block_retriever(id_to_add, pose_graph, &param_block)) {
         problem->AddParameterBlock(param_block, param_block_size);
       } else {
         LOG(WARNING) << "No parameter block found for " << identifier_type
-                     << " with id " << id_to_remove
+                     << " with id " << id_to_add
                      << "; not adding from optimization problem";
       }
     }
@@ -604,6 +647,8 @@ class ObjectPoseGraphOptimizer {
           bool refresh = refresh_residual_checker_(
               factor_type_id_pair, pose_graph, existing_info.second);
           if (refresh) {
+            // TODO verify that this should go here
+            problem->RemoveResidualBlock(existing_info.first);
             residual_blocks_and_cached_info_by_factor_id_[factor_type].erase(
                 factor_id);
             create_new = true;

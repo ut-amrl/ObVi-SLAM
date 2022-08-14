@@ -67,7 +67,10 @@ class RoshanBbFrontEnd
           std::unordered_map<
               CameraId,
               std::unordered_map<ObjectId, BbCornerPair<double>>>>>
-          &observed_corner_locations)
+          &observed_corner_locations,
+      const std::unordered_map<vslam_types_refactor::ObjectId,
+                               RoshanAggregateBbInfo>
+          &long_term_map_front_end_data)
       : AbstractUnknownDataAssociationBbFrontEnd<
             VisualFeatureFactorType,
             RoshanAggregateBbInfo,
@@ -77,7 +80,17 @@ class RoshanBbFrontEnd
             std::unordered_map<ObjectId, RoshanAggregateBbInfo>>(pose_graph),
         association_params_(association_params),
         covariance_generator_(covariance_generator),
-        observed_corner_locations_(observed_corner_locations) {}
+        observed_corner_locations_(observed_corner_locations) {
+    AbstractBoundingBoxFrontEnd<
+        VisualFeatureFactorType,
+        RoshanAggregateBbInfo,
+        std::optional<sensor_msgs::Image::ConstPtr>,
+        RoshanImageSummaryInfo,
+        RoshanBbInfo,
+        std::unordered_map<vslam_types_refactor::ObjectId,
+                           RoshanAggregateBbInfo>>::object_appearance_info_ =
+        long_term_map_front_end_data;
+  }
 
   virtual bool getFrontEndObjMapData(
       std::unordered_map<vslam_types_refactor::ObjectId, RoshanAggregateBbInfo>
@@ -532,11 +545,14 @@ class RoshanBbFrontEndCreator {
                                                 const FrameId &,
                                                 const CameraId &,
                                                 const RoshanImageSummaryInfo &)>
-          &covariance_generator)
+          &covariance_generator,
+      std::unordered_map<vslam_types_refactor::ObjectId, RoshanAggregateBbInfo>
+          &long_term_map_front_end_data)
       : association_params_(association_params),
         covariance_generator_(covariance_generator),
         initialized_(false),
-        observed_corner_locations_(observed_corner_locations) {}
+        observed_corner_locations_(observed_corner_locations),
+        long_term_map_front_end_data_(long_term_map_front_end_data) {}
 
   std::shared_ptr<AbstractUnknownDataAssociationBbFrontEnd<
       VisualFeatureFactorType,
@@ -553,7 +569,8 @@ class RoshanBbFrontEndCreator {
               pose_graph,
               association_params_,
               covariance_generator_,
-              observed_corner_locations_);
+              observed_corner_locations_,
+              long_term_map_front_end_data_);
       initialized_ = true;
     }
     return roshan_front_end_;
@@ -572,6 +589,8 @@ class RoshanBbFrontEndCreator {
       std::unordered_map<CameraId,
                          std::unordered_map<ObjectId, BbCornerPair<double>>>>>
       observed_corner_locations_;
+  std::unordered_map<vslam_types_refactor::ObjectId, RoshanAggregateBbInfo>
+      long_term_map_front_end_data_;
   std::shared_ptr<AbstractUnknownDataAssociationBbFrontEnd<
       VisualFeatureFactorType,
       RoshanAggregateBbInfo,

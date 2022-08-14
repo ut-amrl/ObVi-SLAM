@@ -24,6 +24,7 @@ struct OptimizationFactorsEnabledParams {
   bool fix_poses_ = true;
   bool fix_objects_ = true;
   bool fix_visual_features_ = true;
+  bool fix_ltm_objects_ = false;
   bool use_pom_ = false;
 };
 
@@ -103,6 +104,7 @@ class OfflineProblemRunner {
         optimization_factors_enabled_params.fix_objects_;
     optimization_scope_params.fix_visual_features_ =
         optimization_factors_enabled_params.fix_visual_features_;
+    optimization_scope_params.fix_ltm_objects_ = optimization_factors_enabled_params.fix_ltm_objects_;
     optimization_scope_params.include_visual_factors_ =
         optimization_factors_enabled_params.include_visual_factors_;
     optimization_scope_params.include_object_factors_ =
