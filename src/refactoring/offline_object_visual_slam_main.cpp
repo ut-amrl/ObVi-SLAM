@@ -3,12 +3,17 @@
 #include <file_io/bounding_box_by_node_id_io.h>
 #include <file_io/camera_extrinsics_with_id_io.h>
 #include <file_io/camera_intrinsics_with_id_io.h>
+#include <file_io/cv_file_storage/vslam_basic_types_file_storage_io.h>
+#include <file_io/cv_file_storage/roshan_bounding_box_front_end_file_storage_io.h>
+#include <file_io/cv_file_storage/output_problem_data_file_storage_io.h>
 #include <file_io/node_id_and_timestamp_io.h>
+//#include <file_io/pairwise_covariance_roshan_front_end_long_term_map_io.h>
 #include <file_io/pose_3d_with_node_id_io.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 #include <refactoring/bounding_box_frontend/roshan_bounding_box_front_end.h>
 #include <refactoring/long_term_map/long_term_map_factor_creator.h>
+#include <refactoring/long_term_map/long_term_object_map_extraction.h>
 #include <refactoring/offline/offline_problem_data.h>
 #include <refactoring/offline/offline_problem_runner.h>
 #include <refactoring/offline/pose_graph_frame_data_adder.h>
@@ -20,9 +25,6 @@
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
 #include <sensor_msgs/Image.h>
-
-// TODO remove
-#include <refactoring/long_term_map/long_term_object_map_extraction.h>
 
 namespace vtr = vslam_types_refactor;
 
@@ -476,7 +478,7 @@ int main(int argc, char **argv) {
   }
   std::shared_ptr<vtr::PairwiseCovarianceLongTermObjectMap<
       std::unordered_map<vtr::ObjectId,
-          vtr::RoshanAggregateBbInfo>>>
+                         vtr::RoshanAggregateBbInfo>>>
       long_term_map;  // TODO load this
   vtr::UnassociatedBoundingBoxOfflineProblemData<
       vtr::StructuredVisionFeatureTrack,
@@ -495,7 +497,6 @@ int main(int argc, char **argv) {
   // Connect up functions needed for the optimizer --------------------------
   std::shared_ptr<vtr::RosVisualization> vis_manager =
       std::make_shared<vtr::RosVisualization>(n);
-
 
   vtr::PairwiseCovarianceLongTermObjectMapFactorCreator<
       util::EmptyStruct,
@@ -936,6 +937,23 @@ int main(int argc, char **argv) {
   //            << output_results.ellipsoid_results_.ellipsoids_.size();
 
   // TODO save output results somewhere
+
+//  vtr::EllipsoidState<double> ellipsoid(
+//      vtr::Pose3D(Eigen::Vector3d(1, 2, 3),
+//                  Eigen::AngleAxisd(0.2, Eigen::Vector3d(0, 0, 1))),
+//      Eigen::Vector3d(4, 5, 6));
+//
+//  cv::FileStorage fs("test.json", cv::FileStorage::WRITE);
+//  fs << "ellipsoid" << vtr::SerializableEllipsoidState<double>(ellipsoid);
+//
+//  cv::FileStorage fs2("test.json", cv::FileStorage::READ);
+//  vtr::SerializableEllipsoidState<double> ellipsoid_state;
+//  fs2["ellipsoid"] >> ellipsoid_state;
+//  LOG(INFO) << "Read ellipsoid";
+//  LOG(INFO) << "Transl " << ellipsoid_state.getEntry().pose_.transl_;
+//  LOG(INFO) << "Orientation angle " << ellipsoid_state.getEntry().pose_.orientation_.angle();
+//  LOG(INFO) << "Orientation axis" << ellipsoid_state.getEntry().pose_.orientation_.axis();
+//  LOG(INFO) << "Dimensions " << ellipsoid_state.getEntry().dimensions_;
 
   return 0;
 }
