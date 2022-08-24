@@ -23,7 +23,6 @@ class SerializableEigenMat
 
   virtual void write(cv::FileStorage &fs) const override {
     fs << "{" << kRowsLabel << Rows << kColsLabel << Cols << kDataLabel << "[";
-    //    fs << "{" << "rows" << Rows << "cols" << Cols << "data" << "[";
     for (size_t row = 0; row < Rows; row++) {
       for (size_t col = 0; col < Cols; col++) {
         fs << data_(row, col);
@@ -36,12 +35,9 @@ class SerializableEigenMat
   virtual void read(const cv::FileNode &node) override {
     int num_rows = node[kRowsLabel];
     int num_cols = node[kColsLabel];
-    //    int num_rows = node["rows"];
-    //    int num_cols = node["cols"];
     CHECK_EQ(num_rows, Rows);
     CHECK_EQ(num_cols, Cols);
     cv::FileNode mat_data = node[kDataLabel];
-    //    cv::FileNode mat_data = node["data"];
     CHECK_EQ(mat_data.type(), cv::FileNode::SEQ);
 
     cv::FileNodeIterator mat_data_iter = mat_data.begin();

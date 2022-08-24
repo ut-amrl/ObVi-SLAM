@@ -25,8 +25,7 @@ class SerializableEllipsoidResults
       SerializableEllipsoidState<double> entry_state(
           ellipsoid_entry.second.second);
       fs << "{";
-      std::string obj_id_str = std::to_string(ellipsoid_entry.first);
-      fs << kObjectIdLabel << obj_id_str;
+      fs << kObjectIdLabel << SerializableObjectId(ellipsoid_entry.first);
       fs << kSemanticClassLabel << ellipsoid_entry.second.first;
       fs << kEllipsoidStateLabel << entry_state;
       fs << "}";
@@ -41,11 +40,8 @@ class SerializableEllipsoidResults
          it != results_map_data.end();
          it++) {
       cv::FileNode entry = *it;
-      ObjectId obj_id;
-      std::string obj_id_str;
-      entry[kObjectIdLabel] >> obj_id_str;
-      std::istringstream obj_id_stream(obj_id_str);
-      obj_id_stream >> obj_id;
+      SerializableObjectId obj_id;
+      entry[kObjectIdLabel] >> obj_id;
 
       std::string semantic_class;
       entry[kSemanticClassLabel] >> semantic_class;
@@ -53,7 +49,7 @@ class SerializableEllipsoidResults
       SerializableEllipsoidState<double> ellipsoid_state;
       entry[kEllipsoidStateLabel] >> ellipsoid_state;
 
-      data_.ellipsoids_[obj_id] =
+      data_.ellipsoids_[obj_id.getEntry()] =
           std::make_pair(semantic_class, ellipsoid_state.getEntry());
     }
   }
