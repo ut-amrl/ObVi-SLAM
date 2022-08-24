@@ -28,6 +28,21 @@
 
 namespace vtr = vslam_types_refactor;
 
+typedef vtr::IndependentEllipsoidsLongTermObjectMap<
+    std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>
+    MainLtm;
+typedef std::shared_ptr<MainLtm> MainLtmPtr;
+typedef vtr::UnassociatedBoundingBoxOfflineProblemData<
+    vtr::StructuredVisionFeatureTrack,
+    sensor_msgs::Image::ConstPtr,
+    MainLtm>
+    MainProbData;
+typedef vtr::ObjectAndReprojectionFeaturePoseGraph MainPg;
+typedef std::shared_ptr<MainPg> MainPgPtr;
+typedef std::pair<vslam_types_refactor::FactorType,
+                  vslam_types_refactor::FeatureFactorId>
+    MainFactorInfo;
+
 DEFINE_string(param_prefix, "", "param_prefix");
 DEFINE_string(intrinsics_file, "", "File with camera intrinsics");
 DEFINE_string(extrinsics_file, "", "File with camera extrinsics");
@@ -205,40 +220,25 @@ getImagesFromRosbag(const std::string &rosbag_file_name,
 }
 
 std::vector<std::shared_ptr<ceres::IterationCallback>>
-dummyCeresCallbackCreator(
-    const vtr::UnassociatedBoundingBoxOfflineProblemData<
-        vtr::StructuredVisionFeatureTrack,
-        sensor_msgs::Image::ConstPtr,
-        vtr::IndependentEllipsoidsLongTermObjectMap<
-            std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>
-        &input_problem_data,
-    const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph>
-        &pose_graph,
-    const vtr::FrameId &min_frame_optimized,
-    const vtr::FrameId &max_frame_optimized) {
+dummyCeresCallbackCreator(const MainProbData &input_problem_data,
+                          const MainPgPtr &pose_graph,
+                          const vtr::FrameId &min_frame_optimized,
+                          const vtr::FrameId &max_frame_optimized) {
   // TODO replace with actual code later
   return {};
 }
 
-bool checkFactorRefresh(
-    const std::pair<vtr::FactorType, vtr::FeatureFactorId> &factor,
-    const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph> &,
-    const util::EmptyStruct &) {
+bool checkFactorRefresh(const MainFactorInfo &factor,
+                        const MainPgPtr &,
+                        const util::EmptyStruct &) {
   return false;
 }
 
 void createPoseGraph(
-    const vtr::UnassociatedBoundingBoxOfflineProblemData<
-        vtr::StructuredVisionFeatureTrack,
-        sensor_msgs::Image::ConstPtr,
-        vtr::IndependentEllipsoidsLongTermObjectMap<
-            std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>
-        &input_problem_data,
-    const std::function<bool(
-        util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
-                                     vslam_types_refactor::FeatureFactorId>> &)>
+    const MainProbData &input_problem_data,
+    const std::function<bool(util::BoostHashSet<MainFactorInfo> &)>
         &long_term_map_factor_provider,
-    std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph> &pose_graph) {
+    MainPgPtr &pose_graph) {
   std::unordered_map<vtr::ObjectId,
                      std::pair<std::string, vtr::RawEllipsoid<double>>>
       ltm_objects;
@@ -250,12 +250,12 @@ void createPoseGraph(
         ellipsoid_entry.second.first,
         vtr::convertToRawEllipsoid(ellipsoid_entry.second.second));
   }
-  pose_graph = std::make_shared<vtr::ObjectAndReprojectionFeaturePoseGraph>(
-      input_problem_data.getObjDimMeanAndCovByClass(),
-      input_problem_data.getCameraExtrinsicsByCamera(),
-      input_problem_data.getCameraIntrinsicsByCamera(),
-      ltm_objects,
-      long_term_map_factor_provider);
+  pose_graph =
+      std::make_shared<MainPg>(input_problem_data.getObjDimMeanAndCovByClass(),
+                               input_problem_data.getCameraExtrinsicsByCamera(),
+                               input_problem_data.getCameraIntrinsicsByCamera(),
+                               ltm_objects,
+                               long_term_map_factor_provider);
 }
 
 void visualizationStub(
@@ -276,12 +276,7 @@ void visualizationStub(
             vtr::CameraId,
             std::unordered_map<vtr::ObjectId, vtr::BbCornerPair<double>>>>>
         &observed_corner_locations,
-    const vtr::UnassociatedBoundingBoxOfflineProblemData<
-        vtr::StructuredVisionFeatureTrack,
-        sensor_msgs::Image::ConstPtr,
-        vtr::IndependentEllipsoidsLongTermObjectMap<
-            std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>
-        &input_problem_data,
+    const MainProbData &input_problem_data,
     std::shared_ptr<
         vtr::ObjAndLowLevelFeaturePoseGraph<vtr::ReprojectionErrorFactor>>
         &pose_graph,
@@ -485,13 +480,9 @@ int main(int argc, char **argv) {
       }
     }
   }
-  std::shared_ptr<vtr::IndependentEllipsoidsLongTermObjectMap<
-      std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>
-      long_term_map;
+  MainLtmPtr long_term_map;
   if (!FLAGS_long_term_map_input.empty()) {
-    long_term_map =
-        std::make_shared<vtr::IndependentEllipsoidsLongTermObjectMap<
-            std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>();
+    long_term_map = std::make_shared<MainLtm>();
 
     cv::FileStorage ltm_in_fs(FLAGS_long_term_map_input, cv::FileStorage::READ);
     vtr::SerializableIndependentEllipsoidsLongTermObjectMap<
@@ -505,19 +496,14 @@ int main(int argc, char **argv) {
     ltm_in_fs.release();
   }
 
-  vtr::UnassociatedBoundingBoxOfflineProblemData<
-      vtr::StructuredVisionFeatureTrack,
-      sensor_msgs::Image::ConstPtr,
-      vtr::IndependentEllipsoidsLongTermObjectMap<
-          std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>
-      input_problem_data(camera_intrinsics_by_camera,
-                         camera_extrinsics_by_camera,
-                         visual_features,
-                         robot_poses,
-                         mean_and_cov_by_semantic_class,
-                         bounding_boxes,
-                         long_term_map,
-                         images);
+  MainProbData input_problem_data(camera_intrinsics_by_camera,
+                                  camera_extrinsics_by_camera,
+                                  visual_features,
+                                  robot_poses,
+                                  mean_and_cov_by_semantic_class,
+                                  bounding_boxes,
+                                  long_term_map,
+                                  images);
 
   // Connect up functions needed for the optimizer --------------------------
   std::shared_ptr<vtr::RosVisualization> vis_manager =
@@ -538,54 +524,33 @@ int main(int argc, char **argv) {
       };
 
   std::function<bool(
-      const std::pair<vtr::FactorType, vtr::FeatureFactorId> &,
-      const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph> &,
-      const util::EmptyStruct &)>
+      const MainFactorInfo &, const MainPgPtr &, const util::EmptyStruct &)>
       refresh_residual_checker = checkFactorRefresh;
 
   std::function<bool(
-      const std::pair<vtr::FactorType, vtr::FeatureFactorId> &,
-      const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph> &,
-      util::EmptyStruct &)>
-      cached_info_creator =
-          [](const std::pair<vtr::FactorType, vtr::FeatureFactorId>
-                 &factor_info,
-             const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph>
-                 &pose_graph,
-             util::EmptyStruct &cached_info) {
-            return true;  // TODO maybe fill in with real info some day
-          };
+      const MainFactorInfo &, const MainPgPtr &, util::EmptyStruct &)>
+      cached_info_creator = [](const MainFactorInfo &factor_info,
+                               const MainPgPtr &pose_graph,
+                               util::EmptyStruct &cached_info) {
+        return true;  // TODO maybe fill in with real info some day
+      };
   std::function<bool(
-      const std::pair<vslam_types_refactor::FactorType,
-                      vslam_types_refactor::FeatureFactorId> &,
-      const std::shared_ptr<
-          vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph> &,
+      const MainFactorInfo &,
+      const MainPgPtr &,
       const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
       const std::function<bool(
-          const std::pair<vslam_types_refactor::FactorType,
-                          vslam_types_refactor::FeatureFactorId> &,
-          const std::shared_ptr<
-              vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph> &,
-          util::EmptyStruct &)> &,
+          const MainFactorInfo &, const MainPgPtr &, util::EmptyStruct &)> &,
       ceres::Problem *,
       ceres::ResidualBlockId &,
       util::EmptyStruct &)>
       long_term_map_residual_creator_func =
-          [&](const std::pair<vslam_types_refactor::FactorType,
-                              vslam_types_refactor::FeatureFactorId>
-                  &factor_info,
-              const std::shared_ptr<
-                  vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph>
-                  &pose_graph,
+          [&](const MainFactorInfo &factor_info,
+              const MainPgPtr &pose_graph,
               const pose_graph_optimization::ObjectVisualPoseGraphResidualParams
                   &residual_params,
-              const std::function<bool(
-                  const std::pair<vslam_types_refactor::FactorType,
-                                  vslam_types_refactor::FeatureFactorId> &,
-                  const std::shared_ptr<
-                      vslam_types_refactor::
-                          ObjectAndReprojectionFeaturePoseGraph> &,
-                  util::EmptyStruct &)> &cached_inf_create,
+              const std::function<bool(const MainFactorInfo &,
+                                       const MainPgPtr &,
+                                       util::EmptyStruct &)> &cached_inf_create,
               ceres::Problem *problem,
               ceres::ResidualBlockId &res_id,
               util::EmptyStruct &cached_inf) {
@@ -598,18 +563,17 @@ int main(int argc, char **argv) {
                                                      cached_inf);
           };
   std::function<bool(
-      const std::pair<vtr::FactorType, vtr::FeatureFactorId> &,
+      const MainFactorInfo &,
       const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
-      const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph> &,
+      const MainPgPtr &,
       ceres::Problem *,
       ceres::ResidualBlockId &,
       util::EmptyStruct &)>
       residual_creator =
-          [&](const std::pair<vtr::FactorType, vtr::FeatureFactorId> &factor_id,
+          [&](const MainFactorInfo &factor_id,
               const pose_graph_optimization::ObjectVisualPoseGraphResidualParams
                   &solver_residual_params,
-              const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph>
-                  &pose_graph,
+              const MainPgPtr &pose_graph,
               ceres::Problem *problem,
               ceres::ResidualBlockId &residual_id,
               util::EmptyStruct &cached_info) {
@@ -623,76 +587,39 @@ int main(int argc, char **argv) {
                                        cached_info);
           };
 
-  std::function<bool(
-      util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
-                                   vslam_types_refactor::FeatureFactorId>> &)>
+  std::function<bool(util::BoostHashSet<MainFactorInfo> &)>
       long_term_map_factor_provider =
-          [&](util::BoostHashSet<
-              std::pair<vslam_types_refactor::FactorType,
-                        vslam_types_refactor::FeatureFactorId>> &factor_data) {
+          [&](util::BoostHashSet<MainFactorInfo> &factor_data) {
             return ltm_factor_creator.getFactorsToInclude(factor_data);
           };
-  std::function<void(
-      const vtr::UnassociatedBoundingBoxOfflineProblemData<
-          vtr::StructuredVisionFeatureTrack,
-          sensor_msgs::Image::ConstPtr,
-          vtr::IndependentEllipsoidsLongTermObjectMap<
-              std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>> &,
-      std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph> &)>
-      pose_graph_creator = std::bind(createPoseGraph,
-                                     std::placeholders::_1,
-                                     long_term_map_factor_provider,
-                                     std::placeholders::_2);
-  std::function<double(
-      const vtr::UnassociatedBoundingBoxOfflineProblemData<
-          vtr::StructuredVisionFeatureTrack,
-          sensor_msgs::Image::ConstPtr,
-          vtr::IndependentEllipsoidsLongTermObjectMap<
-              std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>> &,
-      const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph> &,
-      const vtr::FrameId &,
-      const vtr::FeatureId &,
-      const vtr::CameraId &)>
-      reprojection_error_provider =
-          [](const vtr::UnassociatedBoundingBoxOfflineProblemData<
-                 vtr::StructuredVisionFeatureTrack,
-                 sensor_msgs::Image::ConstPtr,
-                 vtr::IndependentEllipsoidsLongTermObjectMap<
-                     std::unordered_map<vtr::ObjectId,
-                                        vtr::RoshanAggregateBbInfo>>>
-                 &input_problem,
-             const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph>
-                 &pose_graph,
-             const vtr::FrameId &frame_id,
-             const vtr::FeatureId &feature_id,
-             const vtr::CameraId &camera_id) {
-            // TODO replace with thought out function once we add in the visual
-            // part
-            return 0.0;
-          };
+  std::function<void(const MainProbData &, MainPgPtr &)> pose_graph_creator =
+      std::bind(createPoseGraph,
+                std::placeholders::_1,
+                long_term_map_factor_provider,
+                std::placeholders::_2);
+  std::function<double(const MainProbData &,
+                       const MainPgPtr &,
+                       const vtr::FrameId &,
+                       const vtr::FeatureId &,
+                       const vtr::CameraId &)>
+      reprojection_error_provider = [](const MainProbData &input_problem,
+                                       const MainPgPtr &pose_graph,
+                                       const vtr::FrameId &frame_id,
+                                       const vtr::FeatureId &feature_id,
+                                       const vtr::CameraId &camera_id) {
+        // TODO replace with thought out function once we add in the visual
+        // part
+        return 0.0;
+      };
   std::function<std::optional<sensor_msgs::Image::ConstPtr>(
-      const vtr::FrameId &,
-      const vtr::CameraId &,
-      const vtr::UnassociatedBoundingBoxOfflineProblemData<
-          vtr::StructuredVisionFeatureTrack,
-          sensor_msgs::Image::ConstPtr,
-          vtr::IndependentEllipsoidsLongTermObjectMap<
-              std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>
-          &)>
-      bb_context_retriever =
-          [](const vtr::FrameId &frame_id,
-             const vtr::CameraId &camera_id,
-             const vtr::UnassociatedBoundingBoxOfflineProblemData<
-                 vtr::StructuredVisionFeatureTrack,
-                 sensor_msgs::Image::ConstPtr,
-                 vtr::IndependentEllipsoidsLongTermObjectMap<
-                     std::unordered_map<vtr::ObjectId,
-                                        vtr::RoshanAggregateBbInfo>>>
-                 &problem_data) {
-            //            LOG(INFO) << "Getting image for frame " << frame_id
-            //                      << " and camera " << camera_id;
-            return problem_data.getImageForFrameAndCamera(frame_id, camera_id);
-          };
+      const vtr::FrameId &, const vtr::CameraId &, const MainProbData &)>
+      bb_context_retriever = [](const vtr::FrameId &frame_id,
+                                const vtr::CameraId &camera_id,
+                                const MainProbData &problem_data) {
+        //            LOG(INFO) << "Getting image for frame " << frame_id
+        //                      << " and camera " << camera_id;
+        return problem_data.getImageForFrameAndCamera(frame_id, camera_id);
+      };
 
   std::function<vtr::Covariance<double, 4>(const vtr::RawBoundingBox &,
                                            const vtr::FrameId &,
@@ -734,66 +661,38 @@ int main(int argc, char **argv) {
       vtr::RoshanImageSummaryInfo,
       vtr::RoshanBbInfo,
       std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>(
-      const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph> &,
-      const vtr::UnassociatedBoundingBoxOfflineProblemData<
-          vtr::StructuredVisionFeatureTrack,
-          sensor_msgs::Image::ConstPtr,
-          vtr::IndependentEllipsoidsLongTermObjectMap<
-              std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>
-          &)>
+      const MainPgPtr &, const MainProbData &)>
       bb_associator_retriever =
-          [&](const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph>
-                  &pg,
-              const vtr::UnassociatedBoundingBoxOfflineProblemData<
-                  vtr::StructuredVisionFeatureTrack,
-                  sensor_msgs::Image::ConstPtr,
-                  vtr::IndependentEllipsoidsLongTermObjectMap<
-                      std::unordered_map<vtr::ObjectId,
-                                         vtr::RoshanAggregateBbInfo>>>
-                  &input_prob) {
+          [&](const MainPgPtr &pg, const MainProbData &input_prob) {
             return roshan_associator_creator.getDataAssociator(pg);
           };
 
   std::function<void(
-      const vtr::UnassociatedBoundingBoxOfflineProblemData<
-          vtr::StructuredVisionFeatureTrack,
-          sensor_msgs::Image::ConstPtr,
-          vtr::IndependentEllipsoidsLongTermObjectMap<
-              std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>> &,
-      const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph> &,
-      const vtr::FrameId &)>
-      frame_data_adder =
-          [&](const vtr::UnassociatedBoundingBoxOfflineProblemData<
-                  vtr::StructuredVisionFeatureTrack,
-                  sensor_msgs::Image::ConstPtr,
-                  vtr::IndependentEllipsoidsLongTermObjectMap<
-                      std::unordered_map<vtr::ObjectId,
-                                         vtr::RoshanAggregateBbInfo>>>
-                  &problem_data,
-              const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph>
-                  &pose_graph,
-              const vtr::FrameId &frame_to_add) {
-            vtr::addFrameDataAssociatedBoundingBox(problem_data,
-                                                   pose_graph,
-                                                   frame_to_add,
-                                                   reprojection_error_provider,
-                                                   bb_associator_retriever,
-                                                   bb_context_retriever);
-          };
+      const MainProbData &, const MainPgPtr &, const vtr::FrameId &)>
+      frame_data_adder = [&](const MainProbData &problem_data,
+                             const MainPgPtr &pose_graph,
+                             const vtr::FrameId &frame_to_add) {
+        vtr::addFrameDataAssociatedBoundingBox(problem_data,
+                                               pose_graph,
+                                               frame_to_add,
+                                               reprojection_error_provider,
+                                               bb_associator_retriever,
+                                               bb_context_retriever);
+      };
 
   //  std::function<void(
   //      const vtr::UnassociatedBoundingBoxOfflineProblemData<
   //          vtr::StructuredVisionFeatureTrack,
   //          sensor_msgs::Image::ConstPtr> &,
   //      const std::shared_ptr<const
-  //      vtr::ObjectAndReprojectionFeaturePoseGraph> &, ceres::Problem *,
+  //      MainPg> &, ceres::Problem *,
   //      vtr::SpatialEstimateOnlyResults &)>
   //      output_data_extractor =
   //          [](const vtr::UnassociatedBoundingBoxOfflineProblemData<
   //                 vtr::StructuredVisionFeatureTrack,
   //                 sensor_msgs::Image::ConstPtr> &input_problem_data,
   //             const std::shared_ptr<
-  //                 const vtr::ObjectAndReprojectionFeaturePoseGraph>
+  //                 const MainPg>
   //                 &pose_graph,
   //             ceres::Problem *problem,
   //             vtr::SpatialEstimateOnlyResults &output_problem_data) {
@@ -806,134 +705,79 @@ int main(int argc, char **argv) {
       std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>
       ltm_extractor(ltm_covariance_params);
 
-  std::function<void(
-      const vtr::UnassociatedBoundingBoxOfflineProblemData<
-          vtr::StructuredVisionFeatureTrack,
-          sensor_msgs::Image::ConstPtr,
-          vtr::IndependentEllipsoidsLongTermObjectMap<
-              std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>> &,
-      const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph> &,
-      ceres::Problem *,
-      vtr::LongTermObjectMapAndResults<
-          vtr::IndependentEllipsoidsLongTermObjectMap<
-              std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>
-          &)>
-      output_data_extractor =
-          [&](const vtr::UnassociatedBoundingBoxOfflineProblemData<
-                  vtr::StructuredVisionFeatureTrack,
-                  sensor_msgs::Image::ConstPtr,
-                  vtr::IndependentEllipsoidsLongTermObjectMap<
-                      std::unordered_map<vtr::ObjectId,
-                                         vtr::RoshanAggregateBbInfo>>>
-                  &input_problem_data,
-              const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph>
-                  &pose_graph,
-              ceres::Problem *problem,
-              vtr::LongTermObjectMapAndResults<
-                  vtr::IndependentEllipsoidsLongTermObjectMap<
-                      std::unordered_map<vtr::ObjectId,
-                                         vtr::RoshanAggregateBbInfo>>>
-                  &output_problem_data) {
-            std::function<bool(
-                std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>
-                    &)>
-                front_end_map_data_extractor =
-                    [&](std::unordered_map<vtr::ObjectId,
-                                           vtr::RoshanAggregateBbInfo>
-                            &front_end_data) {
-                      roshan_associator_creator.getDataAssociator(pose_graph);
-                      return true;
-                    };
-            std::function<bool(
-                const std::shared_ptr<
-                    vtr::ObjectAndReprojectionFeaturePoseGraph> &,
-                ceres::Problem *,
-                vtr::IndependentEllipsoidsLongTermObjectMap<
-                    std::unordered_map<vtr::ObjectId,
-                                       vtr::RoshanAggregateBbInfo>> &)>
-                long_term_object_map_extractor =
-                    [&](const std::shared_ptr<
-                            vtr::ObjectAndReprojectionFeaturePoseGraph>
-                            &ltm_pose_graph,
-                        ceres::Problem *ltm_problem,
-                        vtr::IndependentEllipsoidsLongTermObjectMap<
-                            std::unordered_map<vtr::ObjectId,
-                                               vtr::RoshanAggregateBbInfo>>
-                            &ltm_extractor_out) {
-                      return ltm_extractor.extractLongTermObjectMap(
-                          ltm_pose_graph,
-                          ltm_problem,
-                          front_end_map_data_extractor,
-                          ltm_extractor_out);
-                    };  // TODO!
-            vtr::extractLongTermObjectMapAndResults(
-                pose_graph,
-                problem,
-                long_term_object_map_extractor,
-                output_problem_data);
-          };
+  std::function<void(const MainProbData &,
+                     const MainPgPtr &,
+                     ceres::Problem *,
+                     vtr::LongTermObjectMapAndResults<MainLtm> &)>
+      output_data_extractor = [&](const MainProbData &input_problem_data,
+                                  const MainPgPtr &pose_graph,
+                                  ceres::Problem *problem,
+                                  vtr::LongTermObjectMapAndResults<MainLtm>
+                                      &output_problem_data) {
+        std::function<bool(
+            std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo> &)>
+            front_end_map_data_extractor =
+                [&](std::unordered_map<vtr::ObjectId,
+                                       vtr::RoshanAggregateBbInfo>
+                        &front_end_data) {
+                  roshan_associator_creator.getDataAssociator(pose_graph);
+                  return true;
+                };
+        std::function<bool(const MainPgPtr &, ceres::Problem *, MainLtm &)>
+            long_term_object_map_extractor =
+                [&](const MainPgPtr &ltm_pose_graph,
+                    ceres::Problem *ltm_problem,
+                    MainLtm &ltm_extractor_out) {
+                  return ltm_extractor.extractLongTermObjectMap(
+                      ltm_pose_graph,
+                      ltm_problem,
+                      front_end_map_data_extractor,
+                      ltm_extractor_out);
+                };  // TODO!
+        vtr::extractLongTermObjectMapAndResults(pose_graph,
+                                                problem,
+                                                long_term_object_map_extractor,
+                                                output_problem_data);
+      };
 
   std::function<std::vector<std::shared_ptr<ceres::IterationCallback>>(
-      const vtr::UnassociatedBoundingBoxOfflineProblemData<
-          vtr::StructuredVisionFeatureTrack,
-          sensor_msgs::Image::ConstPtr,
-          vtr::IndependentEllipsoidsLongTermObjectMap<
-              std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>> &,
-      const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph> &,
+      const MainProbData &,
+      const MainPgPtr &,
       const vtr::FrameId &,
       const vtr::FrameId &)>
       ceres_callback_creator = dummyCeresCallbackCreator;
-  std::function<void(
-      const vtr::UnassociatedBoundingBoxOfflineProblemData<
-          vtr::StructuredVisionFeatureTrack,
-          sensor_msgs::Image::ConstPtr,
-          vtr::IndependentEllipsoidsLongTermObjectMap<
-              std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>> &,
-      const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph> &,
-      const vtr::FrameId &,
-      const vtr::FrameId &,
-      const vtr::VisualizationTypeEnum &)>
-      visualization_callback =
-          [&](const vtr::UnassociatedBoundingBoxOfflineProblemData<
-                  vtr::StructuredVisionFeatureTrack,
-                  sensor_msgs::Image::ConstPtr,
-                  vtr::IndependentEllipsoidsLongTermObjectMap<
-                      std::unordered_map<vtr::ObjectId,
-                                         vtr::RoshanAggregateBbInfo>>>
-                  &input_problem_data,
-              const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph>
-                  &pose_graph,
-              const vtr::FrameId &min_frame_id,
-              const vtr::FrameId &max_frame_id,
-              const vtr::VisualizationTypeEnum &visualization_type) {
-            std::shared_ptr<vtr::ObjAndLowLevelFeaturePoseGraph<
-                vtr::ReprojectionErrorFactor>>
-                superclass_ptr = pose_graph;
-            visualizationStub(vis_manager,
-                              camera_extrinsics_by_camera,
-                              camera_intrinsics_by_camera,
-                              img_heights_and_widths,
-                              images,
-                              observed_corner_locations,
-                              input_problem_data,
-                              superclass_ptr,
-                              min_frame_id,
-                              max_frame_id,
-                              visualization_type);
-          };
+  std::function<void(const MainProbData &,
+                     const MainPgPtr &,
+                     const vtr::FrameId &,
+                     const vtr::FrameId &,
+                     const vtr::VisualizationTypeEnum &)>
+      visualization_callback = [&](const MainProbData &input_problem_data,
+                                   const MainPgPtr &pose_graph,
+                                   const vtr::FrameId &min_frame_id,
+                                   const vtr::FrameId &max_frame_id,
+                                   const vtr::VisualizationTypeEnum
+                                       &visualization_type) {
+        std::shared_ptr<
+            vtr::ObjAndLowLevelFeaturePoseGraph<vtr::ReprojectionErrorFactor>>
+            superclass_ptr = pose_graph;
+        visualizationStub(vis_manager,
+                          camera_extrinsics_by_camera,
+                          camera_intrinsics_by_camera,
+                          img_heights_and_widths,
+                          images,
+                          observed_corner_locations,
+                          input_problem_data,
+                          superclass_ptr,
+                          min_frame_id,
+                          max_frame_id,
+                          visualization_type);
+      };
 
-  vtr::OfflineProblemRunner<
-      vtr::UnassociatedBoundingBoxOfflineProblemData<
-          vtr::StructuredVisionFeatureTrack,
-          sensor_msgs::Image::ConstPtr,
-          vtr::IndependentEllipsoidsLongTermObjectMap<
-              std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>,
-      vtr::ReprojectionErrorFactor,
-      vtr::LongTermObjectMapAndResults<
-          vtr::IndependentEllipsoidsLongTermObjectMap<
-              std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>,
-      util::EmptyStruct,
-      vtr::ObjectAndReprojectionFeaturePoseGraph>
+  vtr::OfflineProblemRunner<MainProbData,
+                            vtr::ReprojectionErrorFactor,
+                            vtr::LongTermObjectMapAndResults<MainLtm>,
+                            util::EmptyStruct,
+                            MainPg>
       offline_problem_runner(residual_params,
                              continue_opt_checker,
                              window_provider_func,
@@ -954,9 +798,7 @@ int main(int argc, char **argv) {
   // TODO should we also optimize the poses?
 
   //  vtr::SpatialEstimateOnlyResults output_results;
-  vtr::LongTermObjectMapAndResults<vtr::IndependentEllipsoidsLongTermObjectMap<
-      std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>
-      output_results;
+  vtr::LongTermObjectMapAndResults<MainLtm> output_results;
 
   offline_problem_runner.runOptimization(
       input_problem_data, optimization_factors_enabled_params, output_results);
