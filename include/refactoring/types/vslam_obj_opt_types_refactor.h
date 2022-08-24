@@ -66,7 +66,7 @@ struct RawBoundingBoxObservation {
   FrameId frame_idx_;
 
   /**
-   * Id of the camera that captured this boundign box.
+   * Id of the camera that captured this bounding box.
    */
   CameraId camera_id_;
 };

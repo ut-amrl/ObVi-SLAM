@@ -20,7 +20,7 @@ class SerializableRoshanBbInfo : public FileStorageSerializable<RoshanBbInfo> {
   virtual void write(cv::FileStorage &fs) const override {
     fs << "{";
     fs << kHistoLabel << data_.hue_sat_histogram_;
-    fs << kSingleBbInitEst
+    fs << kSingleBbInitEstLabel
        << SerializableEllipsoidState<double>(data_.single_bb_init_est_);
     int est_gen = data_.est_generated_ ? 1 : 0;
     fs << kEstGeneratedLabel << est_gen;
@@ -31,7 +31,7 @@ class SerializableRoshanBbInfo : public FileStorageSerializable<RoshanBbInfo> {
     int est_gen;
     SerializableEllipsoidState<double> ellipsoid_state;
     node[kHistoLabel] >> data_.hue_sat_histogram_;
-    node[kSingleBbInitEst] >> ellipsoid_state;
+    node[kSingleBbInitEstLabel] >> ellipsoid_state;
     node[kEstGeneratedLabel] >> est_gen;
     data_.est_generated_ = est_gen != 0;
     data_.single_bb_init_est_ = ellipsoid_state.getEntry();
@@ -42,7 +42,7 @@ class SerializableRoshanBbInfo : public FileStorageSerializable<RoshanBbInfo> {
 
  private:
   inline static const std::string kHistoLabel = "hue_sat_histo";
-  inline static const std::string kSingleBbInitEst = "single_bb_init_est";
+  inline static const std::string kSingleBbInitEstLabel = "single_bb_init_est";
   inline static const std::string kEstGeneratedLabel = "est_generated";
 };
 
@@ -84,7 +84,8 @@ class SerializableRoshanAggregateBbInfo
       cv::FileNode entry = *it;
       SerializableRoshanBbInfo serializable_bb_entry;
       entry >> serializable_bb_entry;
-      data_.infos_for_observed_bbs_.emplace_back(serializable_bb_entry.getEntry());
+      data_.infos_for_observed_bbs_.emplace_back(
+          serializable_bb_entry.getEntry());
     }
   }
 

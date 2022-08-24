@@ -29,11 +29,11 @@ class AbsLongTermObjectMap {
     front_end_map_data_ = front_end_data;
   }
 
-  virtual void getEllipsoidResults(EllipsoidResults &ellipsoids) {
+  virtual void getEllipsoidResults(EllipsoidResults &ellipsoids) const {
     ellipsoids = ellipsoids_;
   }
 
-  virtual void getFrontEndObjMapData(FrontEndObjMapData &front_end_data) {
+  virtual void getFrontEndObjMapData(FrontEndObjMapData &front_end_data) const {
     front_end_data = front_end_map_data_;
   }
 
@@ -47,6 +47,25 @@ class AbsLongTermObjectMap {
   EllipsoidResults ellipsoids_;
 
   FrontEndObjMapData front_end_map_data_;
+};
+
+template <typename FrontEndObjMapData>
+class IndependentEllipsoidsLongTermObjectMap
+    : public AbsLongTermObjectMap<FrontEndObjMapData> {
+ public:
+  void setEllipsoidCovariances(
+      const std::unordered_map<ObjectId, Covariance<double, 9>>
+          &ellipsoid_covariances) {
+    ellipsoid_covariances_ = ellipsoid_covariances;
+  }
+
+  std::unordered_map<ObjectId, Covariance<double, 9>>
+  getEllipsoidCovariances() const {
+    return ellipsoid_covariances_;
+  }
+
+ private:
+  std::unordered_map<ObjectId, Covariance<double, 9>> ellipsoid_covariances_;
 };
 
 template <typename FrontEndObjMapData>

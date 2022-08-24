@@ -6,6 +6,7 @@
 #include <file_io/cv_file_storage/vslam_basic_types_file_storage_io.h>
 #include <file_io/cv_file_storage/roshan_bounding_box_front_end_file_storage_io.h>
 #include <file_io/cv_file_storage/output_problem_data_file_storage_io.h>
+#include <file_io/cv_file_storage/long_term_object_map_file_storage_io.h>
 #include <file_io/node_id_and_timestamp_io.h>
 //#include <file_io/pairwise_covariance_roshan_front_end_long_term_map_io.h>
 #include <file_io/pose_3d_with_node_id_io.h>
@@ -776,7 +777,7 @@ int main(int argc, char **argv) {
   //                                                   output_problem_data);
   //          };
 
-  vtr::PairwiseCovarianceExtractorParams ltm_covariance_params;
+  vtr::CovarianceExtractorParams ltm_covariance_params;
   vtr::PairwiseCovarianceLongTermObjectMapExtractor<
       std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>
       ltm_extractor(ltm_covariance_params);

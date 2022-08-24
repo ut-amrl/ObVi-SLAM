@@ -15,7 +15,7 @@ namespace vslam_types_refactor {
 /**
  * Parameters used in pairwise covariance extraction process.
  */
-class PairwiseCovarianceExtractorParams {
+class CovarianceExtractorParams {
  public:
   /**
    * See Ceres covariance documentation.
@@ -43,7 +43,7 @@ class PairwiseCovarianceLongTermObjectMapExtractor {
    * extraction.
    */
   PairwiseCovarianceLongTermObjectMapExtractor(
-      const PairwiseCovarianceExtractorParams &covariance_extractor_params)
+      const CovarianceExtractorParams &covariance_extractor_params)
       : covariance_extractor_params_(covariance_extractor_params) {}
 
   ~PairwiseCovarianceLongTermObjectMapExtractor() = default;
@@ -154,7 +154,111 @@ class PairwiseCovarianceLongTermObjectMapExtractor {
   /**
    * Covariance extractor params.
    */
-  PairwiseCovarianceExtractorParams covariance_extractor_params_;
+  CovarianceExtractorParams covariance_extractor_params_;
+};
+
+template <typename FrontEndObjMapData>
+class IndependentEllipsoidsLongTermObjectMapExtractor {
+ public:
+  /**
+   * Create the long term map extractor.
+   *
+   * @param covariance_extractor_params Parameters to be used during covariance
+   * extraction.
+   */
+  IndependentEllipsoidsLongTermObjectMapExtractor(
+      const CovarianceExtractorParams &covariance_extractor_params)
+      : covariance_extractor_params_(covariance_extractor_params) {}
+
+  ~IndependentEllipsoidsLongTermObjectMapExtractor() = default;
+
+  /**
+   * Extract the long term map.
+   *
+   * @param pose_graph[in]      Pose graph from which to extract information
+   *                            needed for long-term map.
+   * @param problem[in]         The ceres problem from which to extract the
+   *                            covariance. Assumes that the problem was left
+   *                            in a complete state (not missing variables that
+   *                            should be included in the long-term map or
+   *                            factored into the covariance extraction.
+   * @param long_term_map[out]  Long term map to update with information.
+   *
+   * @return True if the long term map extraction was successful. False if
+   * something failed. If returns false, may or may not have updated the
+   * long-term map object.
+   */
+  bool extractLongTermObjectMap(
+      const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
+      ceres::Problem *problem,
+      const std::function<bool(FrontEndObjMapData &)>
+          front_end_map_data_extractor,
+      IndependentEllipsoidsLongTermObjectMap<FrontEndObjMapData>
+          &long_term_obj_map) {
+    EllipsoidResults ellipsoid_results;
+    extractEllipsoidEstimates(pose_graph, ellipsoid_results);
+    long_term_obj_map.setEllipsoidResults(ellipsoid_results);
+
+    ceres::Covariance::Options covariance_options;
+    covariance_options.num_threads = covariance_extractor_params_.num_threads_;
+    covariance_options.algorithm_type =
+        covariance_extractor_params_.covariance_estimation_algorithm_type_;
+
+    ceres::Covariance covariance_extractor(covariance_options);
+    std::vector<ObjectId> object_ids;
+    for (const auto &object_id_est_pair : ellipsoid_results.ellipsoids_) {
+      object_ids.emplace_back(object_id_est_pair.first);
+    }
+
+    std::vector<std::pair<const double *, const double *>> covariance_blocks;
+    for (const ObjectId &obj_id : object_ids) {
+      double *obj_ptr;
+      pose_graph->getObjectParamPointers(obj_id, &obj_ptr);
+      covariance_blocks.emplace_back(std::make_pair(obj_ptr, obj_ptr));
+    }
+
+    bool covariance_compute_result =
+        covariance_extractor.Compute(covariance_blocks, problem);
+
+    if (!covariance_compute_result) {
+      LOG(ERROR) << "Covariance computation failed";
+      return false;
+    }
+
+    std::unordered_map<ObjectId, Covariance<double, 9>> ellipsoid_covariances;
+    for (size_t obj_idx = 0; obj_idx < object_ids.size(); obj_idx++) {
+      ObjectId obj_id = object_ids[obj_idx];
+      double *obj_ptr;
+      pose_graph->getObjectParamPointers(obj_id, &obj_ptr);
+
+      Covariance<double, 9> cov_result;
+      bool success = covariance_extractor.GetCovarianceBlock(
+          obj_ptr, obj_ptr, cov_result.data());
+      if (!success) {
+        LOG(ERROR) << "Failed to get the covariance block for objects "
+                   << obj_id;
+        return false;
+      }
+      ellipsoid_covariances[obj_id] = cov_result;
+    }
+
+    FrontEndObjMapData front_end_map_data;
+    if (!front_end_map_data_extractor(front_end_map_data)) {
+      LOG(ERROR) << "Could not extract the front end data required for the "
+                    "long-term map";
+      return false;
+    }
+    long_term_obj_map.setFrontEndObjMapData(front_end_map_data);
+
+    long_term_obj_map.setEllipsoidCovariances(ellipsoid_covariances);
+    return true;
+  }
+
+ private:
+  /**
+   * Covariance extractor params.
+   */
+  CovarianceExtractorParams covariance_extractor_params_;
 };
 
 }  // namespace vslam_types_refactor
