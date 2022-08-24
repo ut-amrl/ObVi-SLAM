@@ -41,8 +41,8 @@ class SerializableMap
     fs << "[";
     for (const auto &map_entry : data_) {
       fs << "{";
-      fs << kKeyLabel << initSerializableKeyData(map_entry.first);
-      fs << kValueLabel << initSerializableValueData(map_entry.second);
+      fs << kKeyLabel << SerializableKeyType(map_entry.first);
+      fs << kValueLabel << SerializableValueType(map_entry.second);
       fs << "}";
     }
     fs << "]";

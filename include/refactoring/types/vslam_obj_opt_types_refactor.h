@@ -6,6 +6,7 @@
 #define UT_VSLAM_VSLAM_OBJ_OPT_TYPES_REFACTOR_H
 
 #include <refactoring/types/vslam_basic_types_refactor.h>
+#include <refactoring/types/vslam_types_conversion.h>
 
 #include <eigen3/Eigen/Dense>
 

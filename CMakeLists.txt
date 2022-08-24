@@ -62,6 +62,7 @@ add_library(ut_vslam src/vslam_io.cpp
         src/synthetic_problem/synthetic_problem_construction_utils.cpp
         src/refactoring/factors/bounding_box_factor.cpp
         src/refactoring/factors/pairwise_2d_feature_cost_functor.cpp
+        src/refactoring/factors/independent_object_map_factor.cpp
         src/refactoring/factors/reprojection_cost_functor.cpp
         src/refactoring/factors/shape_prior_factor.cpp
         src/refactoring/types/vslam_obj_opt_types_refactor.cpp
