@@ -8,6 +8,7 @@
 #include <ceres/ceres.h>
 #include <refactoring/long_term_map/long_term_object_map.h>
 #include <refactoring/optimization/object_pose_graph.h>
+#include <refactoring/output_problem_data_extraction.h>
 
 namespace vslam_types_refactor {
 

@@ -33,6 +33,12 @@ template <typename NumType>
 struct EllipsoidState {
   Pose3D<NumType> pose_;
   ObjectDim<NumType> dimensions_;
+
+  EllipsoidState() = default;
+
+  EllipsoidState(const Pose3D<double> &pose,
+                 const ObjectDim<double> &dimensions)
+      : pose_(pose), dimensions_(dimensions) {}
 };
 
 struct RawBoundingBox {
@@ -89,7 +95,8 @@ void convertToRawEllipsoid(const EllipsoidState<NumType> &ellipsoid_state,
 }
 
 template <typename NumType>
-RawEllipsoid<NumType> convertToRawEllipsoid(const EllipsoidState<NumType> &ellipsoid_state) {
+RawEllipsoid<NumType> convertToRawEllipsoid(
+    const EllipsoidState<NumType> &ellipsoid_state) {
   RawEllipsoid<NumType> raw_ellipsoid;
   convertToRawEllipsoid(ellipsoid_state, raw_ellipsoid);
   return raw_ellipsoid;
