@@ -3,12 +3,11 @@
 #include <file_io/bounding_box_by_node_id_io.h>
 #include <file_io/camera_extrinsics_with_id_io.h>
 #include <file_io/camera_intrinsics_with_id_io.h>
-#include <file_io/cv_file_storage/vslam_basic_types_file_storage_io.h>
-#include <file_io/cv_file_storage/roshan_bounding_box_front_end_file_storage_io.h>
-#include <file_io/cv_file_storage/output_problem_data_file_storage_io.h>
 #include <file_io/cv_file_storage/long_term_object_map_file_storage_io.h>
+#include <file_io/cv_file_storage/output_problem_data_file_storage_io.h>
+#include <file_io/cv_file_storage/roshan_bounding_box_front_end_file_storage_io.h>
+#include <file_io/cv_file_storage/vslam_basic_types_file_storage_io.h>
 #include <file_io/node_id_and_timestamp_io.h>
-//#include <file_io/pairwise_covariance_roshan_front_end_long_term_map_io.h>
 #include <file_io/pose_3d_with_node_id_io.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
@@ -44,10 +43,14 @@ DEFINE_string(nodes_by_timestamp_file,
 DEFINE_string(rosbag_file,
               "",
               "ROS bag file name that contains the images for this run");
-DEFINE_string(long_term_map,
+DEFINE_string(
+    long_term_map_input,
+    "",
+    "File name that stores the long-term map to load. If empty, will start "
+    "from scratch.");
+DEFINE_string(long_term_map_output,
               "",
-              "File name that stores the long-term map. If empty, will start "
-              "from scratch.");
+              "File name to output the long-term map to.");
 
 std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
 readCameraIntrinsicsByCameraFromFile(const std::string &file_name) {
@@ -206,7 +209,7 @@ dummyCeresCallbackCreator(
     const vtr::UnassociatedBoundingBoxOfflineProblemData<
         vtr::StructuredVisionFeatureTrack,
         sensor_msgs::Image::ConstPtr,
-        vtr::PairwiseCovarianceLongTermObjectMap<
+        vtr::IndependentEllipsoidsLongTermObjectMap<
             std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>
         &input_problem_data,
     const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph>
@@ -228,7 +231,7 @@ void createPoseGraph(
     const vtr::UnassociatedBoundingBoxOfflineProblemData<
         vtr::StructuredVisionFeatureTrack,
         sensor_msgs::Image::ConstPtr,
-        vtr::PairwiseCovarianceLongTermObjectMap<
+        vtr::IndependentEllipsoidsLongTermObjectMap<
             std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>
         &input_problem_data,
     const std::function<bool(
@@ -276,7 +279,7 @@ void visualizationStub(
     const vtr::UnassociatedBoundingBoxOfflineProblemData<
         vtr::StructuredVisionFeatureTrack,
         sensor_msgs::Image::ConstPtr,
-        vtr::PairwiseCovarianceLongTermObjectMap<
+        vtr::IndependentEllipsoidsLongTermObjectMap<
             std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>
         &input_problem_data,
     std::shared_ptr<
@@ -383,6 +386,11 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
+  if (FLAGS_long_term_map_output.empty()) {
+    LOG(ERROR) << "No long-term map output file provided";
+    exit(1);
+  }
+
   if (FLAGS_rosbag_file.empty()) {
     LOG(WARNING) << "No rosbag file provided";
   }
@@ -477,14 +485,30 @@ int main(int argc, char **argv) {
       }
     }
   }
-  std::shared_ptr<vtr::PairwiseCovarianceLongTermObjectMap<
-      std::unordered_map<vtr::ObjectId,
-                         vtr::RoshanAggregateBbInfo>>>
-      long_term_map;  // TODO load this
+  std::shared_ptr<vtr::IndependentEllipsoidsLongTermObjectMap<
+      std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>
+      long_term_map;
+  if (!FLAGS_long_term_map_input.empty()) {
+    long_term_map =
+        std::make_shared<vtr::IndependentEllipsoidsLongTermObjectMap<
+            std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>();
+
+    cv::FileStorage ltm_in_fs(FLAGS_long_term_map_input, cv::FileStorage::READ);
+    vtr::SerializableIndependentEllipsoidsLongTermObjectMap<
+        std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>,
+        vtr::SerializableMap<vtr::ObjectId,
+                             vtr::SerializableObjectId,
+                             vtr::RoshanAggregateBbInfo,
+                             vtr::SerializableRoshanAggregateBbInfo>>
+        serializable_ltm(*(long_term_map));
+    ltm_in_fs["long_term_map"] >> serializable_ltm;
+    ltm_in_fs.release();
+  }
+
   vtr::UnassociatedBoundingBoxOfflineProblemData<
       vtr::StructuredVisionFeatureTrack,
       sensor_msgs::Image::ConstPtr,
-      vtr::PairwiseCovarianceLongTermObjectMap<
+      vtr::IndependentEllipsoidsLongTermObjectMap<
           std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>
       input_problem_data(camera_intrinsics_by_camera,
                          camera_extrinsics_by_camera,
@@ -499,7 +523,7 @@ int main(int argc, char **argv) {
   std::shared_ptr<vtr::RosVisualization> vis_manager =
       std::make_shared<vtr::RosVisualization>(n);
 
-  vtr::PairwiseCovarianceLongTermObjectMapFactorCreator<
+  vtr::IndependentEllipsoidsLongTermObjectMapFactorCreator<
       util::EmptyStruct,
       std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>
       ltm_factor_creator(long_term_map);
@@ -612,7 +636,7 @@ int main(int argc, char **argv) {
       const vtr::UnassociatedBoundingBoxOfflineProblemData<
           vtr::StructuredVisionFeatureTrack,
           sensor_msgs::Image::ConstPtr,
-          vtr::PairwiseCovarianceLongTermObjectMap<
+          vtr::IndependentEllipsoidsLongTermObjectMap<
               std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>> &,
       std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph> &)>
       pose_graph_creator = std::bind(createPoseGraph,
@@ -623,7 +647,7 @@ int main(int argc, char **argv) {
       const vtr::UnassociatedBoundingBoxOfflineProblemData<
           vtr::StructuredVisionFeatureTrack,
           sensor_msgs::Image::ConstPtr,
-          vtr::PairwiseCovarianceLongTermObjectMap<
+          vtr::IndependentEllipsoidsLongTermObjectMap<
               std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>> &,
       const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph> &,
       const vtr::FrameId &,
@@ -633,7 +657,7 @@ int main(int argc, char **argv) {
           [](const vtr::UnassociatedBoundingBoxOfflineProblemData<
                  vtr::StructuredVisionFeatureTrack,
                  sensor_msgs::Image::ConstPtr,
-                 vtr::PairwiseCovarianceLongTermObjectMap<
+                 vtr::IndependentEllipsoidsLongTermObjectMap<
                      std::unordered_map<vtr::ObjectId,
                                         vtr::RoshanAggregateBbInfo>>>
                  &input_problem,
@@ -652,7 +676,7 @@ int main(int argc, char **argv) {
       const vtr::UnassociatedBoundingBoxOfflineProblemData<
           vtr::StructuredVisionFeatureTrack,
           sensor_msgs::Image::ConstPtr,
-          vtr::PairwiseCovarianceLongTermObjectMap<
+          vtr::IndependentEllipsoidsLongTermObjectMap<
               std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>
           &)>
       bb_context_retriever =
@@ -661,7 +685,7 @@ int main(int argc, char **argv) {
              const vtr::UnassociatedBoundingBoxOfflineProblemData<
                  vtr::StructuredVisionFeatureTrack,
                  sensor_msgs::Image::ConstPtr,
-                 vtr::PairwiseCovarianceLongTermObjectMap<
+                 vtr::IndependentEllipsoidsLongTermObjectMap<
                      std::unordered_map<vtr::ObjectId,
                                         vtr::RoshanAggregateBbInfo>>>
                  &problem_data) {
@@ -714,7 +738,7 @@ int main(int argc, char **argv) {
       const vtr::UnassociatedBoundingBoxOfflineProblemData<
           vtr::StructuredVisionFeatureTrack,
           sensor_msgs::Image::ConstPtr,
-          vtr::PairwiseCovarianceLongTermObjectMap<
+          vtr::IndependentEllipsoidsLongTermObjectMap<
               std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>
           &)>
       bb_associator_retriever =
@@ -723,7 +747,7 @@ int main(int argc, char **argv) {
               const vtr::UnassociatedBoundingBoxOfflineProblemData<
                   vtr::StructuredVisionFeatureTrack,
                   sensor_msgs::Image::ConstPtr,
-                  vtr::PairwiseCovarianceLongTermObjectMap<
+                  vtr::IndependentEllipsoidsLongTermObjectMap<
                       std::unordered_map<vtr::ObjectId,
                                          vtr::RoshanAggregateBbInfo>>>
                   &input_prob) {
@@ -734,7 +758,7 @@ int main(int argc, char **argv) {
       const vtr::UnassociatedBoundingBoxOfflineProblemData<
           vtr::StructuredVisionFeatureTrack,
           sensor_msgs::Image::ConstPtr,
-          vtr::PairwiseCovarianceLongTermObjectMap<
+          vtr::IndependentEllipsoidsLongTermObjectMap<
               std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>> &,
       const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph> &,
       const vtr::FrameId &)>
@@ -742,7 +766,7 @@ int main(int argc, char **argv) {
           [&](const vtr::UnassociatedBoundingBoxOfflineProblemData<
                   vtr::StructuredVisionFeatureTrack,
                   sensor_msgs::Image::ConstPtr,
-                  vtr::PairwiseCovarianceLongTermObjectMap<
+                  vtr::IndependentEllipsoidsLongTermObjectMap<
                       std::unordered_map<vtr::ObjectId,
                                          vtr::RoshanAggregateBbInfo>>>
                   &problem_data,
@@ -778,7 +802,7 @@ int main(int argc, char **argv) {
   //          };
 
   vtr::CovarianceExtractorParams ltm_covariance_params;
-  vtr::PairwiseCovarianceLongTermObjectMapExtractor<
+  vtr::IndependentEllipsoidsLongTermObjectMapExtractor<
       std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>
       ltm_extractor(ltm_covariance_params);
 
@@ -786,17 +810,19 @@ int main(int argc, char **argv) {
       const vtr::UnassociatedBoundingBoxOfflineProblemData<
           vtr::StructuredVisionFeatureTrack,
           sensor_msgs::Image::ConstPtr,
-          vtr::PairwiseCovarianceLongTermObjectMap<
+          vtr::IndependentEllipsoidsLongTermObjectMap<
               std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>> &,
       const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph> &,
       ceres::Problem *,
-      vtr::LongTermObjectMapAndResults<vtr::PairwiseCovarianceLongTermObjectMap<
-          std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>> &)>
+      vtr::LongTermObjectMapAndResults<
+          vtr::IndependentEllipsoidsLongTermObjectMap<
+              std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>
+          &)>
       output_data_extractor =
           [&](const vtr::UnassociatedBoundingBoxOfflineProblemData<
                   vtr::StructuredVisionFeatureTrack,
                   sensor_msgs::Image::ConstPtr,
-                  vtr::PairwiseCovarianceLongTermObjectMap<
+                  vtr::IndependentEllipsoidsLongTermObjectMap<
                       std::unordered_map<vtr::ObjectId,
                                          vtr::RoshanAggregateBbInfo>>>
                   &input_problem_data,
@@ -804,7 +830,7 @@ int main(int argc, char **argv) {
                   &pose_graph,
               ceres::Problem *problem,
               vtr::LongTermObjectMapAndResults<
-                  vtr::PairwiseCovarianceLongTermObjectMap<
+                  vtr::IndependentEllipsoidsLongTermObjectMap<
                       std::unordered_map<vtr::ObjectId,
                                          vtr::RoshanAggregateBbInfo>>>
                   &output_problem_data) {
@@ -822,7 +848,7 @@ int main(int argc, char **argv) {
                 const std::shared_ptr<
                     vtr::ObjectAndReprojectionFeaturePoseGraph> &,
                 ceres::Problem *,
-                vtr::PairwiseCovarianceLongTermObjectMap<
+                vtr::IndependentEllipsoidsLongTermObjectMap<
                     std::unordered_map<vtr::ObjectId,
                                        vtr::RoshanAggregateBbInfo>> &)>
                 long_term_object_map_extractor =
@@ -830,7 +856,7 @@ int main(int argc, char **argv) {
                             vtr::ObjectAndReprojectionFeaturePoseGraph>
                             &ltm_pose_graph,
                         ceres::Problem *ltm_problem,
-                        vtr::PairwiseCovarianceLongTermObjectMap<
+                        vtr::IndependentEllipsoidsLongTermObjectMap<
                             std::unordered_map<vtr::ObjectId,
                                                vtr::RoshanAggregateBbInfo>>
                             &ltm_extractor_out) {
@@ -851,7 +877,7 @@ int main(int argc, char **argv) {
       const vtr::UnassociatedBoundingBoxOfflineProblemData<
           vtr::StructuredVisionFeatureTrack,
           sensor_msgs::Image::ConstPtr,
-          vtr::PairwiseCovarianceLongTermObjectMap<
+          vtr::IndependentEllipsoidsLongTermObjectMap<
               std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>> &,
       const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph> &,
       const vtr::FrameId &,
@@ -861,7 +887,7 @@ int main(int argc, char **argv) {
       const vtr::UnassociatedBoundingBoxOfflineProblemData<
           vtr::StructuredVisionFeatureTrack,
           sensor_msgs::Image::ConstPtr,
-          vtr::PairwiseCovarianceLongTermObjectMap<
+          vtr::IndependentEllipsoidsLongTermObjectMap<
               std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>> &,
       const std::shared_ptr<vtr::ObjectAndReprojectionFeaturePoseGraph> &,
       const vtr::FrameId &,
@@ -871,7 +897,7 @@ int main(int argc, char **argv) {
           [&](const vtr::UnassociatedBoundingBoxOfflineProblemData<
                   vtr::StructuredVisionFeatureTrack,
                   sensor_msgs::Image::ConstPtr,
-                  vtr::PairwiseCovarianceLongTermObjectMap<
+                  vtr::IndependentEllipsoidsLongTermObjectMap<
                       std::unordered_map<vtr::ObjectId,
                                          vtr::RoshanAggregateBbInfo>>>
                   &input_problem_data,
@@ -900,11 +926,12 @@ int main(int argc, char **argv) {
       vtr::UnassociatedBoundingBoxOfflineProblemData<
           vtr::StructuredVisionFeatureTrack,
           sensor_msgs::Image::ConstPtr,
-          vtr::PairwiseCovarianceLongTermObjectMap<
+          vtr::IndependentEllipsoidsLongTermObjectMap<
               std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>,
       vtr::ReprojectionErrorFactor,
-      vtr::LongTermObjectMapAndResults<vtr::PairwiseCovarianceLongTermObjectMap<
-          std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>,
+      vtr::LongTermObjectMapAndResults<
+          vtr::IndependentEllipsoidsLongTermObjectMap<
+              std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>,
       util::EmptyStruct,
       vtr::ObjectAndReprojectionFeaturePoseGraph>
       offline_problem_runner(residual_params,
@@ -927,34 +954,49 @@ int main(int argc, char **argv) {
   // TODO should we also optimize the poses?
 
   //  vtr::SpatialEstimateOnlyResults output_results;
-  vtr::LongTermObjectMapAndResults<vtr::PairwiseCovarianceLongTermObjectMap<
+  vtr::LongTermObjectMapAndResults<vtr::IndependentEllipsoidsLongTermObjectMap<
       std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>
       output_results;
 
   offline_problem_runner.runOptimization(
       input_problem_data, optimization_factors_enabled_params, output_results);
 
+  cv::FileStorage ltm_out_fs(FLAGS_long_term_map_output,
+                             cv::FileStorage::WRITE);
+  ltm_out_fs
+      << "long_term_map"
+      << vtr::SerializableIndependentEllipsoidsLongTermObjectMap<
+             std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>,
+             vtr::SerializableMap<vtr::ObjectId,
+                                  vtr::SerializableObjectId,
+                                  vtr::RoshanAggregateBbInfo,
+                                  vtr::SerializableRoshanAggregateBbInfo>>(
+             output_results.long_term_map_);
+  ltm_out_fs.release();
+
   //  LOG(INFO) << "Num ellipsoids "
   //            << output_results.ellipsoid_results_.ellipsoids_.size();
 
   // TODO save output results somewhere
 
-//  vtr::EllipsoidState<double> ellipsoid(
-//      vtr::Pose3D(Eigen::Vector3d(1, 2, 3),
-//                  Eigen::AngleAxisd(0.2, Eigen::Vector3d(0, 0, 1))),
-//      Eigen::Vector3d(4, 5, 6));
-//
-//  cv::FileStorage fs("test.json", cv::FileStorage::WRITE);
-//  fs << "ellipsoid" << vtr::SerializableEllipsoidState<double>(ellipsoid);
-//
-//  cv::FileStorage fs2("test.json", cv::FileStorage::READ);
-//  vtr::SerializableEllipsoidState<double> ellipsoid_state;
-//  fs2["ellipsoid"] >> ellipsoid_state;
-//  LOG(INFO) << "Read ellipsoid";
-//  LOG(INFO) << "Transl " << ellipsoid_state.getEntry().pose_.transl_;
-//  LOG(INFO) << "Orientation angle " << ellipsoid_state.getEntry().pose_.orientation_.angle();
-//  LOG(INFO) << "Orientation axis" << ellipsoid_state.getEntry().pose_.orientation_.axis();
-//  LOG(INFO) << "Dimensions " << ellipsoid_state.getEntry().dimensions_;
+  //  vtr::EllipsoidState<double> ellipsoid(
+  //      vtr::Pose3D(Eigen::Vector3d(1, 2, 3),
+  //                  Eigen::AngleAxisd(0.2, Eigen::Vector3d(0, 0, 1))),
+  //      Eigen::Vector3d(4, 5, 6));
+  //
+  //  cv::FileStorage fs("test.json", cv::FileStorage::WRITE);
+  //  fs << "ellipsoid" << vtr::SerializableEllipsoidState<double>(ellipsoid);
+  //
+  //  cv::FileStorage fs2("test.json", cv::FileStorage::READ);
+  //  vtr::SerializableEllipsoidState<double> ellipsoid_state;
+  //  fs2["ellipsoid"] >> ellipsoid_state;
+  //  LOG(INFO) << "Read ellipsoid";
+  //  LOG(INFO) << "Transl " << ellipsoid_state.getEntry().pose_.transl_;
+  //  LOG(INFO) << "Orientation angle " <<
+  //  ellipsoid_state.getEntry().pose_.orientation_.angle(); LOG(INFO) <<
+  //  "Orientation axis" <<
+  //  ellipsoid_state.getEntry().pose_.orientation_.axis(); LOG(INFO) <<
+  //  "Dimensions " << ellipsoid_state.getEntry().dimensions_;
 
   return 0;
 }
