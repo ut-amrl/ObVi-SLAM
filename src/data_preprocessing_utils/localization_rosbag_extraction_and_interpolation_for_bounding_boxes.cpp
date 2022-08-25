@@ -51,8 +51,10 @@ const double kMaxPoseIncThresholdRot = 0.25;  // TODO?
 
 // const double kPoseEquivTolerance = 1e-3;
 
-const double kPoseEquivToleranceTransl = 0.2;
-const double kPoseEquivToleranceRot = 0.2;
+//const double kPoseEquivToleranceTransl = 0.2;
+//const double kPoseEquivToleranceRot = 0.2;
+const double kPoseEquivToleranceTransl = 2e-3;
+const double kPoseEquivToleranceRot = 2e-3;
 // const double kPoseEquivTolerance = 0;
 
 using namespace pose;
@@ -438,7 +440,7 @@ int main(int argc, char **argv) {
               bb_with_node.node_id = node_id;
               return bb_with_node;
             };
-    std::unordered_set<std::string> acceptable_classes = {"chair"};
+    std::unordered_set<std::string> acceptable_classes = {"chair", "roadblock"};
     std::function<void(const std::string &,
                        std::vector<file_io::BoundingBoxWithTimestamp> &)>
         bb_reader = [&](const std::string &bb_file_name,

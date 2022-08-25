@@ -94,6 +94,7 @@ class OfflineProblemRunner {
     std::shared_ptr<PoseGraphType> pose_graph;
 
     ceres::Problem problem;
+    LOG(INFO) << "Running pose graph creator";
     pose_graph_creator_(problem_data, pose_graph);
     frame_data_adder_(problem_data, pose_graph, 0);
     FrameId max_frame_id = problem_data.getMaxFrameId();
@@ -117,6 +118,7 @@ class OfflineProblemRunner {
                             0,
                             max_frame_id,  // Should this be max or 0
                             VisualizationTypeEnum::BEFORE_ANY_OPTIMIZATION);
+    LOG(INFO) << "Ready to run optimization";
     for (FrameId next_frame_id = 1; next_frame_id <= max_frame_id;
          next_frame_id++) {
       if (!continue_opt_checker_) {
@@ -132,6 +134,7 @@ class OfflineProblemRunner {
       optimization_scope_params.min_frame_id_ = start_opt_with_frame;
       optimization_scope_params.max_frame_id_ = next_frame_id;
 
+      LOG(INFO) << "Building optimization";
       optimizer_.buildPoseGraphOptimization(
           optimization_scope_params, residual_params_, pose_graph, &problem);
 
@@ -143,6 +146,7 @@ class OfflineProblemRunner {
       std::vector<std::shared_ptr<ceres::IterationCallback>> ceres_callbacks =
           ceres_callback_creator_(
               problem_data, pose_graph, start_opt_with_frame, next_frame_id);
+      LOG(INFO) << "Solving optimization";
       bool opt_success = optimizer_.solveOptimization(
           &problem, solver_params_, ceres_callbacks);
 

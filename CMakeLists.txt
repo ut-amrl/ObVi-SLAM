@@ -14,7 +14,7 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 find_package(Ceres REQUIRED)
-find_package(OpenCV 4.0 REQUIRED)
+find_package(OpenCV 4.2 EXACT REQUIRED)
 find_package(Pangolin REQUIRED)
 #find_package(darknet_ros_msgs)
 #find_package(catkin REQUIRED COMPONENTS darknet_ros_msgs)

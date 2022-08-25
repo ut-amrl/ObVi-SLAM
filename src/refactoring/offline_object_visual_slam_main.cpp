@@ -243,13 +243,16 @@ void createPoseGraph(
                      std::pair<std::string, vtr::RawEllipsoid<double>>>
       ltm_objects;
   vtr::EllipsoidResults ellipsoids_in_map;
-  input_problem_data.getLongTermObjectMap()->getEllipsoidResults(
-      ellipsoids_in_map);
+  if (input_problem_data.getLongTermObjectMap() != nullptr) {
+    input_problem_data.getLongTermObjectMap()->getEllipsoidResults(
+        ellipsoids_in_map);
+  }
   for (const auto &ellipsoid_entry : ellipsoids_in_map.ellipsoids_) {
     ltm_objects[ellipsoid_entry.first] = std::make_pair(
         ellipsoid_entry.second.first,
         vtr::convertToRawEllipsoid(ellipsoid_entry.second.second));
   }
+  LOG(INFO) << "Creating pose graph ";
   pose_graph =
       std::make_shared<MainPg>(input_problem_data.getObjDimMeanAndCovByClass(),
                                input_problem_data.getCameraExtrinsicsByCamera(),
@@ -407,6 +410,11 @@ int main(int argc, char **argv) {
   std::string chair_class = "chair";
   shape_mean_and_std_devs_by_semantic_class[chair_class] =
       std::make_pair(chair_mean, chair_std_dev);
+  Eigen::Vector3d cone_mean(0.29, 0.29, 0.48);
+  Eigen::Vector3d cone_std_dev(0.1, 0.1, 0.1);
+  std::string cone_class = "roadblock";
+  shape_mean_and_std_devs_by_semantic_class[cone_class] =
+      std::make_pair(cone_mean, cone_std_dev);
 
   pose_graph_optimization::OptimizationSolverParams solver_params;  // TODO
   pose_graph_optimization::ObjectVisualPoseGraphResidualParams
@@ -426,6 +434,8 @@ int main(int argc, char **argv) {
   bounding_box_std_devs(3) = 30;
   vtr::Covariance<double, 4> bounding_box_covariance =
       vtr::createDiagCovFromStdDevs(bounding_box_std_devs);
+
+  LOG(INFO) << "Here 2";
 
   // TODO read this from file
   std::unordered_map<std::string, vtr::CameraId> camera_topic_to_camera_id = {
@@ -456,8 +466,25 @@ int main(int argc, char **argv) {
   std::unordered_map<
       vtr::FrameId,
       std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>>
-      bounding_boxes =
+      init_bounding_boxes =
           readBoundingBoxesFromFile(FLAGS_bounding_boxes_by_node_id_file);
+  std::unordered_map<
+      vtr::FrameId,
+      std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>>
+      bounding_boxes;
+  // tODO fix this
+  for (const auto &frame_id_bb_entry : init_bounding_boxes) {
+    for (const auto &camera_bb_entry : frame_id_bb_entry.second) {
+      for (const vtr::RawBoundingBox &bb : camera_bb_entry.second) {
+        if ((bb.pixel_corner_locations_.second.x() < 1280) &&
+            (bb.pixel_corner_locations_.second.y() < 720)) {
+          bounding_boxes[frame_id_bb_entry.first][camera_bb_entry.first]
+              .emplace_back(bb);
+        }
+      }
+    }
+  }
+
   //  LOG(INFO) << "Bounding boxes for " << bounding_boxes.size() << " frames ";
   std::unordered_map<vtr::FrameId, vtr::Pose3D<double>> robot_poses =
       readRobotPosesFromFile(FLAGS_poses_by_node_id_file);
@@ -480,6 +507,8 @@ int main(int argc, char **argv) {
       }
     }
   }
+
+  LOG(INFO) << "Here 3";
   MainLtmPtr long_term_map;
   if (!FLAGS_long_term_map_input.empty()) {
     long_term_map = std::make_shared<MainLtm>();
@@ -496,6 +525,7 @@ int main(int argc, char **argv) {
     ltm_in_fs.release();
   }
 
+  LOG(INFO) << "Here 4";
   MainProbData input_problem_data(camera_intrinsics_by_camera,
                                   camera_extrinsics_by_camera,
                                   visual_features,
@@ -587,6 +617,7 @@ int main(int argc, char **argv) {
                                        cached_info);
           };
 
+  LOG(INFO) << "Here 5";
   std::function<bool(util::BoostHashSet<MainFactorInfo> &)>
       long_term_map_factor_provider =
           [&](util::BoostHashSet<MainFactorInfo> &factor_data) {
@@ -611,6 +642,7 @@ int main(int argc, char **argv) {
         // part
         return 0.0;
       };
+  LOG(INFO) << "Here 6";
   std::function<std::optional<sensor_msgs::Image::ConstPtr>(
       const vtr::FrameId &, const vtr::CameraId &, const MainProbData &)>
       bb_context_retriever = [](const vtr::FrameId &frame_id,
@@ -634,6 +666,7 @@ int main(int argc, char **argv) {
         return bounding_box_covariance;
       };
 
+  LOG(INFO) << "Here 7";
   std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>
       long_term_map_front_end_data;
   if (long_term_map != nullptr) {
@@ -666,7 +699,7 @@ int main(int argc, char **argv) {
           [&](const MainPgPtr &pg, const MainProbData &input_prob) {
             return roshan_associator_creator.getDataAssociator(pg);
           };
-
+  LOG(INFO) << "Here 8";
   std::function<void(
       const MainProbData &, const MainPgPtr &, const vtr::FrameId &)>
       frame_data_adder = [&](const MainProbData &problem_data,
@@ -700,6 +733,7 @@ int main(int argc, char **argv) {
   //                                                   output_problem_data);
   //          };
 
+  LOG(INFO) << "Here 9";
   vtr::CovarianceExtractorParams ltm_covariance_params;
   vtr::IndependentEllipsoidsLongTermObjectMapExtractor<
       std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>
@@ -740,6 +774,7 @@ int main(int argc, char **argv) {
                                                 output_problem_data);
       };
 
+  LOG(INFO) << "Here 10";
   std::function<std::vector<std::shared_ptr<ceres::IterationCallback>>(
       const MainProbData &,
       const MainPgPtr &,
@@ -772,7 +807,7 @@ int main(int argc, char **argv) {
                           max_frame_id,
                           visualization_type);
       };
-
+  LOG(INFO) << "Here 11";
   vtr::OfflineProblemRunner<MainProbData,
                             vtr::ReprojectionErrorFactor,
                             vtr::LongTermObjectMapAndResults<MainLtm>,
@@ -799,10 +834,11 @@ int main(int argc, char **argv) {
 
   //  vtr::SpatialEstimateOnlyResults output_results;
   vtr::LongTermObjectMapAndResults<MainLtm> output_results;
-
+  LOG(INFO) << "Here 12";
   offline_problem_runner.runOptimization(
       input_problem_data, optimization_factors_enabled_params, output_results);
 
+  LOG(INFO) << "Here 13";
   cv::FileStorage ltm_out_fs(FLAGS_long_term_map_output,
                              cv::FileStorage::WRITE);
   ltm_out_fs
@@ -815,7 +851,7 @@ int main(int argc, char **argv) {
                                   vtr::SerializableRoshanAggregateBbInfo>>(
              output_results.long_term_map_);
   ltm_out_fs.release();
-
+  LOG(INFO) << "Here 14";
   //  LOG(INFO) << "Num ellipsoids "
   //            << output_results.ellipsoid_results_.ellipsoids_.size();
 

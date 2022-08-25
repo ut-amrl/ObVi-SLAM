@@ -14,10 +14,10 @@
 namespace file_io {
 
 struct BoundingBoxWithNodeId {
-  uint64_t min_pixel_x;
-  uint64_t min_pixel_y;
-  uint64_t max_pixel_x;
-  uint64_t max_pixel_y;
+  double min_pixel_x;
+  double min_pixel_y;
+  double max_pixel_x;
+  double max_pixel_y;
 
   /**
    * Semantic class of the detected bounding box
@@ -97,10 +97,10 @@ void readBoundingBoxesWithNodeIdFromFile(
 struct BoundingBoxWithNodeIdAndId {
   uint64_t ellipsoid_idx;
 
-  uint64_t min_pixel_x;
-  uint64_t min_pixel_y;
-  uint64_t max_pixel_x;
-  uint64_t max_pixel_y;
+  double min_pixel_x;
+  double min_pixel_y;
+  double max_pixel_x;
+  double max_pixel_y;
 
   /**
    * Semantic class of the detected bounding box
