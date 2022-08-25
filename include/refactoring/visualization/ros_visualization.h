@@ -12,6 +12,7 @@
 #include <tf2_ros/static_transform_broadcaster.h>
 #include <visualization_msgs/Marker.h>
 
+#include <opencv2/highgui.hpp>
 #include <optional>
 
 namespace vslam_types_refactor {
@@ -80,6 +81,20 @@ class RosVisualization {
     std::string base_name =
         topic_prefix_ + "/" + trajectory_type_prefix_with_slash + "/pose_" +
         std::to_string(robot_pose_idx) + +"/cam_" + std::to_string(camera_id);
+    return std::make_pair(base_name + "/image_raw", base_name + "/camera_info");
+  }
+
+  std::pair<std::string, std::string>
+  createLatestImageAndCameraInfoTopicsForTrajectoryTypeCameraId(
+      const CameraId &camera_id,
+      const std::string &trajectory_type_prefix = "") {
+    std::string trajectory_type_prefix_with_slash;
+    if (!trajectory_type_prefix.empty()) {
+      trajectory_type_prefix_with_slash = trajectory_type_prefix + "/";
+    }
+    std::string base_name = topic_prefix_ + "/" +
+                            trajectory_type_prefix_with_slash + "/latest/cam_" +
+                            std::to_string(camera_id);
     return std::make_pair(base_name + "/image_raw", base_name + "/camera_info");
   }
 
@@ -252,9 +267,10 @@ class RosVisualization {
         continue;
       }
 
-      std::unordered_map<CameraId, sensor_msgs::Image::ConstPtr> empty_images_map;
-      std::unordered_map<CameraId, sensor_msgs::Image::ConstPtr> &images_for_pose =
+      std::unordered_map<CameraId, sensor_msgs::Image::ConstPtr>
           empty_images_map;
+      std::unordered_map<CameraId, sensor_msgs::Image::ConstPtr>
+          &images_for_pose = empty_images_map;
       if (images.find(pose_idx) != images.end()) {
         images_for_pose = images.at(pose_idx);
       }
@@ -303,7 +319,8 @@ class RosVisualization {
 
         std::optional<sensor_msgs::Image::ConstPtr> image =
             has_image_for_cam_at_pose
-                ? std::optional<sensor_msgs::Image::ConstPtr>{images_for_pose.at(
+                ? std::optional<
+                      sensor_msgs::Image::ConstPtr>{images_for_pose.at(
                       cam_id_and_extrinsics.first)}
                 : std::nullopt;
 
@@ -394,6 +411,26 @@ class RosVisualization {
                                         predicted_corners_from_optimized,
                                         predicted_corners_from_initial,
                                         predicted_corners_from_gt);
+
+          if (pose_idx == max_frame) {
+            std::pair<std::string, std::string> last_image_and_camera_info_topics =
+                createLatestImageAndCameraInfoTopicsForTrajectoryTypeCameraId(
+                    cam_id_and_extrinsics.first,
+                    trajectory_type_prefix);
+            publishImageWithBoundingBoxes(
+                last_image_and_camera_info_topics.first,
+                last_image_and_camera_info_topics.second,
+                frame_id,
+                cam_intrinsics,
+                image_height_and_width,
+                image,
+                observed_corner_locations_for_pose.at(
+                    cam_id_and_extrinsics.first),
+                gt_corners,
+                predicted_corners_from_optimized,
+                predicted_corners_from_initial,
+                predicted_corners_from_gt);
+          }
         }
       }
     }
@@ -439,9 +476,9 @@ class RosVisualization {
         cam_transform.transform.rotation.y = cam_extrinsics_quat.y();
         cam_transform.transform.rotation.z = cam_extrinsics_quat.z();
         cam_transform.transform.rotation.w = cam_extrinsics_quat.w();
-//        LOG(INFO) << "Publishing transform from "
-//                  << cam_transform.header.frame_id << " to "
-//                  << cam_transform.child_frame_id;
+        //        LOG(INFO) << "Publishing transform from "
+        //                  << cam_transform.header.frame_id << " to "
+        //                  << cam_transform.child_frame_id;
         static_tf_broadcaster_.sendTransform(cam_transform);
       }
     }
@@ -529,26 +566,47 @@ class RosVisualization {
 
     // Draw provided bounding boxes
     if (observed_corner_locations.has_value()) {
+      //      LOG(INFO) << "Drawing observed corner locations on image "
+      //                << image_topic_id << "Num rects "
+      //                << observed_corner_locations.value().size();
       drawRectanglesOnImage(observed_corner_locations.value(),
                             observed_bounding_box_color_,
                             cv_ptr);
     }
     if (ground_truth_corner_locations.has_value()) {
+      //      LOG(INFO) << "Drawing gt corner locations on image " <<
+      //      image_topic_id
+      //                << "Num rects "
+      //                << ground_truth_corner_locations.value().size();
       drawRectanglesOnImage(ground_truth_corner_locations.value(),
                             ground_truth_bounding_box_color_,
                             cv_ptr);
     }
     if (predicted_corner_locations_from_optimized.has_value()) {
+      //      LOG(INFO) << "Drawing predicted corner locations from optimized on
+      //      image "
+      //                << image_topic_id << "Num rects "
+      //                <<
+      //                predicted_corner_locations_from_optimized.value().size();
       drawRectanglesOnImage(predicted_corner_locations_from_optimized.value(),
                             predicted_bounding_box_from_optimized_color_,
                             cv_ptr);
     }
     if (predicted_corner_locations_from_initial.has_value()) {
+      //      LOG(INFO) << "Drawing predicted corner locations from initial on
+      //      image "
+      //                << image_topic_id << "Num rects "
+      //                <<
+      //                predicted_corner_locations_from_initial.value().size();
       drawRectanglesOnImage(predicted_corner_locations_from_initial.value(),
                             predicted_bounding_box_from_initial_color_,
                             cv_ptr);
     }
     if (predicted_corner_locations_from_gt.has_value()) {
+      //      LOG(INFO) << "Drawing predicted corner locations from gt on image
+      //      "
+      //                << image_topic_id << "Num rects "
+      //                << predicted_corner_locations_from_gt.value().size();
       drawRectanglesOnImage(predicted_corner_locations_from_gt.value(),
                             predicted_bounding_box_from_gt_color_,
                             cv_ptr);
@@ -569,7 +627,7 @@ class RosVisualization {
 
   const static uint32_t kCameraInfoQueueSize = 100;
 
-  const static constexpr double kSleepAfterPubCreationTime = 0.1;
+  const static constexpr double kSleepAfterPubCreationTime = 0.01;
 
   const static int kBoundingBoxLineThickness = 4;
 
@@ -690,6 +748,8 @@ class RosVisualization {
       const std_msgs::ColorRGBA &color,
       const std::optional<ObjectId> &bounding_box_numeric_label,
       cv_bridge::CvImagePtr &cv_ptr) {
+    //    LOG(INFO) << bounding_box_corners.first << ", " <<
+    //    bounding_box_corners.second;
     cv::rectangle(cv_ptr->image,
                   cv::Point(bounding_box_corners.first.x(),
                             bounding_box_corners.first.y()),
@@ -709,6 +769,14 @@ class RosVisualization {
                   kBoundingBoxLabelFontScale,
                   convertColorMsgToOpenCvColor(color));
     }
+    //    int img_x_size = (cv_ptr->image).size().width;
+    //    int img_y_size = (cv_ptr->image).size().height;
+    //    LOG(INFO) << "Img dims " << img_x_size << ", " << img_y_size;
+    //    cv::rectangle(cv_ptr->image, cv::Point(img_x_size * .25, img_y_size *
+    //    0.25), cv::Point(img_x_size * 0.75, img_y_size * 0.75),
+    //                  cv::Scalar(0, 255, 0));
+    //    cv::imshow("Img with rect", cv_ptr->image);
+    //    cv::waitKey(0);
   }
 
   void publishCameraInfo(const std::string &frame_id,
@@ -716,8 +784,8 @@ class RosVisualization {
                          const CameraIntrinsicsMat<double> &intrinsics,
                          const std::pair<double, double> img_height_and_width,
                          ros::Publisher &camera_info_publisher) {
-//    LOG(INFO) << "Camera intrinsics for frame " << frame_id << ": "
-//              << intrinsics;
+    //    LOG(INFO) << "Camera intrinsics for frame " << frame_id << ": "
+    //              << intrinsics;
     sensor_msgs::CameraInfo cam_info;
     cam_info.header.stamp = header_stamp;
     cam_info.header.frame_id = frame_id;
@@ -731,9 +799,9 @@ class RosVisualization {
     cam_info.K[7] = intrinsics(2, 1);
     cam_info.K[8] = intrinsics(2, 2);
 
-//    for (const double &k_val : cam_info.K) {
-//      LOG(INFO) << "K " << k_val;
-//    }
+    //    for (const double &k_val : cam_info.K) {
+    //      LOG(INFO) << "K " << k_val;
+    //    }
 
     cam_info.width = img_height_and_width.second;
     cam_info.height = img_height_and_width.first;
@@ -748,9 +816,9 @@ class RosVisualization {
     cam_info.P[9] = cam_info.K[7];
     cam_info.P[10] = cam_info.K[8];
 
-//    for (const double &p_val : cam_info.P) {
-//      LOG(INFO) << "P " << p_val;
-//    }
+    //    for (const double &p_val : cam_info.P) {
+    //      LOG(INFO) << "P " << p_val;
+    //    }
 
     cam_info.distortion_model = "plumb_bob";
 

@@ -101,6 +101,32 @@ if __name__ == "__main__":
             for bb in bounding_boxes:
                 bb_out = BoundingBoxWithTimestamp(bb.xmin, bb.ymin, bb.xmax, bb.ymax, bb.Class, header.stamp.secs, header.stamp.nsecs, 0)
                 bounding_boxes_out.append(bb_out)
+
+    for topic, msg, t in bag.read_messages(topics=['/yolov5/bboxes']):
+        if (msg.header.stamp not in msg_stamp_for_image_stamp):
+            msg_stamp_for_image_stamp[msg.header.stamp] = msg.header.stamp
+        else:
+            continue
+
+        header = msg.header
+        # print("Detection stamp vs image stamp")
+        # print(msg.header.stamp)
+        # print(header.stamp)
+
+        if (len(msg.bboxes) > 0):
+            bounding_boxes = msg.bboxes
+            for bb in bounding_boxes:
+                print(bb)
+                keepBb = True
+                for bb_coord in bb.xyxy:
+                    if (bb_coord < 0):
+                        keepBb = False
+                if (not keepBb):
+                    continue
+                bb_out = BoundingBoxWithTimestamp(bb.xyxy[0], bb.xyxy[1], bb.xyxy[2], bb.xyxy[3], bb.label, header.stamp.secs, header.stamp.nsecs, 0)
+                bounding_boxes_out.append(bb_out)
+
+
     bag.close()
 
     print(len(bounding_boxes_out))
