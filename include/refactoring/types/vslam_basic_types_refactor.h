@@ -59,6 +59,41 @@ struct Pose3D {
 template <typename NumType>
 using CameraExtrinsics = Pose3D<NumType>;
 
+/**
+ * Pinhole camera intrinsics parameters.
+ */
+template <typename NumType>
+struct CameraIntrinsics {
+  /**
+   * Camera matrix.
+   */
+  Eigen::Matrix3f camera_mat;
+
+  uint32_t image_width;
+
+  uint32_t image_height;
+
+  CameraIntrinsics() {}
+  CameraIntrinsics(const Eigen::Matrix3f& camera_mat) : camera_mat(camera_mat) {}
+  CameraIntrinsics(const float fx, const float fy, const float cx, const float cy) {
+      this->camera_mat = Eigen::Matrix3f::Identity();
+      this->camera_mat(0,0) = fx;
+      this->camera_mat(1,1) = fy;
+      this->camera_mat(0,2) = cx;
+      this->camera_mat(1,2) = cy;
+  }
+  CameraIntrinsics(const float fx, const float fy, const float cx, const float cy, 
+                   const float image_width, const float image_height) {
+      this->camera_mat = Eigen::Matrix3f::Identity();
+      this->camera_mat(0,0) = fx;
+      this->camera_mat(1,1) = fy;
+      this->camera_mat(0,2) = cx;
+      this->camera_mat(1,2) = cy;
+      this->image_width = image_width;
+      this->image_height = image_height;
+  }
+};
+
 template <typename NumType>
 bool operator==(const PixelCoord<NumType> &px_1,
                 const PixelCoord<NumType> &px_2) {

@@ -37,8 +37,8 @@ struct EllipsoidState {
 
   EllipsoidState() = default;
 
-  EllipsoidState(const Pose3D<double> &pose,
-                 const ObjectDim<double> &dimensions)
+  EllipsoidState(const Pose3D<NumType> &pose,
+                 const ObjectDim<NumType> &dimensions)
       : pose_(pose), dimensions_(dimensions) {}
 };
 

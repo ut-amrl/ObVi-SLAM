@@ -16,6 +16,9 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 find_package(Ceres REQUIRED)
 find_package(OpenCV 4.0 REQUIRED)
 find_package(Pangolin REQUIRED)
+find_package(PCL REQUIRED)
+find_package(pcl_conversions REQUIRED)
+find_package(pcl_ros REQUIRED)
 #find_package(darknet_ros_msgs)
 #find_package(catkin REQUIRED COMPONENTS darknet_ros_msgs)
 
@@ -23,6 +26,7 @@ include_directories(include
         ${CERES_INCLUDE_DIRS}
         ${OpenCV_INCLUDE_DIRS}
         ${Pangolin_INCLUDE_DIRS}
+        ${PCL_INCLUDE_DIRS}
         /home/amanda/darknet_ros_catkin_ws/install/include/darknet_ros_msgs)
 
 option(TESTING "Build tests" ON)
@@ -39,6 +43,7 @@ set(LIBS
         amrl_shared_lib
         ${CERES_LIBRARIES}
         ${OpenCV_LIBS}
+        ${PCL_LIBRARIES}
         ${Pangolin_LIBRARIES})
 
 include_directories(src/shared)
@@ -66,6 +71,7 @@ add_library(ut_vslam src/vslam_io.cpp
         src/refactoring/factors/reprojection_cost_functor.cpp
         src/refactoring/factors/shape_prior_factor.cpp
         src/refactoring/types/vslam_obj_opt_types_refactor.cpp
+        src/iv_bbox/eval/main.cpp
         )
 
 target_compile_features(ut_vslam PRIVATE cxx_std_17)
@@ -84,6 +90,9 @@ target_link_libraries(ellipsoid_estimator_real_data_main ut_vslam ${LIBS})
 
 ROSBUILD_ADD_EXECUTABLE(offline_object_visual_slam_main src/refactoring/offline_object_visual_slam_main.cpp)
 target_link_libraries(offline_object_visual_slam_main ut_vslam ${LIBS})
+
+ROSBUILD_ADD_EXECUTABLE(iv_bbox_eval_main src/iv_bbox/eval/main.cpp)
+target_link_libraries(iv_bbox_eval_main ut_vslam ${LIBS})
 
 #
 #ROSBUILD_ADD_EXECUTABLE(approx_depth_bounding_box_extractor src/data_preprocessing_utils/approx_depth_bounding_box_extractor.cpp)
