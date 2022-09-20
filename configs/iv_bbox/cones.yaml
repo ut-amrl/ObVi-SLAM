@@ -1,0 +1,6 @@
+in_dir: '/robodata/taijing/uncertainty-aware-perception/test_bagfiles/'
+out_dir: ''
+bagnames: ['uncertainty_cobot_blur_2022-09-11-19-47-11.bag']
+ros_topics:
+  compressed_img: /camera/rgb/image_raw/compressed
+  yolo_bbox: /yolov5/bboxes

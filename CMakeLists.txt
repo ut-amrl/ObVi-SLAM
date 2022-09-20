@@ -27,7 +27,7 @@ include_directories(include
         ${OpenCV_INCLUDE_DIRS}
         ${Pangolin_INCLUDE_DIRS}
         ${PCL_INCLUDE_DIRS}
-        /home/amanda/darknet_ros_catkin_ws/install/include/darknet_ros_msgs)
+        ${PROJECT_SOURCE_DIR}/src/yaml-cpp/include)
 
 option(TESTING "Build tests" ON)
 
@@ -44,7 +44,8 @@ set(LIBS
         ${CERES_LIBRARIES}
         ${OpenCV_LIBS}
         ${PCL_LIBRARIES}
-        ${Pangolin_LIBRARIES})
+        ${Pangolin_LIBRARIES}
+        ${PROJECT_SOURCE_DIR}/src/yaml-cpp/build/libyaml-cpp.so)
 
 include_directories(src/shared)
 add_subdirectory(src/shared)

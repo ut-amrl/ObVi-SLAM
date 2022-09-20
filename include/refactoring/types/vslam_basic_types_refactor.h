@@ -15,6 +15,8 @@ typedef uint64_t CameraId;
 typedef uint64_t FrameId;
 typedef uint64_t FeatureId;
 
+typedef std::pair<uint32_t, uint32_t> Timestamp;
+
 template <typename NumType>
 using CameraIntrinsicsMat = Eigen::Matrix<NumType, 3, 3>;
 
@@ -29,6 +31,15 @@ using Position3dPtr = std::shared_ptr<Position3d<NumType>>;
 
 template <typename NumType>
 using Orientation3D = Eigen::AngleAxis<NumType>;
+
+template <typename NumType>
+using Position2d = Eigen::Matrix<NumType, 2, 1>;
+
+template <typename NumType>
+using Position2dPtr = std::shared_ptr<Position2d<NumType>>;
+
+template <typename NumType>
+using Orientation2D = NumType;
 
 template <typename NumType>
 using Transform6Dof = Eigen::Transform<NumType, 3, Eigen::Affine>;
@@ -53,6 +64,22 @@ struct Pose3D {
   Pose3D() = default;
   Pose3D(const Position3d<NumType> &transl,
          const Orientation3D<NumType> &orientation)
+      : transl_(transl), orientation_(orientation) {}
+  Pose3D(const NumType& x, const NumType& y, const NumType& z,
+         const NumType& qw, const NumType& qx, const NumType& qy, const NumType& qz) {
+    transl_ << x, y, z;
+    orientation_ = Eigen::AngleAxis<NumType>(Eigen::Quaternion<NumType>(qw, qx, qy, qz));
+  }
+};
+
+template <typename NumType>
+struct Pose2D {
+  Position2d<NumType> transl_;
+  Orientation2D<NumType> orientation_;
+
+  Pose2D() = default;
+  Pose2D(const Position2d<NumType> &transl,
+         const Orientation2D<NumType> &orientation)
       : transl_(transl), orientation_(orientation) {}
 };
 
