@@ -1,6 +1,14 @@
-in_dir: '/robodata/taijing/uncertainty-aware-perception/test_bagfiles/'
+# in_dir: '/robodata/taijing/uncertainty-aware-perception/bags/'
+# out_dir: ''
+# bagnames: ['uncertainty_husky_blur_2022-09-19-09-19-57.bag']
+# ros_topics:
+#   compressed_img: '/camera/rgb/image_raw/compressed'
+#   yolo_bbox: '/yolov5/bboxes'
+#   odom: '/jackal_velocity_controller/odom'
+in_dir: '/robodata/taijing/object-slam/'
 out_dir: ''
-bagnames: ['uncertainty_cobot_blur_2022-09-11-19-47-11.bag']
+bagnames: ['outdoors_2022-07-14-09-16-41']
 ros_topics:
-  compressed_img: /camera/rgb/image_raw/compressed
-  yolo_bbox: /yolov5/bboxes
+  compressed_img: '/camera/rgb/image_raw/compressed'
+  yolo_bbox: '/yolov5/bboxes'
+  odom: '/jackal_velocity_controller/odom'

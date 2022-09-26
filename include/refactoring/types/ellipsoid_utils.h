@@ -5,9 +5,9 @@
 #ifndef UT_VSLAM_REFACTORING_ELLIPSOID_UTILS_H
 #define UT_VSLAM_REFACTORING_ELLIPSOID_UTILS_H
 
+#include <refactoring/types/vslam_obj_opt_types_refactor.h>
 #include <refactoring/types/vslam_math_util.h>
 #include <refactoring/types/vslam_types_math_util.h>
-#include <refactoring/types/vslam_obj_opt_types_refactor.h>
 
 #include <eigen3/Eigen/Dense>
 

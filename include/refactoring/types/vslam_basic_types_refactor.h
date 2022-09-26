@@ -17,6 +17,26 @@ typedef uint64_t FeatureId;
 
 typedef std::pair<uint32_t, uint32_t> Timestamp;
 
+struct timestamp_sort {
+  inline bool operator()(const Timestamp &timestamp1,
+                         const Timestamp &timestamp2) {
+    if (timestamp1.first != timestamp2.first) {
+      return timestamp1.first < timestamp2.first;
+    }
+    return timestamp1.second <= timestamp2.second;
+  }
+};
+
+struct pair_hash {
+  template <class T1, class T2>
+  std::size_t operator()(std::pair<T1, T2> const &pair) const {
+    std::size_t h1 = std::hash<T1>()(pair.first);
+    std::size_t h2 = std::hash<T2>()(pair.second);
+
+    return h1 ^ h2;
+  }
+};
+
 template <typename NumType>
 using CameraIntrinsicsMat = Eigen::Matrix<NumType, 3, 3>;
 

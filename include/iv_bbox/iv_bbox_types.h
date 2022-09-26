@@ -18,8 +18,6 @@
 #include <cmath>
 
 #include <refactoring/types/ellipsoid_utils.h>
-#include <refactoring/types/vslam_obj_opt_types_refactor.h>
-#include <refactoring/types/vslam_basic_types_refactor.h>
 
 namespace iv_bbox {
 
@@ -105,21 +103,51 @@ struct YOLOBBoxVec {
 template <typename T>
 using YOLOBBoxVecArr = vector<pair<Timestamp, std::shared_ptr<YOLOBBoxVec<T>>>>;
 
+/**
+ * @brief struct for NN Input
+ * @tparam T 
+ */
 template <typename T>
 struct IVBoundingBox {
+  Timestamp timestamp_; // TODO for debugging only; redundant & delete me
   YOLOBBoxVec<T> yoloVec_;
   BbCorners<T> gt_;
-  cv::Mat img_;
+  std::shared_ptr<cv::Mat> imgPtr_; // TODO for debugging olny; redundant & delete me
   Eigen::Matrix<T, 4, 1> err_;
-  cv::Mat imgPatch_;
+  std::shared_ptr<cv::Mat> imgPatchPtr_;
   IVBoundingBox() {}
-  IVBoundingBox(const YOLOBBoxVec<T>& yoloVec, const BbCorners<T>& gt, const cv::Mat img,
+
+  IVBoundingBox(
+    const Timestamp timestamp, 
+    const YOLOBBoxVec<T>& yoloVec, 
+    const BbCorners<T>& gt, 
+    const cv::Mat img,
     const std::function<Eigen::Matrix<T, 4, 1>(const BbCorners<T>& measurement, const BbCorners<T>& gt)> errFunc,
     const std::function<void(const cv::Mat& inImg, cv::Mat outImg)> patchExtractor) 
-    : yoloVec_(yoloVec), gt_(gt), img_(img) {
+    : timestamp_(timestamp), yoloVec_(yoloVec), gt_(gt) {
     err_ = errFunc(yoloVec.measurement_, gt);
-    patchExtractor(img, imgPatch_);
+    imgPtr_ = std::make_shared<cv::Mat>(img);
+    cv::Mat imgPatch;
+    patchExtractor(*imgPtr_, imgPatch);
+    imgPatchPtr_ = std::make_shared<cv::Mat>(imgPatch);
+  }
+
+  IVBoundingBox(
+    const Timestamp timestamp, 
+    const YOLOBBoxVec<T>& yoloVec, 
+    const BbCorners<T>& gt, 
+    const std::shared_ptr<cv::Mat> imgPtr,
+    const std::function<Eigen::Matrix<T, 4, 1>(const BbCorners<T>& measurement, const BbCorners<T>& gt)> errFunc,
+    const std::function<void(const cv::Mat& inImg, cv::Mat outImg)> patchExtractor) 
+    : timestamp_(timestamp), yoloVec_(yoloVec), gt_(gt), imgPtr_(imgPtr) {
+    err_ = errFunc(yoloVec.measurement_, gt);
+    cv::Mat imgPatch;
+    patchExtractor(*imgPtr_, imgPatch);
+    imgPatchPtr_ = std::make_shared<cv::Mat>(imgPatch);
   }
 };
+
+template <typename T>
+using IVBoundingBoxArr = vector<std::shared_ptr<IVBoundingBox<T>>>;
 
 }

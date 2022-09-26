@@ -56,6 +56,24 @@ using std::pair;
 using std::cout;
 using std::endl;
 
+/**
+ * @brief Debugging; TODO delete me
+ * 
+ */
+template <typename T>
+void to_csv(const string& filename, const Pose3DArr<T>& stampedPoses) {
+  std::ofstream ofile;
+  ofile.open(filename, std::ios::trunc);
+  if (!ofile.is_open()) {
+      LOG(ERROR) << "failed to open " << filename;
+  }
+  for (const auto& stampedPose : stampedPoses) {
+    const auto& posePtr = stampedPose.second;
+    ofile << posePtr->transl_[0] << "," << posePtr->transl_[1] << "," << posePtr->transl_[2] << endl;
+  }
+  ofile.close();
+}
+
 // http://planning.cs.uiuc.edu/node103.html
 void R_to_roll_pitch_yaw(const Eigen::Matrix3f R, 
                          float& roll, float& pitch, float& yaw) {
@@ -128,7 +146,7 @@ void parseOdom(const rosbag::Bag& bag, const string& topic_name, Pose3DArr<T>& s
     Pose3D<T> pose(odom.pose.pose.position.x, odom.pose.pose.position.y, odom.pose.pose.position.z,
                    odom.pose.pose.orientation.w, odom.pose.pose.orientation.x, 
                    odom.pose.pose.orientation.y, odom.pose.pose.orientation.z);
-    stampedOdoms2D.emplace_back(time, std::make_shared<Pose3D>(pose));
+    stampedOdoms2D.emplace_back(time, std::make_shared<Pose3D<T>>(pose));
   }
 }
 
@@ -253,6 +271,110 @@ void parsePoseFile(const string& filepath, Pose2DArr<T>& stampedPoses2D) {
   }
 }
 
+// TODO move this some utils
+/**
+ * @brief 
+ * 
+ * @param t1 
+ * @param t2 
+ * @param tol in millisec (uint64_t)
+ * @return 
+ */
+bool sameTime(const Timestamp& t1, const Timestamp& t2, const uint64_t tol=0) {
+  if (tol == 0) {
+    return (t1.first == t2.first) && (t1.second == t2.second);
+  } else {
+    uint64_t t1Milli = vslam_types_refactor::timestampToMillis(t1);
+    uint64_t t2Milli = vslam_types_refactor::timestampToMillis(t2);
+    bool res = (t2Milli > t1Milli) ? (t2Milli - t1Milli < tol) : (t1Milli - t2Milli < tol);
+    return res;
+  }
+}
+
+/**
+ * @brief Bounding boxes timestamps \subseteq Image timestamps
+ * Discard redundant images
+ * 
+ * @param stampedImagePtrs assume sorted by timestamps
+ * @param stampedBBoxVecPtrs assume sorted by timestamps
+ */
+template <typename T>
+void associateImgsAndBboxes(ImgArr& stampedImagePtrs, YOLOBBoxVecArr<T>& stampedBBoxVecPtrs) {
+  Timestamp poseStartTime, poseEndTime;
+
+}
+
+/**
+ * @brief 
+ * 
+ * @tparam T 
+ * @param stampedOdom3DPtrs assume sorted by timestamps
+ * @param stampedPose3DPtrs assume sorted by timestamps
+ */
+template <typename T>
+void interpolatePosesByOdom(const Pose3DArr<T>& stampedOdom3DPtrs, Pose3DArr<T>& stampedPose3DPtrs) {
+  if (stampedOdom3DPtrs.empty() || stampedPose3DPtrs.empty()) { return; }
+  
+  Pose3DArr<T> newStampedPose3DPtrs;
+  size_t odomIdx, poseIdx;
+  const auto& nOdom = stampedOdom3DPtrs.size();
+  // const uint64_t kTimeTol = timestampToMillis(Timestamp(0, 1e3));
+
+  odomIdx = 1; // avoid odomIdx-1 underflow
+  for (poseIdx = 0; poseIdx < stampedPose3DPtrs.size()-1; ++poseIdx) {
+    newStampedPose3DPtrs.push_back(stampedPose3DPtrs[poseIdx]);
+    const Timestamp& currSLAMTime = stampedPose3DPtrs[poseIdx].first;
+    const Timestamp& nextSLAMTIme = stampedPose3DPtrs[poseIdx+1].first;
+    // Find the odometry whose timestamp is less than the one of currSLAMPosse
+    while (odomIdx < nOdom && stampedOdom3DPtrs[odomIdx].first < currSLAMTime) { ++odomIdx; }
+    // If odom interval is larger than the slam pose interval, no need to interpolate
+    if (stampedOdom3DPtrs[odomIdx].first >= nextSLAMTIme) { continue; } 
+    
+    pair<Timestamp, std::shared_ptr<Pose3D<T>>> stampedCurrOdomPose, stampedNextOdomPose;
+    Pose3D<T> currOdomPose, nextOdomPose;
+    Pose3D<T> deltaPose;
+    while (odomIdx < nOdom && stampedOdom3DPtrs[odomIdx].first < nextSLAMTIme) {
+      stampedCurrOdomPose = stampedOdom3DPtrs[odomIdx-1];
+      stampedNextOdomPose = stampedOdom3DPtrs[odomIdx];
+      currOdomPose = *(stampedCurrOdomPose.second);
+      nextOdomPose = *(stampedNextOdomPose.second);
+      // At the first time of iteration
+      if (stampedCurrOdomPose.first <= currSLAMTime) {
+        *(stampedCurrOdomPose.second);
+        currOdomPose = interpolatePosesIn2D(
+          stampedCurrOdomPose.first, *(stampedCurrOdomPose.second), 
+          stampedNextOdomPose.first, *(stampedNextOdomPose.second), currSLAMTime);
+      } 
+      deltaPose = getPose2RelativeToPose1(currOdomPose, nextOdomPose);
+      const Pose3D<T>& lastPose = *(newStampedPose3DPtrs.back().second);
+      Pose3D<T> newPose = combinePoses(lastPose, deltaPose);
+      newStampedPose3DPtrs.emplace_back(stampedNextOdomPose.first, std::make_shared<Pose3D<T>>(newPose));
+      ++odomIdx;
+    }
+  }
+  newStampedPose3DPtrs.push_back(stampedPose3DPtrs.back());
+  stampedPose3DPtrs = newStampedPose3DPtrs;
+}
+
+template <typename T>
+void interpolateTimestamps(
+  const ImgArr& stampedImagePtrs, 
+  const Pose3DArr<T>& stampedPose3DPtrs,
+  const Pose3DArr<T>& stampedOdom3DPtrs,
+  const YOLOBBoxVecArr<T>& stampedBBoxVecPtrs,
+  IVBoundingBoxArr<T>& ivbboxPtrs) {
+  
+}
+
+template <typename T, typename BbByTimestampType, typename BbByNodeType>
+void interpolateTimestamps(
+  const YOLOBBoxVecArr<T>& stampedBBoxVecPtrs,
+  const std::string &bb_by_node_file_name,
+  const std::function<BbByNodeType(const BbByTimestampType &, const uint64_t &node_id)> bb_by_node_creator,
+  const std::function<void(const std::string &, const std::vector<BbByNodeType> &)>& bb_out_writer) {
+  
+}
+
 template <typename BbByTimestampType, typename BbByNodeType>
 void interpolateTimestamps(
   const std::string &bb_by_timestamp_file_name,
@@ -262,6 +384,8 @@ void interpolateTimestamps(
   const std::function<void(const std::string &, const std::vector<BbByNodeType> &)>& bb_out_writer) {
   
 }
+
+
 
 }
 #endif  // IV_BBOX_H

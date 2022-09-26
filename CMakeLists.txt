@@ -72,7 +72,6 @@ add_library(ut_vslam src/vslam_io.cpp
         src/refactoring/factors/reprojection_cost_functor.cpp
         src/refactoring/factors/shape_prior_factor.cpp
         src/refactoring/types/vslam_obj_opt_types_refactor.cpp
-        src/iv_bbox/eval/main.cpp
         )
 
 target_compile_features(ut_vslam PRIVATE cxx_std_17)
