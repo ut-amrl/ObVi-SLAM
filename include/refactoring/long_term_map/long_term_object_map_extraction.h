@@ -242,12 +242,15 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
       ellipsoid_covariances[obj_id] = cov_result;
     }
 
+    LOG(INFO) << "Extracting front end map data";
     FrontEndObjMapData front_end_map_data;
     if (!front_end_map_data_extractor(front_end_map_data)) {
       LOG(ERROR) << "Could not extract the front end data required for the "
                     "long-term map";
       return false;
     }
+    LOG(INFO) << "In extraction: front end map data size "
+              << front_end_map_data.size();
     long_term_obj_map.setFrontEndObjMapData(front_end_map_data);
 
     long_term_obj_map.setEllipsoidCovariances(ellipsoid_covariances);

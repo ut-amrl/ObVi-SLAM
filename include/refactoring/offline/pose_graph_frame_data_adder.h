@@ -89,7 +89,7 @@ void addFrameDataAssociatedBoundingBox(
                                     FrontEndObjMapData>>(
         const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &,
         const ProblemDataType &)> bb_associator_retriever,
-    const std::function<RawBoundingBoxContextInfo(
+    const std::function<std::pair<bool, RawBoundingBoxContextInfo>(
         const FrameId &, const CameraId &, const ProblemDataType &)>
         &bb_context_retriever) {
   Pose3D<double> pose_at_frame;
@@ -132,12 +132,14 @@ void addFrameDataAssociatedBoundingBox(
 
   if (bb_obs.find(frame_to_add) != bb_obs.end()) {
     for (const auto &cam_id_and_bbs : bb_obs.at(frame_to_add)) {
-      bb_associator->addBoundingBoxObservations(
-          frame_to_add,
-          cam_id_and_bbs.first,
-          cam_id_and_bbs.second,
-          bb_context_retriever(
-              frame_to_add, cam_id_and_bbs.first, input_problem_data));
+      std::pair<bool, RawBoundingBoxContextInfo> context = bb_context_retriever(
+          frame_to_add, cam_id_and_bbs.first, input_problem_data);
+      if (context.first) {
+        bb_associator->addBoundingBoxObservations(frame_to_add,
+                                                  cam_id_and_bbs.first,
+                                                  cam_id_and_bbs.second,
+                                                  context.second);
+      }
     }
   }
 }

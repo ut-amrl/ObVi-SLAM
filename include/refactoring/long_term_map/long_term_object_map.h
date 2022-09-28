@@ -16,6 +16,7 @@ namespace vslam_types_refactor {
 template <typename FrontEndObjMapData>
 class AbsLongTermObjectMap {
  public:
+
   /**
    * Set the ellipsoid results (contains ellipsoid state estimates).
    *
@@ -23,6 +24,7 @@ class AbsLongTermObjectMap {
    */
   virtual void setEllipsoidResults(const EllipsoidResults &ellipsoid_results) {
     ellipsoids_ = ellipsoid_results;
+    LOG(INFO) << "Ellipsoid results size " << ellipsoids_.ellipsoids_.size();
   }
 
   virtual void setFrontEndObjMapData(const FrontEndObjMapData &front_end_data) {
@@ -30,6 +32,7 @@ class AbsLongTermObjectMap {
   }
 
   virtual void getEllipsoidResults(EllipsoidResults &ellipsoids) const {
+    LOG(INFO) << "Ellipsoids size " << ellipsoids_.ellipsoids_.size();
     ellipsoids = ellipsoids_;
   }
 

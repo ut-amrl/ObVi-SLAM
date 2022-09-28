@@ -48,6 +48,7 @@ def parseArgs():
     # parser.add_argument('param_prefix', required=False, default="", help='Parameter/node prefix')
     parser.add_argument('--bag_file')
     parser.add_argument('--out_file_name')
+    parser.add_argument('--yolov5_conf', type=float, default='0.15')
 
     args = parser.parse_args()
     return args
@@ -72,6 +73,7 @@ if __name__ == "__main__":
     cmdLineArgs = parseArgs()
     bag_file_name = cmdLineArgs.bag_file
     out_file_name = cmdLineArgs.out_file_name
+    yolov5_conf = cmdLineArgs.yolov5_conf
     bounding_boxes_out = []
 
     bag = rosbag.Bag(bag_file_name)
@@ -117,6 +119,8 @@ if __name__ == "__main__":
             bounding_boxes = msg.bboxes
             for bb in bounding_boxes:
                 print(bb)
+                if (bb.conf < yolov5_conf):
+                    continue
                 keepBb = True
                 for bb_coord in bb.xyxy:
                     if (bb_coord < 0):

@@ -339,11 +339,9 @@ class ObjAndLowLevelFeaturePoseGraph
       const FrameId &max_frame_id,
       util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
           &matching_observation_factor_ids) {
-    LOG(INFO) << "Getting observation factors";
     for (const auto &frame_id_and_factors : observation_factors_by_frame_) {
       if ((frame_id_and_factors.first >= min_frame_id) &&
           (frame_id_and_factors.first <= max_frame_id)) {
-        LOG(INFO) << "Including " << frame_id_and_factors.second.size();
         matching_observation_factor_ids.insert(
             frame_id_and_factors.second.begin(),
             frame_id_and_factors.second.end());
