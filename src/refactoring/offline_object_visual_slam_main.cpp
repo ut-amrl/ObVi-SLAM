@@ -247,11 +247,13 @@ void createPoseGraph(
     input_problem_data.getLongTermObjectMap()->getEllipsoidResults(
         ellipsoids_in_map);
   }
+  LOG(INFO) << "Ellipsoids size " << ellipsoids_in_map.ellipsoids_.size();
   for (const auto &ellipsoid_entry : ellipsoids_in_map.ellipsoids_) {
     ltm_objects[ellipsoid_entry.first] = std::make_pair(
         ellipsoid_entry.second.first,
         vtr::convertToRawEllipsoid(ellipsoid_entry.second.second));
   }
+  LOG(INFO) << "Ltm objects size " << ltm_objects.size();
   LOG(INFO) << "Creating pose graph ";
   pose_graph =
       std::make_shared<MainPg>(input_problem_data.getObjDimMeanAndCovByClass(),
@@ -411,7 +413,7 @@ int main(int argc, char **argv) {
   shape_mean_and_std_devs_by_semantic_class[chair_class] =
       std::make_pair(chair_mean, chair_std_dev);
   Eigen::Vector3d cone_mean(0.29, 0.29, 0.48);
-  Eigen::Vector3d cone_std_dev(0.1, 0.1, 0.1);
+  Eigen::Vector3d cone_std_dev(0.01, 0.01, 0.01);
   std::string cone_class = "roadblock";
   shape_mean_and_std_devs_by_semantic_class[cone_class] =
       std::make_pair(cone_mean, cone_std_dev);
@@ -423,9 +425,9 @@ int main(int argc, char **argv) {
   vtr::RoshanBbAssociationParams roshan_associator_params;  // TODO tune these
   roshan_associator_params.saturation_histogram_bins_ = 50;
   roshan_associator_params.hue_histogram_bins_ = 60;
-  roshan_associator_params.max_distance_for_associated_ellipsoids_ = 2.5;
-  roshan_associator_params.min_observations_ = 4;
-  roshan_associator_params.discard_candidate_after_num_frames_ = 100;
+  roshan_associator_params.max_distance_for_associated_ellipsoids_ = 2.0;
+  roshan_associator_params.min_observations_ = 30;
+  roshan_associator_params.discard_candidate_after_num_frames_ = 80;
 
   Eigen::Vector4d bounding_box_std_devs;  // TODO maybe use different values
   bounding_box_std_devs(0) = 30;
@@ -511,8 +513,6 @@ int main(int argc, char **argv) {
   LOG(INFO) << "Here 3";
   MainLtmPtr long_term_map;
   if (!FLAGS_long_term_map_input.empty()) {
-    long_term_map = std::make_shared<MainLtm>();
-
     cv::FileStorage ltm_in_fs(FLAGS_long_term_map_input, cv::FileStorage::READ);
     vtr::SerializableIndependentEllipsoidsLongTermObjectMap<
         std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>,
@@ -520,9 +520,15 @@ int main(int argc, char **argv) {
                              vtr::SerializableObjectId,
                              vtr::RoshanAggregateBbInfo,
                              vtr::SerializableRoshanAggregateBbInfo>>
-        serializable_ltm(*(long_term_map));
+        serializable_ltm;
     ltm_in_fs["long_term_map"] >> serializable_ltm;
     ltm_in_fs.release();
+    MainLtm ltm_from_serializable = serializable_ltm.getEntry();
+    vtr::EllipsoidResults ellipsoid_results_ltm_v3;
+    ltm_from_serializable.getEllipsoidResults(ellipsoid_results_ltm_v3);
+    LOG(INFO) << "Second check results size "
+              << ellipsoid_results_ltm_v3.ellipsoids_.size();
+    long_term_map = std::make_shared<MainLtm>(ltm_from_serializable);
   }
 
   LOG(INFO) << "Here 4";
@@ -643,14 +649,16 @@ int main(int argc, char **argv) {
         return 0.0;
       };
   LOG(INFO) << "Here 6";
-  std::function<std::optional<sensor_msgs::Image::ConstPtr>(
+  std::function<std::pair<bool, std::optional<sensor_msgs::Image::ConstPtr>>(
       const vtr::FrameId &, const vtr::CameraId &, const MainProbData &)>
       bb_context_retriever = [](const vtr::FrameId &frame_id,
                                 const vtr::CameraId &camera_id,
                                 const MainProbData &problem_data) {
         //            LOG(INFO) << "Getting image for frame " << frame_id
         //                      << " and camera " << camera_id;
-        return problem_data.getImageForFrameAndCamera(frame_id, camera_id);
+        std::optional<sensor_msgs::Image::ConstPtr> image =
+            problem_data.getImageForFrameAndCamera(frame_id, camera_id);
+        return std::make_pair(image.has_value(), image);
       };
 
   std::function<vtr::Covariance<double, 4>(const vtr::RawBoundingBox &,
@@ -754,7 +762,8 @@ int main(int argc, char **argv) {
                 [&](std::unordered_map<vtr::ObjectId,
                                        vtr::RoshanAggregateBbInfo>
                         &front_end_data) {
-                  roshan_associator_creator.getDataAssociator(pose_graph);
+                  roshan_associator_creator.getDataAssociator(pose_graph)
+                      ->getFrontEndObjMapData(front_end_data);
                   return true;
                 };
         std::function<bool(const MainPgPtr &, ceres::Problem *, MainLtm &)>

@@ -156,6 +156,7 @@ class RoshanBbFrontEnd
 
     bb_info.single_bb_init_est_ =
         convertToEllipsoidState(*(raw_est.ellipsoid_));
+    LOG(INFO) << "Generated appearance info";
 
     return bb_info;
   }
@@ -283,15 +284,23 @@ class RoshanBbFrontEnd
       const AssociatedObjectIdentifier &candidate,
       const RoshanBbInfo &bounding_box_appearance_info) override {
     RoshanAggregateBbInfo aggregate_bb_info;
+    LOG(INFO) << "Getting info for candidate";
     if (candidate.initialized_ellipsoid_) {
       aggregate_bb_info =
           RoshanBbFrontEnd::object_appearance_info_[candidate.object_id_];
+      LOG(INFO) << "Aggregate bb info size " << aggregate_bb_info.infos_for_observed_bbs_.size();
+      if (!aggregate_bb_info.infos_for_observed_bbs_.empty()) {
+        LOG(INFO) << "Aggregate bb info cv size first entry "
+                  << aggregate_bb_info.infos_for_observed_bbs_.front()
+                         .hue_sat_histogram_.size();
+      }
     } else {
       aggregate_bb_info =
           RoshanBbFrontEnd::uninitialized_object_info_[candidate.object_id_]
               .appearance_info_;
     }
 
+    LOG(INFO) << "Calculating correlation scores for each sub-image";
     std::vector<double> correlation_scores;
     for (const RoshanBbInfo &single_bb_info :
          aggregate_bb_info.infos_for_observed_bbs_) {
@@ -299,12 +308,15 @@ class RoshanBbFrontEnd
           cv::compareHist(single_bb_info.hue_sat_histogram_,
                           bounding_box_appearance_info.hue_sat_histogram_,
                           cv::HISTCMP_CORREL));
+      LOG(INFO) << "Done with compare hist";
     }
 
     // TODO how do we want to combine the correlation scores? Right now just
     // taking the max
+    LOG(INFO) << "Getting max score";
     double max_score =
         *std::max_element(correlation_scores.begin(), correlation_scores.end());
+    LOG(INFO) << "Done getting max score";
     return max_score;
   }
 

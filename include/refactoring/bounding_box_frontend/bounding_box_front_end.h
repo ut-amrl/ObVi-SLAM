@@ -85,14 +85,17 @@ class AbstractBoundingBoxFrontEnd {
         generateRefinedBbContextInfo(bb_context, frame_id, camera_id);
     setupBbAssociationRound(
         frame_id, camera_id, bounding_boxes, bb_context, refined_context);
+    LOG(INFO) << "Generating appearance infos";
 
     std::vector<SingleBbContextInfo> single_bb_appearance_infos;
     for (const RawBoundingBox &bb : bounding_boxes) {
+      LOG(INFO) << "refined context has value? " << refined_context.hsv_img_.has_value();
       single_bb_appearance_infos.emplace_back(
           generateSingleBoundingBoxContextInfo(
               bb, frame_id, camera_id, refined_context));
     }
 
+    LOG(INFO) << "Generating assignments";
     // Get info from current box needed for association
     // Get associations
     std::vector<AssociatedObjectIdentifier> bounding_box_assignments;
@@ -102,6 +105,8 @@ class AbstractBoundingBoxFrontEnd {
                               refined_context,
                               single_bb_appearance_infos,
                               bounding_box_assignments);
+
+    LOG(INFO) << "Generating Update the association info";
 
     // Add bbs and update the association info with the context for this bb
     for (size_t bb_index = 0; bb_index < bounding_box_assignments.size();
@@ -155,6 +160,8 @@ class AbstractBoundingBoxFrontEnd {
       }
     }
 
+    LOG(INFO) << "Initialize estimates";
+
     // Initialize or refine estimates
     // For each object, add information and either initialize, delay
     // initialization (until we have more information, or refine estimate (if
@@ -204,6 +211,7 @@ class AbstractBoundingBoxFrontEnd {
       }
     }
 
+    LOG(INFO) << "Remove expired candidates";
     // Sort the objects that just have been added to the pose graph in
     // descending order and delete them from the uninitialized objects list
     // Descending order needed so the indices to delete don't change as
@@ -664,16 +672,19 @@ class AbstractUnknownDataAssociationBbFrontEnd
       RawBoundingBox bb = bounding_boxes[i];
       SingleBbContextInfo bb_context = indiv_bb_contexts[i];
 
+      LOG(INFO) << "Identifying candidates";
       // For each bounding box, identify candidates
       std::vector<AssociatedObjectIdentifier> candidates =
           identifyCandidateMatches(frame_id, camera_id, bb, bb_context);
 
+      LOG(INFO) << "Prune candidates based on geometry";
       // For each bounding box, prune candidates using geometric checks
       candidates = pruneCandidateMatchesBasedOnGeometry(
           frame_id, camera_id, bb, candidates, bb_context);
 
       // For each bounding box, calculate data association scores for each
       // candidate
+      LOG(INFO) << "Calculate scores";
       for (const AssociatedObjectIdentifier &candidate : candidates) {
         double score =
             scoreCandidateMatch(frame_id, camera_id, bb, candidate, bb_context);
@@ -687,6 +698,7 @@ class AbstractUnknownDataAssociationBbFrontEnd
       match_candidates_with_scores.emplace_back(candidates_with_scores_for_bb);
     }
 
+    LOG(INFO) << "Assign objects";
     // Assign bounding boxes to objects/uninitialized objects based on
     // scores/determine which need new bbs
     bounding_box_assignments =

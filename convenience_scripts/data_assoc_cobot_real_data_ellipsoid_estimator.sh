@@ -6,7 +6,8 @@
 #rosbag_base_name=2022-06-15-16-32-59
 #rosbag_base_name=2022-06-15-16-36-13
 
-rosbag_base_name=2022-08-24-16-28-27
+rosbag_base_name=2022-08-24-16-26-29
+#rosbag_base_name=2022-08-24-16-28-27
 #rosbag_base_name=2022-08-24-17-04-19
 #rosbag_base_name=2022-08-24-17-06-14
 #rosbag_base_name=2022-08-24-17-08-00
@@ -14,10 +15,13 @@ rosbag_base_name=2022-08-24-16-28-27
 #rosbag_base_name=2022-08-24-17-10-20
 #rosbag_base_name=2022-08-24-17-11-48
 
+#ltm_bag_base_name=2022-08-24-17-06-14
+#ltm_bag_base_name=2022-08-24-17-08-56
+ltm_bag_base_name=2022-08-24-17-11-48
 
-#bb_type_variant=merged
+bb_type_variant=merged
 #bb_type_variant=yolov3
-bb_type_variant=yolov5
+#bb_type_variant=yolov5
 
 intrinsics_file_base_name=cobot_kinect_intrinsics
 extrinsics_file_base_name=cobot_kinect_extrinsics_2022_03_16
@@ -69,6 +73,7 @@ bounding_boxes_by_node_id_file=${bag_file_bb_dir}${bounding_box_file_prefix}${ro
 poses_by_node_id_file=${bag_file_loc_dir}${poses_by_node_prefix}${rosbag_base_name}${txt_suffix}
 nodes_by_timestamp_file=${bag_file_loc_dir}${timestamps_by_node_prefix}${rosbag_base_name}${txt_suffix}
 long_term_map_out_file=${bag_file_ltm_dir}${ltm_prefix}${rosbag_base_name}${json_suffix}
+long_term_map_input_file=${bag_file_ltm_dir}${ltm_prefix}${ltm_bag_base_name}${json_suffix}
 
 intrinsics_file=${robot_config_dir}${intrinsics_file_base_name}${txt_suffix}
 extrinsics_file=${robot_config_dir}${extrinsics_file_base_name}${txt_suffix}
@@ -76,5 +81,5 @@ extrinsics_file=${robot_config_dir}${extrinsics_file_base_name}${txt_suffix}
 make && ./bin/offline_object_visual_slam_main --rosbag_file ${rosbag_file} --bounding_boxes_by_node_id_file \
 ${bounding_boxes_by_node_id_file} --poses_by_node_id_file ${poses_by_node_id_file} --intrinsics_file ${intrinsics_file} \
  --extrinsics_file ${extrinsics_file} --nodes_by_timestamp_file ${nodes_by_timestamp_file} \
- --long_term_map_output ${long_term_map_out_file}
-
+ --long_term_map_output ${long_term_map_out_file} \
+# --long_term_map_input ${long_term_map_input_file}

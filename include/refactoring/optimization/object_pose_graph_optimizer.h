@@ -268,8 +268,6 @@ class ObjectPoseGraphOptimizer {
           min_frame_id,
           optimization_scope.max_frame_id_,
           matching_observation_factor_ids);
-      LOG(INFO) << "Num observation factors "
-                << matching_observation_factor_ids.size();
       for (const std::pair<vslam_types_refactor::FactorType,
                            vslam_types_refactor::FeatureFactorId> &factor :
            matching_observation_factor_ids) {
@@ -314,7 +312,6 @@ class ObjectPoseGraphOptimizer {
                                   problem);
 
     if (fix_pose_param_blocks) {
-      LOG(INFO) << "Fixing pose blocks";
       // Set all pose param blocks constant
       setVariabilityForParamBlocks(optimized_frames,
                                    true,
@@ -323,7 +320,6 @@ class ObjectPoseGraphOptimizer {
                                    pose_graph,
                                    problem);
     } else {
-      LOG(INFO) << "Fixing first pose block and setting remaining variable";
       // Set only first pose param block constant (or add Gaussian prior
       // later...?)
       setVariabilityForParamBlocks(
@@ -338,7 +334,6 @@ class ObjectPoseGraphOptimizer {
       std::unordered_set<vslam_types_refactor::FrameId> variable_frames =
           optimized_frames;
       variable_frames.erase(optimization_scope.min_frame_id_);
-      LOG(INFO) << "Setting pose param blocks variable";
       setVariabilityForParamBlocks(variable_frames,
                                    false,
                                    kPoseTypeStr,
@@ -452,9 +447,6 @@ class ObjectPoseGraphOptimizer {
 //                          constant_object_param_blocks.end()));
         next_last_optimized_objects = observed_objects;
       } else {
-        LOG(INFO) << "Getting variable objects";
-        LOG(INFO) << "Observed objects size " << observed_objects.size();
-        LOG(INFO) << "Ltm objects size " << ltm_object_ids.size();
 //        std::set_union(observed_objects.begin(),
 //                       observed_objects.end(),
 //                       ltm_object_ids.begin(),
@@ -489,34 +481,8 @@ class ObjectPoseGraphOptimizer {
           objects_to_remove.insert(last_opt);
         }
       }
-      LOG(INFO) << "Objects to remove size " << objects_to_remove.size();
-
-      if (!objects_to_remove.empty()) {
-        LOG(INFO) << "Last optimized ";
-        for (const vslam_types_refactor::ObjectId &last_opt :
-             last_optimized_objects_) {
-          LOG(INFO) << last_opt;
-        }
-        LOG(INFO) << "Currently optimized";
-        for (const vslam_types_refactor::ObjectId &next_opt :
-             next_last_optimized_objects) {
-          LOG(INFO) << "Next opt: " << next_opt;
-          for (const vslam_types_refactor::ObjectId &to_remove :
-               objects_to_remove) {
-            LOG(INFO) << "To Remove " << to_remove << " equal? "
-                      << (to_remove == next_opt);
-          }
-        }
-        LOG(INFO) << "Not expecting objects to be removed";
-        for (const vslam_types_refactor::ObjectId &to_remove :
-             objects_to_remove) {
-          LOG(INFO) << to_remove;
-        }
-        exit(1);
-      }
 
       if (!constant_object_param_blocks.empty()) {
-        LOG(INFO) << "Setting object param blocks constant";
         setVariabilityForParamBlocks(constant_object_param_blocks,
                                      true,
                                      kObjTypeStr,
@@ -525,7 +491,6 @@ class ObjectPoseGraphOptimizer {
                                      problem);
       }
       if (!variable_object_param_blocks.empty()) {
-        LOG(INFO) << "Setting object param blocks variable";
         setVariabilityForParamBlocks(variable_object_param_blocks,
                                      false,
                                      kObjTypeStr,
@@ -624,7 +589,6 @@ class ObjectPoseGraphOptimizer {
       const std::shared_ptr<PoseGraphType> &pose_graph,
       ceres::Problem *problem) {
     for (const IdentifierType &param_identifier : param_identifiers) {
-      LOG(INFO) << "Identifier " << param_identifier;
       double *param_ptr = NULL;
       if (param_block_retriever(param_identifier, pose_graph, &param_ptr)) {
         if (set_constant) {
@@ -719,19 +683,13 @@ class ObjectPoseGraphOptimizer {
               factor_type_id_pair, pose_graph, existing_info.second);
           if (refresh) {
             // TODO verify that this should go here
-            LOG(INFO) << "Removing factor " << factor_id << " of type "
-                      << factor_type;
-            exit(1);
             problem->RemoveResidualBlock(existing_info.first);
             residual_blocks_and_cached_info_by_factor_id_[factor_type].erase(
                 factor_id);
             create_new = true;
-          } else {
-            LOG(INFO) << "Not refreshing";
           }
         }
         if (create_new) {
-          LOG(INFO) << "Creating new residual";
           ceres::ResidualBlockId residual_id;
           CachedFactorInfo cached_info;
           bool residual_success = residual_creator_(factor_type_id_pair,
@@ -833,9 +791,6 @@ class ObjectPoseGraphOptimizer {
              factor_type_and_factor_ids.second) {
           if (required_factors_for_type.find(factor_id_and_residual.first) ==
               required_factors_for_type.end()) {
-            LOG(INFO) << "Removing factor " << factor_id_and_residual.first
-                      << " of type " << factor_type;
-            exit(1);
             removed_factors[factor_type].insert(factor_id_and_residual.first);
             residual_blocks_to_remove.insert(
                 factor_id_and_residual.second.first);
