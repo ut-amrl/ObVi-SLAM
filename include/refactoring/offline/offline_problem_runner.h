@@ -18,16 +18,6 @@ enum VisualizationTypeEnum {
   AFTER_ALL_OPTIMIZATION
 };
 
-struct OptimizationFactorsEnabledParams {
-  bool include_object_factors_ = true;
-  bool include_visual_factors_ = true;
-  bool fix_poses_ = true;
-  bool fix_objects_ = true;
-  bool fix_visual_features_ = true;
-  bool fix_ltm_objects_ = false;
-  bool use_pom_ = false;
-};
-
 template <typename InputProblemData,
           typename VisualFeatureFactorType,
           typename OutputProblemData,
@@ -59,10 +49,11 @@ class OfflineProblemRunner {
       const std::function<void(const InputProblemData &,
                                const std::shared_ptr<PoseGraphType> &,
                                const FrameId &)> &frame_data_adder,
-      const std::function<void(const InputProblemData &,
-                               const std::shared_ptr<PoseGraphType> &,
-                               ceres::Problem *,
-                               OutputProblemData &)> &output_data_extractor,
+      const std::function<
+          void(const InputProblemData &,
+               const std::shared_ptr<PoseGraphType> &,
+               const pose_graph_optimizer::OptimizationFactorsEnabledParams &,
+               OutputProblemData &)> &output_data_extractor,
       const std::function<
           std::vector<std::shared_ptr<ceres::IterationCallback>>(
               const InputProblemData &,
@@ -87,10 +78,11 @@ class OfflineProblemRunner {
         visualization_callback_(visualization_callback),
         solver_params_(solver_params) {}
 
-  bool runOptimization(const InputProblemData &problem_data,
-                       const OptimizationFactorsEnabledParams
-                           &optimization_factors_enabled_params,
-                       OutputProblemData &output_problem_data) {
+  bool runOptimization(
+      const InputProblemData &problem_data,
+      const pose_graph_optimizer::OptimizationFactorsEnabledParams
+          &optimization_factors_enabled_params,
+      OutputProblemData &output_problem_data) {
     std::shared_ptr<PoseGraphType> pose_graph;
 
     ceres::Problem problem;
@@ -105,7 +97,8 @@ class OfflineProblemRunner {
         optimization_factors_enabled_params.fix_objects_;
     optimization_scope_params.fix_visual_features_ =
         optimization_factors_enabled_params.fix_visual_features_;
-    optimization_scope_params.fix_ltm_objects_ = optimization_factors_enabled_params.fix_ltm_objects_;
+    optimization_scope_params.fix_ltm_objects_ =
+        optimization_factors_enabled_params.fix_ltm_objects_;
     optimization_scope_params.include_visual_factors_ =
         optimization_factors_enabled_params.include_visual_factors_;
     optimization_scope_params.include_object_factors_ =
@@ -167,7 +160,10 @@ class OfflineProblemRunner {
                             0,
                             max_frame_id,
                             VisualizationTypeEnum::AFTER_ALL_OPTIMIZATION);
-    output_data_extractor_(problem_data, pose_graph, &problem, output_problem_data);
+    output_data_extractor_(problem_data,
+                           pose_graph,
+                           optimization_factors_enabled_params,
+                           output_problem_data);
     return true;
   }
 
@@ -188,10 +184,11 @@ class OfflineProblemRunner {
                      const std::shared_ptr<PoseGraphType> &,
                      const FrameId &)>
       frame_data_adder_;
-  std::function<void(const InputProblemData &,
-                     const std::shared_ptr<PoseGraphType> &,
-                     ceres::Problem *,
-                     OutputProblemData &)>
+  std::function<void(
+      const InputProblemData &,
+      const std::shared_ptr<PoseGraphType> &,
+      const pose_graph_optimizer::OptimizationFactorsEnabledParams &,
+      OutputProblemData &)>
       output_data_extractor_;
 
   std::function<std::vector<std::shared_ptr<ceres::IterationCallback>>(

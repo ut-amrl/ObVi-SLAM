@@ -29,9 +29,13 @@ struct SpatialEstimateOnlyResults {
 
 template <typename LongTermObjectMap>
 struct LongTermObjectMapAndResults {
-  LongTermObjectMap long_term_map_;
+  LongTermObjectMap
+      long_term_map_;  // The LTM object estimates may differ from the ellipsoid
+                       // results because a different set of factors is used to
+                       // estimate the long-term map
   RobotPoseResults robot_pose_results_;
   VisualFeatureResults visual_feature_results_;
+  EllipsoidResults ellipsoid_results_;
 };
 
 }  // namespace vslam_types_refactor

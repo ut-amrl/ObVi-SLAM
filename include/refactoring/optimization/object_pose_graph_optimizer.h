@@ -17,6 +17,16 @@ const std::string kPoseTypeStr = "pose";
 const std::string kObjTypeStr = "object";
 const std::string kFeatureTypeStr = "feature";
 
+struct OptimizationFactorsEnabledParams {
+  bool include_object_factors_ = true;
+  bool include_visual_factors_ = true;
+  bool fix_poses_ = true;
+  bool fix_objects_ = true;
+  bool fix_visual_features_ = true;
+  bool fix_ltm_objects_ = false;
+  bool use_pom_ = false;
+};
+
 struct OptimizationScopeParams {
   bool include_object_factors_;
   bool include_visual_factors_;
@@ -25,6 +35,10 @@ struct OptimizationScopeParams {
   bool fix_visual_features_;
   bool use_pom_;          // Effectively false if fix_objects_ is true
   bool fix_ltm_objects_;  // Effectively true if fix_objects_ is true
+
+  // This will only filter out factors. A factor could still be excluded even if not in this list if one of the other flags excludes it (ex. include_visual_features)
+  // TODO peraps include object factors/include visual factors should be merged with this?
+  std::unordered_set<vslam_types_refactor::FactorType> factor_types_to_exclude; // Should be true for LTM extraction, false otherwise.
   vslam_types_refactor::FrameId min_frame_id_;
   vslam_types_refactor::FrameId max_frame_id_;
   // TODO consider adding set of nodes to optimize -- for now, we'll just assume
@@ -296,6 +310,10 @@ class ObjectPoseGraphOptimizer {
         required_feature_factors[matching_factor.first].insert(
             matching_factor.second);
       }
+    }
+
+    for (const vslam_types_refactor::FactorType &type_to_exclude : optimization_scope.factor_types_to_exclude) {
+      required_feature_factors.erase(type_to_exclude);
     }
 
     // Remove unused residual blocks from the problem

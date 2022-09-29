@@ -20,7 +20,7 @@ class AbsLongTermMapFactorCreator {
  public:
   virtual bool getFactorsToInclude(
       util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
-          &ltm_factors) = 0;
+          &ltm_factors) const = 0;
 
   virtual bool createResidual(
       const std::pair<vslam_types_refactor::FactorType,
@@ -38,7 +38,7 @@ class AbsLongTermMapFactorCreator {
           CachedInfo &)> &cached_info_creator,
       ceres::Problem *problem,
       ceres::ResidualBlockId &residual_id,
-      CachedInfo &cached_info) = 0;
+      CachedInfo &cached_info) const = 0;
 };
 
 struct PairwiseCovarianceLongTermMapFactorData {
@@ -85,7 +85,7 @@ class PairwiseCovarianceLongTermObjectMapFactorCreator
   }
 
   virtual bool getFactorsToInclude(
-      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>> &ltm_factors)
+      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>> &ltm_factors) const
       override {
     for (const auto &factor_entry : factor_data_) {
       FactorType factor_type = factor_entry.first;
@@ -202,7 +202,7 @@ class IndependentEllipsoidsLongTermObjectMapFactorCreator
   }
 
   virtual bool getFactorsToInclude(
-      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>> &ltm_factors)
+      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>> &ltm_factors) const
       override {
     for (const auto &factor_entry : factor_data_) {
       FactorType factor_type = factor_entry.first;
@@ -230,7 +230,7 @@ class IndependentEllipsoidsLongTermObjectMapFactorCreator
           CachedInfo &)> &cached_info_creator,
       ceres::Problem *problem,
       ceres::ResidualBlockId &residual_id,
-      CachedInfo &cached_info) override {
+      CachedInfo &cached_info) const override {
     if (factor_data_.find(factor_info.first) == factor_data_.end()) {
       LOG(ERROR) << "Could not find factor type " << factor_info.first
                  << " when creating residual.";
