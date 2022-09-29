@@ -26,6 +26,11 @@ struct RobotPoseNode {
 
   RobotPoseNode(RawPose3d<double> &pose)
       : pose_(std::make_shared<RawPose3d<double>>(pose)) {}
+
+  RobotPoseNode makeDeepCopy() const {
+    RawPose3d<double> pose_copy(*pose_);
+    return RobotPoseNode(pose_copy);
+  }
 };
 
 struct VisualFeatureNode {
@@ -36,6 +41,11 @@ struct VisualFeatureNode {
 
   VisualFeatureNode(const Position3d<double> &position)
       : position_(std::make_shared<Position3d<double>>(position)) {}
+
+  VisualFeatureNode makeDeepCopy() const {
+    Position3d<double> position_copy(*position_);
+    return VisualFeatureNode(position_copy);
+  }
 };
 
 struct PairwiseFeatureFactor {
@@ -253,6 +263,10 @@ class LowLevelFeaturePoseGraph {
     }
     RawPose3d<double> pose(*(robot_poses_.at(frame_id).pose_));
     return pose;
+  }
+
+  std::pair<FrameId, FrameId> getMinMaxFrameId() const {
+    return std::make_pair(min_frame_id_, max_frame_id_);
   }
 
  protected:

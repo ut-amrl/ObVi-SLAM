@@ -63,18 +63,21 @@ void extractLongTermObjectMapAndResults(
     const std::shared_ptr<
         vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph>
         &pose_graph,
-    ceres::Problem *problem,
+    const pose_graph_optimizer::OptimizationFactorsEnabledParams
+        &optimization_factors_enabled_params,
     const std::function<
         bool(const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &,
-             ceres::Problem *,
+             const pose_graph_optimizer::OptimizationFactorsEnabledParams &,
              LongTermObjectMap &)> long_term_object_map_extractor,
     vslam_types_refactor::LongTermObjectMapAndResults<LongTermObjectMap>
         &output_data) {
-  long_term_object_map_extractor(
-      pose_graph, problem, output_data.long_term_map_);
+  extractEllipsoidEstimates(pose_graph, output_data.ellipsoid_results_);
   extractRobotPoseEstimates(pose_graph, output_data.robot_pose_results_);
   extractVisualFeaturePositionEstimates(pose_graph,
                                         output_data.visual_feature_results_);
+  long_term_object_map_extractor(pose_graph,
+                                 optimization_factors_enabled_params,
+                                 output_data.long_term_map_);
 }
 
 }  // namespace vslam_types_refactor

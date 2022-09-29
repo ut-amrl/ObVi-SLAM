@@ -62,6 +62,11 @@ struct EllipsoidEstimateNode {
   void updateEllipsoidParams(const RawEllipsoidPtr<double> &ellipsoid_ptr) {
     updateEllipsoidParams(*ellipsoid_ptr);
   }
+
+  EllipsoidEstimateNode makeDeepCopy() const {
+    RawEllipsoid<double> ellipsoid_copy(*ellipsoid_);
+    return EllipsoidEstimateNode(ellipsoid_copy);
+  }
 };
 
 struct ObjectObservationFactor {
@@ -111,8 +116,8 @@ class ObjAndLowLevelFeaturePoseGraph
           &long_term_map_objects_with_semantic_class,
       const std::function<bool(
           util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
-                                       vslam_types_refactor::FeatureFactorId>>&)>
-          &long_term_map_factor_provider)
+                                       vslam_types_refactor::FeatureFactorId>>
+              &)> &long_term_map_factor_provider)
       : LowLevelFeaturePoseGraph<VisualFeatureFactorType>(
             camera_extrinsics_by_camera, camera_intrinsics_by_camera),
         mean_and_cov_by_semantic_class_(mean_and_cov_by_semantic_class),
@@ -485,8 +490,11 @@ class ObjAndLowLevelFeaturePoseGraph
 
   std::function<bool(
       util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
-                                   vslam_types_refactor::FeatureFactorId>>&)>
+                                   vslam_types_refactor::FeatureFactorId>> &)>
       long_term_map_factor_provider_;
+
+  ObjAndLowLevelFeaturePoseGraph(const ObjAndLowLevelFeaturePoseGraph &other) =
+      default;
 };
 
 class ObjectAndReprojectionFeaturePoseGraph
@@ -507,8 +515,8 @@ class ObjectAndReprojectionFeaturePoseGraph
           &long_term_map_objects_with_semantic_class,
       const std::function<bool(
           util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
-                                       vslam_types_refactor::FeatureFactorId>>&)>
-          &long_term_map_factor_provider)
+                                       vslam_types_refactor::FeatureFactorId>>
+              &)> &long_term_map_factor_provider)
       : ReprojectionLowLevelFeaturePoseGraph(camera_extrinsics_by_camera,
                                              camera_intrinsics_by_camera),
         LowLevelFeaturePoseGraph<ReprojectionErrorFactor>(
@@ -520,6 +528,47 @@ class ObjectAndReprojectionFeaturePoseGraph
             long_term_map_objects_with_semantic_class,
             long_term_map_factor_provider) {}
   virtual ~ObjectAndReprojectionFeaturePoseGraph() = default;
+
+  /**
+   * WARNING: This only makes a shallow copy, so make sure that's what you want.
+   * If you want a deep(er) copy (some things are assumed to be unchanging even
+   * if there is a reference), call makeDeepCopy instead.
+   * @param other
+   */
+  ObjectAndReprojectionFeaturePoseGraph(
+      const ObjectAndReprojectionFeaturePoseGraph &other) = default;
+
+  std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> makeDeepCopy() {
+    std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> copy =
+        std::make_shared<ObjectAndReprojectionFeaturePoseGraph>(*this);
+    // Reset the fields that we don't just want a shallow copy of
+    std::unordered_map<ObjectId, EllipsoidEstimateNode>
+        ellipsoid_estimates_copy;
+    for (const auto &ellipsoid_est : this->ellipsoid_estimates_) {
+      ellipsoid_estimates_copy[ellipsoid_est.first] =
+          ellipsoid_est.second.makeDeepCopy();
+    }
+    ObjectAndReprojectionFeaturePoseGraph::ellipsoid_estimates_ =
+        ellipsoid_estimates_copy;
+
+    std::unordered_map<FrameId, RobotPoseNode> robot_poses_copy;
+    for (const auto &robot_pose_est : this->robot_poses_) {
+      robot_poses_copy[robot_pose_est.first] =
+          robot_pose_est.second.makeDeepCopy();
+    }
+    ObjectAndReprojectionFeaturePoseGraph::robot_poses_ = robot_poses_copy;
+
+    std::unordered_map<FeatureId, VisualFeatureNode> feature_positions_copy;
+    for (const auto &feature_pos_est : this->feature_positions_) {
+      feature_positions_copy[feature_pos_est.first] =
+          feature_pos_est.second.makeDeepCopy();
+    }
+    ObjectAndReprojectionFeaturePoseGraph::feature_positions_ =
+        feature_positions_copy;
+
+    // TODO verify that everything is copied appropriately such that
+    // modifications to the copy don't affect the original
+  }
 
  protected:
  private:

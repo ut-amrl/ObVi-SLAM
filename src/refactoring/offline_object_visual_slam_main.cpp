@@ -743,17 +743,26 @@ int main(int argc, char **argv) {
 
   LOG(INFO) << "Here 9";
   vtr::CovarianceExtractorParams ltm_covariance_params;
+
+  // TODO maybe replace params with something that will yield more accurate
+  // results
   vtr::IndependentEllipsoidsLongTermObjectMapExtractor<
       std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>
-      ltm_extractor(ltm_covariance_params);
+      ltm_extractor(ltm_covariance_params,
+                    residual_creator,
+                    residual_params,
+                    solver_params);
 
-  std::function<void(const MainProbData &,
-                     const MainPgPtr &,
-                     ceres::Problem *,
-                     vtr::LongTermObjectMapAndResults<MainLtm> &)>
+  std::function<void(
+      const MainProbData &,
+      const MainPgPtr &,
+      const pose_graph_optimizer::OptimizationFactorsEnabledParams &,
+      vtr::LongTermObjectMapAndResults<MainLtm> &)>
       output_data_extractor = [&](const MainProbData &input_problem_data,
                                   const MainPgPtr &pose_graph,
-                                  ceres::Problem *problem,
+                                  const pose_graph_optimizer::
+                                      OptimizationFactorsEnabledParams
+                                          &optimization_factors_enabled_params,
                                   vtr::LongTermObjectMapAndResults<MainLtm>
                                       &output_problem_data) {
         std::function<bool(
@@ -766,21 +775,26 @@ int main(int argc, char **argv) {
                       ->getFrontEndObjMapData(front_end_data);
                   return true;
                 };
-        std::function<bool(const MainPgPtr &, ceres::Problem *, MainLtm &)>
+        std::function<bool(
+            const MainPgPtr &,
+            const pose_graph_optimizer::OptimizationFactorsEnabledParams &,
+            MainLtm &)>
             long_term_object_map_extractor =
                 [&](const MainPgPtr &ltm_pose_graph,
-                    ceres::Problem *ltm_problem,
+                    const pose_graph_optimizer::OptimizationFactorsEnabledParams
+                        &ltm_optimization_factors_enabled_params,
                     MainLtm &ltm_extractor_out) {
                   return ltm_extractor.extractLongTermObjectMap(
                       ltm_pose_graph,
-                      ltm_problem,
+                      ltm_optimization_factors_enabled_params,
                       front_end_map_data_extractor,
                       ltm_extractor_out);
                 };  // TODO!
-        vtr::extractLongTermObjectMapAndResults(pose_graph,
-                                                problem,
-                                                long_term_object_map_extractor,
-                                                output_problem_data);
+        vtr::extractLongTermObjectMapAndResults(
+            pose_graph,
+            optimization_factors_enabled_params,
+            long_term_object_map_extractor,
+            output_problem_data);
       };
 
   LOG(INFO) << "Here 10";
@@ -834,7 +848,8 @@ int main(int argc, char **argv) {
                              visualization_callback,
                              solver_params);
 
-  vtr::OptimizationFactorsEnabledParams optimization_factors_enabled_params;
+  pose_graph_optimizer::OptimizationFactorsEnabledParams
+      optimization_factors_enabled_params;
   optimization_factors_enabled_params.use_pom_ = false;
   optimization_factors_enabled_params.include_visual_factors_ = false;
   optimization_factors_enabled_params.fix_poses_ = true;
