@@ -303,6 +303,9 @@ void visualizationStub(
     case vtr::AFTER_EACH_OPTIMIZATION: {
       std::unordered_map<vtr::FrameId, vtr::RawPose3d<double>>
           optimized_robot_pose_estimates;
+      std::unordered_map<vtr::FrameId, vtr::Pose3D<double>>
+          initial_robot_pose_estimates =
+              input_problem_data.getRobotPoseEstimates();
       pose_graph->getRobotPoseEstimates(optimized_robot_pose_estimates);
       std::unordered_map<vtr::FrameId, vtr::Pose3D<double>>
           optimized_trajectory;
@@ -326,11 +329,21 @@ void visualizationStub(
       //      optimized_ellipsoid_color.r = 1.0;
       optimized_ellipsoid_color.g = 1;
       vis_manager->visualizeEllipsoids(optimized_ellipsoid_estimates,
-                                       "estimated_ellipsoids",
-                                       optimized_ellipsoid_color);
+                                       vtr::ESTIMATED);
+      if (input_problem_data.getLongTermObjectMap() != nullptr) {
+        vtr::EllipsoidResults ellipsoids_in_map;
+        input_problem_data.getLongTermObjectMap()->getEllipsoidResults(
+            ellipsoids_in_map);
+        std::unordered_map<vtr::ObjectId, vtr::EllipsoidState<double>>
+            ltm_ellipsoids;
+        for (const auto &ltm_ellipsoid : ellipsoids_in_map.ellipsoids_) {
+          ltm_ellipsoids[ltm_ellipsoid.first] = ltm_ellipsoid.second.second;
+        }
+        vis_manager->visualizeEllipsoids(ltm_ellipsoids, vtr::INITIAL);
+      }
       vis_manager->visualizeCameraObservations(
           max_frame_optimized,
-          input_problem_data.getRobotPoseEstimates(),
+          initial_robot_pose_estimates,
           optimized_trajectory,
           std::nullopt,
           std::nullopt,  // TODO should we extract the initial ellipsoid
@@ -344,6 +357,20 @@ void visualizationStub(
           *observed_corner_locations,
           {},
           false);
+
+      std::vector<vtr::Pose3D<double>> est_trajectory_vec;
+      std::vector<vtr::Pose3D<double>> init_trajectory_vec;
+      for (size_t i = 0; i <= (max_frame_optimized - min_frame_optimized);
+           i++) {
+        vtr::FrameId frame_id = i + min_frame_optimized;
+        est_trajectory_vec.emplace_back(optimized_trajectory.at(frame_id));
+        init_trajectory_vec.emplace_back(
+            initial_robot_pose_estimates.at(frame_id));
+      }
+      vis_manager->visualizeTrajectory(est_trajectory_vec,
+                                       vtr::PlotType::ESTIMATED);
+      vis_manager->visualizeTrajectory(init_trajectory_vec,
+                                       vtr::PlotType::INITIAL);
       break;
     }
     case vtr::AFTER_ALL_OPTIMIZATION:
@@ -408,12 +435,12 @@ int main(int argc, char **argv) {
                      std::pair<vtr::ObjectDim<double>, vtr::ObjectDim<double>>>
       shape_mean_and_std_devs_by_semantic_class;
   Eigen::Vector3d chair_mean(0.62, 0.62, 0.975);
-  Eigen::Vector3d chair_std_dev(0.26, 0.42, 0.33);
+  Eigen::Vector3d chair_std_dev(0.05, 0.05, 0.05);
   std::string chair_class = "chair";
   shape_mean_and_std_devs_by_semantic_class[chair_class] =
       std::make_pair(chair_mean, chair_std_dev);
   Eigen::Vector3d cone_mean(0.29, 0.29, 0.48);
-  Eigen::Vector3d cone_std_dev(0.01, 0.01, 0.01);
+  Eigen::Vector3d cone_std_dev(0.001, 0.001, 0.01);
   std::string cone_class = "roadblock";
   shape_mean_and_std_devs_by_semantic_class[cone_class] =
       std::make_pair(cone_mean, cone_std_dev);

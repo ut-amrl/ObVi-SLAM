@@ -565,6 +565,7 @@ class ObjectAndReprojectionFeaturePoseGraph
     }
     ObjectAndReprojectionFeaturePoseGraph::feature_positions_ =
         feature_positions_copy;
+    return copy;
 
     // TODO verify that everything is copied appropriately such that
     // modifications to the copy don't affect the original

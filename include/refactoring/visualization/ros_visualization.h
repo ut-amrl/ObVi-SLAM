@@ -21,7 +21,11 @@ const std::string kGtPrefix = "gt_";
 const std::string kInitPrefix = "init_";
 const std::string kEstPrefix = "est_";
 
+
+enum PlotType { GROUND_TRUTH, INITIAL, ESTIMATED };
+
 class RosVisualization {
+
  public:
   RosVisualization(ros::NodeHandle &node_handle,
                    const std::string &topic_prefix = "",
@@ -48,6 +52,16 @@ class RosVisualization {
     predicted_bounding_box_from_initial_color_.r =
         0.5;  // TODO do we want these to be 1 instead?
     predicted_bounding_box_from_initial_color_.b = 0.5;
+
+    color_for_plot_type_[GROUND_TRUTH] = ground_truth_bounding_box_color_;
+    color_for_plot_type_[ESTIMATED] =
+        predicted_bounding_box_from_optimized_color_;
+    color_for_plot_type_[INITIAL] =
+        observed_bounding_box_color_;  // TODO is this the color we want?
+
+    prefixes_for_plot_type_[GROUND_TRUTH] = kGtPrefix;
+    prefixes_for_plot_type_[ESTIMATED] = kEstPrefix;
+    prefixes_for_plot_type_[INITIAL] = kInitPrefix;
   }
 
   std::string createEllipsoidFrameId(const ObjectId &ellipsoid_idx,
@@ -101,21 +115,33 @@ class RosVisualization {
   void visualizeEllipsoids(
       const std::unordered_map<ObjectId, EllipsoidState<double>>
           &ellipsoid_estimates,
+      const PlotType &plot_type) {
+    std::string topic = createTopicForPlotTypeAndBase(plot_type, kEllipsoidTopicSuffix);
+    visualizeEllipsoids(
+        ellipsoid_estimates,
+        topic,
+        color_for_plot_type_.at(plot_type));
+  }
+
+  void visualizeEllipsoids(
+      const std::unordered_map<ObjectId, EllipsoidState<double>>
+          &ellipsoid_estimates,
       const std::string &topic,
       const std_msgs::ColorRGBA &color) {
-    if (publishers_by_topic_.find(topic) == publishers_by_topic_.end()) {
-      ros::Publisher ellipsoid_pub =
-          node_handle_.advertise<visualization_msgs::Marker>(
-              topic_prefix_ + topic, kEllipsoidMarkerPubQueueSize);
-      publishers_by_topic_[topic_prefix_ + topic] = ellipsoid_pub;
-      ros::Duration(kSleepAfterPubCreationTime).sleep();
-    }
-    ros::Publisher pub = publishers_by_topic_[topic_prefix_ + topic];
+    ros::Publisher pub = getOrCreatePublisher<visualization_msgs::Marker>(
+        topic, kEllipsoidMarkerPubQueueSize);
     for (const auto &ellipsoid : ellipsoid_estimates) {
-      //      LOG(INFO) << "Publishing ellipsoid at pose " << ellipsoid.loc << "
-      //      with dim " << ellipsoid.ellipsoid_dim;
       publishEllipsoid(ellipsoid.second, ellipsoid.first, pub, color);
     }
+  }
+
+  void visualizeTrajectory(const std::vector<Pose3D<double>> &trajectory,
+                      const PlotType &plot_type) {
+    ros::Publisher pub = getOrCreatePublisher<visualization_msgs::Marker>(
+        createTopicForPlotTypeAndBase(plot_type, kPoseTopicSuffix),
+        kRobotPoseMarkerPubQueueSize);
+    std_msgs::ColorRGBA color = color_for_plot_type_.at(plot_type);
+    publishTrajectory(pub, color, trajectory);
   }
 
   // TODO modify this to also take min frame
@@ -413,10 +439,10 @@ class RosVisualization {
                                         predicted_corners_from_gt);
 
           if (pose_idx == max_frame) {
-            std::pair<std::string, std::string> last_image_and_camera_info_topics =
-                createLatestImageAndCameraInfoTopicsForTrajectoryTypeCameraId(
-                    cam_id_and_extrinsics.first,
-                    trajectory_type_prefix);
+            std::pair<std::string, std::string>
+                last_image_and_camera_info_topics =
+                    createLatestImageAndCameraInfoTopicsForTrajectoryTypeCameraId(
+                        cam_id_and_extrinsics.first, trajectory_type_prefix);
             publishImageWithBoundingBoxes(
                 last_image_and_camera_info_topics.first,
                 last_image_and_camera_info_topics.second,
@@ -624,6 +650,7 @@ class RosVisualization {
 
  private:
   const static uint32_t kEllipsoidMarkerPubQueueSize = 100;
+  const static uint32_t kRobotPoseMarkerPubQueueSize = 1000;
 
   const static uint32_t kCameraInfoQueueSize = 100;
 
@@ -650,6 +677,19 @@ class RosVisualization {
 
   std_msgs::ColorRGBA predicted_bounding_box_from_initial_color_;
 
+  std::unordered_map<PlotType, std_msgs::ColorRGBA> color_for_plot_type_;
+  std::unordered_map<PlotType, std::string> prefixes_for_plot_type_;
+
+  // TODO maybe have another topic for LTM ellipsoids?
+  const std::string kEllipsoidTopicSuffix = "ellipsoids";
+
+  const std::string kPoseTopicSuffix = "pose";
+
+  const int32_t kTrajectoryMarkerNum = 1;
+  const int32_t kMaxRobotPoseMarkerNum = std::numeric_limits<int32_t>::max();
+
+  const double kTrajectoryScaleX = 0.02;
+
   /**
    * Node handle.
    */
@@ -673,18 +713,16 @@ class RosVisualization {
 
   template <typename T>
   ros::Publisher getOrCreatePublisher(
-      const std::string &camera_info_topic,
+      const std::string &topic_name,
       const int &queue_size,
       const ros::Duration &sleep_after_create =
           ros::Duration(kSleepAfterPubCreationTime)) {
-    if (publishers_by_topic_.find(camera_info_topic) ==
-        publishers_by_topic_.end()) {
-      ros::Publisher pub =
-          node_handle_.advertise<T>(camera_info_topic, queue_size);
-      publishers_by_topic_[camera_info_topic] = pub;
+    if (publishers_by_topic_.find(topic_name) == publishers_by_topic_.end()) {
+      ros::Publisher pub = node_handle_.advertise<T>(topic_name, queue_size);
+      publishers_by_topic_[topic_name] = pub;
       sleep_after_create.sleep();
     }
-    return publishers_by_topic_[camera_info_topic];
+    return publishers_by_topic_[topic_name];
   }
 
   void publishMarker(visualization_msgs::Marker &marker_msg,
@@ -724,6 +762,11 @@ class RosVisualization {
     marker.color = color;
 
     publishMarker(marker, pub);
+  }
+
+  std::string createTopicForPlotTypeAndBase(const PlotType &plot_type,
+                                            const std::string &base_topic) {
+    return topic_prefix_ + prefixes_for_plot_type_.at(plot_type) + base_topic;
   }
 
   cv::Scalar convertColorMsgToOpenCvColor(const std_msgs::ColorRGBA &color) {
@@ -870,6 +913,82 @@ class RosVisualization {
 
     intrinsics_pub.publish(cam_info);
     image_pub.publish(image);
+  }
+
+  void publishTrajectory(ros::Publisher &marker_pub,
+                         const std_msgs::ColorRGBA &color,
+                         const std::vector<Pose3D<double>> &trajectory_poses) {
+    visualization_msgs::Marker marker_msg;
+    marker_msg.id = kTrajectoryMarkerNum;
+    marker_msg.color = color;
+
+    marker_msg.type = visualization_msgs::Marker::LINE_STRIP;
+    marker_msg.scale.x = kTrajectoryScaleX;
+    for (const Pose3D<double> &traj_pose : trajectory_poses) {
+      geometry_msgs::Point point;
+      point.x = traj_pose.transl_.x();
+      point.y = traj_pose.transl_.y();
+      point.z = traj_pose.transl_.z();
+      marker_msg.points.emplace_back(point);
+    }
+
+    marker_msg.pose.orientation.w = 1.0;
+    publishMarker(marker_msg, marker_pub);
+
+    // Also publish box for each pose in the trajectory
+    publishRobotPoses(marker_pub,
+                      trajectory_poses,
+                      color,
+                      kTrajectoryMarkerNum + 1,
+                      kMaxRobotPoseMarkerNum);
+  }
+
+  void publishRobotPoses(ros::Publisher &marker_pub,
+                         const std::vector<Pose3D<double>> &robot_poses,
+                         const std_msgs::ColorRGBA &color,
+                         const int32_t min_id,
+                         const int32_t max_id) {
+    for (size_t i = 0; i < robot_poses.size(); i++) {
+      publishRobotPose(marker_pub, robot_poses[i], color, min_id + i);
+    }
+  }
+
+  void publishRobotPose(ros::Publisher &marker_pub,
+                        const Pose3D<double> &robot_pose,
+                        const std_msgs::ColorRGBA &color,
+                        const int32_t id,
+                        bool bigger = false) {
+    visualization_msgs::Marker marker_msg;
+
+    marker_msg.scale.x = 0.025;
+    marker_msg.scale.y = 0.05;
+    marker_msg.scale.z = 0.025;
+
+    if (bigger) {
+      //                marker_msg.scale.x = 0.8;
+      //                marker_msg.scale.y = 0.6;
+
+      marker_msg.scale.x = 1.2;
+      marker_msg.scale.y = 0.9;
+      marker_msg.scale.z = 0.3;
+    }
+
+    marker_msg.pose.position.x = robot_pose.transl_.x();
+    marker_msg.pose.position.y = robot_pose.transl_.y();
+    marker_msg.pose.position.z = robot_pose.transl_.z();
+
+    Eigen::Quaterniond quat(robot_pose.orientation_);
+    marker_msg.pose.orientation.w = quat.w();
+    marker_msg.pose.orientation.x = quat.x();
+    marker_msg.pose.orientation.y = quat.y();
+    marker_msg.pose.orientation.z = quat.z();
+
+    marker_msg.type = visualization_msgs::Marker::CUBE;
+
+    marker_msg.color = color;
+    marker_msg.id = id;
+
+    publishMarker(marker_msg, marker_pub);
   }
 };
 }  // namespace vslam_types_refactor
