@@ -117,13 +117,17 @@ struct IVBoundingBox {
   std::shared_ptr<cv::Mat> imgPatchPtr_;
   IVBoundingBox() {}
 
+  IVBoundingBox(const Timestamp& timestamp, const YOLOBBoxVec<T>& yoloVec, 
+    const BbCorners<T>& gt, const std::shared_ptr<cv::Mat> imgPtr) 
+    : timestamp_(timestamp), yoloVec_(yoloVec), gt_(gt), imgPtr_(imgPtr) {}
+
   IVBoundingBox(
-    const Timestamp timestamp, 
+    const Timestamp& timestamp, 
     const YOLOBBoxVec<T>& yoloVec, 
     const BbCorners<T>& gt, 
-    const cv::Mat img,
+    const cv::Mat& img,
     const std::function<Eigen::Matrix<T, 4, 1>(const BbCorners<T>& measurement, const BbCorners<T>& gt)> errFunc,
-    const std::function<void(const cv::Mat& inImg, cv::Mat outImg)> patchExtractor) 
+    const std::function<void(const cv::Mat& inImg, cv::Mat& outImg)> patchExtractor) 
     : timestamp_(timestamp), yoloVec_(yoloVec), gt_(gt) {
     err_ = errFunc(yoloVec.measurement_, gt);
     imgPtr_ = std::make_shared<cv::Mat>(img);
@@ -133,12 +137,12 @@ struct IVBoundingBox {
   }
 
   IVBoundingBox(
-    const Timestamp timestamp, 
+    const Timestamp& timestamp, 
     const YOLOBBoxVec<T>& yoloVec, 
     const BbCorners<T>& gt, 
     const std::shared_ptr<cv::Mat> imgPtr,
-    const std::function<Eigen::Matrix<T, 4, 1>(const BbCorners<T>& measurement, const BbCorners<T>& gt)> errFunc,
-    const std::function<void(const cv::Mat& inImg, cv::Mat outImg)> patchExtractor) 
+    const std::function<Eigen::Matrix<T, 4, 1>(const BbCorners<T>& measurement, const BbCorners<T>& gt)>& errFunc,
+    const std::function<void(const cv::Mat& inImg, cv::Mat& outImg)>& patchExtractor) 
     : timestamp_(timestamp), yoloVec_(yoloVec), gt_(gt), imgPtr_(imgPtr) {
     err_ = errFunc(yoloVec.measurement_, gt);
     cv::Mat imgPatch;
@@ -147,7 +151,17 @@ struct IVBoundingBox {
   }
 };
 
+typedef uint32_t ClusterId;
+
 template <typename T>
-using IVBoundingBoxArr = vector<std::shared_ptr<IVBoundingBox<T>>>;
+struct PCLCluster {
+  string label_;
+  vector<std::shared_ptr<Eigen::Vector3f>> pointPtrs_;
+  Eigen::Vector3f centroid_;
+  CubeState<T> state_;
+  PCLCluster() {}
+  PCLCluster(const string& label, const vector<std::shared_ptr<Eigen::Vector3f>>& pointPtrs) 
+    : label_(label), pointPtrs_(pointPtrs) {}
+};
 
 }

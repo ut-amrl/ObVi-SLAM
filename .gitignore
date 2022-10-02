@@ -5,3 +5,4 @@ build/*
 media/*
 .idea/*
 cmake-build-debug/*
+debug/

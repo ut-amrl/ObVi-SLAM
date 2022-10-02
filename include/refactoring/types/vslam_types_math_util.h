@@ -111,9 +111,14 @@ bool posesAlmostSame(const Pose2D<NumType>& p1, const Pose2D<NumType>& p2, const
 
 template <typename NumType>
 Pose2D<NumType> combinePoses(const Pose2D<NumType>& pose1, const Pose2D<NumType>& pose2) {
+  // std::cout << "[combinePoses] pose1: " << pose1.transl_.transpose() << "," << pose1.orientation_ << std::endl;
+  // std::cout << "[combinePoses] pose2: " << pose2.transl_.transpose() << "," << pose2.orientation_ << std::endl;
   Eigen::Transform<NumType, 2, Eigen::Affine> affine1 = convertPoseToAffine(pose1);
   Eigen::Transform<NumType, 2, Eigen::Affine> affine2 = convertPoseToAffine(pose2);
+  // std::cout << "[combinePoses] affine1: " << std::endl << affine1.translation() << std::endl;
+  // std::cout << "[combinePoses] affine2: " << std::endl << affine2.translation() << std::endl;
   Eigen::Transform<NumType, 2, Eigen::Affine> combinedAffine = affine1 * affine2;
+  // std::cout << "[combinePoses] combinedAffine: " << std::endl << combinedAffine.data() << std::endl;
   return convertAffineToPose(combinedAffine);
 }
 
@@ -209,13 +214,15 @@ Pose2D<NumType> interpolatePosesIn2D(
   const Timestamp& targetTime) {
 
   Pose2D<NumType> relPose = getPoseOfObj1RelToObj2(pose2, pose1);
+
   uint64_t pose1Millis  = timestampToMillis(t1);
   uint64_t pose2Millis  = timestampToMillis(t2);
   uint64_t targetMillis = timestampToMillis(targetTime);
+
   NumType fraction = ((NumType) (targetMillis - pose1Millis)) / (pose2Millis - pose1Millis);
   Pose2D<NumType> relPoseInterpolated;
   relPoseInterpolated = createPose2D(relPose.transl_[0]*fraction, relPose.transl_[1]*fraction, relPose.orientation_*fraction);
-  if (abs(relPose.orientation_) > 1e-10) {
+  if ( abs(1.0-cos(relPose.orientation_)) > 1e-7 ) {
     NumType radius = sqrt(relPose.transl_.squaredNorm() / (2 * (1 - cos(relPose.orientation_))));
     NumType x = radius * sin(abs(relPose.orientation_) * fraction);
     NumType y = radius - (radius * cos(relPose.orientation_ * fraction));
@@ -224,8 +231,10 @@ Pose2D<NumType> interpolatePosesIn2D(
       y = -y;
       x = -x;
     }
+    // std::cout << "[interpolatePosesIn2D] xya: " << x << "," << y << "," << relPose.orientation_ << std::endl;
     relPoseInterpolated = createPose2D(x, y, fraction*relPose.orientation_);
   }
+
   return combinePoses(pose1, relPoseInterpolated);
 }
 
@@ -258,14 +267,9 @@ Pose3D<NumType> interpolatePosesIn2D(
   const Timestamp& t2, const Pose3D<NumType>& pose2,
   const Timestamp& targetTime) {
 
-  // Pose2D<NumType> pose2D1, pose2D2,retPose2D;  
-  // Pose3D<NumType> retPose;
+  Pose2D<NumType> pose2D1, pose2D2,retPose2D;  
+  Pose3D<NumType> retPose;
 
-  // pose2D1 = toPose2D(pose1);
-  // pose2D2 = toPose2D(pose2);
-  // retPose2D = interpolatePosesIn2D(t1, toPose2D(pose1), t2, toPose2D(pose2), targetTime);
-  // retPose = toPose3D(retPose2D);
-  // return retPose;
   return toPose3D(interpolatePosesIn2D(t1, toPose2D(pose1), t2, toPose2D(pose2), targetTime));
 }
 
