@@ -102,14 +102,14 @@ void addFrameDataAssociatedBoundingBox(
     exit(1);
     return;
   }
+  LOG(INFO) << "Adding frame " << frame_to_add;
   if (frame_to_add == 0) {
     pose_graph->addFrame(frame_to_add, pose_at_frame_init_est);
   } else {
     // Get difference between frame and previous and then use the latest pose
     // estimate for the previous frame to update the estimate for the current
-
     Pose3D<double> prev_pose_init;
-    LOG(INFO) << "Adding frame " << frame_to_add;
+
     if (!input_problem_data.getRobotPoseEstimateForFrame(frame_to_add - 1,
                                                          prev_pose_init)) {
       // TODO should this find the closest frame to this node as a fallback

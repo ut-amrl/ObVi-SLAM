@@ -7,12 +7,13 @@
 
 #include <file_io/file_io_utils.h>
 
+#include <boost/algorithm/string.hpp>
 #include <cstdint>
 #include <string>
-#include <boost/algorithm/string.hpp>
 
 namespace file_io {
 
+static const double kDefaultBbWithNodeTimestampConfidence = 0.2;
 const uint64_t kDefaultCameraId = std::numeric_limits<uint64_t>::max();
 
 struct BoundingBoxWithTimestampAndId {
@@ -38,6 +39,8 @@ struct BoundingBoxWithTimestampAndId {
    * Id of the camera that captured this boundign box.
    */
   uint64_t camera_id;
+
+  double detection_confidence;
 };
 
 struct BoundingBoxWithTimestamp {
@@ -58,9 +61,11 @@ struct BoundingBoxWithTimestamp {
   uint32_t nano_seconds;
 
   /**
-   * Id of the camera that captured this boundign box.
+   * Id of the camera that captured this bounding box.
    */
   uint64_t camera_id;
+
+  double detection_confidence;
 };
 
 std::vector<std::string> convertBoundingBoxWithTimestampAndIdToStringList(
@@ -75,7 +80,8 @@ std::vector<std::string> convertBoundingBoxWithTimestampAndIdToStringList(
           sem_class,
           std::to_string(bounding_box.seconds),
           std::to_string(bounding_box.nano_seconds),
-          std::to_string(bounding_box.camera_id)};
+          std::to_string(bounding_box.camera_id),
+          std::to_string(bounding_box.detection_confidence)};
 }
 
 std::vector<std::string> convertBoundingBoxWithTimestampToStringList(
@@ -89,7 +95,8 @@ std::vector<std::string> convertBoundingBoxWithTimestampToStringList(
           sem_class,
           std::to_string(bounding_box.seconds),
           std::to_string(bounding_box.nano_seconds),
-          std::to_string(bounding_box.camera_id)};
+          std::to_string(bounding_box.camera_id),
+          std::to_string(bounding_box.detection_confidence)};
 }
 
 void writeBoundingBoxWithTimestampAndIdsToFile(
@@ -107,7 +114,8 @@ void writeBoundingBoxWithTimestampAndIdsToFile(
                                "semantic_class",
                                "seconds",
                                "nano_seconds",
-                               "camera_id"},
+                               "camera_id",
+                               "detection_confidence"},
                               bounding_boxes,
                               object_to_str_list_converter);
 }
@@ -126,7 +134,8 @@ void writeBoundingBoxWithTimestampsToFile(
                                "semantic_class",
                                "seconds",
                                "nano_seconds",
-                               "camera_id"},
+                               "camera_id",
+                               "detection_confidence"},
                               bounding_boxes,
                               object_to_str_list_converter);
 }
@@ -134,7 +143,6 @@ void writeBoundingBoxWithTimestampsToFile(
 void readBoundingBoxWithTimestampAndIdLine(
     const std::vector<std::string> &entries_in_file_line,
     BoundingBoxWithTimestampAndId &bounding_box) {
-
   size_t list_idx = 0;
   std::istringstream ellipsoid_idx_stream(entries_in_file_line[list_idx++]);
   ellipsoid_idx_stream >> bounding_box.ellipsoid_idx;
@@ -155,6 +163,12 @@ void readBoundingBoxWithTimestampAndIdLine(
 
   std::istringstream cam_id_stream(entries_in_file_line[list_idx++]);
   cam_id_stream >> bounding_box.camera_id;
+
+  if (entries_in_file_line.size() < list_idx) {
+    bounding_box.detection_confidence = std::stod(entries_in_file_line[list_idx++]);
+  } else {
+    bounding_box.detection_confidence = kDefaultBbWithNodeTimestampConfidence;
+  }
 }
 
 void readBoundingBoxWithTimestampLine(
@@ -182,6 +196,11 @@ void readBoundingBoxWithTimestampLine(
   if (list_idx < entries_in_file_line.size()) {
     std::istringstream cam_id_stream(entries_in_file_line[list_idx++]);
     cam_id_stream >> bounding_box.camera_id;
+  }
+  if (list_idx < entries_in_file_line.size()) {
+    bounding_box.detection_confidence = std::stod(entries_in_file_line[list_idx++]);
+  } else {
+    bounding_box.detection_confidence = kDefaultBbWithNodeTimestampConfidence;
   }
 }
 

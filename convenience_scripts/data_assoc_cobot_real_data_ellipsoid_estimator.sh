@@ -64,7 +64,8 @@ ltm_prefix=long_term_map_
 #poses_by_node_prefix=empty_bbs_min_dedupe_localization_by_node_id_
 #timestamps_by_node_prefix=empty_bbs_min_dedupe_timestamp_by_node_id_
 
-rosbag_prefix=images_
+#rosbag_prefix=images_
+rosbag_prefix=""
 
 #rosbag_file=${bag_file_orig_dir}${rosbag_base_name}${bag_suffix}
 #rosbag_file=${bag_file_bb_dir}${rosbag_prefix}${rosbag_base_name}${bag_suffix}

@@ -45,14 +45,13 @@ DEFINE_bool(merge_deduped_poses,
             "True if deduped poses should have their bbs merged; false if the "
             "dupes should just be dropped");
 
-
 const double kMaxPoseIncThresholdTransl = 1.0;
 const double kMaxPoseIncThresholdRot = 0.25;  // TODO?
 
 // const double kPoseEquivTolerance = 1e-3;
 
-//const double kPoseEquivToleranceTransl = 0.2;
-//const double kPoseEquivToleranceRot = 0.2;
+// const double kPoseEquivToleranceTransl = 0.2;
+// const double kPoseEquivToleranceRot = 0.2;
 const double kPoseEquivToleranceTransl = 2e-3;
 const double kPoseEquivToleranceRot = 2e-3;
 // const double kPoseEquivTolerance = 0;
@@ -144,7 +143,6 @@ void interpolateTimestamps(
             << full_timestamps.back().second;
 
   std::unordered_set<Timestamp, pair_hash> bounding_boxes_timestamp_set;
-
   std::vector<BbByTimestampType> bounding_boxes_by_timestamp;
   bb_by_timestamp_reader(bb_by_timestamp_file_name,
                          bounding_boxes_by_timestamp);
@@ -162,7 +160,6 @@ void interpolateTimestamps(
   Timestamp last_bb_timestamp =
       std::make_pair(bounding_boxes_by_timestamp.back().seconds,
                      bounding_boxes_by_timestamp.back().nano_seconds);
-
   if (!timestamp_sort()(full_timestamps.front(), first_bb_timestamp)) {
     LOG(INFO) << "The first odom timestamp is greater than the first "
                  "bb timestamp";
@@ -171,7 +168,6 @@ void interpolateTimestamps(
     LOG(INFO) << "Last bb timestamp is not less than or equal to "
                  "the odom timestamp";
   }
-
   std::vector<Timestamp> sorted_bb_timestamps;
   sorted_bb_timestamps.insert(sorted_bb_timestamps.end(),
                               bounding_boxes_timestamp_set.begin(),
@@ -186,8 +182,12 @@ void interpolateTimestamps(
             << sorted_bb_timestamps.back().second;
   std::vector<pose::Pose2d> poses_to_use;
   std::vector<Timestamp> timestamps_to_use;
+
   poses_to_use.emplace_back(full_odom_frame_poses[0]);
+
   timestamps_to_use.emplace_back(full_timestamps[0]);
+  LOG(INFO) << "Added first timestamp " << full_timestamps[0];
+
   size_t index_next_semantic_point_timestamp_to_check = 0;
   if (!sorted_bb_timestamps.empty()) {
     // If the first full timestamp is not less than or equal to the first sorted
@@ -197,7 +197,6 @@ void interpolateTimestamps(
       index_next_semantic_point_timestamp_to_check = 1;
     }
   }
-
   for (size_t i = 1; i < full_timestamps.size(); i++) {
     bool added_pose = false;
 
@@ -260,7 +259,6 @@ void interpolateTimestamps(
   } else {
     LOG(INFO) << "Deduped";
   }
-
   std::vector<pose::Pose2d> poses_rel_to_origin;
   poses_rel_to_origin.emplace_back(pose::createPose2d(0, 0, 0));
   pose::Pose2d first_pose = poses_to_use[0];
@@ -271,7 +269,6 @@ void interpolateTimestamps(
   }
 
   std::unordered_map<Timestamp, uint64_t, pair_hash> nodes_by_timestamp;
-
   std::vector<pose::Pose2d> deduped_poses_rel_to_origin;
   std::vector<file_io::NodeIdAndTimestamp> nodes_with_timestamps;
   file_io::NodeIdAndTimestamp first_node;
@@ -299,7 +296,6 @@ void interpolateTimestamps(
         nodes_by_timestamp[timestamps_to_use[i]] = node_with_timestamp.node_id_;
       }
     }
-
     if (FLAGS_merge_deduped_poses) {
       file_io::NodeIdAndTimestamp node_with_timestamp;
       node_with_timestamp.node_id_ = deduped_poses_rel_to_origin.size() - 1;
@@ -395,7 +391,6 @@ int main(int argc, char **argv) {
   }
 
   if (!FLAGS_bb_by_timestamp_file_with_association.empty()) {
-
     LOG(INFO) << "Getting timestamps from file "
               << FLAGS_bb_by_timestamp_file_with_association;
     std::function<file_io::BoundingBoxWithNodeIdAndId(
@@ -412,6 +407,8 @@ int main(int argc, char **argv) {
               bb_with_node.max_pixel_y = bb_with_timestamp.max_pixel_y;
               bb_with_node.ellipsoid_idx = bb_with_timestamp.ellipsoid_idx;
               bb_with_node.camera_id = bb_with_timestamp.camera_id;
+              bb_with_node.detection_confidence =
+                  bb_with_timestamp.detection_confidence;
               bb_with_node.node_id = node_id;
               return bb_with_node;
             };
@@ -437,6 +434,8 @@ int main(int argc, char **argv) {
               bb_with_node.max_pixel_x = bb_with_timestamp.max_pixel_x;
               bb_with_node.max_pixel_y = bb_with_timestamp.max_pixel_y;
               bb_with_node.camera_id = bb_with_timestamp.camera_id;
+              bb_with_node.detection_confidence =
+                  bb_with_timestamp.detection_confidence;
               bb_with_node.node_id = node_id;
               return bb_with_node;
             };

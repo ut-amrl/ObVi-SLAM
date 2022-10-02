@@ -16,6 +16,8 @@ struct UninitializedObjectFactor {
 
   BbCorners<double> bounding_box_corners_;
 
+  double detection_confidence_;
+
   Covariance<double, 4> bounding_box_corners_covariance_;
 };
 
@@ -89,7 +91,8 @@ class AbstractBoundingBoxFrontEnd {
 
     std::vector<SingleBbContextInfo> single_bb_appearance_infos;
     for (const RawBoundingBox &bb : bounding_boxes) {
-      LOG(INFO) << "refined context has value? " << refined_context.hsv_img_.has_value();
+      LOG(INFO) << "refined context has value? "
+                << refined_context.hsv_img_.has_value();
       single_bb_appearance_infos.emplace_back(
           generateSingleBoundingBoxContextInfo(
               bb, frame_id, camera_id, refined_context));
@@ -121,8 +124,12 @@ class AbstractBoundingBoxFrontEnd {
               bb.pixel_corner_locations_);
       SingleBbContextInfo single_bb_info = single_bb_appearance_infos[bb_index];
       if (associated_obj.initialized_ellipsoid_) {
-        addObservationForObject(
-            frame_id, camera_id, associated_obj.object_id_, bb_corners, bb_cov);
+        addObservationForObject(frame_id,
+                                camera_id,
+                                associated_obj.object_id_,
+                                bb_corners,
+                                bb_cov,
+                                bb.detection_confidence_);
         mergeSingleBbContextIntoObjectAssociationInfo(
             bb,
             frame_id,
@@ -136,6 +143,7 @@ class AbstractBoundingBoxFrontEnd {
         uninitialized_object_factor.camera_id_ = camera_id;
         uninitialized_object_factor.bounding_box_corners_ = bb_corners;
         uninitialized_object_factor.bounding_box_corners_covariance_ = bb_cov;
+        uninitialized_object_factor.detection_confidence_ = bb.detection_confidence_;
 
         if (associated_obj.object_id_ >= uninitialized_object_info_.size()) {
           uninitialized_object_info_.emplace_back(
@@ -205,7 +213,8 @@ class AbstractBoundingBoxFrontEnd {
                                     bb_factor.camera_id_,
                                     new_obj_id,
                                     bb_factor.bounding_box_corners_,
-                                    bb_factor.bounding_box_corners_covariance_);
+                                    bb_factor.bounding_box_corners_covariance_,
+                                    bb_factor.detection_confidence_);
           }
         }
       }
@@ -319,13 +328,15 @@ class AbstractBoundingBoxFrontEnd {
                                        const CameraId &camera_id,
                                        const ObjectId &object_id,
                                        const BbCorners<double> &bb_corners,
-                                       const Covariance<double, 4> &bb_cov) {
+                                       const Covariance<double, 4> &bb_cov,
+                                       const double &detection_confidence) {
     ObjectObservationFactor factor;
     factor.frame_id_ = frame_id;
     factor.camera_id_ = camera_id;
     factor.object_id_ = object_id;
     factor.bounding_box_corners_ = bb_corners;
     factor.bounding_box_corners_covariance_ = bb_cov;
+    factor.detection_confidence_ = detection_confidence;
     pose_graph_->addObjectObservation(factor);
   }
 
@@ -388,9 +399,10 @@ class KnownAssociationsOptionalEllipsoidEstBoundingBoxFrontEnd
         covariance_generator_(covariance_generator),
         bb_context_refiner_(bb_context_refiner) {}
 
-  virtual bool getFrontEndObjMapData(std::unordered_map<vslam_types_refactor::ObjectId,
-                                             KnownAssociationObjAssociationInfo>
-                              &map_data) override {
+  virtual bool getFrontEndObjMapData(
+      std::unordered_map<vslam_types_refactor::ObjectId,
+                         KnownAssociationObjAssociationInfo> &map_data)
+      override {
     map_data = AbstractBoundingBoxFrontEnd<
         VisualFeatureFactorType,
         KnownAssociationObjAssociationInfo,

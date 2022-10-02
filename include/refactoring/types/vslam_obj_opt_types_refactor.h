@@ -57,6 +57,8 @@ struct RawBoundingBox {
    * possible semantic classes with their likelihood?
    */
   std::string semantic_class_;
+
+  double detection_confidence_;
 };
 
 struct RawBoundingBoxObservation {
@@ -136,8 +138,8 @@ bool operator==(const RawBoundingBox &bb_1, const RawBoundingBox &bb_2);
 
 template <typename NumType>
 std::size_t hash_value(const RawBoundingBox &bb) {
-  boost::hash<std::pair<std::string, BbCornerPair<NumType>>> hasher;
-  return hasher(std::make_pair(bb.semantic_class_, bb.pixel_corner_locations_));
+  boost::hash<std::pair<std::pair<std::string, BbCornerPair<NumType>>, double>> hasher;
+  return hasher(std::make_pair(std::make_pair(bb.semantic_class_, bb.pixel_corner_locations_), bb.detection_confidence_));
 }
 
 }  // namespace vslam_types_refactor

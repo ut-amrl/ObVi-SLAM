@@ -21,11 +21,9 @@ const std::string kGtPrefix = "gt_";
 const std::string kInitPrefix = "init_";
 const std::string kEstPrefix = "est_";
 
-
 enum PlotType { GROUND_TRUTH, INITIAL, ESTIMATED };
 
 class RosVisualization {
-
  public:
   RosVisualization(ros::NodeHandle &node_handle,
                    const std::string &topic_prefix = "",
@@ -116,11 +114,10 @@ class RosVisualization {
       const std::unordered_map<ObjectId, EllipsoidState<double>>
           &ellipsoid_estimates,
       const PlotType &plot_type) {
-    std::string topic = createTopicForPlotTypeAndBase(plot_type, kEllipsoidTopicSuffix);
+    std::string topic =
+        createTopicForPlotTypeAndBase(plot_type, kEllipsoidTopicSuffix);
     visualizeEllipsoids(
-        ellipsoid_estimates,
-        topic,
-        color_for_plot_type_.at(plot_type));
+        ellipsoid_estimates, topic, color_for_plot_type_.at(plot_type));
   }
 
   void visualizeEllipsoids(
@@ -136,7 +133,7 @@ class RosVisualization {
   }
 
   void visualizeTrajectory(const std::vector<Pose3D<double>> &trajectory,
-                      const PlotType &plot_type) {
+                           const PlotType &plot_type) {
     ros::Publisher pub = getOrCreatePublisher<visualization_msgs::Marker>(
         createTopicForPlotTypeAndBase(plot_type, kPoseTopicSuffix),
         kRobotPoseMarkerPubQueueSize);
@@ -170,7 +167,9 @@ class RosVisualization {
           FrameId,
           std::unordered_map<
               CameraId,
-              std::unordered_map<ObjectId, BbCornerPair<double>>>>
+              std::unordered_map<
+                  ObjectId,
+                  std::pair<BbCornerPair<double>, std::optional<double>>>>>
           &observed_corner_locations,
       const std::unordered_map<
           FrameId,
@@ -196,53 +195,206 @@ class RosVisualization {
     // trajectory
     publishTransformsForEachCamera(
         max_frame, initial_trajectory, extrinsics, kInitPrefix);
-    publishBoundingBoxDataFromTrajectory(max_frame,
-                                         initial_trajectory,
-                                         kInitPrefix,
-                                         initial_ellipsoid_estimates,
-                                         optimized_ellipsoid_estimates,
-                                         gt_ellipsoid_estimates,
-                                         extrinsics,
-                                         intrinsics,
-                                         img_heights_and_widths,
-                                         images,
-                                         observed_corner_locations,
-                                         gt_corner_locations,
-                                         display_boxes_if_no_image);
+    publishBoundingBoxDataFromTrajectory(
+        max_frame,
+        initial_trajectory,
+        prefixes_for_plot_type_.at(PlotType::INITIAL),
+        initial_ellipsoid_estimates,
+        optimized_ellipsoid_estimates,
+        gt_ellipsoid_estimates,
+        extrinsics,
+        intrinsics,
+        img_heights_and_widths,
+        images,
+        observed_corner_locations,
+        gt_corner_locations,
+        display_boxes_if_no_image);
     if (optimized_trajectory.has_value()) {
       publishTransformsForEachCamera(
           max_frame, optimized_trajectory.value(), extrinsics, kEstPrefix);
-      publishBoundingBoxDataFromTrajectory(max_frame,
-                                           optimized_trajectory.value(),
-                                           kEstPrefix,
-                                           initial_ellipsoid_estimates,
-                                           optimized_ellipsoid_estimates,
-                                           gt_ellipsoid_estimates,
-                                           extrinsics,
-                                           intrinsics,
-                                           img_heights_and_widths,
-                                           images,
-                                           observed_corner_locations,
-                                           gt_corner_locations,
-                                           display_boxes_if_no_image);
+      publishBoundingBoxDataFromTrajectory(
+          max_frame,
+          optimized_trajectory.value(),
+          prefixes_for_plot_type_.at(PlotType::ESTIMATED),
+          initial_ellipsoid_estimates,
+          optimized_ellipsoid_estimates,
+          gt_ellipsoid_estimates,
+          extrinsics,
+          intrinsics,
+          img_heights_and_widths,
+          images,
+          observed_corner_locations,
+          gt_corner_locations,
+          display_boxes_if_no_image);
     }
     if (gt_trajectory.has_value()) {
       publishTransformsForEachCamera(
           max_frame, gt_trajectory.value(), extrinsics, kGtPrefix);
-      publishBoundingBoxDataFromTrajectory(max_frame,
-                                           gt_trajectory.value(),
-                                           kGtPrefix,
-                                           initial_ellipsoid_estimates,
-                                           optimized_ellipsoid_estimates,
-                                           gt_ellipsoid_estimates,
-                                           extrinsics,
-                                           intrinsics,
-                                           img_heights_and_widths,
-                                           images,
-                                           observed_corner_locations,
-                                           gt_corner_locations,
-                                           display_boxes_if_no_image);
+      publishBoundingBoxDataFromTrajectory(
+          max_frame,
+          gt_trajectory.value(),
+          prefixes_for_plot_type_.at(PlotType::GROUND_TRUTH),
+          initial_ellipsoid_estimates,
+          optimized_ellipsoid_estimates,
+          gt_ellipsoid_estimates,
+          extrinsics,
+          intrinsics,
+          img_heights_and_widths,
+          images,
+          observed_corner_locations,
+          gt_corner_locations,
+          display_boxes_if_no_image);
     }
+  }
+
+  void publishDetectedBoundingBoxesWithUncertainty(
+      const FrameId &max_frame,
+      const std::unordered_map<
+          FrameId,
+          std::unordered_map<CameraId,
+                             std::vector<std::pair<BbCornerPair<double>,
+                                                   std::optional<double>>>>>
+          &observed_corner_locations_with_uncertainty,
+      const std::unordered_map<
+          FrameId,
+          std::unordered_map<CameraId, sensor_msgs::Image::ConstPtr>> &images,
+      const std::unordered_map<CameraId, CameraIntrinsicsMat<double>>
+          &intrinsics,
+      const std::unordered_map<CameraId, std::pair<double, double>>
+          &img_heights_and_widths,
+      const PlotType &plot_type) {
+    for (const auto &frame_and_bbs :
+         observed_corner_locations_with_uncertainty) {
+      FrameId pose_idx = frame_and_bbs.first;
+      if (pose_idx > max_frame) {
+        continue;
+      }
+
+      // If we need images to display things, check if there are any images for
+      // the robot pose (there should be if there were detected bounding boxes
+      if (images.find(pose_idx) == images.end()) {
+        continue;
+      }
+
+      std::unordered_map<CameraId, sensor_msgs::Image::ConstPtr>
+          images_for_pose = images.at(pose_idx);
+      std::unordered_map<
+          CameraId,
+          std::vector<std::pair<BbCornerPair<double>, std::optional<double>>>>
+          observed_corner_locations_for_pose = frame_and_bbs.second;
+
+      for (const auto &cam_id_and_intrinsics : intrinsics) {
+        // If there are no observed bounding boxes for the camera at the pose,
+        // sip it
+        if (observed_corner_locations_for_pose.find(
+                cam_id_and_intrinsics.first) ==
+            observed_corner_locations_for_pose.end()) {
+          continue;
+        }
+
+        std::vector<std::pair<BbCornerPair<double>, std::optional<double>>>
+            observed_corners_for_pose_and_cam =
+                observed_corner_locations_for_pose.at(
+                    cam_id_and_intrinsics.first);
+
+        bool has_image_for_cam_at_pose =
+            (images_for_pose.find(cam_id_and_intrinsics.first) !=
+             images_for_pose.end());
+        if (!has_image_for_cam_at_pose) {
+          continue;
+        }
+
+        CameraIntrinsicsMat<double> cam_intrinsics =
+            cam_id_and_intrinsics.second;
+        std::pair<double, double> image_height_and_width =
+            img_heights_and_widths.at(cam_id_and_intrinsics.first);
+
+        sensor_msgs::Image::ConstPtr image =
+            images_for_pose.at(cam_id_and_intrinsics.first);
+
+        std::pair<std::string, std::string> image_and_camera_info_topics =
+            createImageAndCameraInfoTopicsForTrajectoryTypeRobotPoseAndCameraId(
+                pose_idx, cam_id_and_intrinsics.first, kAllBoundingBoxesPrefix);
+
+        std::string frame_id = createCameraPoseFrameIdRelRobot(
+            pose_idx,
+            cam_id_and_intrinsics.first,
+            prefixes_for_plot_type_.at(plot_type));
+
+        publishImageWithDetectedBoundingBoxes(
+            image_and_camera_info_topics.first,
+            image_and_camera_info_topics.second,
+            frame_id,
+            cam_intrinsics,
+            image_height_and_width,
+            image,
+            observed_corners_for_pose_and_cam);
+
+        if (pose_idx == max_frame) {
+          std::pair<std::string, std::string>
+              last_image_and_camera_info_topics =
+                  createLatestImageAndCameraInfoTopicsForTrajectoryTypeCameraId(
+                      cam_id_and_intrinsics.first, kAllBoundingBoxesPrefix);
+          publishImageWithDetectedBoundingBoxes(
+              last_image_and_camera_info_topics.first,
+              last_image_and_camera_info_topics.second,
+              frame_id,
+              cam_intrinsics,
+              image_height_and_width,
+              image,
+              observed_corners_for_pose_and_cam);
+        }
+      }
+    }
+  }
+
+  void publishBoundingBoxDataFromTrajectory(
+      const FrameId &max_frame,
+      const std::unordered_map<FrameId, Pose3D<double>> &trajectory,
+      const PlotType &plot_type,
+      const std::optional<std::unordered_map<ObjectId, EllipsoidState<double>>>
+          &initial_ellipsoid_estimates,
+      const std::optional<std::unordered_map<ObjectId, EllipsoidState<double>>>
+          &optimized_ellipsoid_estimates,
+      const std::optional<std::unordered_map<ObjectId, EllipsoidState<double>>>
+          &gt_ellipsoid_estimates,
+      const std::unordered_map<CameraId, CameraExtrinsics<double>> &extrinsics,
+      const std::unordered_map<CameraId, CameraIntrinsicsMat<double>>
+          &intrinsics,
+      const std::unordered_map<CameraId, std::pair<double, double>>
+          &img_heights_and_widths,
+      const std::unordered_map<
+          FrameId,
+          std::unordered_map<CameraId, sensor_msgs::Image::ConstPtr>> &images,
+      const std::unordered_map<
+          FrameId,
+          std::unordered_map<
+              CameraId,
+              std::unordered_map<
+                  ObjectId,
+                  std::pair<BbCornerPair<double>, std::optional<double>>>>>
+          &observed_corner_locations_with_opt_confidence,
+      const std::unordered_map<
+          FrameId,
+          std::unordered_map<
+              CameraId,
+              std::unordered_map<ObjectId, BbCornerPair<double>>>>
+          &gt_corner_locations,
+      const bool &display_boxes_if_no_image) {
+    publishBoundingBoxDataFromTrajectory(
+        max_frame,
+        trajectory,
+        prefixes_for_plot_type_.at(plot_type),
+        initial_ellipsoid_estimates,
+        optimized_ellipsoid_estimates,
+        gt_ellipsoid_estimates,
+        extrinsics,
+        intrinsics,
+        img_heights_and_widths,
+        images,
+        observed_corner_locations_with_opt_confidence,
+        gt_corner_locations,
+        display_boxes_if_no_image);
   }
 
   void publishBoundingBoxDataFromTrajectory(
@@ -267,8 +419,10 @@ class RosVisualization {
           FrameId,
           std::unordered_map<
               CameraId,
-              std::unordered_map<ObjectId, BbCornerPair<double>>>>
-          &observed_corner_locations,
+              std::unordered_map<
+                  ObjectId,
+                  std::pair<BbCornerPair<double>, std::optional<double>>>>>
+          &observed_corner_locations_with_opt_confidence,
       const std::unordered_map<
           FrameId,
           std::unordered_map<
@@ -288,8 +442,8 @@ class RosVisualization {
       }
 
       // If there are no observed bounding boxes for the pose, skip it
-      if (observed_corner_locations.find(pose_idx) ==
-          observed_corner_locations.end()) {
+      if (observed_corner_locations_with_opt_confidence.find(pose_idx) ==
+          observed_corner_locations_with_opt_confidence.end()) {
         continue;
       }
 
@@ -302,9 +456,11 @@ class RosVisualization {
       }
 
       std::unordered_map<CameraId,
-                         std::unordered_map<ObjectId, BbCornerPair<double>>>
+                         std::unordered_map<ObjectId,
+                                            std::pair<BbCornerPair<double>,
+                                                      std::optional<double>>>>
           observed_corner_locations_for_pose =
-              observed_corner_locations.at(pose_idx);
+              observed_corner_locations_with_opt_confidence.at(pose_idx);
       std::unordered_map<CameraId,
                          std::unordered_map<ObjectId, BbCornerPair<double>>>
           gt_corner_locations_for_pose;
@@ -321,7 +477,9 @@ class RosVisualization {
           continue;
         }
 
-        std::unordered_map<ObjectId, BbCornerPair<double>>
+        std::unordered_map<
+            ObjectId,
+            std::pair<BbCornerPair<double>, std::optional<double>>>
             observed_corners_for_pose_and_cam =
                 observed_corner_locations_for_pose.at(
                     cam_id_and_extrinsics.first);
@@ -543,7 +701,9 @@ class RosVisualization {
           &intrinsics,  // Should we just take in cam info?
       const std::pair<double, double> &img_height_and_width,
       const std::optional<sensor_msgs::Image::ConstPtr> &image,
-      const std::optional<std::unordered_map<ObjectId, BbCornerPair<double>>>
+      const std::optional<std::unordered_map<
+          ObjectId,
+          std::pair<BbCornerPair<double>, std::optional<double>>>>
           &observed_corner_locations,
       const std::optional<std::unordered_map<ObjectId, BbCornerPair<double>>>
           &ground_truth_corner_locations,
@@ -595,9 +755,18 @@ class RosVisualization {
       //      LOG(INFO) << "Drawing observed corner locations on image "
       //                << image_topic_id << "Num rects "
       //                << observed_corner_locations.value().size();
-      drawRectanglesOnImage(observed_corner_locations.value(),
+      std::unordered_map<ObjectId, BbCornerPair<double>> observed_locations;
+      std::unordered_map<ObjectId, double> confidences;
+      for (const auto &observed_loc : observed_corner_locations.value()) {
+        observed_locations[observed_loc.first] = observed_loc.second.first;
+        if (observed_loc.second.second.has_value()) {
+          confidences[observed_loc.first] = observed_loc.second.second.value();
+        }
+      }
+      drawRectanglesOnImage(observed_locations,
                             observed_bounding_box_color_,
-                            cv_ptr);
+                            cv_ptr,
+                            confidences);
     }
     if (ground_truth_corner_locations.has_value()) {
       //      LOG(INFO) << "Drawing gt corner locations on image " <<
@@ -639,7 +808,54 @@ class RosVisualization {
     }
 
     // Publish image and camera info
-    //    LOG(INFO) << "Publishing to " << image_pub.getTopic();
+
+    image_pub.publish(cv_ptr->toImageMsg());
+    publishCameraInfo(frame_id,
+                      image_stamp,
+                      intrinsics,
+                      img_height_and_width,
+                      intrinsics_pub);
+  }
+
+  void publishImageWithDetectedBoundingBoxes(
+      const std::string &image_topic_id,
+      const std::string &camera_info_topic_id,
+      const std::string &frame_id,
+      const CameraIntrinsicsMat<double>
+          &intrinsics,  // Should we just take in cam info?
+      const std::pair<double, double> &img_height_and_width,
+      const sensor_msgs::Image::ConstPtr &image,
+      const std::vector<std::pair<BbCornerPair<double>, std::optional<double>>>
+          &observed_corner_locations) {
+    // Get or create publishers
+    ros::Publisher intrinsics_pub =
+        getOrCreatePublisher<sensor_msgs::CameraInfo>(camera_info_topic_id,
+                                                      kCameraInfoQueueSize);
+    ros::Publisher image_pub = getOrCreatePublisher<sensor_msgs::Image>(
+        image_topic_id, kCameraInfoQueueSize);
+
+    // Create/convert image
+    cv_bridge::CvImagePtr cv_ptr;
+    ros::Time image_stamp;
+    try {
+      cv_ptr = cv_bridge::toCvCopy(image, sensor_msgs::image_encodings::BGR8);
+      cv_ptr->header.frame_id = frame_id;
+      image_stamp = ros::Time::now();
+      cv_ptr->header.stamp = image_stamp;
+    } catch (cv_bridge::Exception &e) {
+      LOG(ERROR) << "cv_bridge exception: " << e.what();
+      exit(1);
+    }
+
+    for (const auto &bounding_box_corners_entry : observed_corner_locations) {
+      drawRectangleOnImage(bounding_box_corners_entry.first,
+                           observed_bounding_box_color_,
+                           std::nullopt,
+                           bounding_box_corners_entry.second,
+                           cv_ptr);
+    }
+
+    // Publish image and camera info
     image_pub.publish(cv_ptr->toImageMsg());
     publishCameraInfo(frame_id,
                       image_stamp,
@@ -663,7 +879,8 @@ class RosVisualization {
   const static int kBoundingBoxMinCornerLabelXOffset = 0;
   const static int kBoundingBoxMinCornerLabelYOffset = -10;
 
-  const static constexpr double kBoundingBoxLabelFontScale = 1.0;
+  const static constexpr double kBoundingBoxLabelFontScale = 2.0;
+  const static int kBoundingBoxLabelTextThickness = 2;
 
   tf2_ros::StaticTransformBroadcaster static_tf_broadcaster_;
 
@@ -689,6 +906,8 @@ class RosVisualization {
   const int32_t kMaxRobotPoseMarkerNum = std::numeric_limits<int32_t>::max();
 
   const double kTrajectoryScaleX = 0.02;
+
+  const std::string kAllBoundingBoxesPrefix = "all_observed_bbs";
 
   /**
    * Node handle.
@@ -777,11 +996,18 @@ class RosVisualization {
       const std::unordered_map<ObjectId, BbCornerPair<double>>
           &bounding_box_corners,
       const std_msgs::ColorRGBA &color,
-      cv_bridge::CvImagePtr &cv_ptr) {
+      cv_bridge::CvImagePtr &cv_ptr,
+      const std::unordered_map<ObjectId, double> &confidences = {}) {
     for (const auto &bounding_box_corners_entry : bounding_box_corners) {
+      std::optional<double> confidence = std::nullopt;
+      if (confidences.find(bounding_box_corners_entry.first) !=
+          confidences.end()) {
+        confidence = confidences.at(bounding_box_corners_entry.first);
+      }
       drawRectangleOnImage(bounding_box_corners_entry.second,
                            color,
                            bounding_box_corners_entry.first,
+                           confidence,
                            cv_ptr);
     }
   }
@@ -790,6 +1016,7 @@ class RosVisualization {
       const BbCornerPair<double> &bounding_box_corners,
       const std_msgs::ColorRGBA &color,
       const std::optional<ObjectId> &bounding_box_numeric_label,
+      const std::optional<double> &confidence,
       cv_bridge::CvImagePtr &cv_ptr) {
     //    LOG(INFO) << bounding_box_corners.first << ", " <<
     //    bounding_box_corners.second;
@@ -810,7 +1037,23 @@ class RosVisualization {
                                 kBoundingBoxMinCornerLabelYOffset),
                   cv::FONT_HERSHEY_SIMPLEX,
                   kBoundingBoxLabelFontScale,
-                  convertColorMsgToOpenCvColor(color));
+                  convertColorMsgToOpenCvColor(color),
+                  kBoundingBoxLabelTextThickness);
+    }
+    if (confidence.has_value()) {
+      std::stringstream confidence_stream;
+      confidence_stream << std::setprecision(3) << std::fixed
+                        << confidence.value();
+      cv::putText(cv_ptr->image,
+                  confidence_stream.str(),
+                  cv::Point(bounding_box_corners.second.x() -
+                                kBoundingBoxMinCornerLabelXOffset,
+                            bounding_box_corners.first.y() +
+                                kBoundingBoxMinCornerLabelYOffset),
+                  cv::FONT_HERSHEY_SIMPLEX,
+                  kBoundingBoxLabelFontScale,
+                  convertColorMsgToOpenCvColor(color),
+                  kBoundingBoxLabelTextThickness);
     }
     //    int img_x_size = (cv_ptr->image).size().width;
     //    int img_y_size = (cv_ptr->image).size().height;
