@@ -12,6 +12,7 @@
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 #include <refactoring/bounding_box_frontend/roshan_bounding_box_front_end.h>
+#include <refactoring/image_processing/image_processing_utils.h>
 #include <refactoring/long_term_map/long_term_map_factor_creator.h>
 #include <refactoring/long_term_map/long_term_object_map_extraction.h>
 #include <refactoring/offline/offline_problem_data.h>
@@ -66,6 +67,9 @@ DEFINE_string(
 DEFINE_string(long_term_map_output,
               "",
               "File name to output the long-term map to.");
+DEFINE_double(min_confidence, 0.2, "Minimum confidence");
+
+std::string kCompressedImageSuffix = "compressed";
 
 std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
 readCameraIntrinsicsByCameraFromFile(const std::string &file_name) {
@@ -138,12 +142,15 @@ readBoundingBoxesFromFile(const std::string &file_name) {
       bb_map;
   for (const file_io::BoundingBoxWithNodeId &raw_bb :
        bounding_boxes_by_node_id) {
-    vtr::RawBoundingBox bb;
-    bb.pixel_corner_locations_ = std::make_pair(
-        vtr::PixelCoord<double>(raw_bb.min_pixel_x, raw_bb.min_pixel_y),
-        vtr::PixelCoord<double>(raw_bb.max_pixel_x, raw_bb.max_pixel_y));
-    bb.semantic_class_ = raw_bb.semantic_class;
-    bb_map[raw_bb.node_id][raw_bb.camera_id].emplace_back(bb);
+    if (raw_bb.detection_confidence >= FLAGS_min_confidence) {
+      vtr::RawBoundingBox bb;
+      bb.pixel_corner_locations_ = std::make_pair(
+          vtr::PixelCoord<double>(raw_bb.min_pixel_x, raw_bb.min_pixel_y),
+          vtr::PixelCoord<double>(raw_bb.max_pixel_x, raw_bb.max_pixel_y));
+      bb.semantic_class_ = raw_bb.semantic_class;
+      bb.detection_confidence_ = raw_bb.detection_confidence;
+      bb_map[raw_bb.node_id][raw_bb.camera_id].emplace_back(bb);
+    }
   }
   return bb_map;
 }
@@ -202,8 +209,16 @@ getImagesFromRosbag(const std::string &rosbag_file_name,
       std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>>
       images_by_frame_and_cam;
   for (const rosbag::MessageInstance &m : view) {
+    sensor_msgs::Image::ConstPtr msg;
+    if (m.getTopic().find(kCompressedImageSuffix) != std::string::npos) {
+      sensor_msgs::CompressedImage::ConstPtr compressed_msg =
+          m.instantiate<sensor_msgs::CompressedImage>();
+      image_utils::decompressImage(compressed_msg, msg);
+    } else {
+      msg = m.instantiate<sensor_msgs::Image>();
+    }
     //    LOG(INFO) << "Checking image message";
-    sensor_msgs::Image::ConstPtr msg = m.instantiate<sensor_msgs::Image>();
+
     pose::Timestamp img_timestamp =
         std::make_pair(msg->header.stamp.sec, msg->header.stamp.nsec);
     if (nodes_for_timestamps_map.find(img_timestamp) !=
@@ -275,11 +290,19 @@ void visualizationStub(
         vtr::FrameId,
         std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>>
         &images,
+    const std::unordered_map<
+        vtr::FrameId,
+        std::unordered_map<vtr::CameraId,
+                           std::vector<std::pair<vtr::BbCornerPair<double>,
+                                                 std::optional<double>>>>>
+        &all_observed_corner_locations_with_uncertainty,
     const std::shared_ptr<std::unordered_map<
         vtr::FrameId,
         std::unordered_map<
             vtr::CameraId,
-            std::unordered_map<vtr::ObjectId, vtr::BbCornerPair<double>>>>>
+            std::unordered_map<
+                vtr::ObjectId,
+                std::pair<vtr::BbCornerPair<double>, std::optional<double>>>>>>
         &observed_corner_locations,
     const MainProbData &input_problem_data,
     std::shared_ptr<
@@ -288,7 +311,6 @@ void visualizationStub(
     const vtr::FrameId &min_frame_optimized,
     const vtr::FrameId &max_frame_optimized,
     const vtr::VisualizationTypeEnum &visualization_stage) {
-  // TODO fill in with actual visualization
   switch (visualization_stage) {
     case vtr::BEFORE_ANY_OPTIMIZATION:
       vis_manager->publishTransformsForEachCamera(
@@ -358,6 +380,14 @@ void visualizationStub(
           {},
           false);
 
+      vis_manager->publishDetectedBoundingBoxesWithUncertainty(
+          max_frame_optimized,
+          all_observed_corner_locations_with_uncertainty,
+          images,
+          intrinsics,
+          img_heights_and_widths,
+          vtr::PlotType::ESTIMATED);
+
       std::vector<vtr::Pose3D<double>> est_trajectory_vec;
       std::vector<vtr::Pose3D<double>> init_trajectory_vec;
       for (size_t i = 0; i <= (max_frame_optimized - min_frame_optimized);
@@ -367,10 +397,10 @@ void visualizationStub(
         init_trajectory_vec.emplace_back(
             initial_robot_pose_estimates.at(frame_id));
       }
-      vis_manager->visualizeTrajectory(est_trajectory_vec,
-                                       vtr::PlotType::ESTIMATED);
       vis_manager->visualizeTrajectory(init_trajectory_vec,
                                        vtr::PlotType::INITIAL);
+      vis_manager->visualizeTrajectory(est_trajectory_vec,
+                                       vtr::PlotType::ESTIMATED);
       break;
     }
     case vtr::AFTER_ALL_OPTIMIZATION:
@@ -468,7 +498,7 @@ int main(int argc, char **argv) {
 
   // TODO read this from file
   std::unordered_map<std::string, vtr::CameraId> camera_topic_to_camera_id = {
-      {"/camera/rgb/image_raw", 0}};
+      {"/camera/rgb/image_raw", 0}, {"/camera/rgb/image_raw/compressed", 0}};
 
   // Post-processing of the hard-coded values ---------------------------
   std::unordered_map<
@@ -511,6 +541,28 @@ int main(int argc, char **argv) {
               .emplace_back(bb);
         }
       }
+    }
+  }
+  std::unordered_map<
+      vtr::FrameId,
+      std::unordered_map<vtr::CameraId,
+                         std::vector<std::pair<vtr::BbCornerPair<double>,
+                                               std::optional<double>>>>>
+      all_observed_corner_locations_with_uncertainty;
+  for (const auto &bounding_boxes_for_frame : bounding_boxes) {
+    for (const auto &bounding_boxes_for_frame_and_cam :
+         bounding_boxes_for_frame.second) {
+      std::vector<std::pair<vtr::BbCornerPair<double>, std::optional<double>>>
+          observed_corners_for_frame_and_cam;
+      for (const vtr::RawBoundingBox &bb :
+           bounding_boxes_for_frame_and_cam.second) {
+        observed_corners_for_frame_and_cam.emplace_back(std::make_pair(
+            bb.pixel_corner_locations_, bb.detection_confidence_));
+      }
+      all_observed_corner_locations_with_uncertainty
+          [bounding_boxes_for_frame.first]
+          [bounding_boxes_for_frame_and_cam.first] =
+              observed_corners_for_frame_and_cam;
     }
   }
 
@@ -709,17 +761,21 @@ int main(int argc, char **argv) {
   }
   std::shared_ptr<std::unordered_map<
       vtr::FrameId,
-      std::unordered_map<
-          vtr::CameraId,
-          std::unordered_map<vtr::ObjectId, vtr::BbCornerPair<double>>>>>
-      observed_corner_locations = std::make_shared<std::unordered_map<
-          vtr::FrameId,
-          std::unordered_map<
-              vtr::CameraId,
-              std::unordered_map<vtr::ObjectId, vtr::BbCornerPair<double>>>>>();
+      std::unordered_map<vtr::CameraId,
+                         std::unordered_map<vtr::ObjectId,
+                                            std::pair<vtr::BbCornerPair<double>,
+                                                      std::optional<double>>>>>>
+      associated_observed_corner_locations =
+          std::make_shared<std::unordered_map<
+              vtr::FrameId,
+              std::unordered_map<
+                  vtr::CameraId,
+                  std::unordered_map<vtr::ObjectId,
+                                     std::pair<vtr::BbCornerPair<double>,
+                                               std::optional<double>>>>>>();
   vtr::RoshanBbFrontEndCreator<vtr::ReprojectionErrorFactor>
       roshan_associator_creator(roshan_associator_params,
-                                observed_corner_locations,
+                                associated_observed_corner_locations,
                                 covariance_generator,
                                 long_term_map_front_end_data);
   std::function<std::shared_ptr<vtr::AbstractBoundingBoxFrontEnd<
@@ -850,7 +906,8 @@ int main(int argc, char **argv) {
                           camera_intrinsics_by_camera,
                           img_heights_and_widths,
                           images,
-                          observed_corner_locations,
+                          all_observed_corner_locations_with_uncertainty,
+                          associated_observed_corner_locations,
                           input_problem_data,
                           superclass_ptr,
                           min_frame_id,

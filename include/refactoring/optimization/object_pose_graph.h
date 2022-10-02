@@ -78,6 +78,8 @@ struct ObjectObservationFactor {
 
   Covariance<double, 4> bounding_box_corners_covariance_;
 
+  double detection_confidence_;
+
   // TODO should semantic class go in here?
 };
 

@@ -6,12 +6,14 @@
 #define UT_VSLAM_BOUNDING_BOX_BY_NODE_ID_IO_H
 
 #include <file_io/file_io_utils.h>
-#include <boost/algorithm/string.hpp>
 
+#include <boost/algorithm/string.hpp>
 #include <cstdint>
 #include <string>
 
 namespace file_io {
+
+static const double kDefaultBbWithNodeIdConfidence = 0.2;
 
 struct BoundingBoxWithNodeId {
   double min_pixel_x;
@@ -33,6 +35,8 @@ struct BoundingBoxWithNodeId {
    * Id of the camera that captured this boundign box.
    */
   uint64_t camera_id;
+
+  double detection_confidence;
 };
 
 std::vector<std::string> convertBoundingBoxWithNodeIdToStringList(
@@ -45,7 +49,8 @@ std::vector<std::string> convertBoundingBoxWithNodeIdToStringList(
           std::to_string(bounding_box.max_pixel_y),
           sem_class,
           std::to_string(bounding_box.node_id),
-          std::to_string(bounding_box.camera_id)};
+          std::to_string(bounding_box.camera_id),
+          std::to_string(bounding_box.detection_confidence)};
 }
 
 void writeBoundingBoxesWithNodeIdToFile(
@@ -60,7 +65,8 @@ void writeBoundingBoxesWithNodeIdToFile(
                                "max_pixel_y",
                                "semantic_class",
                                "node_id",
-                               "camera_id"},
+                               "camera_id",
+                               "detection_confidence"},
                               bounding_boxes,
                               object_to_str_list_converter);
 }
@@ -83,6 +89,12 @@ void readBoundingBoxWithNodeIdLine(
 
   std::istringstream cam_id_stream(entries_in_file_line[list_idx++]);
   cam_id_stream >> bounding_box.camera_id;
+
+  if (entries_in_file_line.size() > list_idx) {
+    bounding_box.detection_confidence = std::stod(entries_in_file_line[list_idx++]);
+  } else {
+    bounding_box.detection_confidence = kDefaultBbWithNodeIdConfidence;
+  }
 }
 
 void readBoundingBoxesWithNodeIdFromFile(
@@ -116,6 +128,7 @@ struct BoundingBoxWithNodeIdAndId {
    * Id of the camera that captured this boundign box.
    */
   uint64_t camera_id;
+  double detection_confidence;
 };
 
 std::vector<std::string> convertBoundingBoxWithNodeIdAndIdToStringList(
@@ -129,7 +142,8 @@ std::vector<std::string> convertBoundingBoxWithNodeIdAndIdToStringList(
           std::to_string(bounding_box.max_pixel_y),
           sem_class,
           std::to_string(bounding_box.node_id),
-          std::to_string(bounding_box.camera_id)};
+          std::to_string(bounding_box.camera_id),
+          std::to_string(bounding_box.detection_confidence)};
 }
 
 void writeBoundingBoxWithNodeIdAndIdsToFile(
@@ -146,7 +160,8 @@ void writeBoundingBoxWithNodeIdAndIdsToFile(
                                "max_pixel_y",
                                "semantic_class",
                                "node_id",
-                               "camera_id"},
+                               "camera_id",
+                               "detection_confidence"},
                               bounding_boxes,
                               object_to_str_list_converter);
 }
@@ -171,6 +186,12 @@ void readBoundingBoxWithNodeIdAndIdLine(
 
   std::istringstream cam_id_stream(entries_in_file_line[list_idx++]);
   cam_id_stream >> bounding_box.camera_id;
+
+  if (entries_in_file_line.size() > list_idx) {
+    bounding_box.detection_confidence = std::stod(entries_in_file_line[list_idx++]);
+  } else {
+    bounding_box.detection_confidence = kDefaultBbWithNodeIdConfidence;
+  }
 }
 
 void readBoundingBoxWithNodeIdAndIdsFromFile(
