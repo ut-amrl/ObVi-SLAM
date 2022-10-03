@@ -483,7 +483,7 @@ int main(int argc, char **argv) {
   roshan_associator_params.saturation_histogram_bins_ = 50;
   roshan_associator_params.hue_histogram_bins_ = 60;
   roshan_associator_params.max_distance_for_associated_ellipsoids_ = 2.0;
-  roshan_associator_params.min_observations_ = 30;
+  roshan_associator_params.min_observations_ = 6;
   roshan_associator_params.discard_candidate_after_num_frames_ = 80;
 
   Eigen::Vector4d bounding_box_std_devs;  // TODO maybe use different values

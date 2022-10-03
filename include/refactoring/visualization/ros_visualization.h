@@ -1046,9 +1046,9 @@ class RosVisualization {
                         << confidence.value();
       cv::putText(cv_ptr->image,
                   confidence_stream.str(),
-                  cv::Point(bounding_box_corners.second.x() -
+                  cv::Point(bounding_box_corners.first.x() +
                                 kBoundingBoxMinCornerLabelXOffset,
-                            bounding_box_corners.first.y() +
+                            bounding_box_corners.second.y() +
                                 kBoundingBoxMinCornerLabelYOffset),
                   cv::FONT_HERSHEY_SIMPLEX,
                   kBoundingBoxLabelFontScale,

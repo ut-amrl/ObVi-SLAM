@@ -24,10 +24,13 @@ run_optimization() {
   txt_suffix=.txt
   json_suffix=.json
 
-  bounding_box_file_prefix=bb_by_node_
-  poses_by_node_prefix=localization_est_by_node_id_
-  timestamps_by_node_prefix=timestamps_by_node_id_
-  ltm_prefix=long_term_map_
+  spacing_suffix=spaced_out_0_1_
+#  spacing_suffix=""
+
+  bounding_box_file_prefix=bb_by_node_${spacing_suffix}
+  poses_by_node_prefix=localization_est_by_node_id_${spacing_suffix}
+  timestamps_by_node_prefix=timestamps_by_node_id_${spacing_suffix}
+  ltm_prefix=long_term_map_${spacing_suffix}
 
   #rosbag_prefix=images_
   rosbag_prefix=""
