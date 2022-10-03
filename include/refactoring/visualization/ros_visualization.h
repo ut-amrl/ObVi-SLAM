@@ -125,7 +125,7 @@ class RosVisualization {
           &ellipsoid_estimates,
       const std::string &topic,
       const std_msgs::ColorRGBA &color) {
-    ros::Publisher pub = getOrCreatePublisher<visualization_msgs::Marker>(
+    ros::Publisher pub = getOrCreateVisMarkerPublisherAndClearPrevious(
         topic, kEllipsoidMarkerPubQueueSize);
     for (const auto &ellipsoid : ellipsoid_estimates) {
       publishEllipsoid(ellipsoid.second, ellipsoid.first, pub, color);
@@ -134,7 +134,7 @@ class RosVisualization {
 
   void visualizeTrajectory(const std::vector<Pose3D<double>> &trajectory,
                            const PlotType &plot_type) {
-    ros::Publisher pub = getOrCreatePublisher<visualization_msgs::Marker>(
+    ros::Publisher pub = getOrCreateVisMarkerPublisherAndClearPrevious(
         createTopicForPlotTypeAndBase(plot_type, kPoseTopicSuffix),
         kRobotPoseMarkerPubQueueSize);
     std_msgs::ColorRGBA color = color_for_plot_type_.at(plot_type);
@@ -930,6 +930,22 @@ class RosVisualization {
    */
   std::unordered_map<std::string, ros::Publisher> publishers_by_topic_;
 
+  ros::Publisher getOrCreateVisMarkerPublisherAndClearPrevious(
+      const std::string &topic_name,
+      const int &queue_size,
+      const ros::Duration &sleep_after_create =
+      ros::Duration(kSleepAfterPubCreationTime)) {
+
+    if (publishers_by_topic_.find(topic_name) == publishers_by_topic_.end()) {
+      ros::Publisher pub = node_handle_.advertise<visualization_msgs::Marker>(topic_name, queue_size);
+      publishers_by_topic_[topic_name] = pub;
+      sleep_after_create.sleep();
+      publishDeleteAllMarker(pub);
+    }
+    return publishers_by_topic_[topic_name];
+  }
+
+
   template <typename T>
   ros::Publisher getOrCreatePublisher(
       const std::string &topic_name,
@@ -952,6 +968,18 @@ class RosVisualization {
     marker_msg.header.stamp = ros::Time::now();
     marker_msg.ns = "ut_vslam";
     marker_msg.action = visualization_msgs::Marker::ADD;
+    marker_pub.publish(marker_msg);
+  }
+
+  void publishDeleteAllMarker(ros::Publisher &marker_pub) {
+    visualization_msgs::Marker marker_msg;
+    if (marker_msg.header.frame_id.empty()) {
+      marker_msg.header.frame_id = kVizFrame;
+    }
+    marker_msg.header.stamp = ros::Time::now();
+    marker_msg.ns = "ut_vslam";
+    marker_msg.action = visualization_msgs::Marker::DELETEALL;
+    ros::Duration(2).sleep();
     marker_pub.publish(marker_msg);
   }
 

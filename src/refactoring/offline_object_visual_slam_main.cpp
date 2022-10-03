@@ -352,17 +352,17 @@ void visualizationStub(
       optimized_ellipsoid_color.g = 1;
       vis_manager->visualizeEllipsoids(optimized_ellipsoid_estimates,
                                        vtr::ESTIMATED);
+      std::unordered_map<vtr::ObjectId, vtr::EllipsoidState<double>>
+          ltm_ellipsoids;
       if (input_problem_data.getLongTermObjectMap() != nullptr) {
         vtr::EllipsoidResults ellipsoids_in_map;
         input_problem_data.getLongTermObjectMap()->getEllipsoidResults(
             ellipsoids_in_map);
-        std::unordered_map<vtr::ObjectId, vtr::EllipsoidState<double>>
-            ltm_ellipsoids;
         for (const auto &ltm_ellipsoid : ellipsoids_in_map.ellipsoids_) {
           ltm_ellipsoids[ltm_ellipsoid.first] = ltm_ellipsoid.second.second;
         }
-        vis_manager->visualizeEllipsoids(ltm_ellipsoids, vtr::INITIAL);
       }
+      vis_manager->visualizeEllipsoids(ltm_ellipsoids, vtr::INITIAL);
       vis_manager->visualizeCameraObservations(
           max_frame_optimized,
           initial_robot_pose_estimates,
@@ -476,6 +476,7 @@ int main(int argc, char **argv) {
       std::make_pair(cone_mean, cone_std_dev);
 
   pose_graph_optimization::OptimizationSolverParams solver_params;  // TODO
+  solver_params.max_num_iterations_ = 200;
   pose_graph_optimization::ObjectVisualPoseGraphResidualParams
       residual_params;  // TODO tune?
 
@@ -483,8 +484,8 @@ int main(int argc, char **argv) {
   roshan_associator_params.saturation_histogram_bins_ = 50;
   roshan_associator_params.hue_histogram_bins_ = 60;
   roshan_associator_params.max_distance_for_associated_ellipsoids_ = 2.0;
-  roshan_associator_params.min_observations_ = 6;
-  roshan_associator_params.discard_candidate_after_num_frames_ = 80;
+  roshan_associator_params.min_observations_ = 10;
+  roshan_associator_params.discard_candidate_after_num_frames_ = 40;
 
   Eigen::Vector4d bounding_box_std_devs;  // TODO maybe use different values
   bounding_box_std_devs(0) = 30;

@@ -545,6 +545,7 @@ class ObjectPoseGraphOptimizer {
     if (!callbacks.empty()) {
       options.update_state_every_iteration = true;
     }
+    options.max_num_iterations = solver_params.max_num_iterations_;
 
     ceres::Solver::Summary summary;
     ceres::Solve(options, problem, &summary);
