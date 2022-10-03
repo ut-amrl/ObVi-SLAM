@@ -7,6 +7,7 @@
 
 namespace pose_graph_optimization {
 struct OptimizationSolverParams {
+  int max_num_iterations_ = 100;
   // TODO
 };
 
