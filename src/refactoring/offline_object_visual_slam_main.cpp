@@ -26,6 +26,7 @@
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
 #include <sensor_msgs/Image.h>
+#include <refactoring/visual_feature_processing/orb_output_low_level_feature_reader.h>
 
 namespace vtr = vslam_types_refactor;
 
@@ -68,6 +69,7 @@ DEFINE_string(long_term_map_output,
               "",
               "File name to output the long-term map to.");
 DEFINE_double(min_confidence, 0.2, "Minimum confidence");
+DEFINE_string(low_level_feats_dir, "", "Directory that contains low level features");
 
 std::string kCompressedImageSuffix = "compressed";
 
@@ -609,6 +611,12 @@ int main(int argc, char **argv) {
     LOG(INFO) << "Second check results size "
               << ellipsoid_results_ltm_v3.ellipsoids_.size();
     long_term_map = std::make_shared<MainLtm>(ltm_from_serializable);
+  }
+
+  if (!FLAGS_low_level_feats_dir.empty()) {
+    LOG(INFO) << "Reading low level features";
+    vtr::OrbOutputLowLevelFeatureReader orb_feat_reader(FLAGS_low_level_feats_dir, {});
+    orb_feat_reader.getLowLevelFeatures(visual_features);
   }
 
   LOG(INFO) << "Here 4";

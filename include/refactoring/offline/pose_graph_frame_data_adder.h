@@ -27,22 +27,25 @@ void addVisualFeatureFactorsForFrame(
       input_problem_data.getVisualFeatures();
 
   for (const auto &feat_id_to_track : visual_features) {
-    for (size_t i = 0;
-         i < feat_id_to_track.second.feature_track.feature_observations_.size();
-         i++) {
+    FeatureId feature_id = feat_id_to_track.first;
+    StructuredVisionFeatureTrack feature_track = feat_id_to_track.second;
+    if (feature_track.feature_track.feature_observations_.find(frame_to_add) !=
+        feature_track.feature_track.feature_observations_.end()) {
       VisionFeature feature =
-          feat_id_to_track.second.feature_track.feature_observations_[i];
+          feature_track.feature_track.feature_observations_.at(frame_to_add);
       if (feature.frame_id_ == frame_to_add) {
-        if (i == 0) {
+        FrameId junk_frame_id;
+        if (!pose_graph->getFirstObservedFrameForFeature(feature_id,
+                                                         junk_frame_id)) {
           // The feature has not been added yet (this is the first observation)
           // so we need to add the feature
-          pose_graph->addFeature(feat_id_to_track.first,
+          pose_graph->addFeature(feature_id,
                                  feat_id_to_track.second.feature_pos_);
         }
         for (const auto &obs_by_camera : feature.pixel_by_camera_id) {
           ReprojectionErrorFactor vis_factor;
           vis_factor.camera_id_ = obs_by_camera.first;
-          vis_factor.feature_id_ = feat_id_to_track.first;
+          vis_factor.feature_id_ = feature_id;
           vis_factor.frame_id_ = feature.frame_id_;
           vis_factor.feature_pos_ = obs_by_camera.second;
           vis_factor.reprojection_error_std_dev_ =
@@ -53,11 +56,6 @@ void addVisualFeatureFactorsForFrame(
                                           vis_factor.camera_id_);
           pose_graph->addVisualFactor(vis_factor);
         }
-      } else if (feature.frame_id_ > frame_to_add) {
-        // Features are stored in their tracks sorted by frame id, so if we've
-        // hit a frame greater than what we're trying to add, we won't find any
-        // matching frames after this
-        break;
       }
     }
   }
