@@ -50,7 +50,7 @@ struct VisionFeatureTrack {
   FeatureId feature_id_;
 
   // Assumes this is sorted by frame id
-  std::vector<VisionFeature> feature_observations_;
+  std::unordered_map<FrameId, VisionFeature> feature_observations_;
 
   /**
    * Default constructor: do nothing.
@@ -60,8 +60,8 @@ struct VisionFeatureTrack {
    * Convenience constructor: initialize everything.
    */
   VisionFeatureTrack(const FeatureId& feature_id,
-                     const std::vector<VisionFeature>& feature_observations =
-                         std::vector<VisionFeature>())
+                     const std::unordered_map<FrameId, VisionFeature>& feature_observations =
+                     std::unordered_map<FrameId, VisionFeature>())
       : feature_id_(feature_id), feature_observations_(feature_observations){};
 };
 
