@@ -23,8 +23,50 @@ bboxVecErrFunc(const BbCorners<T>& measurement, const BbCorners<T>& gt) {
 }
 
 template <typename T>
-void patchExtractor(const BbCorners<T>& measurement, const BbCorners<T>& gt, const cv::Mat& inImg, cv::Mat& outImg) {
-  const int padding = 10;
+bool patchExtractor(const BbCorners<T>& measurement, const BbCorners<T>& gt, const cv::Mat& inImg, cv::Mat& outImg) {
+  const int padding = 5;
+  int min_x, min_y, max_x, max_y;
+  min_x = std::min((int)measurement[0], (int)gt[0]);
+  min_y = std::min((int)measurement[2], (int)gt[2]);
+  max_x = std::max((int)measurement[1], (int)gt[1]);
+  max_y = std::max((int)measurement[3], (int)gt[3]);
+  int halfSideLength = std::max(max_x-min_x, max_y-min_y) / 2;
+  
+  int center_x, center_y;
+  center_x = (min_x + max_x) / 2;
+  center_y = (min_y + max_y) / 2;
+  min_x = center_x - halfSideLength;
+  min_y = center_y - halfSideLength;
+  max_x = center_x + halfSideLength;
+  max_y = center_y + halfSideLength;
+
+  min_x = std::max((int)0,          min_x-padding);
+  min_y = std::max((int)0,          min_y-padding);
+  max_x = std::min((int)inImg.cols, max_x+padding);
+  max_y = std::min((int)inImg.rows, max_y+padding);
+
+  int sideLength = std::min(max_x-min_x, max_y-min_y);
+  if (sideLength < 2*(padding+halfSideLength)) {
+    return false;
+  } else {
+    outImg = cv::Mat::zeros(sideLength, sideLength, 16);
+    outImg = inImg.colRange(min_x, max_x).rowRange(min_y, max_y);
+    return true;
+  }
+
+  // outImg = cv::Mat::zeros(inImg.rows, inImg.cols, 16);
+  // cout << inImg.rows << "x" << inImg.cols << endl;
+  // cout << "measurement: " <<  measurement[0] << ", " << measurement[2] << ", " << measurement[1] << ", " << measurement[3] << endl;
+  // cout << "gt: " <<  gt[0] << ", " << gt[2] << ", " << gt[1] << ", " << gt[3] << endl;
+  // cout << "after: " << min_x << ", " << min_y << ", " << max_x << ", " << max_y << endl << endl;;
+  // cv::Mat inPatch  = inImg.colRange(min_x, max_x).rowRange(min_y, max_y);
+  // cv::Mat outPatch = outImg.colRange(min_x, max_x).rowRange(min_y, max_y);
+  // inPatch.copyTo(outPatch);
+}
+
+template <typename T>
+bool patchExtractor2(const BbCorners<T>& measurement, const BbCorners<T>& gt, const cv::Mat& inImg, cv::Mat& outImg) {
+  const int padding = 5;
   int min_x, min_y, max_x, max_y;
   min_x = std::min((int)measurement[0], (int)gt[0]);
   min_y = std::min((int)measurement[2], (int)gt[2]);
@@ -43,6 +85,7 @@ void patchExtractor(const BbCorners<T>& measurement, const BbCorners<T>& gt, con
   cv::Mat inPatch  = inImg.colRange(min_x, max_x).rowRange(min_y, max_y);
   cv::Mat outPatch = outImg.colRange(min_x, max_x).rowRange(min_y, max_y);
   inPatch.copyTo(outPatch);
+  return true;
 }
 
 template<typename T>
@@ -304,7 +347,7 @@ private:
           IVBoundingBox ivBoundingBox(currTime, *currYOLOBBoxVecPtr, supervisedBBoxes[supervisedBBoxIdx], currImgPtr);
           ivBoundingBox.err_ = bboxVecErrFunc(ivBoundingBox.yoloVec_.measurement_, ivBoundingBox.gt_); // TODO fix the constructor
           cv::Mat imgPatch; 
-          patchExtractor(ivBoundingBox.yoloVec_.measurement_, ivBoundingBox.gt_, *(ivBoundingBox.imgPtr_), imgPatch);
+          if (!patchExtractor(ivBoundingBox.yoloVec_.measurement_, ivBoundingBox.gt_, *(ivBoundingBox.imgPtr_), imgPatch)) { continue; }
           ivBoundingBox.imgPatchPtr_ = std::make_shared<cv::Mat>(imgPatch);
           ivBoundingBoxes_.push_back(ivBoundingBox);
         }
@@ -385,6 +428,7 @@ public:
    * @brief the main function
    */
   void createDataset() {
+    cout << "start creating dataset..." << endl;
     uid_ = 0;
     prepareOutputDirs_();
     for (size_t bagIdx = 0; bagIdx < bagnames_.size(); ++bagIdx) {
