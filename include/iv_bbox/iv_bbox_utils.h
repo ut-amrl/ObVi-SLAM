@@ -80,8 +80,8 @@ cv::Mat drawBBox(const cv::Mat& image, const BbCorners<T>& corners, const cv::Sc
   float min_x, min_y, max_x, max_y;
   min_x = std::max((float)0,          corners[0]);
   min_y = std::max((float)0,          corners[2]);
-  max_x = std::min((float)image.rows, corners[1]);
-  max_y = std::min((float)image.cols, corners[3]);
+  max_x = std::min((float)image.cols, corners[1]);
+  max_y = std::min((float)image.rows, corners[3]);
   cv::Mat img = image.clone();
   cv::rectangle(img, 
                 cv::Point(min_x,min_y),
@@ -174,7 +174,7 @@ bool isPointInAnnotatedBBox3d(const Eigen::Matrix<T, 3, 1>& point_in_world,
   return abs(point_in_box[0]) < annotation.state_.dimensions_[0]/2.0 
       && abs(point_in_box[1]) < annotation.state_.dimensions_[1]/2.0
       && abs(point_in_box[2]) < annotation.state_.dimensions_[2]/2.0;
-  }
+}
 
 template <typename topic_type>
 void loadTopic(const rosbag::Bag& bag, const string& topic_name,

@@ -1,5 +1,7 @@
+dataset_name: 'cones'
 in_dir: '/robodata/taijing/uncertainty-aware-perception/'
-out_dir: ''
+out_dir: '/robodata/taijing/uncertainty-aware-perception/dataset/'
+# bagnames: ['uncertainty_husky_occlude_2022-09-19-09-14-55']
 bagnames: ['uncertainty_husky_ideal_2022-09-19-09-17-04']
 ros_topics:
   compressed_img: '/zed/zed_node/rgb/image_rect_color/compressed'
