@@ -91,8 +91,11 @@ target_link_libraries(ellipsoid_estimator_real_data_main ut_vslam ${LIBS})
 ROSBUILD_ADD_EXECUTABLE(offline_object_visual_slam_main src/refactoring/offline_object_visual_slam_main.cpp)
 target_link_libraries(offline_object_visual_slam_main ut_vslam ${LIBS})
 
-ROSBUILD_ADD_EXECUTABLE(iv_bbox_eval_main src/iv_bbox/eval/main.cpp)
-target_link_libraries(iv_bbox_eval_main ut_vslam ${LIBS})
+ROSBUILD_ADD_EXECUTABLE(iv_bbox_main src/iv_bbox/main.cpp)
+target_link_libraries(iv_bbox_main ut_vslam ${LIBS})
+
+ROSBUILD_ADD_EXECUTABLE(iv_bbox_sync_main src/iv_bbox/sync_main.cpp)
+target_link_libraries(iv_bbox_sync_main ut_vslam ${LIBS})
 
 #
 #ROSBUILD_ADD_EXECUTABLE(approx_depth_bounding_box_extractor src/data_preprocessing_utils/approx_depth_bounding_box_extractor.cpp)

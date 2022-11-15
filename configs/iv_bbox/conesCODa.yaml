@@ -1,0 +1,8 @@
+dataset_name: 'cones'
+in_dir: '/robodata/taijing/uncertainty-aware-perception/'
+out_dir: '/robodata/taijing/uncertainty-aware-perception/dataset/'
+bagnames: ['uncertainty_husky_2022-11-07-12-02-34']
+ros_topics:
+  compressed_img: '/stereo/left/image_raw/compressed'
+  yolo_bbox: '/yolov5/bboxes'
+  odom: '/husky_velocity_controller/odom'

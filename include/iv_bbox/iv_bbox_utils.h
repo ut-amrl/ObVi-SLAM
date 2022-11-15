@@ -62,6 +62,19 @@ using std::endl;
  * 
  */
 template <typename T>
+void toCSV(const string& filename, const PCLCluster<T>& pclCluster) {
+  std::ofstream ofile;
+  ofile.open(filename, std::ios::trunc);
+  if (!ofile.is_open()) {
+      LOG(ERROR) << "failed to open " << filename;
+  }
+  for (const auto& pointPtr : pclCluster.pointPtrs_) {
+    ofile << pointPtr->x() << "," << pointPtr->y() << "," << pointPtr->z() << endl;
+  }
+  ofile.close();
+}
+
+template <typename T>
 void toCSV(const string& filename, const Pose3DArr<T>& stampedPoses) {
   std::ofstream ofile;
   ofile.open(filename, std::ios::trunc);
@@ -70,7 +83,7 @@ void toCSV(const string& filename, const Pose3DArr<T>& stampedPoses) {
   }
   for (const auto& stampedPose : stampedPoses) {
     const auto& posePtr = stampedPose.second;
-    ofile << posePtr->transl_[0] << "," << posePtr->transl_[1] << "," << posePtr->transl_[2] << endl;
+    ofile << vslam_types_refactor::timestampToMillis(stampedPose.first) << "," << posePtr->transl_[0] << "," << posePtr->transl_[1] << "," << posePtr->transl_[2] << endl;
   }
   ofile.close();
 }
@@ -169,11 +182,12 @@ void closeBagfile(rosbag::Bag& bag) {bag.close();}
 template <typename T>
 bool isPointInAnnotatedBBox3d(const Eigen::Matrix<T, 3, 1>& point_in_world, 
                               const Annotation<T>& annotation) {
+  const T padding = 1.0; // TODO delete me
   Eigen::Matrix<T, 3, 1> point_in_box = 
     annotation.state_.pose_.orientation_.inverse() * (point_in_world - annotation.state_.pose_.transl_);
-  return abs(point_in_box[0]) < annotation.state_.dimensions_[0]/2.0 
-      && abs(point_in_box[1]) < annotation.state_.dimensions_[1]/2.0
-      && abs(point_in_box[2]) < annotation.state_.dimensions_[2]/2.0;
+  return abs(point_in_box[0]) < annotation.state_.dimensions_[0]/2.0 + padding 
+      && abs(point_in_box[1]) < annotation.state_.dimensions_[1]/2.0 + padding
+      && abs(point_in_box[2]) < annotation.state_.dimensions_[2]/2.0 + padding;
 }
 
 template <typename topic_type>
@@ -326,7 +340,8 @@ void parsePointCloudCluster(const string& filepath, vector<PCLCluster<T>>& clust
   std::stringstream ss_time(line);
   ss_time >> sec >> nsec;
   Timestamp time(sec, nsec);
-  Eigen::Quaternionf quat(0.5, 0.5, 0.5, 0.5);
+  // Eigen::Quaternionf quat(0.5, 0.5, 0.5, 0.5);
+  Eigen::Quaternionf quat(0.5371607, 0.466256, 0.492242, 0.507639);
 
   unordered_map<ClusterId, PCLCluster<T>> pcl_clusters_map;
   ClusterId clusterId;
@@ -381,21 +396,21 @@ void parsePoseFile(const string& filepath, Pose3DArr<T>& stampedPoses3D) {
   T x, y, z, qw, qx, qy, qz;
   while (getline(ifile, line)) {
     std::stringstream ss_line(line);
-    getline(ss_line, word, ',');
+    getline(ss_line, word, ' ');
     time = std::stold(word);
-    getline(ss_line, word, ',');
+    getline(ss_line, word, ' ');
     x = std::stof(word);
-    getline(ss_line, word, ',');
+    getline(ss_line, word, ' ');
     y = std::stof(word);
-    getline(ss_line, word, ',');
+    getline(ss_line, word, ' ');
     z = std::stof(word);
-    getline(ss_line, word, ',');
+    getline(ss_line, word, ' ');
     qw = std::stof(word);
-    getline(ss_line, word, ',');
+    getline(ss_line, word, ' ');
     qx = std::stof(word);
-    getline(ss_line, word, ',');
+    getline(ss_line, word, ' ');
     qy = std::stof(word);
-    getline(ss_line, word, ',');
+    getline(ss_line, word, ' ');
     qz = std::stof(word);
     ros::Time rosTime(time);
     Timestamp time(rosTime.sec, rosTime.nsec);
@@ -482,10 +497,11 @@ void interpolatePosesByOdom(const Pose3DArr<T>& stampedOdom3DPtrs, Pose3DArr<T>&
     }
   }
   newStampedPose3DPtrs.push_back(stampedPose3DPtrs.back());
-  toCSV("poses.csv", stampedPose3DPtrs);
-  toCSV("interpolated_poses.csv", newStampedPose3DPtrs);
-  cout << "stampedPosePtrs sizes: " << stampedPose3DPtrs.size() << endl;
-  cout << "newStampedPosePtrs sizes: " << newStampedPose3DPtrs.size() << endl;
+  // toCSV("debug/poses.csv", stampedPose3DPtrs);
+  // toCSV("debug/odoms.csv", stampedOdom3DPtrs);
+  // toCSV("debug/interpolated_poses.csv", newStampedPose3DPtrs);
+  // cout << "stampedPosePtrs sizes: " << stampedPose3DPtrs.size() << endl;
+  // cout << "newStampedPosePtrs sizes: " << newStampedPose3DPtrs.size() << endl;
   stampedPose3DPtrs = newStampedPose3DPtrs;
 }
 
