@@ -138,10 +138,6 @@ void process_clusters(vector<PCLCluster<float>>& clusters,
     clusters = new_clusters;
 }
 
-// void parsePointCloudClusterDirs(const string& clusterDir, vector<pair<ros::Time, std::shared_ptr<PCLClusters>>>& stampedClusters) {
-
-// }
-
 void run(int argc, char **argv, 
          const string& bagfile, const string& posefile, const string& annotfile) {
     CameraIntrinsics<float> intrinsics(730.5822, 729.8109, 609.5004, 539.4311);
