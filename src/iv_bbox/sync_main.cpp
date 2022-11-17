@@ -142,13 +142,22 @@ void process_clusters(vector<PCLCluster<float>>& clusters,
 
 // }
 
-void run(const string& bagfile, const string& posefile, const string& annotfile) {
+void run(int argc, char **argv, 
+         const string& bagfile, const string& posefile, const string& annotfile) {
     CameraIntrinsics<float> intrinsics(730.5822, 729.8109, 609.5004, 539.4311);
     CameraExtrinsics<float> extrinsics;
     extrinsics.transl_ = Eigen::Vector3f(0.0625, 0.05078125, 0);
     extrinsics.orientation_ = Eigen::Quaternionf(0.464909, -0.5409106, -0.5394464, -0.4475183);
+    
     Eigen::Affine3f robot_to_cam_tf;
-    robot_to_cam_tf = Eigen::Translation3f(Eigen::Vector3f(0.0625, 0.05078125, 0)) * Eigen::Quaternionf(0.464909, -0.5409106, -0.5394464, -0.4475183);
+    robot_to_cam_tf = Eigen::Translation3f(Eigen::Vector3f(0.0625, 0.05078125, 0)) 
+                    * Eigen::Quaternionf(0.464909, -0.5409106, -0.5394464, -0.4475183);
+    // robot_to_cam_tf = Eigen::Translation3f(Eigen::Vector3f(0.0625, 0.05078125, 0)) 
+    //                 * Eigen::Quaternionf(0.464909, -0.5409106, -0.5394464, -0.4475183);
+    
+    float roll, pitch, yaw;
+    R_to_roll_pitch_yaw(Eigen::Quaternionf(0.464909, -0.5409106, -0.5394464, -0.4475183).matrix(), roll, pitch, yaw);
+    cout << "roll: " << roll << ", pitch: " << pitch << ", yaw: " << yaw << endl;
     cout << "translation:\n" << robot_to_cam_tf.translation().transpose() << endl;
     cout << "roation:\n" << robot_to_cam_tf.linear() << endl;
     robot_to_cam_tf = robot_to_cam_tf.inverse();
@@ -182,9 +191,103 @@ void run(const string& bagfile, const string& posefile, const string& annotfile)
     cout << "startIdx: " << startIdx << ", endIdx: " << endIdx << endl;
     stampedImgPtrs = ImgArr(stampedImgPtrs.begin()+startIdx, stampedImgPtrs.begin()+endIdx+1);
     stampedPclPtrs = PclArr(stampedPclPtrs.begin()+startIdx, stampedPclPtrs.begin()+endIdx+1);
+
+    ros::init(argc, argv, "input");
+    ros::NodeHandle nh;
+    ros::Rate rate(10);
+    ros::Publisher pub_img     = nh.advertise<sensor_msgs::Image>("/viz/image", 1);
+    ros::Publisher pub_pose    = nh.advertise<geometry_msgs::PoseStamped>("/viz/pose", 1);
+    ros::Publisher pub_cluster = nh.advertise<sensor_msgs::PointCloud2>("/viz/cluster", 1);
+
+    size_t idx = 0;
+    cout << "start publishing" << endl;
+    while (ros::ok()) {
+        if (idx >= stampedPosePtrs.size()) { 
+            closeBagfile(bag);
+            exit(0); 
+        }
+        ros::Time timestamp(stampedPosePtrs[idx].first.first, stampedPosePtrs[idx].first.second);
+
+        vector<BbCorners<float>> bboxes;
+        vector<PCLCluster<float>> clusters;
+        cluster(stampedPclPtrs[idx].second, clusters);
+        process_clusters(clusters, annotfile, *(stampedPosePtrs[idx].second));
+
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_cloud(
+            new pcl::PointCloud<pcl::PointXYZRGB>);
+        size_t color_idx = 0;
+        size_t colored_cloud_width = 0;
+
+        for (const auto& cluster : clusters) {
+            uint8_t r = (uint8_t) (color_idx % 2) * 255;
+            uint8_t b = (uint8_t) (color_idx % 4) * 63;
+            uint8_t g = 0;
+            uint32_t rgb = ((uint32_t)r << 16 | (uint32_t)g << 8 | (uint32_t)b);
+            colored_cloud_width += cluster.pointPtrs_.size();
+            for (const auto& pointPtr : cluster.pointPtrs_) {
+                pcl::PointXYZRGB colored_point;
+                colored_point.x = pointPtr->x();
+                colored_point.y = pointPtr->y();
+                colored_point.z = pointPtr->z();
+                colored_point.rgb = rgb;
+                colored_cloud->push_back(colored_point);
+            }
+            ++color_idx;
+
+            BbCornerPair<float> supervisedBBoxPair = getCornerLocationsPair(cluster.state_, robotPose, extrinsics, intrinsics.camera_mat);
+            auto corner = cornerLocationsPairToVector(supervisedBBoxPair);
+            cout << corner[0] << "," << corner[2] << "," << corner[1] << "," << corner[3] << endl;
+            bboxes.push_back(cornerLocationsPairToVector(supervisedBBoxPair));
+        }
+        cout << "idx: " << idx << "; clusters size = " << clusters.size() << endl;
+        cv::Mat bboxImg = drawBBoxes(*(stampedImgPtrs[idx].second), bboxes, cv::Scalar(0, 255, 0));
+
+        // publish pointcloud clusters
+        colored_cloud->width = colored_cloud_width;
+        colored_cloud->height = 1;
+        colored_cloud->is_dense = true;
+        sensor_msgs::PointCloud2 cluster_msg;
+        pcl::toROSMsg(*colored_cloud, cluster_msg);
+        cluster_msg.header.seq = idx;
+        cluster_msg.header.stamp = timestamp;
+        cluster_msg.header.frame_id = "baselink";
+        pub_cluster.publish(cluster_msg);
+
+        // publish image
+        cv_bridge::CvImage cv_img;
+        cv_img.header.seq = idx;
+        cv_img.header.stamp = timestamp;
+        cv_img.header.frame_id = "baseline";
+        cv_img.encoding = "8UC3";
+        cv_img.image = *(stampedImgPtrs[idx].second);
+        sensor_msgs::ImagePtr img_msg = cv_img.toImageMsg();
+        pub_img.publish(*img_msg);
+
+        // publish pose
+        const vslam_types_refactor::Pose3D<float>& pose = *(stampedPosePtrs[idx].second);
+        geometry_msgs::PoseStamped pose_msg;
+        pose_msg.header.seq = idx;
+        pose_msg.header.stamp = timestamp;
+        pose_msg.header.frame_id = "map";
+        pose_msg.pose.position.x    = pose.transl_.x();
+        pose_msg.pose.position.y    = pose.transl_.y();
+        pose_msg.pose.position.z    = pose.transl_.z();
+        Eigen::Quaternionf quat = Eigen::Quaternionf(pose.orientation_);
+        pose_msg.pose.orientation.x = quat.x();
+        pose_msg.pose.orientation.y = quat.y();
+        pose_msg.pose.orientation.z = quat.z();
+        pose_msg.pose.orientation.w = quat.w();
+        pub_pose.publish(pose_msg);
+
+        ++idx;
+        ros::spinOnce();
+        rate.sleep();
+        cout << "ready for next iter" << endl;
+    }
     
-    vector<BbCorners<float>> bboxes;
+#if 0
     for (size_t i = 0; i < stampedPosePtrs.size(); ++i) {
+        vector<BbCorners<float>> bboxes;
         vector<PCLCluster<float>> clusters;
         cluster(stampedPclPtrs[i].second, clusters);
         process_clusters(clusters, annotfile, *(stampedPosePtrs[i].second));
@@ -196,14 +299,16 @@ void run(const string& bagfile, const string& posefile, const string& annotfile)
         }
         cout << "i: " << i << "; clusters size = " << clusters.size() << endl;
         drawBBoxes(*(stampedImgPtrs[i].second), bboxes, "debug/images/"+std::to_string(i)+".png");
-        if (i > 5) { exit(0); }
+        if (i > 100) { exit(0); }
     }
     closeBagfile(bag);
+#endif
+
 }
 
 int main(int argc, char **argv) {
     google::InitGoogleLogging(argv[0]);
     google::ParseCommandLineFlags(&argc, &argv, true);
 
-    run(FLAGS_bagfile, FLAGS_posefile, FLAGS_annotfile);
+    run(argc, argv, FLAGS_bagfile, FLAGS_posefile, FLAGS_annotfile);
 }
