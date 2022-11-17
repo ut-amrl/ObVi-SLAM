@@ -9,39 +9,31 @@
 
 namespace vslam_types_refactor {
 
-void OrbOutputLowLevelFeatureReader::getLowLevelFeatures(
+bool OrbOutputLowLevelFeatureReader::getLowLevelFeatures(
     std::unordered_map<FeatureId, StructuredVisionFeatureTrack>
         &feature_tracks) {
   if (!loaded_) {
-    loadData();
+    if (!loadData()) {
+      return false;
+    }
   }
   feature_tracks = feature_tracks_;
 }
 
-/**
- * Read the initial trajectory estimate from ORB-SLAM. Expects data as
- * formatted by Taijing's branch of ORB-SLAM.
- *
- * @param file_name[in]       Should be directory name that points to all of
- *                            the files for the dataset.
- * @param robot_pose_estimates
- */
-void OrbOutputLowLevelFeatureReader::getInitialTrajectoryEstimate(
-    std::unordered_map<FrameId, Pose3D<double>> &robot_pose_estimates) {
-  if (!loaded_) {
-    loadData();
-  }
-  robot_pose_estimates = robot_pose_estimates_;
-}
-
-void OrbOutputLowLevelFeatureReader::loadData() {
+bool OrbOutputLowLevelFeatureReader::loadData() {
   FeatureFileContents feature_file_contents;
-  readFeatureFileContentsFromDirectory(orb_data_directory_name_,
-                                       feature_file_contents);
+  if (!readFeatureFileContentsFromDirectory(orb_data_directory_name_,
+                                       feature_file_contents)) {
+    LOG(ERROR) << "Failed to load initial feature positions";
+    return false;
+  }
   std::unordered_map<FrameId, FeatureObservationsForFrame>
       single_frame_feature_observations;
-  readSingleFileFrameContentsFromDirectory(orb_data_directory_name_,
-                                           single_frame_feature_observations);
+  if (!readSingleFileFrameContentsFromDirectory(orb_data_directory_name_,
+                                           single_frame_feature_observations)) {
+    LOG(ERROR) << "Failed to load feature observations";
+    return false;
+  }
 
   std::unordered_map<
       FeatureId,
@@ -104,7 +96,8 @@ void OrbOutputLowLevelFeatureReader::loadData() {
         }
       }
 
-      feat_structs_for_feat.insert_or_assign(frame,
+      feat_structs_for_feat.insert_or_assign(
+          frame,
           VisionFeature(frame, pixel_by_camera_id_for_frame, primary_cam));
     }
 
@@ -120,9 +113,10 @@ void OrbOutputLowLevelFeatureReader::loadData() {
   }
   // TODO maybe warn if there are observations but no initial feature estimates
   loaded_ = true;
+  return true;
 }
 
-void OrbOutputLowLevelFeatureReader::readSingleFileFrameContentsFromDirectory(
+bool OrbOutputLowLevelFeatureReader::readSingleFileFrameContentsFromDirectory(
     const std::string &directory_name,
     std::unordered_map<FrameId, FeatureObservationsForFrame>
         &single_frame_feature_observations) {
@@ -137,7 +131,7 @@ void OrbOutputLowLevelFeatureReader::readSingleFileFrameContentsFromDirectory(
     if (data_file_stream.fail()) {
       LOG(FATAL) << "Failed to load: " << entry.path()
                  << " are you sure this a valid data file? ";
-      exit(1);
+      return false;
     }
 
     // Start loading measurement files
@@ -187,12 +181,40 @@ void OrbOutputLowLevelFeatureReader::readSingleFileFrameContentsFromDirectory(
       }
     }
   }
+  return true;
 }
 
-void OrbOutputLowLevelFeatureReader::readFeatureFileContentsFromDirectory(
+bool OrbOutputLowLevelFeatureReader::readFeatureFileContentsFromDirectory(
     const std::string &directory_name,
     FeatureFileContents &feature_file_contents) {
-  // TODO!
+  std::string features_file_path = directory_name;
+  std::string last_char;
+  last_char.push_back(features_file_path.back());
+  if (last_char != "/") {
+    features_file_path += "/";
+  }
+  features_file_path += kFeaturesFileLocation;
+
+  // Load features
+  std::ifstream feature_file_stream;
+  feature_file_stream.open(features_file_path);
+  if (feature_file_stream.fail()) {
+    LOG(FATAL) << " Failed to open 3D feature file.";
+    return false;
+  }
+
+  // Read in IDs and features from all lines
+  std::string line;
+  while (std::getline(feature_file_stream, line)) {
+    std::stringstream ss_feature(line);
+    int feat_id;
+    double x, y, z;
+    ss_feature >> feat_id >> x >> y >> z;
+    feature_file_contents.feature_initial_position_estimates_[feat_id] =
+        Eigen::Vector3d(x, y, z);
+  }
+
+  return true;
 }
 
 }  // namespace vslam_types_refactor

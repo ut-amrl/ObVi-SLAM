@@ -40,42 +40,31 @@ class OrbOutputLowLevelFeatureReader
    *                            the files for the dataset.
    * @param feature_tracks[out] Feature tracks that are read in from files.
    */
-  virtual void getLowLevelFeatures(
+  virtual bool getLowLevelFeatures(
       std::unordered_map<FeatureId, StructuredVisionFeatureTrack>
           &feature_tracks) override;
 
-  /**
-   * Read the initial trajectory estimate from ORB-SLAM. Expects data as
-   * formatted by Taijing's branch of ORB-SLAM.
-   *
-   * @param file_name[in]       Should be directory name that points to all of
-   *                            the files for the dataset.
-   * @param robot_pose_estimates
-   */
-  virtual void getInitialTrajectoryEstimate(
-      std::unordered_map<FrameId, Pose3D<double>> &robot_pose_estimates)
-      override;
-
  protected:
-  void readSingleFileFrameContentsFromDirectory(
+  bool readSingleFileFrameContentsFromDirectory(
       const std::string &directory_name,
       std::unordered_map<FrameId, FeatureObservationsForFrame>
           &single_frame_feature_observations);
 
-  void readFeatureFileContentsFromDirectory(
+  bool readFeatureFileContentsFromDirectory(
       const std::string &directory_name,
       FeatureFileContents &feature_file_contents);
 
-  void loadData();
+  bool loadData();
 
  private:
+  const std::string kFeaturesFileLocation = "features/features.txt";
+
   std::string orb_data_directory_name_;
   std::vector<CameraId> camera_precedence_order_;
 
   bool loaded_;
 
   std::unordered_map<FeatureId, StructuredVisionFeatureTrack> feature_tracks_;
-  std::unordered_map<FrameId, Pose3D<double>> robot_pose_estimates_;
 };
 }  // namespace vslam_types_refactor
 

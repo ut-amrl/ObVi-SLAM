@@ -86,9 +86,16 @@ target_link_libraries(ellipsoid_estimator_real_data_main ut_vslam ${LIBS})
 ROSBUILD_ADD_EXECUTABLE(offline_object_visual_slam_main src/refactoring/offline_object_visual_slam_main.cpp)
 target_link_libraries(offline_object_visual_slam_main ut_vslam ${LIBS})
 
+ROSBUILD_ADD_EXECUTABLE(initialize_traj_and_feats_from_orb_out src/data_preprocessing_utils/unproject_main.cpp)
+target_link_libraries(initialize_traj_and_feats_from_orb_out ut_vslam ${LIBS})
+
 #
 #ROSBUILD_ADD_EXECUTABLE(approx_depth_bounding_box_extractor src/data_preprocessing_utils/approx_depth_bounding_box_extractor.cpp)
 #target_link_libraries(approx_depth_bounding_box_extractor ut_vslam ${LIBS})
 
 ROSBUILD_ADD_EXECUTABLE(localization_rosbag_extraction_and_interpolation_for_bounding_boxes src/data_preprocessing_utils/localization_rosbag_extraction_and_interpolation_for_bounding_boxes.cpp)
 target_link_libraries(localization_rosbag_extraction_and_interpolation_for_bounding_boxes ut_vslam ${LIBS})
+
+
+ROSBUILD_ADD_EXECUTABLE(test_det_call src/testing/test_obj_det_service.cpp)
+target_link_libraries(test_det_call ut_vslam ${LIBS})
