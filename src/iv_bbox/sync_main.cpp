@@ -267,20 +267,23 @@ void run(int argc, char **argv,
         pub_img.publish(*img_msg);
 
         // publish pose
-        // const vslam_types_refactor::Pose3D<float>& pose = *(stampedPosePtrs[idx].second);
-        // geometry_msgs::PoseStamped pose_msg;
-        // pose_msg.header.seq = idx;
-        // pose_msg.header.stamp = timestamp;
-        // pose_msg.header.frame_id = "map";
+        const vslam_types_refactor::Pose3D<float>& pose = *(stampedPosePtrs[idx].second);
+        geometry_msgs::PoseStamped pose_msg;
+        pose_msg.header.seq = idx;
+        pose_msg.header.stamp = timestamp;
+        pose_msg.header.frame_id = "baselink";
         // pose_msg.pose.position.x    = pose.transl_.x();
         // pose_msg.pose.position.y    = pose.transl_.y();
         // pose_msg.pose.position.z    = pose.transl_.z();
-        // Eigen::Quaternionf quat = Eigen::Quaternionf(pose.orientation_);
-        // pose_msg.pose.orientation.x = quat.x();
-        // pose_msg.pose.orientation.y = quat.y();
-        // pose_msg.pose.orientation.z = quat.z();
-        // pose_msg.pose.orientation.w = quat.w();
-        // pub_pose.publish(pose_msg);
+        pose_msg.pose.position.x    = 0.0;
+        pose_msg.pose.position.y    = 0.0;
+        pose_msg.pose.position.z    = 0.0;
+        Eigen::Quaternionf quat = Eigen::Quaternionf(pose.orientation_);
+        pose_msg.pose.orientation.x = quat.x();
+        pose_msg.pose.orientation.y = quat.y();
+        pose_msg.pose.orientation.z = quat.z();
+        pose_msg.pose.orientation.w = quat.w();
+        pub_pose.publish(pose_msg);
 
         ++idx;
         ros::spinOnce();
