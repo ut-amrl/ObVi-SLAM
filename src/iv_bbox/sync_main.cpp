@@ -37,7 +37,7 @@ void cluster(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
     }
     ofile.close();
 
-    new_cloud->width = cloud->size();
+    new_cloud->width = new_cloud->size();
     new_cloud->height = 1;
     new_cloud->is_dense = true;
     pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(
@@ -45,44 +45,36 @@ void cluster(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
     tree->setInputCloud (new_cloud);
     std::vector<pcl::PointIndices> cluster_indices;
     pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
-    ec.setClusterTolerance (0.05); // in meters.
-    ec.setMinClusterSize (20);
-    ec.setMaxClusterSize (500);
+    ec.setClusterTolerance (0.1); // in meters.
+    ec.setMinClusterSize (100);
+    ec.setMaxClusterSize (1000);
     ec.setSearchMethod (tree);
     ec.setInputCloud (new_cloud);
     ec.extract (cluster_indices);
 
     int j = 0;
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
    
+    // iterate through each clusters
     for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin(); 
             it != cluster_indices.end (); ++it) {
-        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster(new pcl::PointCloud<pcl::PointXYZ>);
         PCLCluster<float> cluster;
 
-        uint8_t r = (uint8_t) (j % 2) * 255;
-        uint8_t b = (uint8_t) (j % 4) * 63;
-        uint8_t g = 0;
-        uint32_t rgb = ((uint32_t)r << 16 | (uint32_t)g << 8 | (uint32_t)b);
-
+        // iterate though each point in cluster
         for (const auto& idx : it->indices) {
-            Eigen::Vector3f point_eigen((*cloud)[idx].x, (*cloud)[idx].y, (*cloud)[idx].z);
-            // Created a colored point from (*cloud)[idx].
-            pcl::PointXYZRGB point;
-            point.x = (*cloud)[idx].x;
-            point.y = (*cloud)[idx].y;
-            point.z = (*cloud)[idx].z;
-            point.rgb = rgb;
-            colored_cloud->push_back(point);
+            Eigen::Vector3f point_eigen((*new_cloud)[idx].x, (*new_cloud)[idx].y, (*new_cloud)[idx].z);
             cluster.pointPtrs_.push_back(std::make_shared<Eigen::Vector3f>(point_eigen));
         }
-        cloud_cluster->width = cloud_cluster->size ();
-        cloud_cluster->height = 1;
-        cloud_cluster->is_dense = true;
         j++;
-
         clusters.push_back(cluster);
     }
+
+    ofile.open("debug/colored_cloud.csv", std::ios::trunc);
+    for (const auto& cluster : clusters) {
+        for (const auto& p : cluster.pointPtrs_) {
+            ofile << p->x() << " " << p->y() << " " << p->z() << endl;
+        }
+    }
+    ofile.close();
 }
 
 void process_clusters(vector<PCLCluster<float>>& clusters, 
@@ -129,7 +121,21 @@ void process_clusters(vector<PCLCluster<float>>& clusters,
             Eigen::Vector3f point_in_box   = annotation.state_.pose_.orientation_ * (point_in_world - annotation.state_.pose_.transl_);
             cout << "best point_in_box: " << point_in_box.transpose() << endl;
             bestClusterPtr->label_ = annotation.label_;
-            bestClusterPtr->state_.dimensions_ << (float)0.3, (float)0.3, (float)0.5;
+            
+            // bestClusterPtr->state_.dimensions_ << (float)0.3, (float)0.3, (float)0.5;
+            float xmin, xmax, ymin, ymax, zmin, zmax;
+            xmin = ymin = zmin =  1000;
+            xmax = ymax = zmax = -1000;
+            for (const auto& p : bestClusterPtr->pointPtrs_) {
+                xmin = p->x() < xmin ? p->x() : xmin;
+                ymin = p->y() < ymin ? p->y() : ymin;
+                zmin = p->z() < zmin ? p->z() : zmin;
+                xmax = p->x() > xmax ? p->x() : xmax;
+                ymax = p->y() > ymax ? p->y() : ymax;
+                zmax = p->z() > zmax ? p->z() : zmax;
+            }
+            bestClusterPtr->state_.dimensions_ << (float)(xmax-xmin), (float)(ymax-ymin), (float)(zmax-zmin);
+
             bestClusterPtr->state_.pose_.transl_ = bestClusterPtr->centroid_;
             bestClusterPtr->state_.pose_.orientation_ =  Eigen::AngleAxisf(Eigen::Quaternionf(1, 0, 0, 0));
             new_clusters.push_back(*bestClusterPtr);
@@ -237,6 +243,7 @@ void run(int argc, char **argv,
         }
         cout << "idx: " << idx << "; clusters size = " << clusters.size() << endl;
         cv::Mat bboxImg = drawBBoxes(*(stampedImgPtrs[idx].second), bboxes, cv::Scalar(0, 255, 0));
+        cv::imwrite("debug/images/"+std::to_string(idx)+".png", bboxImg);
 
         // publish pointcloud clusters
         colored_cloud->width = colored_cloud_width;
@@ -260,20 +267,20 @@ void run(int argc, char **argv,
         pub_img.publish(*img_msg);
 
         // publish pose
-        const vslam_types_refactor::Pose3D<float>& pose = *(stampedPosePtrs[idx].second);
-        geometry_msgs::PoseStamped pose_msg;
-        pose_msg.header.seq = idx;
-        pose_msg.header.stamp = timestamp;
-        pose_msg.header.frame_id = "map";
-        pose_msg.pose.position.x    = pose.transl_.x();
-        pose_msg.pose.position.y    = pose.transl_.y();
-        pose_msg.pose.position.z    = pose.transl_.z();
-        Eigen::Quaternionf quat = Eigen::Quaternionf(pose.orientation_);
-        pose_msg.pose.orientation.x = quat.x();
-        pose_msg.pose.orientation.y = quat.y();
-        pose_msg.pose.orientation.z = quat.z();
-        pose_msg.pose.orientation.w = quat.w();
-        pub_pose.publish(pose_msg);
+        // const vslam_types_refactor::Pose3D<float>& pose = *(stampedPosePtrs[idx].second);
+        // geometry_msgs::PoseStamped pose_msg;
+        // pose_msg.header.seq = idx;
+        // pose_msg.header.stamp = timestamp;
+        // pose_msg.header.frame_id = "map";
+        // pose_msg.pose.position.x    = pose.transl_.x();
+        // pose_msg.pose.position.y    = pose.transl_.y();
+        // pose_msg.pose.position.z    = pose.transl_.z();
+        // Eigen::Quaternionf quat = Eigen::Quaternionf(pose.orientation_);
+        // pose_msg.pose.orientation.x = quat.x();
+        // pose_msg.pose.orientation.y = quat.y();
+        // pose_msg.pose.orientation.z = quat.z();
+        // pose_msg.pose.orientation.w = quat.w();
+        // pub_pose.publish(pose_msg);
 
         ++idx;
         ros::spinOnce();
