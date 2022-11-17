@@ -9,7 +9,7 @@
 #include <random>
 
 namespace {
-const std::string kCalibrationPath = "calibration/camera_matrix.txt";
+const std::string kIntrinsicCalibrationPath = "calibration/camera_matrix.txt";
 const std::string kFeaturesPath = "features/features.txt";
 const std::string kTxtExtension = ".txt";
 const vslam_types::CameraId kDefaultCameraId = 1;
@@ -331,7 +331,7 @@ void LoadCameraCalibrationData(
 
   // Load camera calibration matrix
   vslam_io::LoadCameraCalibrationMatrix(
-      calibration_directory_path + kCalibrationPath, camera_mat);
+      calibration_directory_path + kIntrinsicCalibrationPath, camera_mat);
 
   vslam_types::CameraIntrinsics intrinsics{camera_mat};
   // [0 -1 0; 0 0 -1; 1 0 0] is the rotation of the camera matrix from a classic

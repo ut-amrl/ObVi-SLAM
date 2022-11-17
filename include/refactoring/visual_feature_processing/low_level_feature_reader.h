@@ -15,11 +15,8 @@
 namespace vslam_types_refactor {
 template <typename FeatureTrackType>
 class AbstractLowLevelFeatureReader {
-  virtual void getLowLevelFeatures(
+  virtual bool getLowLevelFeatures(
       std::unordered_map<FeatureId, FeatureTrackType> &feature_tracks) = 0;
-
-  virtual void getInitialTrajectoryEstimate(
-      std::unordered_map<FrameId, Pose3D<double>> &robot_pose_estimates) = 0;
 };
 
 }  // namespace vslam_types_refactor
