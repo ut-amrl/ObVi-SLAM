@@ -45,6 +45,7 @@
 #include <amrl_msgs/BBox2DArrayMsg.h>
 #include <cmath>
 #include <limits>
+#include <yaml-cpp/yaml.h>
 #include <iv_bbox/iv_bbox_types.h>
 
 namespace iv_bbox {
@@ -83,7 +84,7 @@ void toCSV(const string& filename, const Pose3DArr<T>& stampedPoses) {
   }
   for (const auto& stampedPose : stampedPoses) {
     const auto& posePtr = stampedPose.second;
-    ofile << vslam_types_refactor::timestampToMillis(stampedPose.first) << "," << posePtr->transl_[0] << "," << posePtr->transl_[1] << "," << posePtr->transl_[2] << endl;
+    ofile << std::setprecision(20) << ros::Time(stampedPose.first.first, stampedPose.first.second).toSec() << "," << posePtr->transl_[0] << "," << posePtr->transl_[1] << "," << posePtr->transl_[2] << endl;
   }
   ofile.close();
 }
@@ -306,7 +307,24 @@ void parseAnnotation(const string& annotationFile, vector<Annotation<T>>& annota
   }
 }
 
-void parsePointCloud(const string& bagfile, const string& topic_name, PclArr stampedPointclouds) {
+void parsePointCloud(const rosbag::Bag& bag, const string& topic_name, PclArr& stampedPointclouds) {
+  rosbag::View view(bag, rosbag::TopicQuery(topic_name));
+  for (const rosbag::MessageInstance& m : view) {
+    sensor_msgs::PointCloud2::ConstPtr msgPtr = m.instantiate<sensor_msgs::PointCloud2>();
+    if (msgPtr != nullptr) {
+      pcl::PointCloud<pcl::PointXYZ>::Ptr cloudPtr(new pcl::PointCloud<pcl::PointXYZ>);
+      sensor_msgs::PointCloud2ConstIterator<float> iter_x(*msgPtr, "x");
+      sensor_msgs::PointCloud2ConstIterator<float> iter_y(*msgPtr, "y");
+      sensor_msgs::PointCloud2ConstIterator<float> iter_z(*msgPtr, "z");
+      for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z) {
+          cloudPtr->points.emplace_back(*iter_x, *iter_y, *iter_z);
+      }
+      stampedPointclouds.emplace_back(Timestamp(msgPtr->header.stamp.sec, msgPtr->header.stamp.nsec), cloudPtr);
+    }
+  }
+}
+
+void parsePointCloud(const string& bagfile, const string& topic_name, PclArr& stampedPointclouds) {
   pcl::PointCloud<pcl::PointXYZ>::Ptr pclPtr;
   rosbag::Bag bag;
   openBagfile(bagfile, bag);
@@ -506,7 +524,8 @@ void interpolatePosesByOdom(const Pose3DArr<T>& stampedOdom3DPtrs, Pose3DArr<T>&
 }
 
 template <typename T>
-void interpolatePosesByTime(vector<Timestamp>& targetTimes, Pose3DArr<T>& stampedPosePtrs) {
+std::tuple<size_t, size_t>
+interpolatePosesByTime(vector<Timestamp>& targetTimes, Pose3DArr<T>& stampedPosePtrs) {
   Pose3DArr<T> newStampedPosePtrs;
   size_t timeIdx, poseIdx, startTimeIdx;
   const size_t& nTime = targetTimes.size();
@@ -550,6 +569,7 @@ void interpolatePosesByTime(vector<Timestamp>& targetTimes, Pose3DArr<T>& stampe
     targetTimes = vector<Timestamp>(targetTimes.begin()+startTimeIdx, targetTimes.begin()+timeIdx+1);
   }
   stampedPosePtrs = newStampedPosePtrs;
+  return std::make_tuple(startTimeIdx, timeIdx);
 }
 
 }

@@ -30,7 +30,6 @@ using std::cout;
 using std::endl;
 
 typedef uint16_t AnnotateId;
-// typedef vector<pair<ros::Time, std::shared_ptr<cv::Mat>>> ImgArr;
 typedef vector<pair<Timestamp, std::shared_ptr<cv::Mat>>> ImgArr;
 typedef vector<pair<Timestamp, pcl::PointCloud<pcl::PointXYZ>::Ptr>> PclArr;
 
@@ -163,5 +162,8 @@ struct PCLCluster {
   PCLCluster(const string& label, const vector<std::shared_ptr<Eigen::Vector3f>>& pointPtrs) 
     : label_(label), pointPtrs_(pointPtrs) {}
 };
+
+template <typename T>
+using ClustersArr = vector<pair<Timestamp, vector<std::shared_ptr<PCLCluster<T>>>>>;
 
 }
