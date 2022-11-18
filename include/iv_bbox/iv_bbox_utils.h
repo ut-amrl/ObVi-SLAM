@@ -158,6 +158,13 @@ void R_to_roll_pitch_yaw(const Eigen::Matrix3f R,
   roll   = atan2( R(2,1), R(2,2));
 }
 
+void roll_pitch_yaw_to_R(const double& roll, const double& pitch, const double& yaw,
+                         Eigen::Matrix3f& R) {
+    R = Eigen::AngleAxisf(roll,  Eigen::Vector3f(1, 0, 0)) *
+        Eigen::AngleAxisf(pitch, Eigen::Vector3f(0, 1, 0)) *
+        Eigen::AngleAxisf(yaw,   Eigen::Vector3f(0, 0, 1));
+}
+
 template <typename T>
 Eigen::Matrix<T, 4, 1> getMeasurementError(const Eigen::Matrix<T, 4, 1>& measurement, 
                                            const Eigen::Matrix<T, 4, 1>& gt) {

@@ -135,6 +135,7 @@ void process_clusters(vector<PCLCluster<float>>& clusters,
                 zmax = p->z() > zmax ? p->z() : zmax;
             }
             bestClusterPtr->state_.dimensions_ << (float)(xmax-xmin), (float)(ymax-ymin), (float)(zmax-zmin);
+            cout << "dimension: " << bestClusterPtr->state_.dimensions_.transpose() << endl;
 
             bestClusterPtr->state_.pose_.transl_ = bestClusterPtr->centroid_;
             bestClusterPtr->state_.pose_.orientation_ =  Eigen::AngleAxisf(Eigen::Quaternionf(1, 0, 0, 0));
@@ -154,17 +155,26 @@ void run(int argc, char **argv,
     Eigen::Affine3f robot_to_cam_tf;
     robot_to_cam_tf = Eigen::Translation3f(Eigen::Vector3f(0.0625, 0.05078125, 0)) 
                     * Eigen::Quaternionf(0.464909, -0.5409106, -0.5394464, -0.4475183);
-    // robot_to_cam_tf = Eigen::Translation3f(Eigen::Vector3f(0.0625, 0.05078125, 0)) 
-    //                 * Eigen::Quaternionf(0.464909, -0.5409106, -0.5394464, -0.4475183);
     
+    robot_to_cam_tf = robot_to_cam_tf.inverse();
     float roll, pitch, yaw;
-    R_to_roll_pitch_yaw(Eigen::Quaternionf(0.464909, -0.5409106, -0.5394464, -0.4475183).matrix(), roll, pitch, yaw);
+    R_to_roll_pitch_yaw(robot_to_cam_tf.linear(), roll, pitch, yaw);
     cout << "roll: " << roll << ", pitch: " << pitch << ", yaw: " << yaw << endl;
     cout << "translation:\n" << robot_to_cam_tf.translation().transpose() << endl;
     cout << "roation:\n" << robot_to_cam_tf.linear() << endl;
-    robot_to_cam_tf = robot_to_cam_tf.inverse();
     extrinsics.transl_ = robot_to_cam_tf.translation();
     extrinsics.orientation_ = Eigen::Quaternionf(robot_to_cam_tf.linear());
+
+    extrinsics.transl_ = Eigen::Vector3f(0.01, 0.1, -0.1);
+    // extrinsics.orientation_ = Eigen::AngleAxisf(Eigen::Quaternionf(1.0, 0.0, 0.0, 0.0)) 
+    //                         * Eigen::Quaternionf(0.5, 0.5, -0.5, 0.5).inverse();
+    extrinsics.orientation_ = Eigen::AngleAxisf(Eigen::Quaternionf(0.99549089, 0.0, 0.09485717, 0.0)) 
+                            * Eigen::Quaternionf(0.5, 0.5, -0.5, 0.5).inverse();
+    R_to_roll_pitch_yaw(extrinsics.orientation_.matrix(), roll, pitch, yaw);
+    cout << "hellooooo: roll: " << roll << ", pitch: " << pitch << ", yaw: " << yaw << endl;
+    Eigen::Matrix3f R;
+    roll_pitch_yaw_to_R(0, 0.25, 0, R);
+    cout << Eigen::Quaternionf(R).coeffs().transpose() << endl;
 
     Pose3D<float> robotPose;
     robotPose.transl_ << (float)0.0, (float)0.0, (float)0.0;
@@ -262,7 +272,7 @@ void run(int argc, char **argv,
         cv_img.header.stamp = timestamp;
         cv_img.header.frame_id = "baseline";
         cv_img.encoding = "8UC3";
-        cv_img.image = *(stampedImgPtrs[idx].second);
+        cv_img.image = bboxImg;
         sensor_msgs::ImagePtr img_msg = cv_img.toImageMsg();
         pub_img.publish(*img_msg);
 
@@ -305,7 +315,6 @@ void run(int argc, char **argv,
         }
         cout << "i: " << i << "; clusters size = " << clusters.size() << endl;
         drawBBoxes(*(stampedImgPtrs[i].second), bboxes, "debug/images/"+std::to_string(i)+".png");
-        if (i > 100) { exit(0); }
     }
     closeBagfile(bag);
 #endif
