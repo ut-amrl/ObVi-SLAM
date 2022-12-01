@@ -16,6 +16,7 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 find_package(Ceres REQUIRED)
 find_package(OpenCV 4.2 EXACT REQUIRED)
 find_package(Pangolin REQUIRED)
+find_package(Boost COMPONENTS filesystem REQUIRED)
 #find_package(darknet_ros_msgs)
 #find_package(catkin REQUIRED COMPONENTS darknet_ros_msgs)
 
@@ -39,7 +40,8 @@ set(LIBS
         amrl_shared_lib
         ${CERES_LIBRARIES}
         ${OpenCV_LIBS}
-        ${Pangolin_LIBRARIES})
+        ${Pangolin_LIBRARIES}
+        ${Boost_FILESYSTEM_LIBRARY})
 
 include_directories(src/shared)
 add_subdirectory(src/shared)

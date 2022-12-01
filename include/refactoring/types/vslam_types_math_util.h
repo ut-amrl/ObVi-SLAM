@@ -67,6 +67,11 @@ Pose3D<NumType> combinePoses(const Pose3D<NumType>& pose_1,
 }
 
 template <typename NumType>
+Pose3D<NumType> poseInverse(const Pose3D<NumType>& pose_3d) {
+  return convertAffineToPose3D(convertToAffine(pose_3d).inverse());
+}
+
+template <typename NumType>
 Position3d<NumType> pixelToHomogeneous(const PixelCoord<NumType> pixel_coord) {
   return Position3d<NumType>(pixel_coord.x(), pixel_coord.y(), NumType(1));
 }

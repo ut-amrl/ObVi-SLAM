@@ -186,6 +186,47 @@ static void read(const cv::FileNode &node,
   }
 }
 
+class SerializableFeatureId : public FileStorageSerializable<FeatureId> {
+ public:
+  SerializableFeatureId()
+      : FileStorageSerializable<FeatureId>() {}
+  SerializableFeatureId(const FeatureId &data)
+      : FileStorageSerializable<FeatureId>(data) {}
+
+  virtual void write(cv::FileStorage &fs) const override {
+    std::string feat_id_str = std::to_string(data_);
+    fs <<  feat_id_str;
+  }
+
+  virtual void read(const cv::FileNode &node) override {
+    std::string feat_id_str;
+    node >> feat_id_str;
+    std::istringstream feat_id_stream(feat_id_str);
+    feat_id_stream >> data_;
+  }
+
+ protected:
+  using FileStorageSerializable<FeatureId>::data_;
+};
+
+static void write(cv::FileStorage &fs,
+                  const std::string &,
+                  const SerializableFeatureId &data) {
+  data.write(fs);
+}
+
+static void read(const cv::FileNode &node,
+                 SerializableFeatureId &data,
+                 const SerializableFeatureId &default_data =
+                 SerializableFeatureId()) {
+  if (node.empty()) {
+    data = default_data;
+  } else {
+    data.read(node);
+  }
+}
+
+
 }  // namespace vslam_types_refactor
 
 #endif  // UT_VSLAM_VSLAM_BASIC_TYPES_FILE_STORAGE_IO_H

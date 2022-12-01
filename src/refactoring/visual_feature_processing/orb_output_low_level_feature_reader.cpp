@@ -2,6 +2,7 @@
 // Created by amanda on 10/10/22.
 //
 
+#include <file_io/features_ests_with_id_io.h>
 #include <glog/logging.h>
 #include <refactoring/visual_feature_processing/orb_output_low_level_feature_reader.h>
 
@@ -23,14 +24,14 @@ bool OrbOutputLowLevelFeatureReader::getLowLevelFeatures(
 bool OrbOutputLowLevelFeatureReader::loadData() {
   FeatureFileContents feature_file_contents;
   if (!readFeatureFileContentsFromDirectory(orb_data_directory_name_,
-                                       feature_file_contents)) {
+                                            feature_file_contents)) {
     LOG(ERROR) << "Failed to load initial feature positions";
     return false;
   }
   std::unordered_map<FrameId, FeatureObservationsForFrame>
       single_frame_feature_observations;
-  if (!readSingleFileFrameContentsFromDirectory(orb_data_directory_name_,
-                                           single_frame_feature_observations)) {
+  if (!readSingleFileFrameContentsFromDirectory(
+          orb_data_directory_name_, single_frame_feature_observations)) {
     LOG(ERROR) << "Failed to load feature observations";
     return false;
   }
@@ -203,15 +204,13 @@ bool OrbOutputLowLevelFeatureReader::readFeatureFileContentsFromDirectory(
     return false;
   }
 
-  // Read in IDs and features from all lines
-  std::string line;
-  while (std::getline(feature_file_stream, line)) {
-    std::stringstream ss_feature(line);
-    int feat_id;
-    double x, y, z;
-    ss_feature >> feat_id >> x >> y >> z;
-    feature_file_contents.feature_initial_position_estimates_[feat_id] =
-        Eigen::Vector3d(x, y, z);
+  std::vector<file_io::FeatureEstWithId> raw_features;
+  file_io::readFeatureEstsWithIdFromFile(features_file_path, raw_features);
+
+  for (const file_io::FeatureEstWithId &raw_feat : raw_features) {
+    feature_file_contents
+        .feature_initial_position_estimates_[raw_feat.feature_id] =
+        Eigen::Vector3d(raw_feat.x, raw_feat.y, raw_feat.z);
   }
 
   return true;
