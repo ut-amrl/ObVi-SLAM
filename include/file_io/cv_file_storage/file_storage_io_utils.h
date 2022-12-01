@@ -103,6 +103,79 @@ static void read(const cv::FileNode &node,
   }
 }
 
+template <typename FirstEntryType,
+          typename SerializableFirstEntryType,
+          typename SecondEntryType,
+          typename SerializableSecondEntryType>
+class SerializablePair : public FileStorageSerializable<
+                             std::pair<FirstEntryType, SecondEntryType>> {
+ public:
+  SerializablePair()
+      : FileStorageSerializable<std::pair<FirstEntryType, SecondEntryType>>() {}
+  SerializablePair(const std::pair<FirstEntryType, SecondEntryType> &data)
+      : FileStorageSerializable<std::pair<FirstEntryType, SecondEntryType>>(
+            data) {}
+
+  virtual void write(cv::FileStorage &fs) const override {
+    fs << "{";
+    fs << kFirstEntryLabel << SerializableFirstEntryType(data_.first);
+    fs << kSecondEntryLabel << SerializableSecondEntryType(data_.second);
+    fs << "}";
+  }
+
+  virtual void read(const cv::FileNode &node) override {
+    SerializableFirstEntryType serializable_first;
+    SerializableSecondEntryType serializable_second;
+    node[kFirstEntryLabel] >> serializable_first;
+    node[kSecondEntryLabel] >> serializable_second;
+    data_ = std::make_pair(serializable_first.getEntry(), serializable_second.getEntry());
+  }
+
+ protected:
+  using FileStorageSerializable<std::pair<FirstEntryType, SecondEntryType>>::data_;
+
+ private:
+  inline static const std::string kFirstEntryLabel = "first";
+  inline static const std::string kSecondEntryLabel = "second";
+};
+
+template <typename FirstEntryType,
+          typename SerializableFirstEntryType,
+          typename SecondEntryType,
+          typename SerializableSecondEntryType>
+static void write(cv::FileStorage &fs,
+                  const std::string &,
+                  const SerializablePair<FirstEntryType,
+                                         SerializableFirstEntryType,
+                                         SecondEntryType,
+                                         SerializableSecondEntryType> &data) {
+  data.write(fs);
+}
+template <typename FirstEntryType,
+          typename SerializableFirstEntryType,
+          typename SecondEntryType,
+          typename SerializableSecondEntryType>
+static void read(
+    const cv::FileNode &node,
+    SerializablePair<FirstEntryType,
+                     SerializableFirstEntryType,
+                     SecondEntryType,
+                     SerializableSecondEntryType> &data,
+    const SerializablePair<FirstEntryType,
+                           SerializableFirstEntryType,
+                           SecondEntryType,
+                           SerializableSecondEntryType> &default_data =
+        SerializablePair<FirstEntryType,
+                         SerializableFirstEntryType,
+                         SecondEntryType,
+                         SerializableSecondEntryType>()) {
+  if (node.empty()) {
+    data = default_data;
+  } else {
+    data.read(node);
+  }
+}
+
 template <typename EntryType, typename SerializableEntryType>
 class SerializableVector
     : public FileStorageSerializable<std::vector<EntryType>> {

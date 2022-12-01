@@ -98,13 +98,13 @@ def merge_files(fps_list, fp_out, min_frame_id, fp_depth_out=None, dataset_path=
     frame_pose = ""
     features_dict = dict()
     for lines in lines_list:
-        frame_id = lines[0] - min_frame_id
+        frame_id = int(lines[0]) - min_frame_id
         frame_pose = lines[1]
         for line in lines[2:]:
             add_to_features(features_dict, line)
-    fp_out.write(frame_id)
+    fp_out.write(str(frame_id) + "\n")
     if fp_depth_out is not None:
-        fp_depth_out.write(frame_id)
+        fp_depth_out.write(str(frame_id) + "\n")
     if dataset_path is not None:
         if timestamp == None:
             print("timestamp is unintialized; exiting")
@@ -172,7 +172,7 @@ if __name__ == '__main__':
         except ValueError as e:
             continue
         try:
-            timestamp = float(tokens[-1].split(".")[0])
+            timestamp = float(tokens[2].split(".")[0])
         except ValueError as e:
             print("unexpected ValueError when parsing timestamp " + timestamp)
             exit(1)
@@ -183,7 +183,7 @@ if __name__ == '__main__':
         for filename in filenames:
             fp = open(input_path + filename, "r")
             if fp.closed:
-                print("cannot open file " + dataset_path + filename)  # FIXME
+                print("cannot open file " + input_path + filename)  # FIXME
             fps_list.append(fp)
         fp_out = open(output_path + str(modified_frame_id) + ".txt", "w")
         fp_out.seek(0)
