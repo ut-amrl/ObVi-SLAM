@@ -1,0 +1,6 @@
+directory: '/robodata/taijing/uncertainty-aware-perception/dataset/'
+in_names: ['cones_2022-11-07-12-02-34', 'cones_2022-11-15-16-08-18']
+out_name: 'cones'
+
+bbox_format: '.txt'
+img_format:  '.png'

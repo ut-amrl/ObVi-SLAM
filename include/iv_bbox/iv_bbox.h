@@ -101,6 +101,7 @@ private:
   string outImgDir_;
   string outBBoxDir_;
   string outGTDir_;
+  string outBBoxImgDir_;
   /**
    * @brief ROS Topic Names
    * compressedImg: any compressed image topic
@@ -148,10 +149,11 @@ private:
   }
 
   void preparePaths_(const size_t bagIdx, 
-    string& bagpath, string& bboxBagPath, string& slamPath, string& annotPath, string& clusterPath) {
+    string& bagpath, string& syncBagpath, string& bboxBagPath, string& slamPath, string& annotPath, string& clusterPath) {
     // parse input directories
     const string& bagname = bagnames_[bagIdx];
     bagpath     = inDir_ + "bags/" + bagname + ".bag";
+    syncBagpath = inDir_ + "bags/sync/bags/sync_" + bagname + ".bag";
     bboxBagPath = inDir_ + "yolo/yolo_"  + bagname + ".bag";
     slamPath    = inDir_ + "LeGO-LOAM/"  + bagname + ".csv"; 
     annotPath   = inDir_ + "annotate/"   + bagname + ".yaml";
@@ -165,9 +167,10 @@ private:
         LOG(FATAL) << "failed to create directory " << outDir_ << endl;
       }
     }
-    outImgDir_  = outDir_ + "images/";
-    outBBoxDir_ = outDir_ + "bboxes/";
-    outGTDir_   = outDir_ + "gts/";
+    outImgDir_     = outDir_ + "images/";
+    outBBoxDir_    = outDir_ + "bboxes/";
+    outGTDir_      = outDir_ + "gts/";
+    outBBoxImgDir_ = outDir_ + "bboxImages/";
     if (!fs::is_directory(outImgDir_) || !fs::exists(outImgDir_)) {
       if (!fs::create_directory(outImgDir_)) {
         LOG(FATAL) << "failed to create directory " << outImgDir_ << endl;
@@ -183,6 +186,11 @@ private:
         LOG(FATAL) << "failed to create directory " << outGTDir_ << endl;
       }
     }
+    if (!fs::is_directory(outBBoxImgDir_) || !fs::exists(outBBoxImgDir_)) {
+      if (!fs::create_directory(outBBoxImgDir_)) {
+        LOG(FATAL) << "failed to create directory " << outBBoxImgDir_ << endl;
+      }
+    }
     for (const auto& entry : fs::directory_iterator(outImgDir_)) {
       fs::remove_all(entry.path());
     }
@@ -190,6 +198,9 @@ private:
       fs::remove_all(entry.path());
     }
     for (const auto& entry : fs::directory_iterator(outGTDir_)) {
+      fs::remove_all(entry.path());
+    }
+    for (const auto& entry : fs::directory_iterator(outBBoxImgDir_)) {
       fs::remove_all(entry.path());
     }
   }
@@ -231,8 +242,6 @@ private:
 
   void labelClusters_() {
     vector<PCLCluster<T>> newClusters;
-    cout << "[labelClusters_] annotations_ size: "   << annotations_.size() << endl;
-    cout << "[labelClusters_] clusters_ size: "      << clusters_.size() << endl;
     // for (size_t i = 0; i < clusters_.size(); ++i) {
     //   toCSV("debug/clusters/"+std::to_string(i)+".csv", clusters_[i]);
     // }
@@ -243,29 +252,28 @@ private:
         newClusters.push_back(clusters_[clusterIdx]);
       }
     }
-    cout << "[labelClusters_] clusters_ size: "   << clusters_.size() << endl;
-    cout << "[labelClusters_] newClusters size: " << newClusters.size() << endl;
     clusters_ = newClusters;
   }
 
-  void prepare_(const size_t bagIdx) {
+  void prepare_(const size_t bagIdx, bool sync) {
     cout << "preparing for bagfile " << bagIdx << endl;
     clear_();
-    string bagpath, bboxBagPath, slamPath, annotPath, clusterPath;
-    IVBBox<T>::preparePaths_(bagIdx, bagpath, bboxBagPath, slamPath, annotPath, clusterPath);
+    string bagpath, syncBagpath, bboxBagPath, slamPath, annotPath, clusterPath;
+    IVBBox<T>::preparePaths_(bagIdx, bagpath, syncBagpath, bboxBagPath, slamPath, annotPath, clusterPath);
     cout << "finish preparing for the paths" << endl;
-    parseCompressedImage(bagpath, names_["compressedImg"], stampedImages_);
-    cout << "finish preparing for compressed images" << endl;
+    // parseCompressedImage(bagpath, names_["compressedImg"], stampedImages_);
+    parseCompressedImage(syncBagpath, names_["compressedImg"], stampedImages_);
+    cout << "finish preparing for compressed images; stampedImages_ size = " << stampedImages_.size() << endl;
     parseOdom(bagpath, names_["odom"], stampedOdoms_);
-    cout << "finish preparing for odoms" << endl;
+    cout << "finish preparing for odoms; stampedOdoms_ size = " << stampedOdoms_.size() << endl;
     parseBBox(bboxBagPath, names_["yoloBBox"], stampedYOLOBBoxVecs_);
-    cout << "finish preparing for bboxes" << endl;
+    cout << "finish preparing for bboxes; stampedYOLOBBoxVecs_ size = " << stampedYOLOBBoxVecs_.size() << endl;
     parsePoseFile(slamPath, stampedPoses_);
-    cout << "finish preparing for poses" << endl;
+    cout << "finish preparing for poses; stampedPoses_ size = " << stampedPoses_.size() << endl;
     parseAnnotation(annotPath, annotations_);
-    cout << "finish preparing for annotations" << endl;
+    cout << "finish preparing for annotations; annotations_ size = " << annotations_.size() << endl;
     parsePointCloudCluster(clusterPath, clusters_);
-    cout << "finish preparing for clusters_" << endl;
+    cout << "finish preparing for clusters_; clusters_ size = " << clusters_.size() << endl;
     labelClusters_();
     cout << "finish labelling clusters" << endl;
   }
@@ -279,26 +287,32 @@ private:
     return Eigen::Matrix<T, 2, 1>((min_x+max_x)/2.0, (min_y+max_y)/2.0);
   }
 
+  float getOverlapArea_(const BbCorners<T>& bbox1, const BbCorners<T> bbox2) {
+    float min_x, min_y, max_x, max_y;
+    min_x = std::max(bbox1[0], bbox2[0]);
+    min_y = std::max(bbox1[2], bbox2[2]);
+    max_x = std::min(bbox1[1], bbox2[1]);
+    max_y = std::min(bbox1[3], bbox2[3]);
+    if (min_x >= max_x || min_y >= max_y ) { return 0.0; }
+    float intersectionArea = (max_x - min_x) * (max_y - min_y);
+    float bbox1Area = (bbox1[1] - bbox1[0]) * (bbox1[3] - bbox1[2]);
+    return intersectionArea / bbox1Area;
+  }
+
   int associateBbCorners_(const BbCorners<T>& bbox1, const vector<BbCorners<T>> bboxes2) {
     if (bboxes2.empty()) { return -1; }
 
-    const float& kBBoxCenterTol = 20; 
-    Eigen::Matrix<T, 2, 1> center1 = getBBoxCenter_(bbox1);
-    float minDiff = std::numeric_limits<float>::max();
-    int argminDiff = -1;
+    float maxOverlapAreaPercent = -1.0;
+    int argmaxArea = -1;
     for (size_t idx2 = 0; idx2 < bboxes2.size(); ++idx2) {
       const auto& bbox2  = bboxes2[idx2];
-      Eigen::Matrix<T, 2, 1> center2 = getBBoxCenter_(bbox2);
-      if ((center2 - center1).norm() < minDiff) {
-        minDiff = (center2 - center1).norm();
-        argminDiff = idx2;
+      if (getOverlapArea_(bbox1, bbox2) > maxOverlapAreaPercent) {
+        maxOverlapAreaPercent = getOverlapArea_(bbox1, bbox2);
+        argmaxArea = idx2;
       }
     }
-    if (minDiff < kBBoxCenterTol) {
-      return argminDiff;
-    } else {
-      return -1;
-    }
+    // cout << "maxOverlapAreaPercent: " << maxOverlapAreaPercent << endl;
+    if (maxOverlapAreaPercent > 0.95) { return argmaxArea; } else { return -1; }
   }
 
   void getIVBoundingBoxArr_(const vector<Timestamp>& timestamps) {
@@ -344,9 +358,7 @@ private:
       const auto& currPosePtr = stampedPoses_[poseIdx].second;
       vector<BbCorners<T>> supervisedBBoxes;
 
-      int clusterIdx = 0;
       for (auto& cluster : clusters_) {
-        ++clusterIdx;
         ObjectDim<float> coneDim;
         coneDim << (T)0.3, (T)0.3, (T)0.5;
         cluster.state_.dimensions_ = coneDim;
@@ -364,11 +376,16 @@ private:
       // BbCornerPair<float> supervisedBBoxPair = getCornerLocationsPair(coneState, *currPosePtr, extrinsics_, intrinsics_.camera_mat);
       // supervisedBBoxes.push_back(cornerLocationsPairToVector(supervisedBBoxPair));
 
+      cv::Mat bboxImg = currImgPtr->clone();
       while ( stampedYOLOBBoxVecs_[bboxIdx].first == currTime) {
         const auto& currYOLOBBoxVecPtr = stampedYOLOBBoxVecs_[bboxIdx].second;
         const auto& predBBox = currYOLOBBoxVecPtr->measurement_;
         int supervisedBBoxIdx = associateBbCorners_(predBBox, supervisedBBoxes);
         if (supervisedBBoxIdx != -1) { 
+
+          bboxImg = drawBBox(bboxImg, currYOLOBBoxVecPtr->measurement_, cv::Scalar(255, 0, 0));
+          bboxImg = drawBBox(bboxImg, supervisedBBoxes[supervisedBBoxIdx], cv::Scalar(0, 255, 0));
+          
           IVBoundingBox ivBoundingBox(currTime, *currYOLOBBoxVecPtr, supervisedBBoxes[supervisedBBoxIdx], currImgPtr);
           ivBoundingBox.err_ = bboxVecErrFunc(ivBoundingBox.yoloVec_.measurement_, ivBoundingBox.gt_); // TODO fix the constructor
           cv::Mat imgPatch; 
@@ -376,6 +393,8 @@ private:
             ivBoundingBox.imgPatchPtr_ = std::make_shared<cv::Mat>(imgPatch);
             // cv::imwrite("test.png", *(ivBoundingBox.imgPatchPtr_));
             ivBoundingBoxes_.push_back(ivBoundingBox);
+            // lazy at creating new variable; should be outside the loop
+            cv::imwrite(outBBoxImgDir_ + std::to_string(bboxIdx) + ".png", bboxImg); 
           }
         }
         ++bboxIdx;
@@ -462,13 +481,13 @@ public:
   /**
    * @brief the main function
    */
-  void createDataset() {
+  void createDataset(bool sync) {
     cout << "start creating dataset..." << endl;
     uid_ = 0;
     prepareOutputDirs_();
     cout << "prepared output directory..." << endl;
     for (size_t bagIdx = 0; bagIdx < bagnames_.size(); ++bagIdx) {
-      IVBBox<T>::prepare_(bagIdx);
+      IVBBox<T>::prepare_(bagIdx, sync);
       cout << "prepared for bagfile " << bagIdx << endl;
       interpolatePosesByOdom(stampedOdoms_, stampedPoses_);
       cout << "stampedPoses_ size after interpolatePosesByOdom: " << stampedPoses_.size() << endl;
@@ -476,18 +495,26 @@ public:
       for (const auto& stampedImage: stampedImages_) {
         targetTimestamps.push_back(stampedImage.first);
       }
-      interpolatePosesByTime(targetTimestamps, stampedPoses_);
+      auto ret = interpolatePosesByTime(targetTimestamps, stampedPoses_);
+      // auto ret0 = (size_t) std::get<0>(ret);
+      // auto ret1 = (size_t) std::get<1>(ret);
+      cout << "start time idx: " << std::get<0>(ret) << "; end time idx: " << std::get<1>(ret) << endl;
+      toCSV("debug/uncertainty_husky_2022-11-15-16-08-18.csv", stampedPoses_);
+      exit(0);
       cout << "start dataset generation and association...." << endl;
       getIVBoundingBoxArr_(targetTimestamps);
       cout << "start writing dataset...." << endl;
       dumpIVBBoxes_();
+      cout << "finish writing dataset...." << endl;
+
+      cout << endl << "----- final summary -----" << endl;
       cout << "images size:"     << stampedImages_.size() << endl;;
       cout << "yoloBBox size:"   << stampedYOLOBBoxVecs_.size() << endl;
       cout << "Odom size:"       << stampedOdoms_.size() << endl;
       cout << "Pose size:"       << stampedPoses_.size() << endl;
       cout << "cluster size:"    << clusters_.size() << endl;
       cout << "annotation size:" << annotations_.size() << endl;
-      cout << "ivBoundingBoxes_ size:" << ivBoundingBoxes_.size() << endl;
+      cout << "ivBoundingBoxes_ size:" << ivBoundingBoxes_.size() << endl << endl;;
 
       // Eigen::Matrix<T, Eigen::Dynamic, 4> X = getErrMatrix_();
       // cout << "Error Matrix=" << endl;

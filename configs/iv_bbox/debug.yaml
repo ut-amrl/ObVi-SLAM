@@ -1,13 +1,9 @@
-# dataset_name: 'cones_2022-11-07-12-02-34'
-dataset_name: 'cones_2022-11-15-16-08-18'
+dataset_name: 'debug'
 in_dir: '/robodata/taijing/uncertainty-aware-perception/'
 out_dir: '/robodata/taijing/uncertainty-aware-perception/dataset/'
-# bagnames: ['uncertainty_husky_occlude_2022-09-19-09-14-55']
-# bagnames: ['uncertainty_husky_ideal_2022-09-19-09-17-04']
 # bagnames: ['uncertainty_husky_2022-11-07-12-02-34']
 bagnames: ['uncertainty_husky_2022-11-15-16-08-18']
 ros_topics:
-  # compressed_img: '/zed/zed_node/rgb/image_rect_color/compressed'
   compressed_img: '/stereo/left/image_raw/compressed'
   yolo_bbox: '/yolov5/bboxes'
   odom: '/husky_velocity_controller/odom'

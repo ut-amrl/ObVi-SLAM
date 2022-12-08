@@ -84,7 +84,10 @@ void toCSV(const string& filename, const Pose3DArr<T>& stampedPoses) {
   }
   for (const auto& stampedPose : stampedPoses) {
     const auto& posePtr = stampedPose.second;
-    ofile << std::setprecision(20) << ros::Time(stampedPose.first.first, stampedPose.first.second).toSec() << "," << posePtr->transl_[0] << "," << posePtr->transl_[1] << "," << posePtr->transl_[2] << endl;
+    Eigen::Quaternion<T> quat(posePtr->orientation_);
+    ofile << std::setprecision(20) << ros::Time(stampedPose.first.first, stampedPose.first.second).toSec() << "," 
+          << posePtr->transl_[0] << "," << posePtr->transl_[1] << "," << posePtr->transl_[2] 
+          << quat.x() << "," << quat.y() << "," << quat.z() << "," << quat.w() << endl;
   }
   ofile.close();
 }
