@@ -53,29 +53,43 @@ class ReprojectionCostFunctor {
    */
   template <typename T>
   bool operator()(const T *pose, const T *point, T *residual) const {
-    // Transform from world to current robot pose
-    Eigen::Transform<T, 3, Eigen::Affine> world_to_robot_current =
-        vslam_types_refactor::PoseArrayToAffine(&(pose[3]), &(pose[0])).inverse();
+    //    // Transform from world to current robot pose
+    //    Eigen::Transform<T, 3, Eigen::Affine> world_to_robot_current =
+    //        vslam_types_refactor::PoseArrayToAffine(&(pose[3]), &(pose[0]))
+    //            .inverse();
+    //
+    //    // Point in world frame
+    //    Eigen::Matrix<T, 3, 1> point_world(point[0], point[1], point[2]);
+    //
+    //    // Transform the point from global coordinates to frame of current
+    //    pose Eigen::Matrix<T, 3, 1> point_current =
+    //        cam_to_robot_tf_.inverse().cast<T>() * world_to_robot_current *
+    //        point_world;
+    //
+    //    // Project the 3D point into the current image.
+    //    T p_x = T(intrinsics_(0, 0)) * point_current.x() / point_current.z() +
+    //            T(intrinsics_(0, 2));
+    //    T p_y = T(intrinsics_(1, 1)) * point_current.y() / point_current.z() +
+    //            T(intrinsics_(1, 2));
+    //
+    //    // Compute the residual.
+    //    residual[0] = (p_x - T(image_feature_.x())) /
+    //    reprojection_error_std_dev_; residual[1] = (p_y -
+    //    T(image_feature_.y())) / reprojection_error_std_dev_;
 
-    // Point in world frame
-    Eigen::Matrix<T, 3, 1> point_world(point[0], point[1], point[2]);
-
-    // Transform the point from global coordinates to frame of current pose.
-    Eigen::Matrix<T, 3, 1> point_current =
-        cam_to_robot_tf_.inverse().cast<T>() * world_to_robot_current *
-        point_world;
-
-    // Project the 3D point into the current image.
-    T p_x = T(intrinsics_(0, 0)) * point_current.x() /
-                point_current.z() +
-            T(intrinsics_(0, 2));
-    T p_y = T(intrinsics_(1, 1)) * point_current.y() /
-                point_current.z() +
-            T(intrinsics_(1, 2));
+    Eigen::Matrix<T, 2, 1> projected_pixel;
+    getProjectedPixelLocation<T>(pose,
+                                 point,
+                                 cam_to_robot_tf_.cast<T>(),
+                                 intrinsics_.cast<T>(),
+                                 projected_pixel);
+//    LOG(INFO) << "Projected pixel location " << projected_pixel.x() << ", " << projected_pixel.y();
 
     // Compute the residual.
-    residual[0] = (p_x - T(image_feature_.x())) / reprojection_error_std_dev_;
-    residual[1] = (p_y - T(image_feature_.y())) / reprojection_error_std_dev_;
+    residual[0] = (projected_pixel.x() - T(image_feature_.x())) /
+                  reprojection_error_std_dev_;
+    residual[1] = (projected_pixel.y() - T(image_feature_.y())) /
+                  reprojection_error_std_dev_;
 
     return true;
   }
@@ -124,7 +138,6 @@ class ReprojectionCostFunctor {
    * Transform that provides the camera position in the robot's frame.
    */
   Eigen::Affine3d cam_to_robot_tf_;
-
 };
 }  // namespace vslam_types_refactor
 

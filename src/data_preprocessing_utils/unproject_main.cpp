@@ -205,7 +205,9 @@ void loadTrajectoryFromVelocities(
                           vtr::combinePoses(cam_velocity, extrinsics_inv));
     velocities_by_frame_id[frame_id] = base_link_velocity;
 
-    min_orig_frame_id = std::min(min_orig_frame_id, frame_id);
+    // Frame id - 1 because velocity is presumed to be relative to the prior
+    // frame (therefore implying that frame_id -1 exists)
+    min_orig_frame_id = std::min(min_orig_frame_id, frame_id - 1);
   }
   // convert all relative poses to absolute ones
   size_t nframes = velocities_by_frame_id.size();

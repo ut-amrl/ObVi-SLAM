@@ -19,6 +19,7 @@ bool OrbOutputLowLevelFeatureReader::getLowLevelFeatures(
     }
   }
   feature_tracks = feature_tracks_;
+  return true;
 }
 
 bool OrbOutputLowLevelFeatureReader::loadData() {
@@ -35,6 +36,7 @@ bool OrbOutputLowLevelFeatureReader::loadData() {
     LOG(ERROR) << "Failed to load feature observations";
     return false;
   }
+  LOG(INFO) << "Done reading single frame contents from directory";
 
   std::unordered_map<
       FeatureId,

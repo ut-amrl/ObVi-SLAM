@@ -21,12 +21,12 @@
 #include <refactoring/optimization/residual_creator.h>
 #include <refactoring/output_problem_data.h>
 #include <refactoring/output_problem_data_extraction.h>
+#include <refactoring/visual_feature_processing/orb_output_low_level_feature_reader.h>
 #include <refactoring/visualization/ros_visualization.h>
 #include <ros/ros.h>
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
 #include <sensor_msgs/Image.h>
-#include <refactoring/visual_feature_processing/orb_output_low_level_feature_reader.h>
 
 namespace vtr = vslam_types_refactor;
 
@@ -69,7 +69,9 @@ DEFINE_string(long_term_map_output,
               "",
               "File name to output the long-term map to.");
 DEFINE_double(min_confidence, 0.2, "Minimum confidence");
-DEFINE_string(low_level_feats_dir, "", "Directory that contains low level features");
+DEFINE_string(low_level_feats_dir,
+              "",
+              "Directory that contains low level features");
 
 std::string kCompressedImageSuffix = "compressed";
 
@@ -104,9 +106,9 @@ readCameraExtrinsicsByCameraFromFile(const std::string &file_name) {
   // axis, and +x is the -y world axis
   // TODO Verify that this is correct (and eventually just update the file to
   // have this)
-  Eigen::Quaterniond extrinsics_orientation_switch_to_cam =
-      Eigen::Quaterniond(0.5, 0.5, -0.5, 0.5)
-          .inverse();  // [0 -1 0; 0 0 -1; 1 0 0]^-1
+  //  Eigen::Quaterniond extrinsics_orientation_switch_to_cam =
+  //      Eigen::Quaterniond(0.5, 0.5, -0.5, 0.5)
+  //          .inverse();  // [0 -1 0; 0 0 -1; 1 0 0]^-1
 
   std::vector<file_io::CameraExtrinsicsWithId> camera_extrinsics_by_cam_id;
   file_io::readCameraExtrinsicsWithIdsFromFile(file_name,
@@ -117,12 +119,17 @@ readCameraExtrinsicsByCameraFromFile(const std::string &file_name) {
                                            extrinsics_for_cam.transl_y,
                                            extrinsics_for_cam.transl_z);
 
+    //    vtr::Orientation3D<double> extrinsics_orient(
+    //        Eigen::Quaterniond(extrinsics_for_cam.quat_w,
+    //                           extrinsics_for_cam.quat_x,
+    //                           extrinsics_for_cam.quat_y,
+    //                           extrinsics_for_cam.quat_z) *
+    //        extrinsics_orientation_switch_to_cam);
     vtr::Orientation3D<double> extrinsics_orient(
         Eigen::Quaterniond(extrinsics_for_cam.quat_w,
                            extrinsics_for_cam.quat_x,
                            extrinsics_for_cam.quat_y,
-                           extrinsics_for_cam.quat_z) *
-        extrinsics_orientation_switch_to_cam);
+                           extrinsics_for_cam.quat_z));
     vtr::CameraExtrinsics<double> extrinsics_obj(extrinsics_pos,
                                                  extrinsics_orient);
 
@@ -280,6 +287,91 @@ void createPoseGraph(
                                long_term_map_factor_provider);
 }
 
+void publishLowLevelFeaturesLatestImages(
+    const std::shared_ptr<vtr::RosVisualization> &vis_manager,
+    const std::unordered_map<vtr::CameraId, vtr::CameraExtrinsics<double>>
+        &extrinsics,
+    const std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
+        &intrinsics,
+    const std::unordered_map<vtr::CameraId, std::pair<double, double>>
+        &img_heights_and_widths,
+    const std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>
+        &images,
+    const vtr::FrameId &latest_frame_num,
+    const vtr::Pose3D<double> &pose_at_frame,
+    const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>
+        &feature_ests,
+    const std::unordered_map<
+        vtr::CameraId,
+        std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>>
+        &observed_feats_for_frame,
+    const vtr::PlotType &plot_type) {
+  for (const auto &obs_feat_and_cam : observed_feats_for_frame) {
+    vtr::CameraId cam_id = obs_feat_and_cam.first;
+    if (img_heights_and_widths.find(cam_id) == img_heights_and_widths.end()) {
+      LOG(ERROR) << "Didn't have height and width for camera with observed "
+                    "features (id="
+                 << cam_id
+                 << "). Skipping visualization of"
+                    " observations";
+      continue;
+    }
+    std::pair<double, double> img_height_and_width =
+        img_heights_and_widths.at(cam_id);
+    if (extrinsics.find(cam_id) == extrinsics.end()) {
+      LOG(ERROR) << "Didn't have extrinsics for camera with observed features"
+                    " (id="
+                 << cam_id
+                 << "). Skipping visualization of"
+                    " observations";
+      continue;
+    }
+    vtr::CameraExtrinsics<double> extrinsics_for_cam = extrinsics.at(cam_id);
+
+    if (intrinsics.find(cam_id) == intrinsics.end()) {
+      LOG(ERROR) << "Didn't have intrinsics for camera with observed features"
+                    " (id="
+                 << cam_id
+                 << "). Skipping visualization of"
+                    " observations";
+      continue;
+    }
+    vtr::CameraIntrinsicsMat<double> intrinsics_for_cam = intrinsics.at(cam_id);
+
+    std::optional<sensor_msgs::Image::ConstPtr> img_for_cam = std::nullopt;
+    if (images.find(cam_id) != images.end()) {
+      img_for_cam = images.at(cam_id);
+    }
+
+    std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>
+        projected_pixels;
+    for (const auto &feat_est : feature_ests) {
+      if (obs_feat_and_cam.second.find(feat_est.first) ==
+          obs_feat_and_cam.second.end()) {
+        // Feature wasn't observed, don't want to visualize it
+        continue;
+      }
+
+      projected_pixels[feat_est.first] =
+          vtr::getProjectedPixelCoord(feat_est.second,
+                                      pose_at_frame,
+                                      extrinsics_for_cam,
+                                      intrinsics_for_cam);
+    }
+
+    vis_manager->publishLatestImageWithReprojectionResiduals(
+        latest_frame_num,
+        cam_id,
+        intrinsics_for_cam,
+        plot_type,
+        obs_feat_and_cam.second,
+        projected_pixels,
+        img_for_cam,
+        img_height_and_width,
+        true);
+  }
+}
+
 void visualizationStub(
     const std::shared_ptr<vtr::RosVisualization> &vis_manager,
     const std::unordered_map<vtr::CameraId, vtr::CameraExtrinsics<double>>
@@ -306,6 +398,14 @@ void visualizationStub(
                 vtr::ObjectId,
                 std::pair<vtr::BbCornerPair<double>, std::optional<double>>>>>>
         &observed_corner_locations,
+    const std::unordered_map<
+        vtr::FrameId,
+        std::unordered_map<
+            vtr::CameraId,
+            std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>>>
+        &observed_features,
+    const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>
+        &initial_feat_positions,
     const MainProbData &input_problem_data,
     std::shared_ptr<
         vtr::ObjAndLowLevelFeaturePoseGraph<vtr::ReprojectionErrorFactor>>
@@ -392,9 +492,11 @@ void visualizationStub(
 
       std::vector<vtr::Pose3D<double>> est_trajectory_vec;
       std::vector<vtr::Pose3D<double>> init_trajectory_vec;
-      for (size_t i = 0; i <= (max_frame_optimized - min_frame_optimized);
-           i++) {
-        vtr::FrameId frame_id = i + min_frame_optimized;
+//      for (size_t i = 0; i <= (max_frame_optimized - min_frame_optimized);
+//           i++) {
+//        vtr::FrameId frame_id = i + min_frame_optimized;
+      for (vtr::FrameId frame_id = 0; frame_id <= max_frame_optimized;
+           frame_id++) {
         est_trajectory_vec.emplace_back(optimized_trajectory.at(frame_id));
         init_trajectory_vec.emplace_back(
             initial_robot_pose_estimates.at(frame_id));
@@ -403,6 +505,67 @@ void visualizationStub(
                                        vtr::PlotType::INITIAL);
       vis_manager->visualizeTrajectory(est_trajectory_vec,
                                        vtr::PlotType::ESTIMATED);
+      vis_manager->publishTfForLatestPose(est_trajectory_vec.back(), vtr::PlotType::ESTIMATED);
+
+      std::unordered_map<vtr::FeatureId, vtr::Position3d<double>> feature_ests;
+      std::unordered_map<
+          vtr::CameraId,
+          std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>>
+          observed_feats_for_frame = observed_features.at(max_frame_optimized);
+      pose_graph->getVisualFeatureEstimates(feature_ests);
+      for (const auto &feature_est : feature_ests) {
+        vtr::Position3d<double> initial_pos =
+            initial_feat_positions.at(feature_est.first);
+      }
+      std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>
+          curr_frame_initial_feature_ests;
+      for (const auto &cam_and_feats : observed_feats_for_frame) {
+        for (const auto &feats_for_cam : cam_and_feats.second) {
+          if (initial_feat_positions.find(feats_for_cam.first) !=
+              initial_feat_positions.end()) {
+            curr_frame_initial_feature_ests[feats_for_cam.first] =
+                initial_feat_positions.at(feats_for_cam.first);
+          }
+        }
+      }
+      vis_manager->visualizeFeatureEstimates(curr_frame_initial_feature_ests,
+                                             vtr::PlotType::INITIAL);
+      std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>
+          curr_frame_est_feature_ests;
+      for (const auto &cam_and_feats : observed_feats_for_frame) {
+        for (const auto &feats_for_cam : cam_and_feats.second) {
+          if (feature_ests.find(feats_for_cam.first) != feature_ests.end()) {
+            curr_frame_est_feature_ests[feats_for_cam.first] =
+                feature_ests.at(feats_for_cam.first);
+          }
+        }
+      }
+      vis_manager->visualizeFeatureEstimates(curr_frame_est_feature_ests,
+                                             vtr::PlotType::ESTIMATED);
+      publishLowLevelFeaturesLatestImages(
+          vis_manager,
+          extrinsics,
+          intrinsics,
+          img_heights_and_widths,
+          images.at(max_frame_optimized),
+          max_frame_optimized,
+          optimized_trajectory.at(max_frame_optimized),
+          feature_ests,
+          observed_feats_for_frame,
+          vtr::PlotType::ESTIMATED);
+
+      publishLowLevelFeaturesLatestImages(
+          vis_manager,
+          extrinsics,
+          intrinsics,
+          img_heights_and_widths,
+          images.at(max_frame_optimized),
+          max_frame_optimized,
+          input_problem_data.getRobotPoseEstimates().at(max_frame_optimized),
+          initial_feat_positions,
+          observed_feats_for_frame,
+          vtr::PlotType::INITIAL);
+
       break;
     }
     case vtr::AFTER_ALL_OPTIMIZATION:
@@ -497,11 +660,16 @@ int main(int argc, char **argv) {
   vtr::Covariance<double, 4> bounding_box_covariance =
       vtr::createDiagCovFromStdDevs(bounding_box_std_devs);
 
-  LOG(INFO) << "Here 2";
-
   // TODO read this from file
+  //  std::unordered_map<std::string, vtr::CameraId> camera_topic_to_camera_id =
+  //  {
+  //      {"/camera/rgb/image_raw", 0}, {"/camera/rgb/image_raw/compressed",
+  //      0}};
   std::unordered_map<std::string, vtr::CameraId> camera_topic_to_camera_id = {
-      {"/camera/rgb/image_raw", 0}, {"/camera/rgb/image_raw/compressed", 0}};
+      {"/zed/zed_node/left/image_rect_color/compressed", 1},
+      {"/zed/zed_node/left/image_rect_color", 1},
+      {"/zed/zed_node/right/image_rect_color/compressed", 2},
+      {"/zed/zed_node/right/image_rect_color", 2}};
 
   // Post-processing of the hard-coded values ---------------------------
   std::unordered_map<
@@ -524,7 +692,7 @@ int main(int argc, char **argv) {
       camera_extrinsics_by_camera =
           readCameraExtrinsicsByCameraFromFile(FLAGS_extrinsics_file);
   std::unordered_map<vtr::FeatureId, vtr::StructuredVisionFeatureTrack>
-      visual_features;  // TODO read this when we actually have this
+      visual_features;
   std::unordered_map<
       vtr::FrameId,
       std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>>
@@ -592,7 +760,6 @@ int main(int argc, char **argv) {
     }
   }
 
-  LOG(INFO) << "Here 3";
   MainLtmPtr long_term_map;
   if (!FLAGS_long_term_map_input.empty()) {
     cv::FileStorage ltm_in_fs(FLAGS_long_term_map_input, cv::FileStorage::READ);
@@ -613,13 +780,36 @@ int main(int argc, char **argv) {
     long_term_map = std::make_shared<MainLtm>(ltm_from_serializable);
   }
 
+  std::unordered_map<
+      vtr::FrameId,
+      std::unordered_map<
+          vtr::CameraId,
+          std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>>>
+      low_level_features_map;
+  std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>
+      initial_feat_positions;
+
   if (!FLAGS_low_level_feats_dir.empty()) {
     LOG(INFO) << "Reading low level features";
-    vtr::OrbOutputLowLevelFeatureReader orb_feat_reader(FLAGS_low_level_feats_dir, {});
+    vtr::OrbOutputLowLevelFeatureReader orb_feat_reader(
+        FLAGS_low_level_feats_dir, {});
     orb_feat_reader.getLowLevelFeatures(visual_features);
+    for (const auto &feature_track : visual_features) {
+      vtr::FeatureId feat_id = feature_track.first;
+      initial_feat_positions[feat_id] = feature_track.second.feature_pos_;
+      for (const auto &feat_obs_by_frame :
+           feature_track.second.feature_track.feature_observations_) {
+        vtr::FrameId frame_id = feat_obs_by_frame.first;
+        for (const auto &feat_obs_for_cam :
+             feat_obs_by_frame.second.pixel_by_camera_id) {
+          vtr::CameraId cam_id = feat_obs_for_cam.first;
+          low_level_features_map[frame_id][cam_id][feat_id] =
+              feat_obs_for_cam.second;
+        }
+      }
+    }
   }
 
-  LOG(INFO) << "Here 4";
   MainProbData input_problem_data(camera_intrinsics_by_camera,
                                   camera_extrinsics_by_camera,
                                   visual_features,
@@ -641,10 +831,16 @@ int main(int argc, char **argv) {
   std::function<bool()> continue_opt_checker = []() { return ros::ok(); };
 
   std::function<vtr::FrameId(const vtr::FrameId &)> window_provider_func =
-      [](const vtr::FrameId &) {
+      [](const vtr::FrameId &max_frame) -> vtr::FrameId {
         // For now, we'll just optimize the whole trajectory (so return 0 so we
         // start the optimization with node 0
-        return 0;
+        if ((max_frame % 20) == 0) {
+          return 0;
+        }
+        if (max_frame < 30) {
+          return 0;
+        }
+        return max_frame - 30;
       };
 
   std::function<bool(
@@ -711,7 +907,6 @@ int main(int argc, char **argv) {
                                        cached_info);
           };
 
-  LOG(INFO) << "Here 5";
   std::function<bool(util::BoostHashSet<MainFactorInfo> &)>
       long_term_map_factor_provider =
           [&](util::BoostHashSet<MainFactorInfo> &factor_data) {
@@ -734,9 +929,10 @@ int main(int argc, char **argv) {
                                        const vtr::CameraId &camera_id) {
         // TODO replace with thought out function once we add in the visual
         // part
-        return 0.0;
+        return 2;  // Probably need to do something more sophisticated here --
+                   // ORB-SLAM has a more advanced thing that I haven't looked
+                   // into
       };
-  LOG(INFO) << "Here 6";
   std::function<std::pair<bool, std::optional<sensor_msgs::Image::ConstPtr>>(
       const vtr::FrameId &, const vtr::CameraId &, const MainProbData &)>
       bb_context_retriever = [](const vtr::FrameId &frame_id,
@@ -762,7 +958,6 @@ int main(int argc, char **argv) {
         return bounding_box_covariance;
       };
 
-  LOG(INFO) << "Here 7";
   std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>
       long_term_map_front_end_data;
   if (long_term_map != nullptr) {
@@ -799,7 +994,6 @@ int main(int argc, char **argv) {
           [&](const MainPgPtr &pg, const MainProbData &input_prob) {
             return roshan_associator_creator.getDataAssociator(pg);
           };
-  LOG(INFO) << "Here 8";
   std::function<void(
       const MainProbData &, const MainPgPtr &, const vtr::FrameId &)>
       frame_data_adder = [&](const MainProbData &problem_data,
@@ -833,7 +1027,6 @@ int main(int argc, char **argv) {
   //                                                   output_problem_data);
   //          };
 
-  LOG(INFO) << "Here 9";
   vtr::CovarianceExtractorParams ltm_covariance_params;
 
   // TODO maybe replace params with something that will yield more accurate
@@ -889,7 +1082,6 @@ int main(int argc, char **argv) {
             output_problem_data);
       };
 
-  LOG(INFO) << "Here 10";
   std::function<std::vector<std::shared_ptr<ceres::IterationCallback>>(
       const MainProbData &,
       const MainPgPtr &,
@@ -917,13 +1109,14 @@ int main(int argc, char **argv) {
                           images,
                           all_observed_corner_locations_with_uncertainty,
                           associated_observed_corner_locations,
+                          low_level_features_map,
+                          initial_feat_positions,
                           input_problem_data,
                           superclass_ptr,
                           min_frame_id,
                           max_frame_id,
                           visualization_type);
       };
-  LOG(INFO) << "Here 11";
   vtr::OfflineProblemRunner<MainProbData,
                             vtr::ReprojectionErrorFactor,
                             vtr::LongTermObjectMapAndResults<MainLtm>,
@@ -944,18 +1137,18 @@ int main(int argc, char **argv) {
   pose_graph_optimizer::OptimizationFactorsEnabledParams
       optimization_factors_enabled_params;
   optimization_factors_enabled_params.use_pom_ = false;
-  optimization_factors_enabled_params.include_visual_factors_ = false;
-  optimization_factors_enabled_params.fix_poses_ = true;
+  optimization_factors_enabled_params.include_visual_factors_ = true;
+  //  optimization_factors_enabled_params.fix_poses_ = true;
+  optimization_factors_enabled_params.fix_poses_ = false;
+  optimization_factors_enabled_params.fix_visual_features_ = false;
   optimization_factors_enabled_params.fix_objects_ = false;
   // TODO should we also optimize the poses?
 
   //  vtr::SpatialEstimateOnlyResults output_results;
   vtr::LongTermObjectMapAndResults<MainLtm> output_results;
-  LOG(INFO) << "Here 12";
   offline_problem_runner.runOptimization(
       input_problem_data, optimization_factors_enabled_params, output_results);
 
-  LOG(INFO) << "Here 13";
   cv::FileStorage ltm_out_fs(FLAGS_long_term_map_output,
                              cv::FileStorage::WRITE);
   ltm_out_fs
@@ -968,7 +1161,6 @@ int main(int argc, char **argv) {
                                   vtr::SerializableRoshanAggregateBbInfo>>(
              output_results.long_term_map_);
   ltm_out_fs.release();
-  LOG(INFO) << "Here 14";
   //  LOG(INFO) << "Num ellipsoids "
   //            << output_results.ellipsoid_results_.ellipsoids_.size();
 

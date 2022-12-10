@@ -13,10 +13,14 @@ SET(ROS_BUILD_SHARED_LIBS false)
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
+find_package(PCL 1.3 REQUIRED)
 find_package(Ceres REQUIRED)
 find_package(OpenCV 4.2 EXACT REQUIRED)
 find_package(Pangolin REQUIRED)
 find_package(Boost COMPONENTS filesystem REQUIRED)
+find_package(pcl_conversions)
+find_package(pcl_ros)
+
 #find_package(darknet_ros_msgs)
 #find_package(catkin REQUIRED COMPONENTS darknet_ros_msgs)
 
@@ -24,7 +28,10 @@ include_directories(include
         ${CERES_INCLUDE_DIRS}
         ${OpenCV_INCLUDE_DIRS}
         ${Pangolin_INCLUDE_DIRS}
+        ${PCL_INCLUDE_DIRS}
         /home/amanda/darknet_ros_catkin_ws/install/include/darknet_ros_msgs)
+LINK_DIRECTORIES(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
 
 option(TESTING "Build tests" ON)
 
@@ -40,6 +47,7 @@ set(LIBS
         amrl_shared_lib
         ${CERES_LIBRARIES}
         ${OpenCV_LIBS}
+        ${PCL_LIBRARIES}
         ${Pangolin_LIBRARIES}
         ${Boost_FILESYSTEM_LIBRARY})
 
@@ -90,6 +98,9 @@ target_link_libraries(offline_object_visual_slam_main ut_vslam ${LIBS})
 
 ROSBUILD_ADD_EXECUTABLE(initialize_traj_and_feats_from_orb_out src/data_preprocessing_utils/unproject_main.cpp)
 target_link_libraries(initialize_traj_and_feats_from_orb_out ut_vslam ${LIBS})
+
+ROSBUILD_ADD_EXECUTABLE(orb_trajectory_sparsifier src/data_preprocessing_utils/orb_trajectory_sparsifier.cpp)
+target_link_libraries(orb_trajectory_sparsifier ut_vslam ${LIBS})
 
 #
 #ROSBUILD_ADD_EXECUTABLE(approx_depth_bounding_box_extractor src/data_preprocessing_utils/approx_depth_bounding_box_extractor.cpp)

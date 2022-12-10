@@ -269,6 +269,12 @@ class LowLevelFeaturePoseGraph {
     return std::make_pair(min_frame_id_, max_frame_id_);
   }
 
+  virtual void getVisualFeatureEstimates(
+      std::unordered_map<FeatureId, Position3d<double>>
+  &visual_feature_estimates) const {
+
+  }
+
  protected:
   /**
    * Extrinsics for each camera.
@@ -323,9 +329,9 @@ class ReprojectionLowLevelFeaturePoseGraph
     return true;
   }
 
-  void getVisualFeatureEstimates(
+  virtual void getVisualFeatureEstimates(
       std::unordered_map<FeatureId, Position3d<double>>
-          &visual_feature_estimates) const {
+          &visual_feature_estimates) const override {
     for (const auto &pg_feat_est : feature_positions_) {
       visual_feature_estimates[pg_feat_est.first] =
           *(pg_feat_est.second.position_);

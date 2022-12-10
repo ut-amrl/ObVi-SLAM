@@ -245,7 +245,8 @@ Eigen::Matrix<T, 3, 3> GetRodriguesJacobian(const Eigen::Matrix<T, 3, 1>& w) {
  */
 template <typename NumType, int N>
 Eigen::Matrix<NumType, N, N> createDiagCovFromStdDevs(
-    const Eigen::Matrix<NumType, N, 1>& std_devs, const NumType& min_std_dev = 0) {
+    const Eigen::Matrix<NumType, N, 1>& std_devs,
+    const NumType& min_std_dev = 0) {
   NumType min_variance = pow(min_std_dev, 2);
   Eigen::Matrix<NumType, N, 1> variances = std_devs.array().pow(2);
   for (int i = 0; i < N; i++) {
@@ -255,6 +256,39 @@ Eigen::Matrix<NumType, N, N> createDiagCovFromStdDevs(
   Eigen::DiagonalMatrix<NumType, N> cov(variances);
   return cov;
 }
+
+template <typename T>
+void getProjectedPixelLocation(
+    const T* pose,
+    const T* point,
+    const Eigen::Transform<T, 3, Eigen::Affine>& cam_to_robot_tf_,
+    const Eigen::Matrix<T, 3, 3>& intrinsics_,
+    Eigen::Matrix<T, 2, 1>& pixel_results) {
+  // Transform from world to current robot pose
+  Eigen::Transform<T, 3, Eigen::Affine> world_to_robot_current =
+      vslam_types_refactor::PoseArrayToAffine(&(pose[3]), &(pose[0])).inverse();
+//  LOG(INFO) << "World to robot current " << world_to_robot_current.matrix();
+
+  // Point in world frame
+  Eigen::Matrix<T, 3, 1> point_world(point[0], point[1], point[2]);
+//  LOG(INFO) << "Point world " << point_world;
+
+  // Transform the point from global coordinates to frame of current pose.
+  Eigen::Matrix<T, 3, 1> point_current = cam_to_robot_tf_.inverse() *
+                                         world_to_robot_current * point_world;
+//  LOG(INFO) << "Point " << point_current;
+
+  // Project the 3  D point into the current image.
+  pixel_results.x() =
+      intrinsics_(0, 0) * point_current.x() / point_current.z() +
+      intrinsics_(0, 2);
+  pixel_results.y() =
+      intrinsics_(1, 1) * point_current.y() / point_current.z() +
+      intrinsics_(1, 2);
+}
+
+
+
 }  // namespace vslam_types_refactor
 
 #endif  // UT_VSLAM_VSLAM_MATH_UTIL_H

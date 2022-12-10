@@ -6,10 +6,12 @@
 #define UT_VSLAM_REFACTORING_ROS_VISUALIZATION_H
 
 #include <cv_bridge/cv_bridge.h>
+#include <pcl_ros/point_cloud.h>
 #include <refactoring/types/ellipsoid_utils.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Image.h>
 #include <tf2_ros/static_transform_broadcaster.h>
+#include <tf2_ros/transform_broadcaster.h>
 #include <visualization_msgs/Marker.h>
 
 #include <opencv2/highgui.hpp>
@@ -50,6 +52,11 @@ class RosVisualization {
     predicted_bounding_box_from_initial_color_.r =
         0.5;  // TODO do we want these to be 1 instead?
     predicted_bounding_box_from_initial_color_.b = 0.5;
+
+    residual_feature_color_.a = 1;
+    residual_feature_color_.r = 1;
+    residual_feature_color_.g = 234.0 / 255.0;
+    residual_feature_color_.b = 0;
 
     color_for_plot_type_[GROUND_TRUTH] = ground_truth_bounding_box_color_;
     color_for_plot_type_[ESTIMATED] =
@@ -99,6 +106,7 @@ class RosVisualization {
   std::pair<std::string, std::string>
   createLatestImageAndCameraInfoTopicsForTrajectoryTypeCameraId(
       const CameraId &camera_id,
+      const std::string &data_type,
       const std::string &trajectory_type_prefix = "") {
     std::string trajectory_type_prefix_with_slash;
     if (!trajectory_type_prefix.empty()) {
@@ -106,8 +114,13 @@ class RosVisualization {
     }
     std::string base_name = topic_prefix_ + "/" +
                             trajectory_type_prefix_with_slash + "/latest/cam_" +
-                            std::to_string(camera_id);
+                            std::to_string(camera_id) + "_" + data_type;
     return std::make_pair(base_name + "/image_raw", base_name + "/camera_info");
+  }
+
+  std::string createFeatureCloudTopicName(const PlotType &plot_type) {
+    return topic_prefix_ + "/" + prefixes_for_plot_type_.at(plot_type) +
+           "/feature_cloud";
   }
 
   void visualizeEllipsoids(
@@ -139,6 +152,23 @@ class RosVisualization {
         kRobotPoseMarkerPubQueueSize);
     std_msgs::ColorRGBA color = color_for_plot_type_.at(plot_type);
     publishTrajectory(pub, color, trajectory);
+  }
+
+  void publishTfForLatestPose(const Pose3D<double> &latest_pose,
+                              const PlotType &plot_type) {
+    geometry_msgs::TransformStamped transform;
+    transform.header.frame_id = kVizFrame;
+    transform.header.stamp = ros::Time::now();
+    transform.child_frame_id = prefixes_for_plot_type_.at(plot_type) + kFrameForLatestNode;
+    transform.transform.translation.x = latest_pose.transl_.x();
+    transform.transform.translation.y = latest_pose.transl_.y();
+    transform.transform.translation.z = latest_pose.transl_.z();
+    Eigen::Quaterniond pose_orientation(latest_pose.orientation_);
+    transform.transform.rotation.x = pose_orientation.x();
+    transform.transform.rotation.y = pose_orientation.y();
+    transform.transform.rotation.z = pose_orientation.z();
+    transform.transform.rotation.w = pose_orientation.w();
+    tf_broadcaster_.sendTransform(transform);
   }
 
   // TODO modify this to also take min frame
@@ -334,7 +364,9 @@ class RosVisualization {
           std::pair<std::string, std::string>
               last_image_and_camera_info_topics =
                   createLatestImageAndCameraInfoTopicsForTrajectoryTypeCameraId(
-                      cam_id_and_intrinsics.first, kAllBoundingBoxesPrefix);
+                      cam_id_and_intrinsics.first,
+                      kBoundingBoxesImageLabel,
+                      kAllBoundingBoxesPrefix);
           publishImageWithDetectedBoundingBoxes(
               last_image_and_camera_info_topics.first,
               last_image_and_camera_info_topics.second,
@@ -600,7 +632,9 @@ class RosVisualization {
             std::pair<std::string, std::string>
                 last_image_and_camera_info_topics =
                     createLatestImageAndCameraInfoTopicsForTrajectoryTypeCameraId(
-                        cam_id_and_extrinsics.first, trajectory_type_prefix);
+                        cam_id_and_extrinsics.first,
+                        kBoundingBoxesImageLabel,
+                        trajectory_type_prefix);
             publishImageWithBoundingBoxes(
                 last_image_and_camera_info_topics.first,
                 last_image_and_camera_info_topics.second,
@@ -864,6 +898,151 @@ class RosVisualization {
                       intrinsics_pub);
   }
 
+  void visualizeFeatureEstimates(
+      const std::unordered_map<FeatureId, Position3d<double>> &features,
+      const PlotType &display_type) {
+    // TODO make own queue size
+    ros::Publisher point_cloud_pub =
+        getOrCreatePublisher<sensor_msgs::PointCloud2>(
+            createFeatureCloudTopicName(display_type), kCameraInfoQueueSize);
+    std_msgs::ColorRGBA color = color_for_plot_type_.at(display_type);
+    uint8_t r = color.r * 255;
+    uint8_t g = color.g * 255;
+    uint8_t b = color.b * 255;
+    pcl::PointCloud<pcl::PointXYZRGB> feature_cloud;
+    for (const auto &point : features) {
+      pcl::PointXYZRGB pcl_point(r, g, b);
+      pcl_point.x = point.second.x();
+      pcl_point.y = point.second.y();
+      pcl_point.z = point.second.z();
+      feature_cloud.push_back(pcl_point);
+    }
+    feature_cloud.header.frame_id = kVizFrame;
+    sensor_msgs::PointCloud2 ros_feature_cloud;
+    pcl::toROSMsg(feature_cloud, ros_feature_cloud);
+    point_cloud_pub.publish(ros_feature_cloud);
+  }
+
+  void publishLatestImageWithReprojectionResiduals(
+      const std::pair<std::string, std::string>
+          &img_and_camera_info_topic_names,
+      const std::string &camera_frame_id,
+      const CameraIntrinsicsMat<double> &intrinsics,
+      const std::unordered_map<FeatureId, PixelCoord<double>> &observed_pixels,
+      const std::unordered_map<FeatureId, PixelCoord<double>> &projected_pixels,
+      const std::optional<sensor_msgs::Image::ConstPtr> &image,
+      const std::pair<double, double> &img_height_and_width,
+      const bool &display_pixels_if_no_image,
+      const std::string &img_disp_text = "") {
+    if (!display_pixels_if_no_image && !image.has_value()) {
+      return;
+    }
+
+    ros::Publisher image_pub = getOrCreatePublisher<sensor_msgs::Image>(
+        img_and_camera_info_topic_names.first, kCameraInfoQueueSize);
+
+    ros::Publisher intrinsics_pub =
+        getOrCreatePublisher<sensor_msgs::CameraInfo>(
+            img_and_camera_info_topic_names.second, kCameraInfoQueueSize);
+
+    // Create/convert image
+    cv_bridge::CvImagePtr cv_ptr;
+    ros::Time image_stamp;
+    if (image.has_value()) {
+      //      image_stamp = image.value()->header.stamp;
+      try {
+        cv_ptr = cv_bridge::toCvCopy(image.value(),
+                                     sensor_msgs::image_encodings::BGR8);
+        cv_ptr->header.frame_id = camera_frame_id;
+        image_stamp = ros::Time::now();
+        cv_ptr->header.stamp = image_stamp;
+      } catch (cv_bridge::Exception &e) {
+        LOG(ERROR) << "cv_bridge exception: " << e.what();
+        exit(1);
+      }
+    } else {
+      // Create empty image
+      // TODO: Is height/width correct?
+      cv::Mat cv_img(img_height_and_width.first,
+                     img_height_and_width.second,
+                     CV_8UC3,
+                     (0, 0, 0));  // Create black image
+      image_stamp = ros::Time::now();
+      std_msgs::Header img_header;
+      img_header.stamp = image_stamp;
+      img_header.frame_id = camera_frame_id;
+      cv_ptr = boost::make_shared<cv_bridge::CvImage>(
+          img_header, sensor_msgs::image_encodings::BGR8, cv_img);
+    }
+
+    for (const auto &obs_pix : observed_pixels) {
+      FeatureId feat_id = obs_pix.first;
+      PixelCoord<double> observed_feat = obs_pix.second;
+      drawTinyCircleOnImage(
+          observed_feat, color_for_plot_type_[INITIAL], cv_ptr);
+
+      if (projected_pixels.find(feat_id) == projected_pixels.end()) {
+        continue;
+      }
+
+      PixelCoord<double> projected_feat = projected_pixels.at(feat_id);
+      drawTinyCircleOnImage(
+          projected_feat, color_for_plot_type_[ESTIMATED], cv_ptr);
+      drawLineOnImage(
+          observed_feat, projected_feat, residual_feature_color_, cv_ptr);
+    }
+    if (!img_disp_text.empty()) {
+      std_msgs::ColorRGBA text_color;
+      text_color.a = text_color.r = text_color.g = text_color.b = 1;
+      cv::putText(cv_ptr->image,
+                  img_disp_text,
+                  cv::Point(kFrameNumLabelXOffset,
+                            img_height_and_width.first -
+                                kFrameNumLabelYOffsetFromBottom),
+                  cv::FONT_HERSHEY_SIMPLEX,
+                  kBoundingBoxLabelFontScale,
+                  convertColorMsgToOpenCvColor(text_color),
+                  kBoundingBoxLabelTextThickness);
+    }
+    image_pub.publish(cv_ptr->toImageMsg());
+
+    publishCameraInfo(camera_frame_id,
+                      image_stamp,
+                      intrinsics,
+                      img_height_and_width,
+                      intrinsics_pub);
+  }
+
+  void publishLatestImageWithReprojectionResiduals(
+      const FrameId &node_id,
+      const CameraId &camera_id,
+      const CameraIntrinsicsMat<double> &camera_intrinsics,
+      const PlotType &trajectory_type,
+      const std::unordered_map<FeatureId, PixelCoord<double>> &observed_pixels,
+      const std::unordered_map<FeatureId, PixelCoord<double>> &projected_pixels,
+      const std::optional<sensor_msgs::Image::ConstPtr> &image,
+      const std::pair<double, double> &img_height_and_width,
+      const bool &display_pixels_if_no_image) {
+    std::string trajectory_type_prefix =
+        prefixes_for_plot_type_.at(trajectory_type);
+    std::pair<std::string, std::string> image_and_camera_info_topics =
+        createLatestImageAndCameraInfoTopicsForTrajectoryTypeCameraId(
+            camera_id, kLowLevelFeatsImageLabel, trajectory_type_prefix);
+
+    std::string frame_id = createCameraPoseFrameIdRelRobot(
+        node_id, camera_id, trajectory_type_prefix);
+
+    publishLatestImageWithReprojectionResiduals(image_and_camera_info_topics,
+                                                frame_id,
+                                                camera_intrinsics,
+                                                observed_pixels,
+                                                projected_pixels,
+                                                image,
+                                                img_height_and_width,
+                                                display_pixels_if_no_image,
+                                                std::to_string(node_id));
+  }
+
  private:
   const static uint32_t kEllipsoidMarkerPubQueueSize = 100;
   const static uint32_t kRobotPoseMarkerPubQueueSize = 1000;
@@ -879,10 +1058,15 @@ class RosVisualization {
   const static int kBoundingBoxMinCornerLabelXOffset = 0;
   const static int kBoundingBoxMinCornerLabelYOffset = -10;
 
+  const static int kFrameNumLabelXOffset = 10;
+  const static int kFrameNumLabelYOffsetFromBottom = 10;
+
   const static constexpr double kBoundingBoxLabelFontScale = 2.0;
   const static int kBoundingBoxLabelTextThickness = 2;
+  const static int kPixelMarkerCircleRad = 3;
 
   tf2_ros::StaticTransformBroadcaster static_tf_broadcaster_;
+  tf2_ros::TransformBroadcaster tf_broadcaster_;
 
   std_msgs::ColorRGBA ground_truth_bounding_box_color_;
 
@@ -893,6 +1077,8 @@ class RosVisualization {
   std_msgs::ColorRGBA predicted_bounding_box_from_gt_color_;
 
   std_msgs::ColorRGBA predicted_bounding_box_from_initial_color_;
+
+  std_msgs::ColorRGBA residual_feature_color_;
 
   std::unordered_map<PlotType, std_msgs::ColorRGBA> color_for_plot_type_;
   std::unordered_map<PlotType, std::string> prefixes_for_plot_type_;
@@ -908,6 +1094,9 @@ class RosVisualization {
   const double kTrajectoryScaleX = 0.02;
 
   const std::string kAllBoundingBoxesPrefix = "all_observed_bbs";
+  const std::string kBoundingBoxesImageLabel = "bb";
+  const std::string kLowLevelFeatsImageLabel = "feats";
+  const std::string kFrameForLatestNode = "slam_base_link";
 
   /**
    * Node handle.
@@ -934,17 +1123,16 @@ class RosVisualization {
       const std::string &topic_name,
       const int &queue_size,
       const ros::Duration &sleep_after_create =
-      ros::Duration(kSleepAfterPubCreationTime)) {
-
+          ros::Duration(kSleepAfterPubCreationTime)) {
     if (publishers_by_topic_.find(topic_name) == publishers_by_topic_.end()) {
-      ros::Publisher pub = node_handle_.advertise<visualization_msgs::Marker>(topic_name, queue_size);
+      ros::Publisher pub = node_handle_.advertise<visualization_msgs::Marker>(
+          topic_name, queue_size);
       publishers_by_topic_[topic_name] = pub;
-      sleep_after_create.sleep();
+      //      sleep_after_create.sleep();
       publishDeleteAllMarker(pub);
     }
     return publishers_by_topic_[topic_name];
   }
-
 
   template <typename T>
   ros::Publisher getOrCreatePublisher(
@@ -955,7 +1143,7 @@ class RosVisualization {
     if (publishers_by_topic_.find(topic_name) == publishers_by_topic_.end()) {
       ros::Publisher pub = node_handle_.advertise<T>(topic_name, queue_size);
       publishers_by_topic_[topic_name] = pub;
-      sleep_after_create.sleep();
+      //      sleep_after_create.sleep();
     }
     return publishers_by_topic_[topic_name];
   }
@@ -979,7 +1167,7 @@ class RosVisualization {
     marker_msg.header.stamp = ros::Time::now();
     marker_msg.ns = "ut_vslam";
     marker_msg.action = visualization_msgs::Marker::DELETEALL;
-    ros::Duration(2).sleep();
+    //    ros::Duration(2).sleep();
     marker_pub.publish(marker_msg);
   }
 
@@ -1018,6 +1206,40 @@ class RosVisualization {
 
   cv::Scalar convertColorMsgToOpenCvColor(const std_msgs::ColorRGBA &color) {
     return CV_RGB(color.r * 255, color.g * 255, color.b * 255);
+  }
+
+  void drawLineOnImage(const PixelCoord<double> &px1,
+                       const PixelCoord<double> &px2,
+                       const std_msgs::ColorRGBA &color,
+                       cv_bridge::CvImagePtr &cv_ptr) {
+    // TODO verify
+    int thickness = 1;
+    cv::line(cv_ptr->image,
+             cv::Point(px1.x(), px1.y()),
+             cv::Point(px2.x(), px2.y()),
+             convertColorMsgToOpenCvColor(color),
+             thickness);
+  }
+
+  void drawTinyCircleOnImage(const PixelCoord<double> &px,
+                             const std_msgs::ColorRGBA &color,
+                             cv_bridge::CvImagePtr &cv_ptr) {
+    // TODO verify
+    int thickness = 2;
+    cv::circle(cv_ptr->image,
+               cv::Point(px.x(), px.y()),
+               kPixelMarkerCircleRad,
+               convertColorMsgToOpenCvColor(brightenColor(color, 0.4)),
+               thickness);
+  }
+
+  std_msgs::ColorRGBA brightenColor(const std_msgs::ColorRGBA &original,
+                                    const double &brighter_percent) {
+    std_msgs::ColorRGBA brighter = original;
+    brighter.r = 1.0 - (1.0 - original.r) * (1 - brighter_percent);
+    brighter.g = 1.0 - (1.0 - original.g) * (1 - brighter_percent);
+    brighter.b = 1.0 - (1.0 - original.b) * (1 - brighter_percent);
+    return brighter;
   }
 
   void drawRectanglesOnImage(
@@ -1231,9 +1453,9 @@ class RosVisualization {
                         bool bigger = false) {
     visualization_msgs::Marker marker_msg;
 
-    marker_msg.scale.x = 0.025;
+    marker_msg.scale.x = 0.1;
     marker_msg.scale.y = 0.05;
-    marker_msg.scale.z = 0.025;
+    marker_msg.scale.z = 0.05;
 
     if (bigger) {
       //                marker_msg.scale.x = 0.8;
