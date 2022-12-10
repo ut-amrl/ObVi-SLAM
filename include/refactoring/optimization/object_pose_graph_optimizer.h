@@ -555,6 +555,7 @@ class ObjectPoseGraphOptimizer {
         (summary.termination_type == ceres::TerminationType::USER_FAILURE)) {
       LOG(ERROR) << "Ceres optimization failed";
     }
+    LOG(INFO) << "Optimization complete";
     return summary.IsSolutionUsable();
   }
 
