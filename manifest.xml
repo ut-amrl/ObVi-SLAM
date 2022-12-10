@@ -19,6 +19,8 @@
   <depend package="cv_bridge" />
   <depend package="amrl_msgs" />
   <depend package="darknet_ros_msgs" />
+  <depend package="pcl_ros" />
+  <depend package="pcl_conversions" />
 <!--  <depend package="cartographer_ros_msgs" />-->
 
 </package>

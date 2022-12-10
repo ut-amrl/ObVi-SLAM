@@ -6,6 +6,7 @@
 #define UT_VSLAM_VSLAM_TYPES_MATH_UTIL_H
 
 #include <refactoring/types/vslam_basic_types_refactor.h>
+#include <refactoring/types/vslam_math_util.h>
 
 namespace vslam_types_refactor {
 
@@ -106,6 +107,26 @@ Position3d<NumType> getWorldFramePos(
   Pose3D<NumType> cam_pose_in_world = combinePoses(robot_pose, extrinsics);
   return combinePoseAndPosition(cam_pose_in_world, point_rel_cam);
 }
+
+template <typename NumType>
+PixelCoord<NumType> getProjectedPixelCoord(
+    const Position3d<NumType>& feature_pos,
+    const Pose3D<NumType>& robot_pose,
+    const CameraExtrinsics<NumType>& cam_extrinsics,
+    const CameraIntrinsicsMat<NumType>& cam_intrinsics) {
+  Position3d<NumType> feature_pos_copy = feature_pos;
+  NumType* raw_point = feature_pos_copy.data();
+  RawPose3d<NumType> raw_robot_pose = convertPoseToArray(robot_pose);
+  NumType* robot_pose_ptr = raw_robot_pose.data();
+  PixelCoord<NumType> pixel_coord;
+  getProjectedPixelLocation<NumType>(robot_pose_ptr,
+                                     raw_point,
+                                     convertToAffine(cam_extrinsics),
+                                     cam_intrinsics,
+                                     pixel_coord);
+  return pixel_coord;
+}
+
 }  // namespace vslam_types_refactor
 
 #endif  // UT_VSLAM_VSLAM_TYPES_MATH_UTIL_H

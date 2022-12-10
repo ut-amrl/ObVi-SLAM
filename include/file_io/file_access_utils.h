@@ -24,7 +24,7 @@ std::string ensureDirectoryPathEndsWithSlash(
   return unvalidated_dir_path;
 }
 
-void makeDirectoryIfDoesNotExist(std::string &dir_name) {
+void makeDirectoryIfDoesNotExist(const std::string &dir_name) {
   boost::filesystem::create_directories(dir_name);
 }
 }  // namespace file_io
