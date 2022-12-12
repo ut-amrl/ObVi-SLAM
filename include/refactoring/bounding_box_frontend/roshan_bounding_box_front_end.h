@@ -24,6 +24,8 @@ struct RoshanBbAssociationParams {
   int saturation_histogram_bins_;
   uint16_t min_observations_ = 1;
   int discard_candidate_after_num_frames_ = kNoDiscardingConst;
+  double min_bb_confidence_ = 0.3;
+  double required_min_conf_for_initialization = 0;
 };
 
 struct RoshanImageSummaryInfo {
@@ -36,10 +38,12 @@ struct RoshanBbInfo {
   cv::Mat hue_sat_histogram_;
   bool est_generated_;
   EllipsoidState<double> single_bb_init_est_;
+  double detection_confidence_;
 };
 
 struct RoshanAggregateBbInfo {
   std::vector<RoshanBbInfo> infos_for_observed_bbs_;
+  double max_confidence_;
 };
 
 template <typename VisualFeatureFactorType>
@@ -70,6 +74,12 @@ class RoshanBbFrontEnd
                   ObjectId,
                   std::pair<BbCornerPair<double>, std::optional<double>>>>>>
           &observed_corner_locations,
+      const std::shared_ptr<std::unordered_map<
+          FrameId,
+          std::unordered_map<CameraId,
+                             std::vector<std::pair<BbCornerPair<double>,
+                                                   std::optional<double>>>>>>
+          &all_filtered_corner_locations,
       const std::unordered_map<vslam_types_refactor::ObjectId,
                                RoshanAggregateBbInfo>
           &long_term_map_front_end_data)
@@ -82,7 +92,8 @@ class RoshanBbFrontEnd
             std::unordered_map<ObjectId, RoshanAggregateBbInfo>>(pose_graph),
         association_params_(association_params),
         covariance_generator_(covariance_generator),
-        observed_corner_locations_(observed_corner_locations) {
+        observed_corner_locations_(observed_corner_locations),
+        all_filtered_corner_locations_(all_filtered_corner_locations) {
     AbstractBoundingBoxFrontEnd<
         VisualFeatureFactorType,
         RoshanAggregateBbInfo,
@@ -113,6 +124,23 @@ class RoshanBbFrontEnd
       const ObjectId &obj_id,
       const EllipsoidEstimateNode &est,
       RoshanAggregateBbInfo &info_to_update) override {}
+
+  virtual std::vector<RawBoundingBox> filterBoundingBoxes(
+      const FrameId &frame_id,
+      const CameraId &camera_id,
+      const std::vector<RawBoundingBox> &original_bounding_boxes) override {
+    std::vector<RawBoundingBox> bbs_to_keep;
+    for (const RawBoundingBox &bounding_box : original_bounding_boxes) {
+      if (bounding_box.detection_confidence_ >
+          association_params_.min_bb_confidence_) {
+        bbs_to_keep.emplace_back(bounding_box);
+        (*all_filtered_corner_locations_)[frame_id][camera_id].emplace_back(
+            std::make_pair(bounding_box.pixel_corner_locations_,
+                           bounding_box.detection_confidence_));
+      }
+    }
+    return bbs_to_keep;
+  }
 
   virtual RoshanBbInfo generateSingleBoundingBoxContextInfo(
       const RawBoundingBox &bb,
@@ -158,6 +186,7 @@ class RoshanBbFrontEnd
 
     bb_info.single_bb_init_est_ =
         convertToEllipsoidState(*(raw_est.ellipsoid_));
+    bb_info.detection_confidence_ = bb.detection_confidence_;
 
     return bb_info;
   }
@@ -175,6 +204,8 @@ class RoshanBbFrontEnd
     uninitalized_info.observation_factors_.emplace_back(uninitialized_factor);
     uninitalized_info.appearance_info_.infos_for_observed_bbs_.emplace_back(
         single_bb_context_info);
+    uninitalized_info.appearance_info_.max_confidence_ =
+        single_bb_context_info.detection_confidence_;
     return uninitalized_info;
   }
 
@@ -187,6 +218,9 @@ class RoshanBbFrontEnd
       RoshanAggregateBbInfo &association_info_to_update) override {
     association_info_to_update.infos_for_observed_bbs_.emplace_back(
         single_bb_context_info);
+    association_info_to_update.max_confidence_ =
+        std::max(association_info_to_update.max_confidence_,
+                 single_bb_context_info.detection_confidence_);
   }
 
   virtual Covariance<double, 4> generateBoundingBoxCovariance(
@@ -416,6 +450,8 @@ class RoshanBbFrontEnd
           uninitialized_object_info_to_keep.emplace_back(uninitialized_info);
         }
       }
+      // TODO maybe also remove if it hasn't been initialized N frames after
+      // first viewing (or maybe remove old viewings)
       RoshanBbFrontEnd::uninitialized_object_info_ =
           uninitialized_object_info_to_keep;
     }
@@ -432,6 +468,10 @@ class RoshanBbFrontEnd
       return false;
     }
     if (association_params_.min_observations_ > factors.size()) {
+      return false;
+    }
+    if (association_params_.required_min_conf_for_initialization >
+        association_info.max_confidence_) {
       return false;
     }
 
@@ -475,6 +515,13 @@ class RoshanBbFrontEnd
                                       const CameraId &,
                                       const RoshanImageSummaryInfo &)>
       covariance_generator_;
+
+  std::shared_ptr<std::unordered_map<
+      FrameId,
+      std::unordered_map<
+          CameraId,
+          std::vector<std::pair<BbCornerPair<double>, std::optional<double>>>>>>
+      all_filtered_corner_locations_;
 
   /**
    * Observed corner locations that have been associated to an object stored by
@@ -559,6 +606,12 @@ class RoshanBbFrontEndCreator {
                   ObjectId,
                   std::pair<BbCornerPair<double>, std::optional<double>>>>>>
           &observed_corner_locations,
+      const std::shared_ptr<std::unordered_map<
+          FrameId,
+          std::unordered_map<CameraId,
+                             std::vector<std::pair<BbCornerPair<double>,
+                                                   std::optional<double>>>>>>
+          &all_filtered_corner_locations,
       const std::function<Covariance<double, 4>(const RawBoundingBox &,
                                                 const FrameId &,
                                                 const CameraId &,
@@ -570,6 +623,7 @@ class RoshanBbFrontEndCreator {
         covariance_generator_(covariance_generator),
         initialized_(false),
         observed_corner_locations_(observed_corner_locations),
+        all_filtered_corner_locations_(all_filtered_corner_locations),
         long_term_map_front_end_data_(long_term_map_front_end_data) {}
 
   std::shared_ptr<AbstractUnknownDataAssociationBbFrontEnd<
@@ -588,6 +642,7 @@ class RoshanBbFrontEndCreator {
               association_params_,
               covariance_generator_,
               observed_corner_locations_,
+              all_filtered_corner_locations_,
               long_term_map_front_end_data_);
       initialized_ = true;
     }
@@ -616,6 +671,13 @@ class RoshanBbFrontEndCreator {
                                             std::pair<BbCornerPair<double>,
                                                       std::optional<double>>>>>>
       observed_corner_locations_;
+  std::shared_ptr<std::unordered_map<
+      FrameId,
+      std::unordered_map<
+          CameraId,
+          std::vector<std::pair<BbCornerPair<double>, std::optional<double>>>>>>
+      all_filtered_corner_locations_;
+
   std::unordered_map<vslam_types_refactor::ObjectId, RoshanAggregateBbInfo>
       long_term_map_front_end_data_;
   std::shared_ptr<AbstractUnknownDataAssociationBbFrontEnd<

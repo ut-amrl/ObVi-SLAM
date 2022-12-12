@@ -399,7 +399,6 @@ class ObjAndLowLevelFeaturePoseGraph
       return false;
     }
     obs_factor = object_observation_factors_.at(factor_id);
-    LOG(INFO) << "obj id " << obs_factor.object_id_;
     return true;
   }
 

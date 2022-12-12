@@ -105,6 +105,9 @@ class OfflineProblemRunner {
         optimization_factors_enabled_params.include_object_factors_;
     optimization_scope_params.use_pom_ =
         optimization_factors_enabled_params.use_pom_;
+    optimization_scope_params.poses_prior_to_window_to_keep_constant_ =
+        optimization_factors_enabled_params
+            .poses_prior_to_window_to_keep_constant_;
 
     visualization_callback_(problem_data,
                             pose_graph,
@@ -114,6 +117,8 @@ class OfflineProblemRunner {
     LOG(INFO) << "Ready to run optimization";
     for (FrameId next_frame_id = 1; next_frame_id <= max_frame_id;
          next_frame_id++) {
+      //    for (FrameId next_frame_id = 1; next_frame_id <= 300;
+      //         next_frame_id++) {
       if (!continue_opt_checker_) {
         LOG(WARNING)
             << "Halted optimization due to continue checker reporting false";

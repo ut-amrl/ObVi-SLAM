@@ -37,10 +37,32 @@ void addVisualFeatureFactorsForFrame(
         FrameId junk_frame_id;
         if (!pose_graph->getFirstObservedFrameForFeature(feature_id,
                                                          junk_frame_id)) {
-          // The feature has not been added yet (this is the first observation)
-          // so we need to add the feature
-          pose_graph->addFeature(feature_id,
-                                 feat_id_to_track.second.feature_pos_);
+          Pose3D<double> init_pose_est;
+          std::optional<RawPose3d<double>> curr_pose_est_raw =
+              pose_graph->getRobotPose(frame_to_add);
+          if ((!input_problem_data.getRobotPoseEstimateForFrame(
+                  frame_to_add, init_pose_est)) ||
+              (!curr_pose_est_raw.has_value())) {
+            LOG(WARNING) << "Could not find initial or current pose  estimate "
+                            "for robot for frame "
+                         << frame_to_add
+                         << ", not adjusting initial feature position";
+
+            // The feature has not been added yet (this is the first
+            // observation) so we need to add the feature
+            pose_graph->addFeature(feature_id,
+                                   feat_id_to_track.second.feature_pos_);
+          } else {
+            Position3d<double> relative_initial_position =
+                getPositionRelativeToPose(init_pose_est,
+                                          feat_id_to_track.second.feature_pos_);
+            Pose3D<double> curr_pose_est =
+                convertToPose3D(curr_pose_est_raw.value());
+            Position3d<double> adjusted_initial_position =
+                combinePoseAndPosition(curr_pose_est,
+                                       relative_initial_position);
+            pose_graph->addFeature(feature_id, adjusted_initial_position);
+          }
         }
         for (const auto &obs_by_camera : feature.pixel_by_camera_id) {
           ReprojectionErrorFactor vis_factor;
@@ -78,6 +100,10 @@ void addFrameDataAssociatedBoundingBox(
                const FrameId &,
                const FeatureId &,
                const CameraId &)> &reprojection_error_provider,
+    const std::function<
+        bool(const FrameId &,
+             std::unordered_map<CameraId, std::vector<RawBoundingBox>> &)>
+        &bb_retriever,
     const std::function<std::shared_ptr<
         AbstractBoundingBoxFrontEnd<ReprojectionErrorFactor,
                                     ObjectAssociationInfo,
@@ -142,9 +168,13 @@ void addFrameDataAssociatedBoundingBox(
                                   reprojection_error_provider);
 
   // Add bounding box observations
-  std::unordered_map<FrameId,
-                     std::unordered_map<CameraId, std::vector<RawBoundingBox>>>
-      bb_obs = input_problem_data.getBoundingBoxes();
+  std::unordered_map<CameraId, std::vector<RawBoundingBox>>
+      bounding_boxes_for_frame;
+  if (!bb_retriever(frame_to_add, bounding_boxes_for_frame)) {
+    LOG(WARNING) << "Could not get bounding boxes for frame " << frame_to_add;
+    return;
+  }
+
   std::shared_ptr<AbstractBoundingBoxFrontEnd<ReprojectionErrorFactor,
                                               ObjectAssociationInfo,
                                               RawBoundingBoxContextInfo,
@@ -153,8 +183,8 @@ void addFrameDataAssociatedBoundingBox(
                                               FrontEndObjMapData>>
       bb_associator = bb_associator_retriever(pose_graph, input_problem_data);
 
-  if (bb_obs.find(frame_to_add) != bb_obs.end()) {
-    for (const auto &cam_id_and_bbs : bb_obs.at(frame_to_add)) {
+  if (!bounding_boxes_for_frame.empty()) {
+    for (const auto &cam_id_and_bbs : bounding_boxes_for_frame) {
       std::pair<bool, RawBoundingBoxContextInfo> context = bb_context_retriever(
           frame_to_add, cam_id_and_bbs.first, input_problem_data);
       if (context.first) {

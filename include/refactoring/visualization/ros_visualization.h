@@ -124,24 +124,36 @@ class RosVisualization {
   }
 
   void visualizeEllipsoids(
-      const std::unordered_map<ObjectId, EllipsoidState<double>>
+      const std::unordered_map<ObjectId,
+                               std::pair<std::string, EllipsoidState<double>>>
           &ellipsoid_estimates,
-      const PlotType &plot_type) {
+      const PlotType &plot_type,
+      const bool &different_colors_per_class=true) {
     std::string topic =
         createTopicForPlotTypeAndBase(plot_type, kEllipsoidTopicSuffix);
-    visualizeEllipsoids(
-        ellipsoid_estimates, topic, color_for_plot_type_.at(plot_type));
+    LOG(INFO) << "Publishing ellipsoid for plot type " << topic;
+    visualizeEllipsoids(ellipsoid_estimates,
+                        topic,
+                        color_for_plot_type_.at(plot_type),
+                        different_colors_per_class);
   }
 
   void visualizeEllipsoids(
-      const std::unordered_map<ObjectId, EllipsoidState<double>>
+      const std::unordered_map<ObjectId,
+                               std::pair<std::string, EllipsoidState<double>>>
           &ellipsoid_estimates,
       const std::string &topic,
-      const std_msgs::ColorRGBA &color) {
+      const std_msgs::ColorRGBA &color,
+      const bool &different_colors_per_class) {
     ros::Publisher pub = getOrCreateVisMarkerPublisherAndClearPrevious(
         topic, kEllipsoidMarkerPubQueueSize);
     for (const auto &ellipsoid : ellipsoid_estimates) {
-      publishEllipsoid(ellipsoid.second, ellipsoid.first, pub, color);
+      std_msgs::ColorRGBA color_for_ellipsoid = color;
+      if (different_colors_per_class) {
+        color_for_ellipsoid = getColorForClass(ellipsoid.second.first);
+      }
+      publishEllipsoid(
+          ellipsoid.second.second, ellipsoid.first, pub, color_for_ellipsoid);
     }
   }
 
@@ -159,7 +171,8 @@ class RosVisualization {
     geometry_msgs::TransformStamped transform;
     transform.header.frame_id = kVizFrame;
     transform.header.stamp = ros::Time::now();
-    transform.child_frame_id = prefixes_for_plot_type_.at(plot_type) + kFrameForLatestNode;
+    transform.child_frame_id =
+        prefixes_for_plot_type_.at(plot_type) + kFrameForLatestNode;
     transform.transform.translation.x = latest_pose.transl_.x();
     transform.transform.translation.y = latest_pose.transl_.y();
     transform.transform.translation.z = latest_pose.transl_.z();
@@ -1004,6 +1017,9 @@ class RosVisualization {
                   convertColorMsgToOpenCvColor(text_color),
                   kBoundingBoxLabelTextThickness);
     }
+
+    LOG(INFO) << "Publishing image for frame " << camera_frame_id
+              << " to topic " << image_pub.getTopic();
     image_pub.publish(cv_ptr->toImageMsg());
 
     publishCameraInfo(camera_frame_id,
@@ -1043,13 +1059,67 @@ class RosVisualization {
                                                 std::to_string(node_id));
   }
 
+  void visualizeFrustum(const Pose3D<double> &robot_pose,
+                        const CameraIntrinsicsMat<double> &intrinsics,
+                        const CameraExtrinsics<double> &cam_extrinsics,
+                        const std::pair<double, double> img_height_and_width,
+                        const PlotType &plot_type) {
+    Position3d<double> frustum_center =
+        getWorldFramePos(PixelCoord<double>(intrinsics(0, 2), intrinsics(1, 2)),
+                         intrinsics,
+                         cam_extrinsics,
+                         robot_pose,
+                         (double)0);
+    double frustrum_depth = 1.5;
+    std::vector<Position3d<double>> frustum_points;
+    frustum_points.emplace_back(getWorldFramePos(PixelCoord<double>(0, 0),
+                                                 intrinsics,
+                                                 cam_extrinsics,
+                                                 robot_pose,
+                                                 frustrum_depth));
+    frustum_points.emplace_back(
+        getWorldFramePos(PixelCoord<double>(0, img_height_and_width.first),
+                         intrinsics,
+                         cam_extrinsics,
+                         robot_pose,
+                         frustrum_depth));
+    frustum_points.emplace_back(
+        getWorldFramePos(PixelCoord<double>(img_height_and_width.second,
+                                            img_height_and_width.first),
+                         intrinsics,
+                         cam_extrinsics,
+                         robot_pose,
+                         frustrum_depth));
+    frustum_points.emplace_back(
+        getWorldFramePos(PixelCoord<double>(img_height_and_width.second, 0),
+                         intrinsics,
+                         cam_extrinsics,
+                         robot_pose,
+                         frustrum_depth));
+    std::vector<std::pair<Position3d<double>, Position3d<double>>> lines;
+    for (size_t frustum_idx = 0; frustum_idx < 4; frustum_idx++) {
+      Position3d<double> frustum_point = frustum_points[frustum_idx];
+      lines.emplace_back(std::make_pair(frustum_point, frustum_center));
+      lines.emplace_back(
+          std::make_pair(frustum_point, frustum_points[(frustum_idx + 1) % 4]));
+    }
+
+    ros::Publisher marker_pub = getOrCreateVisMarkerPublisherAndClearPrevious(
+        createTopicForPlotTypeAndBase(plot_type, kFrustumTopicSuffix),
+        kRobotPoseMarkerPubQueueSize);
+    publishLines(marker_pub,
+                 color_for_plot_type_.at(plot_type),
+                 lines,
+                 next_frustum_marker_num_++);
+  }
+
  private:
   const static uint32_t kEllipsoidMarkerPubQueueSize = 100;
   const static uint32_t kRobotPoseMarkerPubQueueSize = 1000;
 
   const static uint32_t kCameraInfoQueueSize = 100;
 
-  const static constexpr double kSleepAfterPubCreationTime = 0.01;
+  const static constexpr double kSleepAfterPubCreationTime = 0.2;
 
   const static int kBoundingBoxLineThickness = 4;
 
@@ -1097,6 +1167,14 @@ class RosVisualization {
   const std::string kBoundingBoxesImageLabel = "bb";
   const std::string kLowLevelFeatsImageLabel = "feats";
   const std::string kFrameForLatestNode = "slam_base_link";
+  const std::string kFrustumTopicSuffix = "frustums";
+
+  std::unordered_map<std::string, std_msgs::ColorRGBA>
+      colors_for_semantic_classes_;
+
+  util_random::Random rand_gen_;
+
+  int32_t next_frustum_marker_num_ = 0;
 
   /**
    * Node handle.
@@ -1128,7 +1206,7 @@ class RosVisualization {
       ros::Publisher pub = node_handle_.advertise<visualization_msgs::Marker>(
           topic_name, queue_size);
       publishers_by_topic_[topic_name] = pub;
-      //      sleep_after_create.sleep();
+      sleep_after_create.sleep();
       publishDeleteAllMarker(pub);
     }
     return publishers_by_topic_[topic_name];
@@ -1408,6 +1486,36 @@ class RosVisualization {
     image_pub.publish(image);
   }
 
+  void publishLines(
+      ros::Publisher &marker_pub,
+      const std_msgs::ColorRGBA &color,
+      const std::vector<std::pair<Position3d<double>, Position3d<double>>>
+          &lines,
+      const int32_t marker_num) {
+    visualization_msgs::Marker marker_msg;
+    marker_msg.id = marker_num;
+    marker_msg.color = color;
+    marker_msg.type = visualization_msgs::Marker::LINE_LIST;
+    marker_msg.scale.x = kTrajectoryScaleX;
+    marker_msg.pose.orientation.w = 1.0;
+
+    for (const std::pair<Position3d<double>, Position3d<double>> &line_seg :
+         lines) {
+      geometry_msgs::Point point1;
+      point1.x = line_seg.first.x();
+      point1.y = line_seg.first.y();
+      point1.z = line_seg.first.z();
+      marker_msg.points.emplace_back(point1);
+
+      geometry_msgs::Point point2;
+      point2.x = line_seg.second.x();
+      point2.y = line_seg.second.y();
+      point2.z = line_seg.second.z();
+      marker_msg.points.emplace_back(point2);
+    }
+    publishMarker(marker_msg, marker_pub);
+  }
+
   void publishTrajectory(ros::Publisher &marker_pub,
                          const std_msgs::ColorRGBA &color,
                          const std::vector<Pose3D<double>> &trajectory_poses) {
@@ -1482,6 +1590,20 @@ class RosVisualization {
     marker_msg.id = id;
 
     publishMarker(marker_msg, marker_pub);
+  }
+
+  std_msgs::ColorRGBA getColorForClass(const std::string &semantic_class) {
+
+    if (colors_for_semantic_classes_.find(semantic_class) ==
+        colors_for_semantic_classes_.end()) {
+      std_msgs::ColorRGBA color_for_class;
+      color_for_class.a = 1.0;
+      color_for_class.r = (rand_gen_.UniformRandom() + rand_gen_.UniformRandom()) / 2;
+      color_for_class.g = rand_gen_.UniformRandom();
+      color_for_class.b = rand_gen_.UniformRandom();
+      colors_for_semantic_classes_[semantic_class] = color_for_class;
+    }
+    return colors_for_semantic_classes_.at(semantic_class);
   }
 };
 }  // namespace vslam_types_refactor

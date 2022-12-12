@@ -25,6 +25,7 @@ struct OptimizationFactorsEnabledParams {
   bool fix_visual_features_ = true;
   bool fix_ltm_objects_ = false;
   bool use_pom_ = false;
+  uint32_t poses_prior_to_window_to_keep_constant_ = 1;
 };
 
 struct OptimizationScopeParams {
@@ -35,10 +36,17 @@ struct OptimizationScopeParams {
   bool fix_visual_features_;
   bool use_pom_;          // Effectively false if fix_objects_ is true
   bool fix_ltm_objects_;  // Effectively true if fix_objects_ is true
+  uint32_t poses_prior_to_window_to_keep_constant_ =
+      1;  // Should be min of 1, default to 1
 
-  // This will only filter out factors. A factor could still be excluded even if not in this list if one of the other flags excludes it (ex. include_visual_features)
-  // TODO peraps include object factors/include visual factors should be merged with this?
-  std::unordered_set<vslam_types_refactor::FactorType> factor_types_to_exclude; // Should be true for LTM extraction, false otherwise.
+  // This will only filter out factors. A factor could still be excluded even if
+  // not in this list if one of the other flags excludes it (ex.
+  // include_visual_features)
+  // TODO peraps include object factors/include visual factors should be merged
+  // with this?
+  std::unordered_set<vslam_types_refactor::FactorType>
+      factor_types_to_exclude;  // Should be true for LTM extraction, false
+                                // otherwise.
   vslam_types_refactor::FrameId min_frame_id_;
   vslam_types_refactor::FrameId max_frame_id_;
   // TODO consider adding set of nodes to optimize -- for now, we'll just assume
@@ -312,7 +320,8 @@ class ObjectPoseGraphOptimizer {
       }
     }
 
-    for (const vslam_types_refactor::FactorType &type_to_exclude : optimization_scope.factor_types_to_exclude) {
+    for (const vslam_types_refactor::FactorType &type_to_exclude :
+         optimization_scope.factor_types_to_exclude) {
       required_feature_factors.erase(type_to_exclude);
     }
 
@@ -340,18 +349,37 @@ class ObjectPoseGraphOptimizer {
     } else {
       // Set only first pose param block constant (or add Gaussian prior
       // later...?)
-      setVariabilityForParamBlocks(
-          (std::unordered_set<vslam_types_refactor::FrameId>){
-              optimization_scope.min_frame_id_},
-          true,
-          kPoseTypeStr,
-          getParamBlockForPose<PoseGraphType>,
-          pose_graph,
-          problem);
+      std::unordered_set<vslam_types_refactor::FrameId> constant_frames;
       // Set all others not-constant (if were set constant)
       std::unordered_set<vslam_types_refactor::FrameId> variable_frames =
           optimized_frames;
-      variable_frames.erase(optimization_scope.min_frame_id_);
+
+      if (optimization_scope.min_frame_id_ == 0) {
+        constant_frames.insert(optimization_scope.min_frame_id_);
+        variable_frames.erase(optimization_scope.min_frame_id_);
+      } else {
+        //         TODO should this be poses in addition to the window, or the
+        //         number of poses from the prescribed window to keep constant
+        uint32_t min_const_frames = std::max(
+            (uint32_t)1,
+            optimization_scope.poses_prior_to_window_to_keep_constant_);
+        for (uint32_t const_frame_idx = 0; const_frame_idx < min_const_frames;
+             const_frame_idx++) {
+          uint64_t frame_to_keep_const =
+              optimization_scope.min_frame_id_ + const_frame_idx;
+          if (frame_to_keep_const > optimization_scope.max_frame_id_) {
+            break;
+          }
+          constant_frames.insert(frame_to_keep_const);
+          variable_frames.erase(frame_to_keep_const);
+        }
+      }
+      setVariabilityForParamBlocks(constant_frames,
+                                   true,
+                                   kPoseTypeStr,
+                                   getParamBlockForPose<PoseGraphType>,
+                                   pose_graph,
+                                   problem);
       setVariabilityForParamBlocks(variable_frames,
                                    false,
                                    kPoseTypeStr,
@@ -441,12 +469,12 @@ class ObjectPoseGraphOptimizer {
       } else if (fix_ltm_param_blocks) {
         // The variable ones are those that are observed but not in the
         // long-term map
-//        std::set_difference(observed_objects.begin(),
-//                            observed_objects.end(),
-//                            ltm_object_ids.begin(),
-//                            ltm_object_ids.end(),
-//                            std::inserter(variable_object_param_blocks,
-//                                          variable_object_param_blocks.end()));
+        //        std::set_difference(observed_objects.begin(),
+        //                            observed_objects.end(),
+        //                            ltm_object_ids.begin(),
+        //                            ltm_object_ids.end(),
+        //                            std::inserter(variable_object_param_blocks,
+        //                                          variable_object_param_blocks.end()));
         for (const vslam_types_refactor::ObjectId &obs_obj : observed_objects) {
           if (ltm_object_ids.find(obs_obj) == ltm_object_ids.end()) {
             variable_object_param_blocks.insert(obs_obj);
@@ -456,22 +484,23 @@ class ObjectPoseGraphOptimizer {
         }
         // The constant ones are the ones that are observed and in the long-term
         // map
-//        std::set_intersection(
-//            ltm_object_ids.begin(),
-//            ltm_object_ids.end(),
-//            observed_objects.begin(),
-//            observed_objects.end(),
-//            std::inserter(constant_object_param_blocks,
-//                          constant_object_param_blocks.end()));
+        //        std::set_intersection(
+        //            ltm_object_ids.begin(),
+        //            ltm_object_ids.end(),
+        //            observed_objects.begin(),
+        //            observed_objects.end(),
+        //            std::inserter(constant_object_param_blocks,
+        //                          constant_object_param_blocks.end()));
         next_last_optimized_objects = observed_objects;
       } else {
-//        std::set_union(observed_objects.begin(),
-//                       observed_objects.end(),
-//                       ltm_object_ids.begin(),
-//                       ltm_object_ids.end(),
-//                       std::inserter(variable_object_param_blocks,
-//                                     variable_object_param_blocks.end()));
-        for (const vslam_types_refactor::ObjectId &observed_obj : observed_objects) {
+        //        std::set_union(observed_objects.begin(),
+        //                       observed_objects.end(),
+        //                       ltm_object_ids.begin(),
+        //                       ltm_object_ids.end(),
+        //                       std::inserter(variable_object_param_blocks,
+        //                                     variable_object_param_blocks.end()));
+        for (const vslam_types_refactor::ObjectId &observed_obj :
+             observed_objects) {
           variable_object_param_blocks.insert(observed_obj);
         }
         for (const vslam_types_refactor::ObjectId &ltm_obj : ltm_object_ids) {
@@ -546,6 +575,8 @@ class ObjectPoseGraphOptimizer {
       options.update_state_every_iteration = true;
     }
     options.max_num_iterations = solver_params.max_num_iterations_;
+    options.num_threads = 10;
+    options.linear_solver_type = ceres::DENSE_SCHUR;
 
     ceres::Solver::Summary summary;
     ceres::Solve(options, problem, &summary);

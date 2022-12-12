@@ -99,10 +99,11 @@ void getCornerLocationsVector(
     const T *robot_pose,
     const Eigen::Transform<T, 3, Eigen::Affine> &robot_to_cam_tf,
     const Eigen::Matrix<T, 3, 3> &intrinsics,
-    Eigen::Matrix<T, 4, 1> &corner_results) {
+    Eigen::Matrix<T, 4, 1> &corner_results,
+    const bool &debug = false) {
   Eigen::Transform<T, 3, Eigen::Affine> robot_to_world_current =
       PoseArrayToAffine(&(robot_pose[3]), &(robot_pose[0]));
-//  LOG(INFO) << "Robot pose " << robot_to_world_current.matrix();
+  //  LOG(INFO) << "Robot pose " << robot_to_world_current.matrix();
 
   // Robot to world defines the robot's pose in the world frame
   // Cam to robot defines the camera pose in the robot's frame
@@ -113,24 +114,43 @@ void getCornerLocationsVector(
       world_to_camera;
   Eigen::Matrix<T, 4, 4> ellipsoid_dual_rep =
       createDualRepresentationForEllipsoid(ellipsoid);
-
-//  LOG(INFO) << "Ellipsoid dual rep " << ellipsoid_dual_rep;
+  if (debug) {
+    LOG(INFO) << "Ellipsoid dual rep " << ellipsoid_dual_rep;
+    Eigen::Transform<T, 3, Eigen::Affine> ellipsoid_to_world_current =
+        PoseArrayToAffine(&(ellipsoid[3]), &(ellipsoid[0]));
+    Eigen::Transform<T, 3, Eigen::Affine> ellipsoid_to_camera = ellipsoid_to_world_current.inverse() * world_to_camera;
+    LOG(INFO) << "Cam position wrt ellipsoid " << ellipsoid_to_camera.translation();
+    Eigen::Matrix<T, 3, 1> ellipsoid_dims(ellipsoid[6] / T(2), ellipsoid[7] / T(2), ellipsoid[8] / T(2));
+    LOG(INFO) << "Ellipsoid semimajor axes " << ellipsoid_dims;
+    T ellipsoid_eqn_eval = pow((ellipsoid_to_camera.translation().x(), ellipsoid_dims.x()), 2) +
+        pow((ellipsoid_to_camera.translation().y(), ellipsoid_dims.y()), 2) +
+        pow((ellipsoid_to_camera.translation().z(), ellipsoid_dims.z()), 2);
+    LOG(INFO) << "Ellipsoid eqn: " << ellipsoid_eqn_eval;
+  }
 
   Eigen::Matrix<T, 3, 3> g_mat =
       intrinsics * world_to_camera_compact.matrix() * ellipsoid_dual_rep *
       world_to_camera_compact.matrix().transpose() * intrinsics.transpose();
-
-//  LOG(INFO) << "G mat " << g_mat;
+  if (debug) {
+    LOG(INFO) << "G mat " << g_mat;
+  }
   T g1_1 = g_mat(0, 0);
   T g1_3 = g_mat(0, 2);
   T g2_2 = g_mat(1, 1);
   T g2_3 = g_mat(1, 2);
   T g3_3 = g_mat(2, 2);
+  if (debug) {
+    LOG(INFO) << "Inside sqrts ";
+    LOG(INFO) << pow(g1_3, 2) - (g1_1 * g3_3);
+    LOG(INFO) << pow(g2_3, 2) - (g2_2 * g3_3);
+  }
   T x_sqrt_component = sqrt(pow(g1_3, 2) - (g1_1 * g3_3));
   T y_sqrt_component = sqrt(pow(g2_3, 2) - (g2_2 * g3_3));
 
-//  LOG(INFO) << "x/y sqrt components " << x_sqrt_component << "; "
-//            << y_sqrt_component;
+  if (debug) {
+    LOG(INFO) << "x/y sqrt components " << x_sqrt_component << "; "
+              << y_sqrt_component;
+  }
 
   // TODO Verify once we have real data that these are in the right order?
   //  is min and max actually the min and max?

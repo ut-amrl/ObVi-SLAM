@@ -72,21 +72,42 @@ class BoundingBoxFactor {
                                 robot_pose,
                                 robot_to_cam_tf_.cast<T>(),
                                 camera_intrinsics_mat_.cast<T>(),
-                                corner_results);
-//    LOG(INFO) << "Corner results\n" << corner_results;
+                                corner_results, false);
+    for (size_t i = 0; i < corner_results.rows(); i++) {
+      if (ceres::IsNaN(corner_results(i, 0))) {
+        LOG(WARNING) << "Corner results entry was NaN " << corner_results;
+        Eigen::Map<const Eigen::Matrix<T, 9, 1>> ellipsoid_data(ellipsoid);
+        Eigen::Map<const Eigen::Matrix<T, 6, 1>> robot_pose_data(robot_pose);
+        LOG(INFO) << "Ellipsoid " << ellipsoid_data;
+        LOG(INFO) << "Robot Pose " << robot_pose_data;
+        LOG(INFO) << "Robot inside ellipsoid? ";
+        getCornerLocationsVector<T>(ellipsoid,
+                                    robot_pose,
+                                    robot_to_cam_tf_.cast<T>(),
+                                    camera_intrinsics_mat_.cast<T>(),
+                                    corner_results,
+                                    true);
+//        exit(1);
+        residuals_ptr[0] = std::numeric_limits<T>::max();
+        residuals_ptr[1] = std::numeric_limits<T>::max();
+        residuals_ptr[2] = std::numeric_limits<T>::max();
+        residuals_ptr[3] = std::numeric_limits<T>::max();
+      }
+    }
+    //    LOG(INFO) << "Corner results\n" << corner_results;
 
     Eigen::Matrix<T, 4, 1> deviation =
         corner_results - corner_detections_.template cast<T>();
-//    LOG(INFO) << "Detection " << corner_detections_;
-//    LOG(INFO) << "Deviation " << deviation;
-//    LOG(INFO) << "Sqrt inf mat bounding box "
-//              << sqrt_inf_mat_bounding_box_corners_;
+    //    LOG(INFO) << "Detection " << corner_detections_;
+    //    LOG(INFO) << "Deviation " << deviation;
+    //    LOG(INFO) << "Sqrt inf mat bounding box "
+    //              << sqrt_inf_mat_bounding_box_corners_;
 
     Eigen::Map<Eigen::Matrix<T, 4, 1>> residuals(residuals_ptr);
     residuals =
         sqrt_inf_mat_bounding_box_corners_.template cast<T>() * deviation;
 
-//    LOG(INFO) << "Residuals " << residuals;
+    //    LOG(INFO) << "Residuals " << residuals;
     return true;
   }
 

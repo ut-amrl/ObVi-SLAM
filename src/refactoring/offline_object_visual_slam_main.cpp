@@ -11,6 +11,7 @@
 #include <file_io/pose_3d_with_node_id_io.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
+#include <refactoring/bounding_box_frontend/bounding_box_retriever.h>
 #include <refactoring/bounding_box_frontend/roshan_bounding_box_front_end.h>
 #include <refactoring/image_processing/image_processing_utils.h>
 #include <refactoring/long_term_map/long_term_map_factor_creator.h>
@@ -384,11 +385,11 @@ void visualizationStub(
         vtr::FrameId,
         std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>>
         &images,
-    const std::unordered_map<
+    const std::shared_ptr<std::unordered_map<
         vtr::FrameId,
         std::unordered_map<vtr::CameraId,
                            std::vector<std::pair<vtr::BbCornerPair<double>,
-                                                 std::optional<double>>>>>
+                                                 std::optional<double>>>>>>
         &all_observed_corner_locations_with_uncertainty,
     const std::shared_ptr<std::unordered_map<
         vtr::FrameId,
@@ -442,29 +443,36 @@ void visualizationStub(
                          std::pair<std::string, vtr::RawEllipsoid<double>>>
           object_estimates;
       pose_graph->getObjectEstimates(object_estimates);
+      std::unordered_map<vtr::ObjectId,
+                         std::pair<std::string, vtr::EllipsoidState<double>>>
+          optimized_ellipsoid_estimates_with_classes;
       std::unordered_map<vtr::ObjectId, vtr::EllipsoidState<double>>
           optimized_ellipsoid_estimates;
       for (const auto &obj_and_raw_est : object_estimates) {
-        optimized_ellipsoid_estimates[obj_and_raw_est.first] =
+        vtr::EllipsoidState<double> ellipsoid_state =
             vtr::convertToEllipsoidState(obj_and_raw_est.second.second);
+        optimized_ellipsoid_estimates_with_classes[obj_and_raw_est.first] =
+            std::make_pair(obj_and_raw_est.second.first, ellipsoid_state);
+        optimized_ellipsoid_estimates[obj_and_raw_est.first] = ellipsoid_state;
       }
       std_msgs::ColorRGBA optimized_ellipsoid_color;
       optimized_ellipsoid_color.a = 0.5;
       //      optimized_ellipsoid_color.r = 1.0;
       optimized_ellipsoid_color.g = 1;
-      vis_manager->visualizeEllipsoids(optimized_ellipsoid_estimates,
-                                       vtr::ESTIMATED);
-      std::unordered_map<vtr::ObjectId, vtr::EllipsoidState<double>>
+      vis_manager->visualizeEllipsoids(
+          optimized_ellipsoid_estimates_with_classes, vtr::ESTIMATED);
+      std::unordered_map<vtr::ObjectId,
+                         std::pair<std::string, vtr::EllipsoidState<double>>>
           ltm_ellipsoids;
       if (input_problem_data.getLongTermObjectMap() != nullptr) {
         vtr::EllipsoidResults ellipsoids_in_map;
         input_problem_data.getLongTermObjectMap()->getEllipsoidResults(
             ellipsoids_in_map);
         for (const auto &ltm_ellipsoid : ellipsoids_in_map.ellipsoids_) {
-          ltm_ellipsoids[ltm_ellipsoid.first] = ltm_ellipsoid.second.second;
+          ltm_ellipsoids[ltm_ellipsoid.first] = ltm_ellipsoid.second;
         }
       }
-      vis_manager->visualizeEllipsoids(ltm_ellipsoids, vtr::INITIAL);
+      vis_manager->visualizeEllipsoids(ltm_ellipsoids, vtr::INITIAL, false);
       vis_manager->visualizeCameraObservations(
           max_frame_optimized,
           initial_robot_pose_estimates,
@@ -484,7 +492,7 @@ void visualizationStub(
 
       vis_manager->publishDetectedBoundingBoxesWithUncertainty(
           max_frame_optimized,
-          all_observed_corner_locations_with_uncertainty,
+          *all_observed_corner_locations_with_uncertainty,
           images,
           intrinsics,
           img_heights_and_widths,
@@ -492,9 +500,10 @@ void visualizationStub(
 
       std::vector<vtr::Pose3D<double>> est_trajectory_vec;
       std::vector<vtr::Pose3D<double>> init_trajectory_vec;
-//      for (size_t i = 0; i <= (max_frame_optimized - min_frame_optimized);
-//           i++) {
-//        vtr::FrameId frame_id = i + min_frame_optimized;
+      //      for (size_t i = 0; i <= (max_frame_optimized -
+      //      min_frame_optimized);
+      //           i++) {
+      //        vtr::FrameId frame_id = i + min_frame_optimized;
       for (vtr::FrameId frame_id = 0; frame_id <= max_frame_optimized;
            frame_id++) {
         est_trajectory_vec.emplace_back(optimized_trajectory.at(frame_id));
@@ -505,7 +514,8 @@ void visualizationStub(
                                        vtr::PlotType::INITIAL);
       vis_manager->visualizeTrajectory(est_trajectory_vec,
                                        vtr::PlotType::ESTIMATED);
-      vis_manager->publishTfForLatestPose(est_trajectory_vec.back(), vtr::PlotType::ESTIMATED);
+      vis_manager->publishTfForLatestPose(est_trajectory_vec.back(),
+                                          vtr::PlotType::ESTIMATED);
 
       std::unordered_map<vtr::FeatureId, vtr::Position3d<double>> feature_ests;
       std::unordered_map<
@@ -623,7 +633,7 @@ int main(int argc, char **argv) {
   LOG(INFO) << "Prefix: " << param_prefix;
 
   ros::init(argc, argv, node_prefix + "ellipsoid_estimator_real_data");
-  ros::NodeHandle n;
+  ros::NodeHandle node_handle;
 
   // Hard-coded values -----------------------------------------------------
   std::unordered_map<std::string,
@@ -634,11 +644,36 @@ int main(int argc, char **argv) {
   std::string chair_class = "chair";
   shape_mean_and_std_devs_by_semantic_class[chair_class] =
       std::make_pair(chair_mean, chair_std_dev);
+
   Eigen::Vector3d cone_mean(0.29, 0.29, 0.48);
   Eigen::Vector3d cone_std_dev(0.001, 0.001, 0.01);
   std::string cone_class = "roadblock";
   shape_mean_and_std_devs_by_semantic_class[cone_class] =
       std::make_pair(cone_mean, cone_std_dev);
+
+  Eigen::Vector3d tree_mean(.40, .40, 2);
+  Eigen::Vector3d tree_cov(0.2, 0.2, 3);
+  std::string tree_class = "treetrunk";
+  shape_mean_and_std_devs_by_semantic_class[tree_class] =
+      std::make_pair(tree_mean, tree_cov);
+
+  Eigen::Vector3d lamppost_mean(.3, .3, 2);
+  Eigen::Vector3d lamppost_cov(0.15, 0.15, 3);
+  std::string lamppost_class = "lamppost";
+  shape_mean_and_std_devs_by_semantic_class[lamppost_class] =
+      std::make_pair(lamppost_mean, lamppost_cov);
+
+  Eigen::Vector3d bench_mean(1, 2.5, 1.5);
+  Eigen::Vector3d bench_cov(1.5, 2, 1.5);
+  std::string bench_class = "bench";
+  shape_mean_and_std_devs_by_semantic_class[bench_class] =
+      std::make_pair(bench_mean, bench_cov);
+
+  Eigen::Vector3d trashcan_mean(1, 1, 1.5);
+  Eigen::Vector3d trashcan_cov(1, 1, 1.5);
+  std::string trashcan_class = "trashcan";
+  shape_mean_and_std_devs_by_semantic_class[trashcan_class] =
+      std::make_pair(trashcan_mean, trashcan_cov);
 
   pose_graph_optimization::OptimizationSolverParams solver_params;  // TODO
   solver_params.max_num_iterations_ = 200;
@@ -648,9 +683,15 @@ int main(int argc, char **argv) {
   vtr::RoshanBbAssociationParams roshan_associator_params;  // TODO tune these
   roshan_associator_params.saturation_histogram_bins_ = 50;
   roshan_associator_params.hue_histogram_bins_ = 60;
-  roshan_associator_params.max_distance_for_associated_ellipsoids_ = 2.0;
-  roshan_associator_params.min_observations_ = 10;
+  //  roshan_associator_params.max_distance_for_associated_ellipsoids_ = 2.0; //
+  //  inside
+  roshan_associator_params.max_distance_for_associated_ellipsoids_ = 3.5;
+  //  roshan_associator_params.min_observations_ = 40;
+  //  roshan_associator_params.min_observations_ = 10;
+  roshan_associator_params.min_observations_ = 40;
   roshan_associator_params.discard_candidate_after_num_frames_ = 40;
+  roshan_associator_params.min_bb_confidence_ = 0.3;
+  roshan_associator_params.required_min_conf_for_initialization = 0.5;
 
   Eigen::Vector4d bounding_box_std_devs;  // TODO maybe use different values
   bounding_box_std_devs(0) = 30;
@@ -659,6 +700,8 @@ int main(int argc, char **argv) {
   bounding_box_std_devs(3) = 30;
   vtr::Covariance<double, 4> bounding_box_covariance =
       vtr::createDiagCovFromStdDevs(bounding_box_std_devs);
+  double near_edge_threshold = 20;
+  double image_boundary_variance = pow(200.0, 2.0);  // TODO?
 
   // TODO read this from file
   //  std::unordered_map<std::string, vtr::CameraId> camera_topic_to_camera_id =
@@ -714,12 +757,18 @@ int main(int argc, char **argv) {
       }
     }
   }
-  std::unordered_map<
+  std::shared_ptr<std::unordered_map<
       vtr::FrameId,
       std::unordered_map<vtr::CameraId,
                          std::vector<std::pair<vtr::BbCornerPair<double>,
-                                               std::optional<double>>>>>
-      all_observed_corner_locations_with_uncertainty;
+                                               std::optional<double>>>>>>
+      all_observed_corner_locations_with_uncertainty =
+          std::make_shared<std::unordered_map<
+              vtr::FrameId,
+              std::unordered_map<
+                  vtr::CameraId,
+                  std::vector<std::pair<vtr::BbCornerPair<double>,
+                                        std::optional<double>>>>>>();
   for (const auto &bounding_boxes_for_frame : bounding_boxes) {
     for (const auto &bounding_boxes_for_frame_and_cam :
          bounding_boxes_for_frame.second) {
@@ -730,7 +779,7 @@ int main(int argc, char **argv) {
         observed_corners_for_frame_and_cam.emplace_back(std::make_pair(
             bb.pixel_corner_locations_, bb.detection_confidence_));
       }
-      all_observed_corner_locations_with_uncertainty
+      (*all_observed_corner_locations_with_uncertainty)
           [bounding_boxes_for_frame.first]
           [bounding_boxes_for_frame_and_cam.first] =
               observed_corners_for_frame_and_cam;
@@ -821,7 +870,45 @@ int main(int argc, char **argv) {
 
   // Connect up functions needed for the optimizer --------------------------
   std::shared_ptr<vtr::RosVisualization> vis_manager =
-      std::make_shared<vtr::RosVisualization>(n);
+      std::make_shared<vtr::RosVisualization>(node_handle);
+//    vtr::RawEllipsoid<double> ellipsoid;
+//    ellipsoid << -0.164291, 0.41215, -0.0594742, 79.9495, 209.015, 248.223,
+//        0.432929, 0.450756, 2.05777;
+//    vtr::RawPose3d<double> robot_pose;
+//    robot_pose << 0.135177, -0.000860353, 0.0109102, 0.00145096, -0.000676748,
+//        -0.00533544;
+//    vtr::EllipsoidState<double> publishable_ellipsoid =
+//        vtr::convertToEllipsoidState(ellipsoid);
+//    vtr::Pose3D<double> publishable_robot_pose =
+//    vtr::convertToPose3D(robot_pose);
+//    vis_manager->visualizeEllipsoids({{1,std::make_pair("chair", publishable_ellipsoid)}},
+//                                     vtr::PlotType::INITIAL, false);
+//    for (const auto &extrinsics_entry : camera_extrinsics_by_camera) {
+//      LOG(INFO) << "Publishing transforms for camera " <<
+//      extrinsics_entry.first; vis_manager->publishTransformsForEachCamera(
+//          0, {{0, publishable_robot_pose}}, camera_extrinsics_by_camera,
+//          "init_");
+//      LOG(INFO) << "Publishing empty image for camera " <<
+//      extrinsics_entry.first;
+//      vis_manager->publishLatestImageWithReprojectionResiduals(
+//          0,
+//          extrinsics_entry.first,
+//          camera_intrinsics_by_camera.at(extrinsics_entry.first),
+//          vtr::PlotType::INITIAL,
+//          {},
+//          {},
+//          std::nullopt,
+//          img_heights_and_widths.at(extrinsics_entry.first),
+//          true);
+//      vis_manager->visualizeFrustum(publishable_robot_pose,
+//                            camera_intrinsics_by_camera.at(extrinsics_entry.first),
+//                            extrinsics_entry.second,
+//                            img_heights_and_widths.at(extrinsics_entry.first),
+//                            vtr::PlotType::INITIAL);
+//      LOG(INFO) << "Done with camera " << extrinsics_entry.first;
+//    }
+//    ros::Duration(2).sleep();
+//    exit(1);
 
   vtr::IndependentEllipsoidsLongTermObjectMapFactorCreator<
       util::EmptyStruct,
@@ -832,8 +919,9 @@ int main(int argc, char **argv) {
 
   std::function<vtr::FrameId(const vtr::FrameId &)> window_provider_func =
       [](const vtr::FrameId &max_frame) -> vtr::FrameId {
-        // For now, we'll just optimize the whole trajectory (so return 0 so we
-        // start the optimization with node 0
+    // For now, we'll just optimize the whole trajectory (so return 0 so we
+    // start the optimization with node 0
+//    return 0;
         if ((max_frame % 20) == 0) {
           return 0;
         }
@@ -841,7 +929,7 @@ int main(int argc, char **argv) {
           return 0;
         }
         return max_frame - 30;
-      };
+  };
 
   std::function<bool(
       const MainFactorInfo &, const MainPgPtr &, const util::EmptyStruct &)>
@@ -949,10 +1037,32 @@ int main(int argc, char **argv) {
                                            const vtr::FrameId &,
                                            const vtr::CameraId &,
                                            const vtr::RoshanImageSummaryInfo &)>
-      covariance_generator = [&](const vtr::RawBoundingBox &,
+      covariance_generator = [&](const vtr::RawBoundingBox &bb,
                                  const vtr::FrameId &,
-                                 const vtr::CameraId &,
+                                 const vtr::CameraId &camera_id,
                                  const vtr::RoshanImageSummaryInfo &) {
+        vtr::Covariance<double, 4> initial_covariance = bounding_box_covariance;
+        // TODO make sure getting covariance order right
+        if (bb.pixel_corner_locations_.first.x() < near_edge_threshold) {
+          initial_covariance(0, 0) = image_boundary_variance;
+        }
+        if (bb.pixel_corner_locations_.first.y() < near_edge_threshold) {
+          initial_covariance(2, 2) = image_boundary_variance;
+        }
+        if (img_heights_and_widths.find(camera_id) !=
+            img_heights_and_widths.end()) {
+          std::pair<double, double> img_height_and_width =
+              img_heights_and_widths.at(camera_id);
+          if (bb.pixel_corner_locations_.second.x() >
+              (img_height_and_width.second - near_edge_threshold)) {
+            initial_covariance(1, 1) = image_boundary_variance;
+          }
+          if (bb.pixel_corner_locations_.second.y() >
+                         (img_height_and_width.first - near_edge_threshold)) {
+            initial_covariance(3, 3) = image_boundary_variance;
+          }
+        }
+
         // TODO consider checking if bb is close to image boundary and blowing
         // up covariance if that is the case
         return bounding_box_covariance;
@@ -980,6 +1090,7 @@ int main(int argc, char **argv) {
   vtr::RoshanBbFrontEndCreator<vtr::ReprojectionErrorFactor>
       roshan_associator_creator(roshan_associator_params,
                                 associated_observed_corner_locations,
+                                all_observed_corner_locations_with_uncertainty,
                                 covariance_generator,
                                 long_term_map_front_end_data);
   std::function<std::shared_ptr<vtr::AbstractBoundingBoxFrontEnd<
@@ -994,6 +1105,29 @@ int main(int argc, char **argv) {
           [&](const MainPgPtr &pg, const MainProbData &input_prob) {
             return roshan_associator_creator.getDataAssociator(pg);
           };
+  vtr::YoloBoundingBoxQuerier bb_querier(node_handle);
+
+//    std::function<bool(
+//        const vtr::FrameId &,
+//        std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>
+//        &)> bb_retriever = [&](const vtr::FrameId &frame_id_to_query_for,
+//                           std::unordered_map<vtr::CameraId,
+//                                              std::vector<vtr::RawBoundingBox>>
+//                               &bounding_boxes_by_cam) {
+//          return bb_querier.retrievePrecomputedBoundingBoxes(
+//              frame_id_to_query_for, input_problem_data,
+//              bounding_boxes_by_cam);
+//        };
+  std::function<bool(
+      const vtr::FrameId &,
+      std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>> &)>
+      bb_retriever = [&](const vtr::FrameId &frame_id_to_query_for,
+                         std::unordered_map<vtr::CameraId,
+                                            std::vector<vtr::RawBoundingBox>>
+                             &bounding_boxes_by_cam) {
+        return vtr::retrievePrecomputedBoundingBoxes(
+            frame_id_to_query_for, input_problem_data, bounding_boxes_by_cam);
+      };
   std::function<void(
       const MainProbData &, const MainPgPtr &, const vtr::FrameId &)>
       frame_data_adder = [&](const MainProbData &problem_data,
@@ -1003,6 +1137,7 @@ int main(int argc, char **argv) {
                                                pose_graph,
                                                frame_to_add,
                                                reprojection_error_provider,
+                                               bb_retriever,
                                                bb_associator_retriever,
                                                bb_context_retriever);
       };
@@ -1138,10 +1273,11 @@ int main(int argc, char **argv) {
       optimization_factors_enabled_params;
   optimization_factors_enabled_params.use_pom_ = false;
   optimization_factors_enabled_params.include_visual_factors_ = true;
-  //  optimization_factors_enabled_params.fix_poses_ = true;
+//    optimization_factors_enabled_params.fix_poses_ = true;
   optimization_factors_enabled_params.fix_poses_ = false;
   optimization_factors_enabled_params.fix_visual_features_ = false;
   optimization_factors_enabled_params.fix_objects_ = false;
+  optimization_factors_enabled_params.poses_prior_to_window_to_keep_constant_ = 5;
   // TODO should we also optimize the poses?
 
   //  vtr::SpatialEstimateOnlyResults output_results;

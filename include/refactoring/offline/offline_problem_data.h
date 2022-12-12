@@ -59,9 +59,10 @@ struct VisionFeatureTrack {
   /**
    * Convenience constructor: initialize everything.
    */
-  VisionFeatureTrack(const FeatureId& feature_id,
-                     const std::unordered_map<FrameId, VisionFeature>& feature_observations =
-                     std::unordered_map<FrameId, VisionFeature>())
+  VisionFeatureTrack(
+      const FeatureId& feature_id,
+      const std::unordered_map<FrameId, VisionFeature>& feature_observations =
+          std::unordered_map<FrameId, VisionFeature>())
       : feature_id_(feature_id), feature_observations_(feature_observations){};
 };
 
@@ -304,6 +305,14 @@ class UnassociatedBoundingBoxOfflineProblemData
         ImageType img = (images_.at(frame)).at(camera);
         return img;
       }
+    }
+    return {};
+  }
+
+  virtual std::unordered_map<CameraId, ImageType> getImagesByCameraForFrame(
+      const FrameId& frame_id) const {
+    if (images_.find(frame_id) != images_.end()) {
+      return images_.at(frame_id);
     }
     return {};
   }
