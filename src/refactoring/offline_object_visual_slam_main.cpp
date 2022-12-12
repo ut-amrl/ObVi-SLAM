@@ -1105,8 +1105,7 @@ int main(int argc, char **argv) {
           [&](const MainPgPtr &pg, const MainProbData &input_prob) {
             return roshan_associator_creator.getDataAssociator(pg);
           };
-  vtr::YoloBoundingBoxQuerier bb_querier(node_handle);
-
+//  vtr::YoloBoundingBoxQuerier bb_querier(node_handle);
 //    std::function<bool(
 //        const vtr::FrameId &,
 //        std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>
