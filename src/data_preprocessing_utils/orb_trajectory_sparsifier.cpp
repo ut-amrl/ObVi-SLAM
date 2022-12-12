@@ -39,8 +39,8 @@ const std::string kPosesFolder = "poses/";
 const std::string kRobotPosesFile = "initial_robot_poses_by_node.txt";
 const std::string kNodesWithTimestampsFolder = "timestamps/";
 const std::string kNodesWithTimestampsFile = "node_ids_and_timestamps.txt";
-const double kMaxPoseIncThresholdTransl = 0.1;
-const double kMaxPoseIncThresholdRot = 0.075;  // TODO?
+const double kMaxPoseIncThresholdTransl = 0.2;
+const double kMaxPoseIncThresholdRot = 0.1;  // TODO?
 }  // namespace
 
 void copyAndUpdateFeatureObsFileWithNewFrameNum(

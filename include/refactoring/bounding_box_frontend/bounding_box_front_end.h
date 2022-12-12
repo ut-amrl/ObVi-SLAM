@@ -83,14 +83,20 @@ class AbstractBoundingBoxFrontEnd {
     }
 
     LOG(INFO) << "Num bbs: " << bounding_boxes.size();
+    std::vector<RawBoundingBox> filtered_bounding_boxes =
+        filterBoundingBoxes(frame_id, camera_id, bounding_boxes);
+    LOG(INFO) << "Num filtered bbs: " << filtered_bounding_boxes.size();
     RefinedBoundingBoxContextInfo refined_context =
         generateRefinedBbContextInfo(bb_context, frame_id, camera_id);
-    setupBbAssociationRound(
-        frame_id, camera_id, bounding_boxes, bb_context, refined_context);
+    setupBbAssociationRound(frame_id,
+                            camera_id,
+                            filtered_bounding_boxes,
+                            bb_context,
+                            refined_context);
     LOG(INFO) << "Generating appearance infos";
 
     std::vector<SingleBbContextInfo> single_bb_appearance_infos;
-    for (const RawBoundingBox &bb : bounding_boxes) {
+    for (const RawBoundingBox &bb : filtered_bounding_boxes) {
       LOG(INFO) << "refined context has value? "
                 << refined_context.hsv_img_.has_value();
       single_bb_appearance_infos.emplace_back(
@@ -104,7 +110,7 @@ class AbstractBoundingBoxFrontEnd {
     std::vector<AssociatedObjectIdentifier> bounding_box_assignments;
     getBoundingBoxAssignments(frame_id,
                               camera_id,
-                              bounding_boxes,
+                              filtered_bounding_boxes,
                               refined_context,
                               single_bb_appearance_infos,
                               bounding_box_assignments);
@@ -114,7 +120,7 @@ class AbstractBoundingBoxFrontEnd {
     // Add bbs and update the association info with the context for this bb
     for (size_t bb_index = 0; bb_index < bounding_box_assignments.size();
          bb_index++) {
-      RawBoundingBox bb = bounding_boxes[bb_index];
+      RawBoundingBox bb = filtered_bounding_boxes[bb_index];
       AssociatedObjectIdentifier associated_obj =
           bounding_box_assignments[bb_index];
       Covariance<double, 4> bb_cov = generateBoundingBoxCovariance(
@@ -143,7 +149,8 @@ class AbstractBoundingBoxFrontEnd {
         uninitialized_object_factor.camera_id_ = camera_id;
         uninitialized_object_factor.bounding_box_corners_ = bb_corners;
         uninitialized_object_factor.bounding_box_corners_covariance_ = bb_cov;
-        uninitialized_object_factor.detection_confidence_ = bb.detection_confidence_;
+        uninitialized_object_factor.detection_confidence_ =
+            bb.detection_confidence_;
 
         if (associated_obj.object_id_ >= uninitialized_object_info_.size()) {
           uninitialized_object_info_.emplace_back(
@@ -179,7 +186,7 @@ class AbstractBoundingBoxFrontEnd {
     for (size_t i = 0; i < bounding_box_assignments.size(); i++) {
       AssociatedObjectIdentifier bounding_box_assignment =
           bounding_box_assignments[i];
-      RawBoundingBox bounding_box = bounding_boxes[i];
+      RawBoundingBox bounding_box = filtered_bounding_boxes[i];
 
       if (bounding_box_assignment.initialized_ellipsoid_) {
         // TODO try refining estimate by initializing with all new data and
@@ -300,6 +307,11 @@ class AbstractBoundingBoxFrontEnd {
       const std::vector<SingleBbContextInfo> &indiv_bb_contexts,
       std::vector<AssociatedObjectIdentifier> &bounding_box_assignments) = 0;
 
+  virtual std::vector<RawBoundingBox> filterBoundingBoxes(
+      const FrameId &frame_id,
+      const CameraId &camera_id,
+      const std::vector<RawBoundingBox> &original_bounding_boxes) = 0;
+
   virtual RefinedBoundingBoxContextInfo generateRefinedBbContextInfo(
       const RawBoundingBoxContextInfo &bb_context,
       const FrameId &frame_id,
@@ -416,6 +428,13 @@ class KnownAssociationsOptionalEllipsoidEstBoundingBoxFrontEnd
   }
 
  protected:
+  virtual std::vector<RawBoundingBox> filterBoundingBoxes(
+      const FrameId &frame_id,
+      const CameraId &camera_id,
+      const std::vector<RawBoundingBox> &original_bounding_boxes) override {
+    return original_bounding_boxes;
+  };
+
   virtual void updateAppearanceInfoWithObjectIdAssignmentAndInitialization(
       const ObjectId &obj_id,
       const EllipsoidEstimateNode &est,
