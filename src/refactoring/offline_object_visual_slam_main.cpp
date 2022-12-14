@@ -608,11 +608,6 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-  if (FLAGS_bounding_boxes_by_node_id_file.empty()) {
-    LOG(ERROR) << "No bounding box file provided";
-    exit(1);
-  }
-
   if (FLAGS_poses_by_node_id_file.empty()) {
     LOG(ERROR) << "No robot poses file provided";
     exit(1);
@@ -704,10 +699,6 @@ int main(int argc, char **argv) {
   double image_boundary_variance = pow(200.0, 2.0);  // TODO?
 
   // TODO read this from file
-  //  std::unordered_map<std::string, vtr::CameraId> camera_topic_to_camera_id =
-  //  {
-  //      {"/camera/rgb/image_raw", 0}, {"/camera/rgb/image_raw/compressed",
-  //      0}};
   std::unordered_map<std::string, vtr::CameraId> camera_topic_to_camera_id = {
       {"/zed/zed_node/left/image_rect_color/compressed", 1},
       {"/zed/zed_node/left/image_rect_color", 1},
@@ -739,13 +730,12 @@ int main(int argc, char **argv) {
   std::unordered_map<
       vtr::FrameId,
       std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>>
-      init_bounding_boxes =
-          readBoundingBoxesFromFile(FLAGS_bounding_boxes_by_node_id_file);
+      init_bounding_boxes;
   std::unordered_map<
       vtr::FrameId,
       std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>>
       bounding_boxes;
-  // tODO fix this
+  // TODO fix this
   for (const auto &frame_id_bb_entry : init_bounding_boxes) {
     for (const auto &camera_bb_entry : frame_id_bb_entry.second) {
       for (const vtr::RawBoundingBox &bb : camera_bb_entry.second) {
@@ -871,44 +861,6 @@ int main(int argc, char **argv) {
   // Connect up functions needed for the optimizer --------------------------
   std::shared_ptr<vtr::RosVisualization> vis_manager =
       std::make_shared<vtr::RosVisualization>(node_handle);
-//    vtr::RawEllipsoid<double> ellipsoid;
-//    ellipsoid << -0.164291, 0.41215, -0.0594742, 79.9495, 209.015, 248.223,
-//        0.432929, 0.450756, 2.05777;
-//    vtr::RawPose3d<double> robot_pose;
-//    robot_pose << 0.135177, -0.000860353, 0.0109102, 0.00145096, -0.000676748,
-//        -0.00533544;
-//    vtr::EllipsoidState<double> publishable_ellipsoid =
-//        vtr::convertToEllipsoidState(ellipsoid);
-//    vtr::Pose3D<double> publishable_robot_pose =
-//    vtr::convertToPose3D(robot_pose);
-//    vis_manager->visualizeEllipsoids({{1,std::make_pair("chair", publishable_ellipsoid)}},
-//                                     vtr::PlotType::INITIAL, false);
-//    for (const auto &extrinsics_entry : camera_extrinsics_by_camera) {
-//      LOG(INFO) << "Publishing transforms for camera " <<
-//      extrinsics_entry.first; vis_manager->publishTransformsForEachCamera(
-//          0, {{0, publishable_robot_pose}}, camera_extrinsics_by_camera,
-//          "init_");
-//      LOG(INFO) << "Publishing empty image for camera " <<
-//      extrinsics_entry.first;
-//      vis_manager->publishLatestImageWithReprojectionResiduals(
-//          0,
-//          extrinsics_entry.first,
-//          camera_intrinsics_by_camera.at(extrinsics_entry.first),
-//          vtr::PlotType::INITIAL,
-//          {},
-//          {},
-//          std::nullopt,
-//          img_heights_and_widths.at(extrinsics_entry.first),
-//          true);
-//      vis_manager->visualizeFrustum(publishable_robot_pose,
-//                            camera_intrinsics_by_camera.at(extrinsics_entry.first),
-//                            extrinsics_entry.second,
-//                            img_heights_and_widths.at(extrinsics_entry.first),
-//                            vtr::PlotType::INITIAL);
-//      LOG(INFO) << "Done with camera " << extrinsics_entry.first;
-//    }
-//    ros::Duration(2).sleep();
-//    exit(1);
 
   vtr::IndependentEllipsoidsLongTermObjectMapFactorCreator<
       util::EmptyStruct,
@@ -1105,18 +1057,18 @@ int main(int argc, char **argv) {
           [&](const MainPgPtr &pg, const MainProbData &input_prob) {
             return roshan_associator_creator.getDataAssociator(pg);
           };
-//  vtr::YoloBoundingBoxQuerier bb_querier(node_handle);
-//    std::function<bool(
-//        const vtr::FrameId &,
-//        std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>
-//        &)> bb_retriever = [&](const vtr::FrameId &frame_id_to_query_for,
-//                           std::unordered_map<vtr::CameraId,
-//                                              std::vector<vtr::RawBoundingBox>>
-//                               &bounding_boxes_by_cam) {
-//          return bb_querier.retrievePrecomputedBoundingBoxes(
-//              frame_id_to_query_for, input_problem_data,
-//              bounding_boxes_by_cam);
-//        };
+ vtr::YoloBoundingBoxQuerier bb_querier(node_handle);
+   std::function<bool(
+       const vtr::FrameId &,
+       std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>
+       &)> bb_retriever = [&](const vtr::FrameId &frame_id_to_query_for,
+                          std::unordered_map<vtr::CameraId,
+                                             std::vector<vtr::RawBoundingBox>>
+                              &bounding_boxes_by_cam) {
+         return bb_querier.retrievePrecomputedBoundingBoxes(
+             frame_id_to_query_for, input_problem_data,
+             bounding_boxes_by_cam);
+       };
   std::function<bool(
       const vtr::FrameId &,
       std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>> &)>
@@ -1140,26 +1092,6 @@ int main(int argc, char **argv) {
                                                bb_associator_retriever,
                                                bb_context_retriever);
       };
-
-  //  std::function<void(
-  //      const vtr::UnassociatedBoundingBoxOfflineProblemData<
-  //          vtr::StructuredVisionFeatureTrack,
-  //          sensor_msgs::Image::ConstPtr> &,
-  //      const std::shared_ptr<const
-  //      MainPg> &, ceres::Problem *,
-  //      vtr::SpatialEstimateOnlyResults &)>
-  //      output_data_extractor =
-  //          [](const vtr::UnassociatedBoundingBoxOfflineProblemData<
-  //                 vtr::StructuredVisionFeatureTrack,
-  //                 sensor_msgs::Image::ConstPtr> &input_problem_data,
-  //             const std::shared_ptr<
-  //                 const MainPg>
-  //                 &pose_graph,
-  //             ceres::Problem *problem,
-  //             vtr::SpatialEstimateOnlyResults &output_problem_data) {
-  //            vtr::extractSpatialEstimateOnlyResults(pose_graph,
-  //                                                   output_problem_data);
-  //          };
 
   vtr::CovarianceExtractorParams ltm_covariance_params;
 
@@ -1296,29 +1228,6 @@ int main(int argc, char **argv) {
                                   vtr::SerializableRoshanAggregateBbInfo>>(
              output_results.long_term_map_);
   ltm_out_fs.release();
-  //  LOG(INFO) << "Num ellipsoids "
-  //            << output_results.ellipsoid_results_.ellipsoids_.size();
-
-  // TODO save output results somewhere
-
-  //  vtr::EllipsoidState<double> ellipsoid(
-  //      vtr::Pose3D(Eigen::Vector3d(1, 2, 3),
-  //                  Eigen::AngleAxisd(0.2, Eigen::Vector3d(0, 0, 1))),
-  //      Eigen::Vector3d(4, 5, 6));
-  //
-  //  cv::FileStorage fs("test.json", cv::FileStorage::WRITE);
-  //  fs << "ellipsoid" << vtr::SerializableEllipsoidState<double>(ellipsoid);
-  //
-  //  cv::FileStorage fs2("test.json", cv::FileStorage::READ);
-  //  vtr::SerializableEllipsoidState<double> ellipsoid_state;
-  //  fs2["ellipsoid"] >> ellipsoid_state;
-  //  LOG(INFO) << "Read ellipsoid";
-  //  LOG(INFO) << "Transl " << ellipsoid_state.getEntry().pose_.transl_;
-  //  LOG(INFO) << "Orientation angle " <<
-  //  ellipsoid_state.getEntry().pose_.orientation_.angle(); LOG(INFO) <<
-  //  "Orientation axis" <<
-  //  ellipsoid_state.getEntry().pose_.orientation_.axis(); LOG(INFO) <<
-  //  "Dimensions " << ellipsoid_state.getEntry().dimensions_;
 
   return 0;
 }
