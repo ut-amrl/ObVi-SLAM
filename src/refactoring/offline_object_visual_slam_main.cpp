@@ -776,7 +776,6 @@ int main(int argc, char **argv) {
     }
   }
 
-  //  LOG(INFO) << "Bounding boxes for " << bounding_boxes.size() << " frames ";
   std::unordered_map<vtr::FrameId, vtr::Pose3D<double>> robot_poses =
       readRobotPosesFromFile(FLAGS_poses_by_node_id_file);
   std::unordered_map<
@@ -798,6 +797,11 @@ int main(int argc, char **argv) {
       }
     }
   }
+
+  LOG(INFO) << "robot_poses size: " << robot_poses.size();
+  LOG(INFO) << "images size:      " << images.size();
+  LOG(INFO) << "img_heights_and_widths size: " << img_heights_and_widths.size();
+  exit(0);
 
   MainLtmPtr long_term_map;
   if (!FLAGS_long_term_map_input.empty()) {
@@ -1057,18 +1061,18 @@ int main(int argc, char **argv) {
           [&](const MainPgPtr &pg, const MainProbData &input_prob) {
             return roshan_associator_creator.getDataAssociator(pg);
           };
- vtr::YoloBoundingBoxQuerier bb_querier(node_handle);
-   std::function<bool(
-       const vtr::FrameId &,
-       std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>
-       &)> bb_retriever = [&](const vtr::FrameId &frame_id_to_query_for,
-                          std::unordered_map<vtr::CameraId,
-                                             std::vector<vtr::RawBoundingBox>>
-                              &bounding_boxes_by_cam) {
-         return bb_querier.retrievePrecomputedBoundingBoxes(
-             frame_id_to_query_for, input_problem_data,
-             bounding_boxes_by_cam);
-       };
+//  vtr::YoloBoundingBoxQuerier bb_querier(node_handle);
+//    std::function<bool(
+//        const vtr::FrameId &,
+//        std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>
+//        &)> bb_retriever = [&](const vtr::FrameId &frame_id_to_query_for,
+//                           std::unordered_map<vtr::CameraId,
+//                                              std::vector<vtr::RawBoundingBox>>
+//                               &bounding_boxes_by_cam) {
+//          return bb_querier.retrievePrecomputedBoundingBoxes(
+//              frame_id_to_query_for, input_problem_data,
+//              bounding_boxes_by_cam);
+//        };
   std::function<bool(
       const vtr::FrameId &,
       std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>> &)>

@@ -107,7 +107,7 @@ if [[ "$stage" < "3" ]]; then # running slam
         --low_level_feats_dir ${low_level_feats_dir}"
     echo "\n"
 
-    make -j && ./bin/offline_object_visual_slam_main --intrinsics_file ${intrinsics_file} \
+    make -j4 && ./bin/offline_object_visual_slam_main --intrinsics_file ${intrinsics_file} \
         --extrinsics_file ${extrinsics_file} --bounding_boxes_by_node_id_file ${bounding_boxes_by_node_id_file} \
         --poses_by_node_id_file ${poses_by_node_id_file} --nodes_by_timestamp_file ${nodes_by_timestamp_file} \
         --rosbag_file ${rosbag_file} --long_term_map_output ${long_term_map_output_file} \
