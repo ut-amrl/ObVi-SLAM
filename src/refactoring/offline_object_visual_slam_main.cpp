@@ -426,6 +426,7 @@ void visualizationStub(
     case vtr::BEFORE_EACH_OPTIMIZATION:
       break;
     case vtr::AFTER_EACH_OPTIMIZATION: {
+      LOG(INFO) << "AFTER_EACH_OPTIMIZATION";
       std::unordered_map<vtr::FrameId, vtr::RawPose3d<double>>
           optimized_robot_pose_estimates;
       std::unordered_map<vtr::FrameId, vtr::Pose3D<double>>
@@ -797,11 +798,6 @@ int main(int argc, char **argv) {
       }
     }
   }
-
-  LOG(INFO) << "robot_poses size: " << robot_poses.size();
-  LOG(INFO) << "images size:      " << images.size();
-  LOG(INFO) << "img_heights_and_widths size: " << img_heights_and_widths.size();
-  exit(0);
 
   MainLtmPtr long_term_map;
   if (!FLAGS_long_term_map_input.empty()) {

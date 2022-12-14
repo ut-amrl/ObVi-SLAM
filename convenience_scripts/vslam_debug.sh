@@ -2,12 +2,12 @@
 
 bagname="1668019589"
 CALIB_DIR="/robodata/taijing/object-slam/calibration/husky_zed/"
-SLAM_DIR="/home/tiejean/Documents/projects/ut_vslam/"
-ORB_DIR="/home/tiejean/Documents/projects/ORB_SLAM2/"
+SLAM_DIR="/home/tiejean/projects/ut_semantic_vslam/"
+ORB_DIR="/home/tiejean/projects/ORB_SLAM2/"
 DATA_DIR="/robodata/taijing/object-slam/vslam/"
 BAG_DIR="/robodata/husky_logs/"
-YOLO_DIR="/home/tiejean/Documents/projects/yolov5-ros/"
-yolo_weight="/home/tiejean/Documents/mnt/models/yolo/outdoors-final-yolov5s-0.pt"
+YOLO_DIR="/home/tiejean/projects/yolov5-ros/"
+yolo_weight="/robodata/taijing/object-slam/yolov5-models/outdoors-final-yolov5s-0.pt"
 
 stage="0"
 while getopts s:d:b:c:y:w flag
@@ -78,7 +78,7 @@ if [[ "$stage" < "3" ]]; then # running slam
     sleep 5
 
     cd $SLAM_DIR
-    (rosrun rviz rviz -d ovslam.rviz) &
+    # (rosrun rviz rviz -d ovslam.rviz) &
     rviz_pid=$!
     sleep 3
 

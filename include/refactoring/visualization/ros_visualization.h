@@ -98,7 +98,7 @@ class RosVisualization {
       trajectory_type_prefix_with_slash = trajectory_type_prefix + "/";
     }
     std::string base_name =
-        topic_prefix_ + "/" + trajectory_type_prefix_with_slash + "/pose_" +
+        topic_prefix_ + "/" + trajectory_type_prefix_with_slash + "pose_" +
         std::to_string(robot_pose_idx) + +"/cam_" + std::to_string(camera_id);
     return std::make_pair(base_name + "/image_raw", base_name + "/camera_info");
   }
@@ -113,7 +113,7 @@ class RosVisualization {
       trajectory_type_prefix_with_slash = trajectory_type_prefix + "/";
     }
     std::string base_name = topic_prefix_ + "/" +
-                            trajectory_type_prefix_with_slash + "/latest/cam_" +
+                            trajectory_type_prefix_with_slash + "latest/cam_" +
                             std::to_string(camera_id) + "_" + data_type;
     return std::make_pair(base_name + "/image_raw", base_name + "/camera_info");
   }
@@ -1020,6 +1020,7 @@ class RosVisualization {
 
     LOG(INFO) << "Publishing image for frame " << camera_frame_id
               << " to topic " << image_pub.getTopic();
+    LOG(INFO) << "topic name: " << img_and_camera_info_topic_names.first;
     image_pub.publish(cv_ptr->toImageMsg());
 
     publishCameraInfo(camera_frame_id,
@@ -1223,6 +1224,9 @@ class RosVisualization {
       publishers_by_topic_[topic_name] = pub;
       //      sleep_after_create.sleep();
     }
+    LOG(INFO) << "topic_name: " << topic_name 
+              << "; publishers_by_topic_[topic_name].getTopic(): " 
+              << publishers_by_topic_[topic_name].getTopic();
     return publishers_by_topic_[topic_name];
   }
 
