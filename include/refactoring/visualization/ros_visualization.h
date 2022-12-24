@@ -707,9 +707,9 @@ class RosVisualization {
         cam_transform.transform.rotation.y = cam_extrinsics_quat.y();
         cam_transform.transform.rotation.z = cam_extrinsics_quat.z();
         cam_transform.transform.rotation.w = cam_extrinsics_quat.w();
-        //        LOG(INFO) << "Publishing transform from "
-        //                  << cam_transform.header.frame_id << " to "
-        //                  << cam_transform.child_frame_id;
+        // LOG(INFO) << "Publishing transform from "
+        //           << cam_transform.header.frame_id << " to "
+        //           << cam_transform.child_frame_id;
         static_tf_broadcaster_.sendTransform(cam_transform);
       }
     }
@@ -1003,6 +1003,8 @@ class RosVisualization {
           projected_feat, color_for_plot_type_[ESTIMATED], cv_ptr);
       drawLineOnImage(
           observed_feat, projected_feat, residual_feature_color_, cv_ptr);
+      // LOG(INFO) << "projected_feat: " << projected_feat.transpose();
+      // LOG(INFO) << "observed_feat: "  << observed_feat.transpose() << std::endl;
     }
     if (!img_disp_text.empty()) {
       std_msgs::ColorRGBA text_color;
@@ -1020,7 +1022,6 @@ class RosVisualization {
 
     LOG(INFO) << "Publishing image for frame " << camera_frame_id
               << " to topic " << image_pub.getTopic();
-    LOG(INFO) << "topic name: " << img_and_camera_info_topic_names.first;
     image_pub.publish(cv_ptr->toImageMsg());
 
     publishCameraInfo(camera_frame_id,
@@ -1114,7 +1115,7 @@ class RosVisualization {
                  next_frustum_marker_num_++);
   }
 
- private:
+//  private:
   const static uint32_t kEllipsoidMarkerPubQueueSize = 100;
   const static uint32_t kRobotPoseMarkerPubQueueSize = 1000;
 
@@ -1224,9 +1225,6 @@ class RosVisualization {
       publishers_by_topic_[topic_name] = pub;
       //      sleep_after_create.sleep();
     }
-    LOG(INFO) << "topic_name: " << topic_name 
-              << "; publishers_by_topic_[topic_name].getTopic(): " 
-              << publishers_by_topic_[topic_name].getTopic();
     return publishers_by_topic_[topic_name];
   }
 
@@ -1286,11 +1284,11 @@ class RosVisualization {
     return topic_prefix_ + prefixes_for_plot_type_.at(plot_type) + base_topic;
   }
 
-  cv::Scalar convertColorMsgToOpenCvColor(const std_msgs::ColorRGBA &color) {
+  static cv::Scalar convertColorMsgToOpenCvColor(const std_msgs::ColorRGBA &color) {
     return CV_RGB(color.r * 255, color.g * 255, color.b * 255);
   }
 
-  void drawLineOnImage(const PixelCoord<double> &px1,
+  static void drawLineOnImage(const PixelCoord<double> &px1,
                        const PixelCoord<double> &px2,
                        const std_msgs::ColorRGBA &color,
                        cv_bridge::CvImagePtr &cv_ptr) {
@@ -1303,7 +1301,7 @@ class RosVisualization {
              thickness);
   }
 
-  void drawTinyCircleOnImage(const PixelCoord<double> &px,
+  static void drawTinyCircleOnImage(const PixelCoord<double> &px,
                              const std_msgs::ColorRGBA &color,
                              cv_bridge::CvImagePtr &cv_ptr) {
     // TODO verify
@@ -1315,7 +1313,7 @@ class RosVisualization {
                thickness);
   }
 
-  std_msgs::ColorRGBA brightenColor(const std_msgs::ColorRGBA &original,
+  static std_msgs::ColorRGBA brightenColor(const std_msgs::ColorRGBA &original,
                                     const double &brighter_percent) {
     std_msgs::ColorRGBA brighter = original;
     brighter.r = 1.0 - (1.0 - original.r) * (1 - brighter_percent);
@@ -1324,7 +1322,7 @@ class RosVisualization {
     return brighter;
   }
 
-  void drawRectanglesOnImage(
+  static void drawRectanglesOnImage(
       const std::unordered_map<ObjectId, BbCornerPair<double>>
           &bounding_box_corners,
       const std_msgs::ColorRGBA &color,
@@ -1344,7 +1342,7 @@ class RosVisualization {
     }
   }
 
-  void drawRectangleOnImage(
+  static void drawRectangleOnImage(
       const BbCornerPair<double> &bounding_box_corners,
       const std_msgs::ColorRGBA &color,
       const std::optional<ObjectId> &bounding_box_numeric_label,

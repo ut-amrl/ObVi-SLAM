@@ -20,6 +20,8 @@ find_package(Pangolin REQUIRED)
 find_package(Boost COMPONENTS filesystem REQUIRED)
 find_package(pcl_conversions)
 find_package(pcl_ros)
+find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+find_package(Python3 COMPONENTS NumPy)
 
 #find_package(darknet_ros_msgs)
 #find_package(catkin REQUIRED COMPONENTS darknet_ros_msgs)
@@ -48,7 +50,10 @@ set(LIBS
         ${OpenCV_LIBS}
         ${PCL_LIBRARIES}
         ${Pangolin_LIBRARIES}
-        ${Boost_FILESYSTEM_LIBRARY})
+        ${Boost_FILESYSTEM_LIBRARY}
+        Python3::Python
+        Python3::Module
+        Python3::NumPy)
 
 include_directories(src/shared)
 add_subdirectory(src/shared)

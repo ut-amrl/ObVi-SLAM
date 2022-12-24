@@ -41,7 +41,7 @@ echo "SLAM Intput directory: "$VSLAM_IN_DIR
 echo "SLAM Intput directory (Sparse): "$VSLAM_IN_SPARSE_DIR
 
 source ~/.bashrc
-rosparam set /use_sim_time true
+rosparam set /use_sim_time false
 
 # (roslaunch /robodata/taijing/scripts/launch/decompress-images.launch) &
 # decompress_pid=$!
@@ -71,6 +71,7 @@ if [[ "$stage" < "2" ]]; then # format vslam_in
 fi
 
 if [[ "$stage" < "3" ]]; then # running slam
+    rosparam set /use_sim_time false
     echo "start running slam...."
     cd $YOLO_DIR
     (python3 detect_ros.py --weights $yolo_weight --img 640 --conf 0.1) &
