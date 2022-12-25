@@ -66,7 +66,7 @@ if [[ "$stage" < "2" ]]; then # format vslam_in
     python3 src/data_preprocessing_utils/orb_stereo_reformat_data.py -i $ORB_OUT_DIR -o $VSLAM_IN_DIR 
     make -j4
     ./bin/initialize_traj_and_feats_from_orb_out --raw_data_path $ORB_OUT_DIR --calibration_path $CALIB_DIR --processed_data_path $VSLAM_IN_DIR
-    ./bin/orb_trajectory_sparsifier -input_processed_data_path $VSLAM_IN_DIR --output_processed_data_path $VSLAM_IN_SPARSE_DIR
+    # ./bin/orb_trajectory_sparsifier -input_processed_data_path $VSLAM_IN_DIR --output_processed_data_path $VSLAM_IN_SPARSE_DIR
     echo "finish formating vslam_in!"
 fi
 
@@ -82,6 +82,11 @@ if [[ "$stage" < "3" ]]; then # running slam
     # (rosrun rviz rviz -d ovslam.rviz) &
     rviz_pid=$!
     sleep 3
+    
+    make -j8
+    # ./bin/orb_trajectory_sparsifier -input_processed_data_path $VSLAM_IN_DIR --output_processed_data_path $VSLAM_IN_SPARSE_DIR
+    # echo "finish sparsifying!"
+    # sleep 10
 
     intrinsics_file=${CALIB_DIR}camera_matrix.txt
     extrinsics_file=${CALIB_DIR}extrinsics.txt
@@ -108,7 +113,7 @@ if [[ "$stage" < "3" ]]; then # running slam
         --low_level_feats_dir ${low_level_feats_dir}"
     echo "\n"
 
-    make -j4 && ./bin/offline_object_visual_slam_main --intrinsics_file ${intrinsics_file} \
+    ./bin/offline_object_visual_slam_main --intrinsics_file ${intrinsics_file} \
         --extrinsics_file ${extrinsics_file} --bounding_boxes_by_node_id_file ${bounding_boxes_by_node_id_file} \
         --poses_by_node_id_file ${poses_by_node_id_file} --nodes_by_timestamp_file ${nodes_by_timestamp_file} \
         --rosbag_file ${rosbag_file} --long_term_map_output ${long_term_map_output_file} \
