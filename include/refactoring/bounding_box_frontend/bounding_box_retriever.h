@@ -40,7 +40,7 @@ class YoloBoundingBoxQuerier {
   }
 
   template <typename InputProblemData>
-  bool retrievePrecomputedBoundingBoxes(
+  bool retrieveBoundingBoxes(
       const FrameId &frame_to_query_for,
       const InputProblemData &input_problem_data,
       std::unordered_map<CameraId, std::vector<RawBoundingBox>>
