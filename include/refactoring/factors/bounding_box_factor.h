@@ -67,34 +67,20 @@ class BoundingBoxFactor {
     // image (so we don't use it as a constraint). Could also try to do this
     // through the covariance (very wide covariance for sides we don't care
     // about)
+
     Eigen::Matrix<T, 4, 1> corner_results;
-    getCornerLocationsVector<T>(ellipsoid,
+    bool valid_case = getCornerLocationsVector<T>(ellipsoid,
                                 robot_pose,
                                 robot_to_cam_tf_.cast<T>(),
                                 camera_intrinsics_mat_.cast<T>(),
-                                corner_results, false);
-    for (size_t i = 0; i < corner_results.rows(); i++) {
-      if (ceres::IsNaN(corner_results(i, 0))) {
-        LOG(WARNING) << "Corner results entry was NaN " << corner_results;
-        Eigen::Map<const Eigen::Matrix<T, 9, 1>> ellipsoid_data(ellipsoid);
-        Eigen::Map<const Eigen::Matrix<T, 6, 1>> robot_pose_data(robot_pose);
-        LOG(INFO) << "Ellipsoid " << ellipsoid_data;
-        LOG(INFO) << "Robot Pose " << robot_pose_data;
-        LOG(INFO) << "Robot inside ellipsoid? ";
-        getCornerLocationsVector<T>(ellipsoid,
-                                    robot_pose,
-                                    robot_to_cam_tf_.cast<T>(),
-                                    camera_intrinsics_mat_.cast<T>(),
-                                    corner_results,
-                                    true);
-//        exit(1);
-        residuals_ptr[0] = std::numeric_limits<T>::max();
-        residuals_ptr[1] = std::numeric_limits<T>::max();
-        residuals_ptr[2] = std::numeric_limits<T>::max();
-        residuals_ptr[3] = std::numeric_limits<T>::max();
-      }
+                                corner_results);
+    if (!valid_case) {
+      residuals_ptr[0] = T(kInvalidEllipseError);
+      residuals_ptr[1] = T(kInvalidEllipseError);
+      residuals_ptr[2] = T(kInvalidEllipseError);
+      residuals_ptr[3] = T(kInvalidEllipseError);
+      return true;
     }
-    //    LOG(INFO) << "Corner results\n" << corner_results;
 
     Eigen::Matrix<T, 4, 1> deviation =
         corner_results - corner_detections_.template cast<T>();
@@ -138,6 +124,7 @@ class BoundingBoxFactor {
   }
 
  private:
+  const static constexpr double kInvalidEllipseError = 1e6;
   /**
    * Corner detections for the bounding box. The first value is the smallest x
    * value, the next is the largest x value, the third is the smallest y value
