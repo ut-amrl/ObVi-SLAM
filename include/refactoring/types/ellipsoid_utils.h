@@ -51,19 +51,24 @@ Eigen::Matrix<T, 4, 4> createDualRepresentationForEllipsoid(
   dual_rep.topRightCorner(3, 1) = neg_transl;
 
   Eigen::DiagonalMatrix<T, 3> diag_mat(
-      pow(ellipsoid_data[6] / T(2), 2) + T(kDimensionRegularizationConstant),
-      pow(ellipsoid_data[7] / T(2), 2) + T(kDimensionRegularizationConstant),
-      pow(ellipsoid_data[8] / T(2), 2) + T(kDimensionRegularizationConstant));
+      pow(ellipsoid_data[kEllipsoidPoseParameterizationSize] / T(2), 2) +
+          T(kDimensionRegularizationConstant),
+      pow(ellipsoid_data[kEllipsoidPoseParameterizationSize + 1] / T(2), 2) +
+          T(kDimensionRegularizationConstant),
+      pow(ellipsoid_data[kEllipsoidPoseParameterizationSize + 2] / T(2), 2) +
+          T(kDimensionRegularizationConstant));
 
-  //  LOG(INFO) << "Ellipsoid dim\n" << ellipsoid_data[6] / T(2) << "\n"
-  //            << ellipsoid_data[7] / T(2) << "\n" << ellipsoid_data[8] / T(2);
-
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+  Eigen::Matrix<T, 3, 3> rot_mat =
+      Eigen::Quaternion<T>(Eigen::AngleAxis<T>(ellipsoid_data[3],
+                                               Eigen::Matrix<T, 3, 1>::UnitZ()))
+          .matrix();
+#else
   Eigen::Matrix<T, 3, 3> rot_mat = Exp(Eigen::Matrix<T, 3, 1>(
       ellipsoid_data[3], ellipsoid_data[4], ellipsoid_data[5]));
-
+#endif
   dual_rep.topLeftCorner(3, 3) = (rot_mat * diag_mat * (rot_mat.transpose())) +
                                  (neg_transl * transl.transpose());
-
   return dual_rep;
 }
 
@@ -113,15 +118,6 @@ bool getCornerLocationsVector(
       world_to_camera;
   Eigen::Matrix<T, 4, 4> ellipsoid_dual_rep =
       createDualRepresentationForEllipsoid(ellipsoid);
-
-  Eigen::Transform<T, 3, Eigen::Affine> ellipsoid_to_world_current =
-      PoseArrayToAffine(&(ellipsoid[3]), &(ellipsoid[0]));
-  Eigen::Transform<T, 3, Eigen::Affine> ellipsoid_to_camera =
-      ellipsoid_to_world_current.inverse() * world_to_camera;
-  Eigen::Transform<T, 3, Eigen::Affine> camera_to_ellipsoid =
-      ellipsoid_to_camera.inverse();
-  Eigen::Matrix<T, 3, 1> ellipsoid_dims(
-      ellipsoid[6] / T(2), ellipsoid[7] / T(2), ellipsoid[8] / T(2));
 
   Eigen::Matrix<T, 3, 3> g_mat =
       intrinsics * world_to_camera_compact.matrix() * ellipsoid_dual_rep *

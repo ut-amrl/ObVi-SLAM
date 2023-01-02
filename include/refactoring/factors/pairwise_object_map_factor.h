@@ -23,18 +23,23 @@ class PairwiseObjectMapFactor {
     return true;
   }
 
-  static ceres::AutoDiffCostFunction<PairwiseObjectMapFactor, 9, 9, 9> *
-  createPairwiseObjectMapFactor(const EllipsoidState<double> &ellipsoid_1,
-                                const EllipsoidState<double> &ellipsoid_2,
-                                const Covariance<double, 9> &covariance) {
+  static ceres::AutoDiffCostFunction<PairwiseObjectMapFactor,
+                                     kEllipsoidParamterizationSize,
+                                     kEllipsoidParamterizationSize,
+                                     kEllipsoidParamterizationSize>
+      *createPairwiseObjectMapFactor(
+          const EllipsoidState<double> &ellipsoid_1,
+          const EllipsoidState<double> &ellipsoid_2,
+          const Covariance<double, kEllipsoidParamterizationSize> &covariance) {
     PairwiseObjectMapFactor *factor = new PairwiseObjectMapFactor();
-    return new ceres::AutoDiffCostFunction<PairwiseObjectMapFactor, 9, 9, 9>(
+    return new ceres::AutoDiffCostFunction<PairwiseObjectMapFactor,
+                                           kEllipsoidParamterizationSize,
+                                           kEllipsoidParamterizationSize,
+                                           kEllipsoidParamterizationSize>(
         factor);
   }
+
  private:
-
-
-
 };
 
 }  // namespace vslam_types_refactor

@@ -46,6 +46,12 @@ template <typename NumType>
 using RawPose3dPtr = std::shared_ptr<RawPose3d<NumType>>;
 
 template <typename NumType>
+using RawPose3dYawOnly = Eigen::Matrix<NumType, 4, 1>;
+
+template <typename NumType>
+using RawPose3dYawOnlyPtr = std::shared_ptr<RawPose3dYawOnly<NumType>>;
+
+template <typename NumType>
 struct Pose3D {
   Position3d<NumType> transl_;
   Orientation3D<NumType> orientation_;
@@ -54,6 +60,17 @@ struct Pose3D {
   Pose3D(const Position3d<NumType> &transl,
          const Orientation3D<NumType> &orientation)
       : transl_(transl), orientation_(orientation) {}
+};
+
+template <typename NumType>
+struct Pose3DYawOnly {
+  Position3d<NumType> transl_;
+  NumType yaw_;
+
+  Pose3DYawOnly() = default;
+  Pose3DYawOnly(const Position3d<NumType> &transl,
+         const NumType &yaw)
+      : transl_(transl), yaw_(yaw) {}
 };
 
 template <typename NumType>

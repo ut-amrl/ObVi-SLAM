@@ -6,7 +6,7 @@ namespace vslam_types_refactor {
 
 IndependentObjectMapFactor::IndependentObjectMapFactor(
     const EllipsoidState<double> &ellipsoid_mean,
-    const Covariance<double, 9> &covariance)
+    const Covariance<double, kEllipsoidParamterizationSize> &covariance)
     : ellipsoid_mean_(convertToRawEllipsoid(ellipsoid_mean)),
       sqrt_inf_mat_(covariance.inverse().sqrt()) {}
 

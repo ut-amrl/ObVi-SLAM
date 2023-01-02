@@ -42,12 +42,13 @@ class BoundingBoxFactor {
    *
    * @tparam T                  Type that the cost functor is evaluating.
    * @param ellipsoid[in]       Estimate of the ellipsoid parameters. This is a
-   *                            9 entry array with the first 3 entries
+   *                            9 or 7 entry array with the first 3 entries
    *                            corresponding to the translation, the second 3
-   *                            entries containing the axis-angle representation
-   *                            (with angle given by the magnitude of the
-   *                            vector), and the final 3 entries corresponding
-   *                            to the dimensions of the ellipsoid.
+   *                            or 1 entries containing the axis-angle
+   *                            representation (with angle given by the
+   *                            magnitude of the vector) or just yaw, and the
+   *                            final 3 entries corresponding to the dimensions
+   *                            of the ellipsoid.
    * @param robot_pose[in]      Robot's pose in the world frame corresponding to
    *                            the location of where the feature was imaged.
    *                            This is a 6 entry array with the first 3 entries
@@ -69,11 +70,12 @@ class BoundingBoxFactor {
     // about)
 
     Eigen::Matrix<T, 4, 1> corner_results;
-    bool valid_case = getCornerLocationsVector<T>(ellipsoid,
-                                robot_pose,
-                                robot_to_cam_tf_.cast<T>(),
-                                camera_intrinsics_mat_.cast<T>(),
-                                corner_results);
+    bool valid_case =
+        getCornerLocationsVector<T>(ellipsoid,
+                                    robot_pose,
+                                    robot_to_cam_tf_.cast<T>(),
+                                    camera_intrinsics_mat_.cast<T>(),
+                                    corner_results);
     if (!valid_case) {
       residuals_ptr[0] = T(kInvalidEllipseError);
       residuals_ptr[1] = T(kInvalidEllipseError);
@@ -108,7 +110,10 @@ class BoundingBoxFactor {
    *
    * @return Ceres cost function.
    */
-  static ceres::AutoDiffCostFunction<BoundingBoxFactor, 4, 9, 6> *
+  static ceres::AutoDiffCostFunction<BoundingBoxFactor,
+                                     4,
+                                     kEllipsoidParamterizationSize,
+                                     6> *
   createBoundingBoxFactor(
       const vslam_types_refactor::BbCorners<double> &object_detection,
       const vslam_types_refactor::CameraIntrinsicsMat<double>
@@ -120,7 +125,10 @@ class BoundingBoxFactor {
                                                       camera_extrinsics,
                                                       object_detection,
                                                       bounding_box_covariance);
-    return new ceres::AutoDiffCostFunction<BoundingBoxFactor, 4, 9, 6>(factor);
+    return new ceres::AutoDiffCostFunction<BoundingBoxFactor,
+                                           4,
+                                           kEllipsoidParamterizationSize,
+                                           6>(factor);
   }
 
  private:

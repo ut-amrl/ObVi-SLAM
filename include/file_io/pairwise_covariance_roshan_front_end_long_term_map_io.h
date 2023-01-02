@@ -27,8 +27,14 @@ void writeRoshanFrontEndEntryToFile(
       file_stream);
   for (const vslam_types_refactor::RoshanBbInfo &indiv_entry :
        roshan_front_end_entry.second.infos_for_observed_bbs_) {
+
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+    vslam_types_refactor::Pose3DYawOnly<double> ellipsoid_pose =
+        indiv_entry.single_bb_init_est_.pose_;
+#else
     vslam_types_refactor::Pose3D<double> ellipsoid_pose =
         indiv_entry.single_bb_init_est_.pose_;
+#endif
     vslam_types_refactor::ObjectDim<double> ellipsoid_dim =
         indiv_entry.single_bb_init_est_.dimensions_;
 
@@ -37,10 +43,14 @@ void writeRoshanFrontEndEntryToFile(
          std::to_string(ellipsoid_pose.transl_.x()),
          std::to_string(ellipsoid_pose.transl_.y()),
          std::to_string(ellipsoid_pose.transl_.z()),
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+         std::to_string(ellipsoid_pose.yaw_),
+#else
          std::to_string(ellipsoid_pose.orientation_.angle()),
          std::to_string(ellipsoid_pose.orientation_.axis().x()),
          std::to_string(ellipsoid_pose.orientation_.axis().y()),
          std::to_string(ellipsoid_pose.orientation_.axis().z()),
+#endif
          std::to_string(ellipsoid_dim.x()),
          std::to_string(ellipsoid_dim.y()),
          std::to_string(ellipsoid_dim.z())},
@@ -125,7 +135,9 @@ bool readRoshanFrontEndDataFromFile(
       double transl_x = std::stod(comma_separated_strings[list_idx++]);
       double transl_y = std::stod(comma_separated_strings[list_idx++]);
       double transl_z = std::stod(comma_separated_strings[list_idx++]);
-
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+      double yaw = std::stod(comma_separated_strings[list_idx++]);
+#else
       double orientation_angle = std::stod(comma_separated_strings[list_idx++]);
       double orientation_axis_x =
           std::stod(comma_separated_strings[list_idx++]);
@@ -133,13 +145,18 @@ bool readRoshanFrontEndDataFromFile(
           std::stod(comma_separated_strings[list_idx++]);
       double orientation_axis_z =
           std::stod(comma_separated_strings[list_idx++]);
-
+#endif
       double dim_x = std::stod(comma_separated_strings[list_idx++]);
       double dim_y = std::stod(comma_separated_strings[list_idx++]);
       double dim_z = std::stod(comma_separated_strings[list_idx++]);
 
       bb_info.single_bb_init_est_ =
           vslam_types_refactor::EllipsoidState<double>(
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+              vslam_types_refactor::Pose3DYawOnly<double>(
+                  vslam_types_refactor::Position3d<double>(
+                      transl_x, transl_y, transl_z), yaw),
+#else
               vslam_types_refactor::Pose3D<double>(
                   vslam_types_refactor::Position3d<double>(
                       transl_x, transl_y, transl_z),
@@ -148,6 +165,7 @@ bool readRoshanFrontEndDataFromFile(
                       Eigen::Vector3d(orientation_axis_x,
                                       orientation_axis_y,
                                       orientation_axis_z))),
+#endif
               vslam_types_refactor::ObjectDim<double>(dim_x, dim_y, dim_z));
 
       //      file_stream >> bb_info.hue_sat_histogram_;
@@ -161,8 +179,13 @@ void writeEllipsoidResultEntryToFile(
         std::pair<std::string, vslam_types_refactor::EllipsoidState<double>>>
         &ellipsoid_entry,
     std::ofstream &file_stream) {
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+  vslam_types_refactor::Pose3DYawOnly<double> ellipsoid_pose =
+      ellipsoid_entry.second.second.pose_;
+#else
   vslam_types_refactor::Pose3D<double> ellipsoid_pose =
       ellipsoid_entry.second.second.pose_;
+#endif
   vslam_types_refactor::ObjectDim<double> ellipsoid_dim =
       ellipsoid_entry.second.second.dimensions_;
   std::vector<std::string> entry_as_string_list = {
@@ -171,10 +194,14 @@ void writeEllipsoidResultEntryToFile(
       std::to_string(ellipsoid_pose.transl_.x()),
       std::to_string(ellipsoid_pose.transl_.y()),
       std::to_string(ellipsoid_pose.transl_.z()),
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+      std::to_string(ellipsoid_pose.yaw_),
+#else
       std::to_string(ellipsoid_pose.orientation_.angle()),
       std::to_string(ellipsoid_pose.orientation_.axis().x()),
       std::to_string(ellipsoid_pose.orientation_.axis().y()),
       std::to_string(ellipsoid_pose.orientation_.axis().z()),
+#endif
       std::to_string(ellipsoid_dim.x()),
       std::to_string(ellipsoid_dim.y()),
       std::to_string(ellipsoid_dim.z())};
@@ -199,11 +226,14 @@ bool readEllipsoidResultEntryFromFile(
   double transl_x = std::stod(comma_separated_strings[list_idx++]);
   double transl_y = std::stod(comma_separated_strings[list_idx++]);
   double transl_z = std::stod(comma_separated_strings[list_idx++]);
-
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+  double yaw = std::stod(comma_separated_strings[list_idx++]);
+#else
   double orientation_angle = std::stod(comma_separated_strings[list_idx++]);
   double orientation_axis_x = std::stod(comma_separated_strings[list_idx++]);
   double orientation_axis_y = std::stod(comma_separated_strings[list_idx++]);
   double orientation_axis_z = std::stod(comma_separated_strings[list_idx++]);
+#endif
 
   double dim_x = std::stod(comma_separated_strings[list_idx++]);
   double dim_y = std::stod(comma_separated_strings[list_idx++]);
@@ -214,6 +244,11 @@ bool readEllipsoidResultEntryFromFile(
       std::make_pair(
           semantic_class,
           vslam_types_refactor::EllipsoidState<double>(
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+              vslam_types_refactor::Pose3DYawOnly<double>(
+                  vslam_types_refactor::Position3d<double>(
+                      transl_x, transl_y, transl_z), yaw),
+#else
               vslam_types_refactor::Pose3D<double>(
                   vslam_types_refactor::Position3d<double>(
                       transl_x, transl_y, transl_z),
@@ -222,6 +257,7 @@ bool readEllipsoidResultEntryFromFile(
                       Eigen::Vector3d(orientation_axis_x,
                                       orientation_axis_y,
                                       orientation_axis_z))),
+#endif
               vslam_types_refactor::ObjectDim<double>(dim_x, dim_y, dim_z))));
 
   return true;
@@ -230,7 +266,11 @@ bool readEllipsoidResultEntryFromFile(
 void writePairwiseEllipsoidCovarianceEntryToFile(
     const std::pair<std::pair<vslam_types_refactor::ObjectId,
                               vslam_types_refactor::ObjectId>,
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+                    Eigen::Matrix<double, 7, 7>> &ellipsoid_covariance_entry,
+#else
                     Eigen::Matrix<double, 9, 9>> &ellipsoid_covariance_entry,
+#endif
     std::ofstream &file_stream) {
   std::vector<std::string> entry_as_string_list = {
       std::to_string(ellipsoid_covariance_entry.first.first),
@@ -242,8 +282,10 @@ void writePairwiseEllipsoidCovarianceEntryToFile(
       std::to_string(ellipsoid_covariance_entry.second(0, 4)),
       std::to_string(ellipsoid_covariance_entry.second(0, 5)),
       std::to_string(ellipsoid_covariance_entry.second(0, 6)),
+#ifndef CONSTRAIN_ELLIPSOID_ORIENTATION
       std::to_string(ellipsoid_covariance_entry.second(0, 7)),
       std::to_string(ellipsoid_covariance_entry.second(0, 8)),
+#endif
 
       std::to_string(ellipsoid_covariance_entry.second(1, 0)),
       std::to_string(ellipsoid_covariance_entry.second(1, 1)),
@@ -252,8 +294,10 @@ void writePairwiseEllipsoidCovarianceEntryToFile(
       std::to_string(ellipsoid_covariance_entry.second(1, 4)),
       std::to_string(ellipsoid_covariance_entry.second(1, 5)),
       std::to_string(ellipsoid_covariance_entry.second(1, 6)),
+#ifndef CONSTRAIN_ELLIPSOID_ORIENTATION
       std::to_string(ellipsoid_covariance_entry.second(1, 7)),
       std::to_string(ellipsoid_covariance_entry.second(1, 8)),
+#endif
 
       std::to_string(ellipsoid_covariance_entry.second(2, 0)),
       std::to_string(ellipsoid_covariance_entry.second(2, 1)),
@@ -262,8 +306,10 @@ void writePairwiseEllipsoidCovarianceEntryToFile(
       std::to_string(ellipsoid_covariance_entry.second(2, 4)),
       std::to_string(ellipsoid_covariance_entry.second(2, 5)),
       std::to_string(ellipsoid_covariance_entry.second(2, 6)),
+#ifndef CONSTRAIN_ELLIPSOID_ORIENTATION
       std::to_string(ellipsoid_covariance_entry.second(2, 7)),
       std::to_string(ellipsoid_covariance_entry.second(2, 8)),
+#endif
 
       std::to_string(ellipsoid_covariance_entry.second(3, 0)),
       std::to_string(ellipsoid_covariance_entry.second(3, 1)),
@@ -272,8 +318,10 @@ void writePairwiseEllipsoidCovarianceEntryToFile(
       std::to_string(ellipsoid_covariance_entry.second(3, 4)),
       std::to_string(ellipsoid_covariance_entry.second(3, 5)),
       std::to_string(ellipsoid_covariance_entry.second(3, 6)),
+#ifndef CONSTRAIN_ELLIPSOID_ORIENTATION
       std::to_string(ellipsoid_covariance_entry.second(3, 7)),
       std::to_string(ellipsoid_covariance_entry.second(3, 8)),
+#endif
 
       std::to_string(ellipsoid_covariance_entry.second(4, 0)),
       std::to_string(ellipsoid_covariance_entry.second(4, 1)),
@@ -282,8 +330,10 @@ void writePairwiseEllipsoidCovarianceEntryToFile(
       std::to_string(ellipsoid_covariance_entry.second(4, 4)),
       std::to_string(ellipsoid_covariance_entry.second(4, 5)),
       std::to_string(ellipsoid_covariance_entry.second(4, 6)),
+#ifndef CONSTRAIN_ELLIPSOID_ORIENTATION
       std::to_string(ellipsoid_covariance_entry.second(4, 7)),
       std::to_string(ellipsoid_covariance_entry.second(4, 8)),
+#endif
 
       std::to_string(ellipsoid_covariance_entry.second(5, 0)),
       std::to_string(ellipsoid_covariance_entry.second(5, 1)),
@@ -292,8 +342,10 @@ void writePairwiseEllipsoidCovarianceEntryToFile(
       std::to_string(ellipsoid_covariance_entry.second(5, 4)),
       std::to_string(ellipsoid_covariance_entry.second(5, 5)),
       std::to_string(ellipsoid_covariance_entry.second(5, 6)),
+#ifndef CONSTRAIN_ELLIPSOID_ORIENTATION
       std::to_string(ellipsoid_covariance_entry.second(5, 7)),
       std::to_string(ellipsoid_covariance_entry.second(5, 8)),
+#endif
 
       std::to_string(ellipsoid_covariance_entry.second(6, 0)),
       std::to_string(ellipsoid_covariance_entry.second(6, 1)),
@@ -301,6 +353,9 @@ void writePairwiseEllipsoidCovarianceEntryToFile(
       std::to_string(ellipsoid_covariance_entry.second(6, 3)),
       std::to_string(ellipsoid_covariance_entry.second(6, 4)),
       std::to_string(ellipsoid_covariance_entry.second(6, 5)),
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+      std::to_string(ellipsoid_covariance_entry.second(6, 6))};
+#else
       std::to_string(ellipsoid_covariance_entry.second(6, 6)),
       std::to_string(ellipsoid_covariance_entry.second(6, 7)),
       std::to_string(ellipsoid_covariance_entry.second(6, 8)),
@@ -324,6 +379,7 @@ void writePairwiseEllipsoidCovarianceEntryToFile(
       std::to_string(ellipsoid_covariance_entry.second(8, 6)),
       std::to_string(ellipsoid_covariance_entry.second(8, 7)),
       std::to_string(ellipsoid_covariance_entry.second(8, 8))};
+#endif
   writeCommaSeparatedStringsLineToFile(entry_as_string_list, file_stream);
 }
 
@@ -331,7 +387,11 @@ bool readPairwiseEllipsoidCovarianceEntryFromFile(
     const std::string &line,
     std::pair<std::pair<vslam_types_refactor::ObjectId,
                         vslam_types_refactor::ObjectId>,
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+              Eigen::Matrix<double, 7, 7>> &ellipsoid_covariance_entry) {
+#else
               Eigen::Matrix<double, 9, 9>> &ellipsoid_covariance_entry) {
+#endif
   std::vector<std::string> com_sep_str = parseCommaSeparatedStrings(line);
   size_t list_idx = 0;
 
@@ -350,8 +410,10 @@ bool readPairwiseEllipsoidCovarianceEntryFromFile(
   double cov_04 = std::stod(com_sep_str[list_idx++]);
   double cov_05 = std::stod(com_sep_str[list_idx++]);
   double cov_06 = std::stod(com_sep_str[list_idx++]);
+#ifndef CONSTRAIN_ELLIPSOID_ORIENTATION
   double cov_07 = std::stod(com_sep_str[list_idx++]);
   double cov_08 = std::stod(com_sep_str[list_idx++]);
+#endif
 
   double cov_10 = std::stod(com_sep_str[list_idx++]);
   double cov_11 = std::stod(com_sep_str[list_idx++]);
@@ -360,8 +422,10 @@ bool readPairwiseEllipsoidCovarianceEntryFromFile(
   double cov_14 = std::stod(com_sep_str[list_idx++]);
   double cov_15 = std::stod(com_sep_str[list_idx++]);
   double cov_16 = std::stod(com_sep_str[list_idx++]);
+#ifndef CONSTRAIN_ELLIPSOID_ORIENTATION
   double cov_17 = std::stod(com_sep_str[list_idx++]);
   double cov_18 = std::stod(com_sep_str[list_idx++]);
+#endif
 
   double cov_20 = std::stod(com_sep_str[list_idx++]);
   double cov_21 = std::stod(com_sep_str[list_idx++]);
@@ -370,8 +434,10 @@ bool readPairwiseEllipsoidCovarianceEntryFromFile(
   double cov_24 = std::stod(com_sep_str[list_idx++]);
   double cov_25 = std::stod(com_sep_str[list_idx++]);
   double cov_26 = std::stod(com_sep_str[list_idx++]);
+#ifndef CONSTRAIN_ELLIPSOID_ORIENTATION
   double cov_27 = std::stod(com_sep_str[list_idx++]);
   double cov_28 = std::stod(com_sep_str[list_idx++]);
+#endif
 
   double cov_30 = std::stod(com_sep_str[list_idx++]);
   double cov_31 = std::stod(com_sep_str[list_idx++]);
@@ -380,8 +446,10 @@ bool readPairwiseEllipsoidCovarianceEntryFromFile(
   double cov_34 = std::stod(com_sep_str[list_idx++]);
   double cov_35 = std::stod(com_sep_str[list_idx++]);
   double cov_36 = std::stod(com_sep_str[list_idx++]);
+#ifndef CONSTRAIN_ELLIPSOID_ORIENTATION
   double cov_37 = std::stod(com_sep_str[list_idx++]);
   double cov_38 = std::stod(com_sep_str[list_idx++]);
+#endif
 
   double cov_40 = std::stod(com_sep_str[list_idx++]);
   double cov_41 = std::stod(com_sep_str[list_idx++]);
@@ -390,8 +458,10 @@ bool readPairwiseEllipsoidCovarianceEntryFromFile(
   double cov_44 = std::stod(com_sep_str[list_idx++]);
   double cov_45 = std::stod(com_sep_str[list_idx++]);
   double cov_46 = std::stod(com_sep_str[list_idx++]);
+#ifndef CONSTRAIN_ELLIPSOID_ORIENTATION
   double cov_47 = std::stod(com_sep_str[list_idx++]);
   double cov_48 = std::stod(com_sep_str[list_idx++]);
+#endif
 
   double cov_50 = std::stod(com_sep_str[list_idx++]);
   double cov_51 = std::stod(com_sep_str[list_idx++]);
@@ -400,8 +470,10 @@ bool readPairwiseEllipsoidCovarianceEntryFromFile(
   double cov_54 = std::stod(com_sep_str[list_idx++]);
   double cov_55 = std::stod(com_sep_str[list_idx++]);
   double cov_56 = std::stod(com_sep_str[list_idx++]);
+#ifndef CONSTRAIN_ELLIPSOID_ORIENTATION
   double cov_57 = std::stod(com_sep_str[list_idx++]);
   double cov_58 = std::stod(com_sep_str[list_idx++]);
+#endif
 
   double cov_60 = std::stod(com_sep_str[list_idx++]);
   double cov_61 = std::stod(com_sep_str[list_idx++]);
@@ -410,6 +482,7 @@ bool readPairwiseEllipsoidCovarianceEntryFromFile(
   double cov_64 = std::stod(com_sep_str[list_idx++]);
   double cov_65 = std::stod(com_sep_str[list_idx++]);
   double cov_66 = std::stod(com_sep_str[list_idx++]);
+#ifndef CONSTRAIN_ELLIPSOID_ORIENTATION
   double cov_67 = std::stod(com_sep_str[list_idx++]);
   double cov_68 = std::stod(com_sep_str[list_idx++]);
 
@@ -432,7 +505,18 @@ bool readPairwiseEllipsoidCovarianceEntryFromFile(
   double cov_86 = std::stod(com_sep_str[list_idx++]);
   double cov_87 = std::stod(com_sep_str[list_idx++]);
   double cov_88 = std::stod(com_sep_str[list_idx++]);
+#endif
 
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+  Eigen::Matrix<double, 7, 7> cov;
+  cov << cov_00, cov_01, cov_02, cov_03, cov_04, cov_05, cov_06,
+      cov_10, cov_11, cov_12, cov_13, cov_14, cov_15, cov_16,
+      cov_20, cov_21, cov_22, cov_23, cov_24, cov_25, cov_26,
+      cov_30, cov_31, cov_32, cov_33, cov_34, cov_35, cov_36,
+      cov_40, cov_41, cov_42, cov_43, cov_44, cov_45, cov_46,
+      cov_50, cov_51, cov_52, cov_53, cov_54, cov_55, cov_56,
+      cov_60, cov_61, cov_62, cov_63, cov_64, cov_65, cov_66;
+#else
   Eigen::Matrix<double, 9, 9> cov;
   cov << cov_00, cov_01, cov_02, cov_03, cov_04, cov_05, cov_06, cov_07, cov_08,
       cov_10, cov_11, cov_12, cov_13, cov_14, cov_15, cov_16, cov_17, cov_18,
@@ -443,6 +527,7 @@ bool readPairwiseEllipsoidCovarianceEntryFromFile(
       cov_60, cov_61, cov_62, cov_63, cov_64, cov_65, cov_66, cov_67, cov_68,
       cov_70, cov_71, cov_72, cov_73, cov_74, cov_75, cov_76, cov_77, cov_78,
       cov_80, cov_81, cov_82, cov_83, cov_84, cov_85, cov_86, cov_87, cov_88;
+#endif
 
   ellipsoid_covariance_entry =
       std::make_pair(std::make_pair(obj_id_1, obj_id_2), cov);
@@ -488,12 +573,20 @@ bool readPairwiseCovarianceMapFromFile(
   // Read pairwise ellipsoid covariance
   std::vector<std::pair<
       std::pair<vslam_types_refactor::ObjectId, vslam_types_refactor::ObjectId>,
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+      Eigen::Matrix<double, 7, 7>>>
+#else
       Eigen::Matrix<double, 9, 9>>>
+#endif
       pairwise_covariance_entries;
   if (!readNumObjectsIndicatedByFirstLine<
           std::pair<std::pair<vslam_types_refactor::ObjectId,
                               vslam_types_refactor::ObjectId>,
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+                    Eigen::Matrix<double, 7, 7>>>(
+#else
                     Eigen::Matrix<double, 9, 9>>>(
+#endif
           file_obj,
           readPairwiseEllipsoidCovarianceEntryFromFile,
           pairwise_covariance_entries)) {
@@ -503,11 +596,19 @@ bool readPairwiseCovarianceMapFromFile(
 
   util::BoostHashMap<
       std::pair<vslam_types_refactor::ObjectId, vslam_types_refactor::ObjectId>,
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+      Eigen::Matrix<double, 7, 7>>
+#else
       Eigen::Matrix<double, 9, 9>>
+#endif
       cov_entries_map;
   for (const std::pair<std::pair<vslam_types_refactor::ObjectId,
                                  vslam_types_refactor::ObjectId>,
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+                       Eigen::Matrix<double, 7, 7>> &cov_entry :
+#else
                        Eigen::Matrix<double, 9, 9>> &cov_entry :
+#endif
        pairwise_covariance_entries) {
     cov_entries_map[cov_entry.first] = cov_entry.second;
   }
@@ -553,11 +654,19 @@ void writePairwiseCovarianceMapToFile(
   // Write pairwise ellipsoid covariance
   util::BoostHashMap<
       std::pair<vslam_types_refactor::ObjectId, vslam_types_refactor::ObjectId>,
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+      Eigen::Matrix<double, 7, 7>>
+#else
       Eigen::Matrix<double, 9, 9>>
+#endif
       cov_entries_map = map_data->getPairwiseEllipsoidCovariances();
   std::vector<std::pair<
       std::pair<vslam_types_refactor::ObjectId, vslam_types_refactor::ObjectId>,
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+      Eigen::Matrix<double, 7, 7>>>
+#else
       Eigen::Matrix<double, 9, 9>>>
+#endif
       pairwise_covariance_entries;
   for (const auto &cov_entry : cov_entries_map) {
     pairwise_covariance_entries.emplace_back(
@@ -565,7 +674,11 @@ void writePairwiseCovarianceMapToFile(
   }
   writeOneObjectPerLinePrecededByNumObjects<std::pair<
       std::pair<vslam_types_refactor::ObjectId, vslam_types_refactor::ObjectId>,
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+      Eigen::Matrix<double, 7, 7>>>(pairwise_covariance_entries,
+#else
       Eigen::Matrix<double, 9, 9>>>(pairwise_covariance_entries,
+#endif
                                     writePairwiseEllipsoidCovarianceEntryToFile,
                                     file_obj);
 

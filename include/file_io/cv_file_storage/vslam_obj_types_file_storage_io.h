@@ -62,7 +62,11 @@ class SerializableEllipsoidState
       : FileStorageSerializable<EllipsoidState<NumType>>(data) {}
 
   virtual void write(cv::FileStorage &fs) const override {
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+    SerializablePose3DYawOnly<NumType> pose(data_.pose_);
+#else
     SerializablePose3D<NumType> pose(data_.pose_);
+#endif
     SerializableEigenMat<NumType, 3, 1> dimensions(data_.dimensions_);
 
     fs << "{";
@@ -72,7 +76,12 @@ class SerializableEllipsoidState
   }
 
   virtual void read(const cv::FileNode &node) override {
+
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+    SerializablePose3DYawOnly<NumType> pose;
+#else
     SerializablePose3D<NumType> pose;
+#endif
     SerializableEigenMat<NumType, 3, 1> dimensions;
     node[kPoseLabel] >> pose;
     node[kDimensionsLabel] >> dimensions;

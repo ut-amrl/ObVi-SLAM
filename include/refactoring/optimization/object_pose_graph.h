@@ -23,7 +23,11 @@ struct EllipsoidEstimateNode {
   EllipsoidEstimateNode()
       : ellipsoid_(std::make_shared<RawEllipsoid<double>>()) {}
 
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+  EllipsoidEstimateNode(const RawPose3dYawOnly<double> &pose,
+#else
   EllipsoidEstimateNode(const RawPose3d<double> &pose,
+#endif
                         const ObjectDim<double> &dimensions)
       : EllipsoidEstimateNode() {
     updateEllipsoidParams(pose, dimensions);
@@ -33,10 +37,14 @@ struct EllipsoidEstimateNode {
       : ellipsoid_(std::make_shared<RawEllipsoid<double>>(raw_ellipsoid_data)) {
   }
 
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+  void updatePoseData(const RawPose3dYawOnly<double> &pose) {
+#else
   void updatePoseData(const RawPose3d<double> &pose) {
+#endif
     // TODO verify that this is changing the contents of the pointer
     //  (with a copy) and not the pointer
-    ellipsoid_->topRows(6) = pose;
+    ellipsoid_->topRows(kEllipsoidPoseParameterizationSize) = pose;
   }
 
   void updateDimensionData(const ObjectDim<double> &dim) {
@@ -45,17 +53,25 @@ struct EllipsoidEstimateNode {
     ellipsoid_->bottomRows(3) = dim;
   }
 
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+  void updateEllipsoidParams(const RawPose3dYawOnly<double> &pose,
+#else
   void updateEllipsoidParams(const RawPose3d<double> &pose,
+#endif
                              const ObjectDim<double> &dim) {
     updatePoseData(pose);
     updateDimensionData(dim);
   }
 
   void updateEllipsoidParams(const RawEllipsoid<double> &ellipsoid) {
-    ellipsoid_->topRows(9) = ellipsoid;
+    ellipsoid_->topRows(kEllipsoidParamterizationSize) = ellipsoid;
   }
 
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+  void updatePoseData(const RawPose3dYawOnlyPtr<double> &pose_ptr) {
+#else
   void updatePoseData(const RawPose3dPtr<double> &pose_ptr) {
+#endif
     updatePoseData(*pose_ptr);
   }
 

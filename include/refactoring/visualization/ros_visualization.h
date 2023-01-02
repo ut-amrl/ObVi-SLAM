@@ -128,7 +128,7 @@ class RosVisualization {
                                std::pair<std::string, EllipsoidState<double>>>
           &ellipsoid_estimates,
       const PlotType &plot_type,
-      const bool &different_colors_per_class=true) {
+      const bool &different_colors_per_class = true) {
     std::string topic =
         createTopicForPlotTypeAndBase(plot_type, kEllipsoidTopicSuffix);
     LOG(INFO) << "Publishing ellipsoid for plot type " << topic;
@@ -730,8 +730,13 @@ class RosVisualization {
           ellipsoid_est.second.pose_.transl_.y();
       ellipsoid_transform.transform.translation.z =
           ellipsoid_est.second.pose_.transl_.z();
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+      Eigen::Quaterniond ellipsoid_quat(Eigen::AngleAxisd(
+          ellipsoid_est.second.pose_.yaw_, Eigen::Vector3d::UnitZ()));
+#else
       Eigen::Quaterniond ellipsoid_quat(
           ellipsoid_est.second.pose_.orientation_);
+#endif
       ellipsoid_transform.transform.rotation.x = ellipsoid_quat.x();
       ellipsoid_transform.transform.rotation.y = ellipsoid_quat.y();
       ellipsoid_transform.transform.rotation.z = ellipsoid_quat.z();
@@ -1262,7 +1267,13 @@ class RosVisualization {
     marker.pose.position.y = ellipsoid.pose_.transl_.y();
     marker.pose.position.z = ellipsoid.pose_.transl_.z();
 
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+    Eigen::Quaterniond ellipsoid_quat(Eigen::AngleAxisd(
+        ellipsoid.pose_.yaw_, Eigen::Vector3d::UnitZ()));
+#else
     Eigen::Quaterniond ellipsoid_quat(ellipsoid.pose_.orientation_);
+#endif
+
     marker.pose.orientation.x = ellipsoid_quat.x();
     marker.pose.orientation.y = ellipsoid_quat.y();
     marker.pose.orientation.z = ellipsoid_quat.z();
@@ -1593,12 +1604,12 @@ class RosVisualization {
   }
 
   std_msgs::ColorRGBA getColorForClass(const std::string &semantic_class) {
-
     if (colors_for_semantic_classes_.find(semantic_class) ==
         colors_for_semantic_classes_.end()) {
       std_msgs::ColorRGBA color_for_class;
       color_for_class.a = 1.0;
-      color_for_class.r = (rand_gen_.UniformRandom() + rand_gen_.UniformRandom()) / 2;
+      color_for_class.r =
+          (rand_gen_.UniformRandom() + rand_gen_.UniformRandom()) / 2;
       color_for_class.g = rand_gen_.UniformRandom();
       color_for_class.b = rand_gen_.UniformRandom();
       colors_for_semantic_classes_[semantic_class] = color_for_class;
