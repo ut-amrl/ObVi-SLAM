@@ -476,9 +476,15 @@ class RoshanBbFrontEnd
     }
 
     RoshanBbInfo single_info = association_info.infos_for_observed_bbs_.back();
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+    ellipsoid_est.updateEllipsoidParams(
+        convertYawOnlyPoseToArray(single_info.single_bb_init_est_.pose_),
+        single_info.single_bb_init_est_.dimensions_);
+#else
     ellipsoid_est.updateEllipsoidParams(
         convertPoseToArray(single_info.single_bb_init_est_.pose_),
         single_info.single_bb_init_est_.dimensions_);
+#endif
     return single_info.est_generated_;
   }
 
@@ -575,8 +581,6 @@ class RoshanBbFrontEnd
     Position3d<double> position_rel_cam =
         depth * intrinsics.inverse() * bb_center_homogeneous;
 
-    Pose3D<double> pose_rel_to_cam(position_rel_cam, Orientation3D<double>());
-
     std::optional<RawPose3d<double>> raw_robot_pose =
         RoshanBbFrontEnd::pose_graph_->getRobotPose(frame_id);
     if (!raw_robot_pose.has_value()) {
@@ -587,8 +591,19 @@ class RoshanBbFrontEnd
     RoshanBbFrontEnd::pose_graph_->getExtrinsicsForCamera(camera_id,
                                                           extrinsics);
     Pose3D<double> camera_pose = combinePoses(robot_pose, extrinsics);
+
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+    Position3d<double> global_position =
+        combinePoseAndPosition(camera_pose, position_rel_cam);
+    Pose3DYawOnly<double> global_pose(global_position, 0);
+    ellipsoid_est.updateEllipsoidParams(convertYawOnlyPoseToArray(global_pose),
+                                        dim);
+#else
+    Pose3D<double> pose_rel_to_cam(position_rel_cam, Orientation3D<double>());
     Pose3D<double> global_pose = combinePoses(camera_pose, pose_rel_to_cam);
     ellipsoid_est.updateEllipsoidParams(convertPoseToArray(global_pose), dim);
+#endif
+
     return true;
   }
 };

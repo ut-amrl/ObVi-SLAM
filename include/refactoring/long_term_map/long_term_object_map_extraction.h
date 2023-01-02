@@ -205,7 +205,9 @@ class PairwiseCovarianceLongTermObjectMapExtractor {
     }
 
     util::BoostHashMap<std::pair<ObjectId, ObjectId>,
-                       Eigen::Matrix<double, 9, 9>>
+                       Eigen::Matrix<double,
+                                     kEllipsoidParamterizationSize,
+                                     kEllipsoidParamterizationSize>>
         pairwise_ellipsoid_covariances;
     for (size_t obj_1_idx = 0; obj_1_idx < object_ids.size(); obj_1_idx++) {
       ObjectId obj_1 = object_ids[obj_1_idx];
@@ -216,7 +218,10 @@ class PairwiseCovarianceLongTermObjectMapExtractor {
         ObjectId obj_2 = object_ids[obj_2_idx];
         double *obj_2_ptr;
         pose_graph_copy->getObjectParamPointers(obj_2, &obj_2_ptr);
-        Eigen::Matrix<double, 9, 9> cov_result;
+        Eigen::Matrix<double,
+                      kEllipsoidParamterizationSize,
+                      kEllipsoidParamterizationSize>
+            cov_result;
         bool success = covariance_extractor.GetCovarianceBlock(
             obj_1_ptr, obj_2_ptr, cov_result.data());
         if (!success) {
@@ -358,13 +363,15 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
       return false;
     }
 
-    std::unordered_map<ObjectId, Covariance<double, 9>> ellipsoid_covariances;
+    std::unordered_map<ObjectId,
+                       Covariance<double, kEllipsoidParamterizationSize>>
+        ellipsoid_covariances;
     for (size_t obj_idx = 0; obj_idx < object_ids.size(); obj_idx++) {
       ObjectId obj_id = object_ids[obj_idx];
       double *obj_ptr;
       pose_graph_copy->getObjectParamPointers(obj_id, &obj_ptr);
 
-      Covariance<double, 9> cov_result;
+      Covariance<double, kEllipsoidParamterizationSize> cov_result;
       bool success = covariance_extractor.GetCovarianceBlock(
           obj_ptr, obj_ptr, cov_result.data());
       if (!success) {

@@ -28,6 +28,7 @@
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
 #include <sensor_msgs/Image.h>
+// TODO
 
 namespace vtr = vslam_types_refactor;
 

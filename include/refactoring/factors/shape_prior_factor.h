@@ -32,12 +32,13 @@ class ShapePriorFactor {
    *
    * @tparam T                  Type that the cost functor is evaluating.
    * @param ellipsoid[in]       Estimate of the ellipsoid parameters. This is a
-   *                            9 entry array with the first 3 entries
+   *                            9 or 7 entry array with the first 3 entries
    *                            corresponding to the translation, the second 3
-   *                            entries containing the axis-angle representation
-   *                            (with angle given by the magnitude of the
-   *                            vector), and the final 3 entries corresponding
-   *                            to the dimensions of the ellipsoid.
+   *                            or 1 entries containing the axis-angle
+   *                            representation (with angle given by
+   *                            the magnitude of the vector) or yaw, and the
+   *                            final 3 entries corresponding to the dimensions
+   *                            of the ellipsoid.
    * @param residuals_ptr[out]  Residual giving the error. Contains 3 entries.
    *
    * @return True if the residual was computed successfully, false otherwise.
@@ -45,7 +46,9 @@ class ShapePriorFactor {
   template <typename T>
   bool operator()(const T *ellipsoid, T *residuals_ptr) const {
     Eigen::Matrix<T, 3, 1> dimension_mat(
-        ellipsoid[6], ellipsoid[7], ellipsoid[8]);
+        ellipsoid[kEllipsoidPoseParameterizationSize],
+        ellipsoid[kEllipsoidPoseParameterizationSize + 1],
+        ellipsoid[kEllipsoidPoseParameterizationSize + 2]);
 
     Eigen::Matrix<T, 3, 1> deviation_from_mean =
         dimension_mat - shape_dim_mean_.cast<T>();
@@ -70,13 +73,17 @@ class ShapePriorFactor {
    *
    * @return Ceres cost function.
    */
-  static ceres::AutoDiffCostFunction<ShapePriorFactor, 3, 9>
-      *createShapeDimPrior(
+  static ceres::
+      AutoDiffCostFunction<ShapePriorFactor, 3, kEllipsoidParamterizationSize> *
+      createShapeDimPrior(
           const vslam_types_refactor::ObjectDim<double> &dimension_prior_mean,
           const vslam_types_refactor::Covariance<double, 3> &dimension_cov) {
     ShapePriorFactor *factor =
         new ShapePriorFactor(dimension_prior_mean, dimension_cov);
-    return new ceres::AutoDiffCostFunction<ShapePriorFactor, 3, 9>(factor);
+    return new ceres::AutoDiffCostFunction<ShapePriorFactor,
+                                           3,
+                                           kEllipsoidParamterizationSize>(
+        factor);
   }
 
  private:

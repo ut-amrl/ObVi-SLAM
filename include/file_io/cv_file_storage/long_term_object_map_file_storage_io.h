@@ -28,6 +28,7 @@ class SerializableIndependentEllipsoidsLongTermObjectMap
 
   virtual void write(cv::FileStorage &fs) const override {
     fs << "{";
+    fs << kEllipsoidParameterizationLabel << kEllipsoidParameterizationType;
     EllipsoidResults ellipsoid_results;
     data_.getEllipsoidResults(ellipsoid_results);
     fs << kEllipsoidResultsLabel
@@ -35,8 +36,10 @@ class SerializableIndependentEllipsoidsLongTermObjectMap
     fs << kEllipsoidCovariancesLabel
        << SerializableMap<ObjectId,
                           SerializableObjectId,
-                          Covariance<double, 9>,
-                          SerializableEigenMat<double, 9, 9>>(
+                          Covariance<double, kEllipsoidParamterizationSize>,
+                          SerializableEigenMat<double,
+                                               kEllipsoidParamterizationSize,
+                                               kEllipsoidParamterizationSize>>(
               data_.getEllipsoidCovariances());
     FrontEndObjMapData front_end_data;
     data_.getFrontEndObjMapData(front_end_data);
@@ -46,6 +49,15 @@ class SerializableIndependentEllipsoidsLongTermObjectMap
   }
 
   virtual void read(const cv::FileNode &node) override {
+    std::string ellipsoid_parameterization_type;
+    node[kEllipsoidParameterizationLabel] >> ellipsoid_parameterization_type;
+    if (ellipsoid_parameterization_type != kEllipsoidParameterizationType) {
+      LOG(ERROR) << "Ellipsoid parameterization was "
+                 << ellipsoid_parameterization_type
+                 << ", but code was compiled to expect "
+                 << kEllipsoidParameterizationType << ". Exiting";
+      exit(1);
+    }
     SerializableEllipsoidResults ser_ellipsoid_results;
     node[kEllipsoidResultsLabel] >> ser_ellipsoid_results;
 
@@ -54,8 +66,10 @@ class SerializableIndependentEllipsoidsLongTermObjectMap
     cv::FileNode results_map_data = node[kEllipsoidCovariancesLabel];
     SerializableMap<ObjectId,
                     SerializableObjectId,
-                    Covariance<double, 9>,
-                    SerializableEigenMat<double, 9, 9>>
+                    Covariance<double, kEllipsoidParamterizationSize>,
+                    SerializableEigenMat<double,
+                                         kEllipsoidParamterizationSize,
+                                         kEllipsoidParamterizationSize>>
         serializable_cov_map;
     results_map_data >> serializable_cov_map;
     data_.setEllipsoidCovariances(serializable_cov_map.getEntry());
@@ -70,6 +84,14 @@ class SerializableIndependentEllipsoidsLongTermObjectMap
       IndependentEllipsoidsLongTermObjectMap<FrontEndObjMapData>>::data_;
 
  private:
+  inline static const std::string kEllipsoidParameterizationLabel =
+      "ellipsoid_parameterization";
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+  inline static const std::string kEllipsoidParameterizationType = "yaw_only";
+#else
+  inline static const std::string kEllipsoidParameterizationType = "full_dof";
+#endif
+
   inline static const std::string kEllipsoidResultsLabel = "ellipsoid_results";
   inline static const std::string kEllipsoidCovariancesLabel =
       "obj_id_covariance_map";

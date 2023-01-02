@@ -12,6 +12,14 @@
 
 namespace vslam_types_refactor {
 
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+const static int kEllipsoidPoseParameterizationSize = 4;
+#else
+const static int kEllipsoidPoseParameterizationSize = 6;
+#endif
+const static int kEllipsoidParamterizationSize =
+    kEllipsoidPoseParameterizationSize + 3;
+
 typedef uint64_t ObjectId;
 
 // std::pair<Eigen::Vector2f, Eigen::Vector2f>
@@ -25,12 +33,24 @@ template <typename NumType>
 using ObjectDim = Eigen::Matrix<NumType, 3, 1>;
 
 template <typename NumType>
-using RawEllipsoid = Eigen::Matrix<NumType, 9, 1>;
+using RawEllipsoid = Eigen::Matrix<NumType, kEllipsoidParamterizationSize, 1>;
 
 template <typename NumType>
 using RawEllipsoidPtr = std::shared_ptr<RawEllipsoid<NumType>>;
 
 template <typename NumType>
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+struct EllipsoidState {
+  Pose3DYawOnly<NumType> pose_;
+  ObjectDim<NumType> dimensions_;
+
+  EllipsoidState() = default;
+
+  EllipsoidState(const Pose3DYawOnly<NumType> &pose,
+                 const ObjectDim<double> &dimensions)
+      : pose_(pose), dimensions_(dimensions) {}
+};
+#else
 struct EllipsoidState {
   Pose3D<NumType> pose_;
   ObjectDim<NumType> dimensions_;
@@ -41,6 +61,7 @@ struct EllipsoidState {
                  const ObjectDim<double> &dimensions)
       : pose_(pose), dimensions_(dimensions) {}
 };
+#endif
 
 struct RawBoundingBox {
   /**
@@ -77,9 +98,16 @@ struct RawBoundingBoxObservation {
 template <typename NumType>
 void convertToEllipsoidState(const RawEllipsoid<NumType> &raw_ellipsoid,
                              EllipsoidState<NumType> &ellipsoid) {
-  RawPose3d<NumType> pose = raw_ellipsoid.topRows(6);
-  ellipsoid.dimensions_ = raw_ellipsoid.bottomRows(3);
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+  RawPose3dYawOnly<NumType> pose =
+      raw_ellipsoid.topRows(kEllipsoidPoseParameterizationSize);
+  convertToYawOnlyPose3D(pose, ellipsoid.pose_);
+#else
+  RawPose3d<NumType> pose =
+      raw_ellipsoid.topRows(kEllipsoidPoseParameterizationSize);
   convertToPose3D(pose, ellipsoid.pose_);
+#endif
+  ellipsoid.dimensions_ = raw_ellipsoid.bottomRows(3);
 }
 
 template <typename NumType>
@@ -93,7 +121,13 @@ EllipsoidState<NumType> convertToEllipsoidState(
 template <typename NumType>
 void convertToRawEllipsoid(const EllipsoidState<NumType> &ellipsoid_state,
                            RawEllipsoid<NumType> &raw_ellipsoid) {
-  raw_ellipsoid.topRows(6) = convertPoseToArray(ellipsoid_state.pose_);
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+  raw_ellipsoid.topRows(kEllipsoidPoseParameterizationSize) =
+      convertYawOnlyPoseToArray(ellipsoid_state.pose_);
+#else
+  raw_ellipsoid.topRows(kEllipsoidPoseParameterizationSize) =
+      convertPoseToArray(ellipsoid_state.pose_);
+#endif
   raw_ellipsoid.bottomRows(3) = ellipsoid_state.dimensions_;
 }
 
@@ -138,8 +172,11 @@ bool operator==(const RawBoundingBox &bb_1, const RawBoundingBox &bb_2);
 
 template <typename NumType>
 std::size_t hash_value(const RawBoundingBox &bb) {
-  boost::hash<std::pair<std::pair<std::string, BbCornerPair<NumType>>, double>> hasher;
-  return hasher(std::make_pair(std::make_pair(bb.semantic_class_, bb.pixel_corner_locations_), bb.detection_confidence_));
+  boost::hash<std::pair<std::pair<std::string, BbCornerPair<NumType>>, double>>
+      hasher;
+  return hasher(std::make_pair(
+      std::make_pair(bb.semantic_class_, bb.pixel_corner_locations_),
+      bb.detection_confidence_));
 }
 
 }  // namespace vslam_types_refactor

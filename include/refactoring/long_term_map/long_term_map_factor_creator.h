@@ -19,8 +19,8 @@ template <typename CachedInfo>
 class AbsLongTermMapFactorCreator {
  public:
   virtual bool getFactorsToInclude(
-      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
-          &ltm_factors) const = 0;
+      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>> &ltm_factors)
+      const = 0;
 
   virtual bool createResidual(
       const std::pair<vslam_types_refactor::FactorType,
@@ -46,14 +46,17 @@ struct PairwiseCovarianceLongTermMapFactorData {
   ObjectId obj_2_;
   EllipsoidState<double> obj_1_map_est_;
   EllipsoidState<double> obj_2_map_est_;
-  Eigen::Matrix<double, 9, 9> cross_covariance_;
+  Eigen::Matrix<double,
+                kEllipsoidParamterizationSize,
+                kEllipsoidParamterizationSize>
+      cross_covariance_;
   // TODO do we need more here?
 };
 
 struct IndependentEllipsoidsLongTermMapFactorData {
   ObjectId obj_id_;
   EllipsoidState<double> obj_map_est_;
-  Covariance<double, 9> covariance_;
+  Covariance<double, kEllipsoidParamterizationSize> covariance_;
 };
 
 template <typename CachedInfo, typename FrontEndMapData>
@@ -85,8 +88,8 @@ class PairwiseCovarianceLongTermObjectMapFactorCreator
   }
 
   virtual bool getFactorsToInclude(
-      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>> &ltm_factors) const
-      override {
+      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>> &ltm_factors)
+      const override {
     for (const auto &factor_entry : factor_data_) {
       FactorType factor_type = factor_entry.first;
       for (const auto &feature_entry : factor_entry.second) {
@@ -202,8 +205,8 @@ class IndependentEllipsoidsLongTermObjectMapFactorCreator
   }
 
   virtual bool getFactorsToInclude(
-      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>> &ltm_factors) const
-      override {
+      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>> &ltm_factors)
+      const override {
     for (const auto &factor_entry : factor_data_) {
       FactorType factor_type = factor_entry.first;
       for (const auto &feature_entry : factor_entry.second) {
@@ -266,9 +269,7 @@ class IndependentEllipsoidsLongTermObjectMapFactorCreator
 
     residual_id = problem->AddResidualBlock(
         IndependentObjectMapFactor::createIndependentObjectMapFactor(
-            factor_entry.obj_map_est_,
-            factor_entry
-                .covariance_),
+            factor_entry.obj_map_est_, factor_entry.covariance_),
         new ceres::HuberLoss(
             residual_params.long_term_map_params_.pair_huber_loss_param_),
         ellipsoid_param_block);
