@@ -68,22 +68,22 @@ struct EllipsoidEstimateNode {
   }
 
 #ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
-  void updatePoseData(const RawPose3dYawOnlyPtr<double> &pose_ptr) {
+  void updatePoseData(const RawPose3dYawOnlyPtr<double> &pose_ptr){
 #else
   void updatePoseData(const RawPose3dPtr<double> &pose_ptr) {
 #endif
-    updatePoseData(*pose_ptr);
-  }
+      updatePoseData(*pose_ptr);
+}
 
   void updateEllipsoidParams(const RawEllipsoidPtr<double> &ellipsoid_ptr) {
-    updateEllipsoidParams(*ellipsoid_ptr);
-  }
+  updateEllipsoidParams(*ellipsoid_ptr);
+}
 
-  EllipsoidEstimateNode makeDeepCopy() const {
-    RawEllipsoid<double> ellipsoid_copy(*ellipsoid_);
-    return EllipsoidEstimateNode(ellipsoid_copy);
-  }
-};
+EllipsoidEstimateNode makeDeepCopy() const {
+  RawEllipsoid<double> ellipsoid_copy(*ellipsoid_);
+  return EllipsoidEstimateNode(ellipsoid_copy);
+}
+};  // namespace vslam_types_refactor
 
 struct ObjectObservationFactor {
   FrameId frame_id_;
@@ -466,6 +466,33 @@ class ObjAndLowLevelFeaturePoseGraph
     }
     return convertToEllipsoidState(
         RawEllipsoid<double>(*(ellipsoid_estimates_.at(obj_id).ellipsoid_)));
+  }
+
+  bool getObservationFactorsForObjId(
+      const ObjectId &obj_id,
+      std::vector<ObjectObservationFactor> &observation_factors) {
+    if (observation_factors_by_object_.find(obj_id) ==
+        observation_factors_by_object_.end()) {
+      return false;
+    }
+
+    util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
+        observation_factor_infos_for_obj =
+            observation_factors_by_object_.at(obj_id);
+    for (const std::pair<FactorType, FeatureFactorId> &obs_factor_info :
+         observation_factor_infos_for_obj) {
+      ObjectObservationFactor obs_factor;
+      if (getObjectObservationFactor(obs_factor_info.second, obs_factor)) {
+        observation_factors.emplace_back(
+            object_observation_factors_.at(obs_factor_info.second));
+      } else {
+        LOG(WARNING) << "Found id " << obs_factor_info.second
+                     << " for object observation factor, but there was "
+                        "no matching factor";
+      }
+    }
+
+    return true;
   }
 
  protected:

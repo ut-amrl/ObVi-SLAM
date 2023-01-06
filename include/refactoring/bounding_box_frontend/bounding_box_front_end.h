@@ -27,6 +27,8 @@ struct UninitializedEllispoidInfo {
   std::string semantic_class_;
 
   std::vector<UninitializedObjectFactor> observation_factors_;
+  FrameId min_frame_id_;
+  FrameId max_frame_id_;
 };
 
 struct AssociatedObjectIdentifier {
@@ -48,6 +50,12 @@ std::size_t hash_value(const AssociatedObjectIdentifier &assoc) {
   boost::hash<std::pair<bool, ObjectId>> hasher;
   return hasher(std::make_pair(assoc.initialized_ellipsoid_, assoc.object_id_));
 }
+
+enum ObjectInitializationStatus {
+  NOT_INITIALIZED,
+  ENOUGH_VIEWS_FOR_MERGE,
+  SUFFICIENT_VIEWS_FOR_NEW
+};
 
 template <typename VisualFeatureFactorType,
           typename ObjectAssociationInfo,
@@ -163,6 +171,14 @@ class AbstractBoundingBoxFrontEnd {
         } else {
           uninitialized_object_info_[associated_obj.object_id_]
               .observation_factors_.emplace_back(uninitialized_object_factor);
+          uninitialized_object_info_[associated_obj.object_id_].max_frame_id_ =
+              std::max(frame_id,
+                       uninitialized_object_info_[associated_obj.object_id_]
+                           .max_frame_id_);
+          uninitialized_object_info_[associated_obj.object_id_].min_frame_id_ =
+              std::min(frame_id,
+                       uninitialized_object_info_[associated_obj.object_id_]
+                           .min_frame_id_);
           mergeSingleBbContextIntoObjectAssociationInfo(
               bb,
               frame_id,
@@ -181,62 +197,129 @@ class AbstractBoundingBoxFrontEnd {
     // For each object, add information and either initialize, delay
     // initialization (until we have more information, or refine estimate (if
     // already initialized, but with little data)
-    std::vector<vslam_types_refactor::ObjectId>
-        newly_initialized_object_init_indices;
+    std::vector<ObjectId> added_pending_object_indices;
+    std::unordered_set<ObjectId> existing_associated_to_objects;
+
+    // List of pending objects that can be merged
+    // Id is the index in the unassociated objects list
+    // Estimate is the initial estimate produced
+    std::unordered_map<
+        ObjectId,
+        std::pair<ObjectInitializationStatus, EllipsoidState<double>>>
+        mergable_objects_and_ests;
+    // for each assignment
     for (size_t i = 0; i < bounding_box_assignments.size(); i++) {
       AssociatedObjectIdentifier bounding_box_assignment =
           bounding_box_assignments[i];
       RawBoundingBox bounding_box = filtered_bounding_boxes[i];
 
+      // If matched to initialized
       if (bounding_box_assignment.initialized_ellipsoid_) {
+        existing_associated_to_objects.insert(
+            bounding_box_assignment.object_id_);
+
+        // Consider refining
         // TODO try refining estimate by initializing with all new data and
         // seeing if the cost is lower than current estimate
       } else {
         UninitializedEllispoidInfo<ObjectAssociationInfo>
             uninitialized_bb_info =
                 uninitialized_object_info_[bounding_box_assignment.object_id_];
-        // Check if it can be initialized and if so, what to initialize to
-        vslam_types_refactor::EllipsoidEstimateNode object_est;
-        bool initialized =
+        vslam_types_refactor::EllipsoidState<double> object_est;
+        ObjectInitializationStatus initialization_status =
             tryInitializeEllipsoid(refined_context,
                                    uninitialized_bb_info.appearance_info_,
                                    uninitialized_bb_info.observation_factors_,
                                    uninitialized_bb_info.semantic_class_,
                                    false,
                                    object_est);
-        if (initialized) {
-          ObjectId new_obj_id = pose_graph_->addNewEllipsoid(
-              object_est, uninitialized_bb_info.semantic_class_);
-          LOG(INFO) << "Creating new ellipsoid with id " << new_obj_id;
-          newly_initialized_object_init_indices.emplace_back(
-              bounding_box_assignment.object_id_);
-          object_appearance_info_[new_obj_id] =
-              uninitialized_bb_info.appearance_info_;
-          updateAppearanceInfoWithObjectIdAssignmentAndInitialization(
-              new_obj_id, object_est, object_appearance_info_[new_obj_id]);
-          for (const UninitializedObjectFactor &bb_factor :
-               uninitialized_bb_info.observation_factors_) {
-            addObservationForObject(bb_factor.frame_id_,
-                                    bb_factor.camera_id_,
-                                    new_obj_id,
-                                    bb_factor.bounding_box_corners_,
-                                    bb_factor.bounding_box_corners_covariance_,
-                                    bb_factor.detection_confidence_);
-          }
+
+        // See if there are enough views to merge or create
+        if ((initialization_status == ENOUGH_VIEWS_FOR_MERGE) ||
+            (initialization_status == SUFFICIENT_VIEWS_FOR_NEW)) {
+          // If enough views to merge or enough views for full object add to
+          // later processing list
+          mergable_objects_and_ests[bounding_box_assignment.object_id_] =
+              std::make_pair(initialization_status, object_est);
         }
       }
     }
 
-    LOG(INFO) << "Remove expired candidates";
+    // Search for objects that can be merged and which should be created as
+    // a new object
+    std::vector<std::pair<ObjectId, ObjectId>>
+        pending_and_initialized_objects_to_merge;
+    std::vector<std::pair<ObjectId, EllipsoidState<double>>>
+        pending_objects_to_add;
+    searchForObjectMerges(mergable_objects_and_ests,
+                          existing_associated_to_objects,
+                          pending_and_initialized_objects_to_merge,
+                          pending_objects_to_add);
+
+    for (const std::pair<ObjectId, ObjectId> &merge_obj :
+         pending_and_initialized_objects_to_merge) {
+      ObjectId pending_obj_id = merge_obj.first;
+      ObjectId obj_to_merge_with_id = merge_obj.second;
+
+      LOG(INFO) << "Merging pending object into  " << obj_to_merge_with_id;
+      UninitializedEllispoidInfo<ObjectAssociationInfo> uninitialized_bb_info =
+          uninitialized_object_info_[pending_obj_id];
+
+      // Merge observed bounding boxes from the pending one with the existing
+      // object it should be merged with
+      for (const UninitializedObjectFactor &bb_factor :
+           uninitialized_bb_info.observation_factors_) {
+        addObservationForObject(bb_factor.frame_id_,
+                                bb_factor.camera_id_,
+                                obj_to_merge_with_id,
+                                bb_factor.bounding_box_corners_,
+                                bb_factor.bounding_box_corners_covariance_,
+                                bb_factor.detection_confidence_);
+      }
+      // Merge the association info for the objects
+      mergeObjectAssociationInfo(
+          uninitialized_bb_info.appearance_info_,
+          object_appearance_info_.at(obj_to_merge_with_id));
+      added_pending_object_indices.emplace_back(pending_obj_id);
+    }
+    for (const std::pair<ObjectId, EllipsoidState<double>> &add_obj :
+         pending_objects_to_add) {
+      ObjectId pending_obj_id = add_obj.first;
+
+      UninitializedEllispoidInfo<ObjectAssociationInfo> uninitialized_bb_info =
+          uninitialized_object_info_[pending_obj_id];
+      EllipsoidEstimateNode estimate_node;
+      estimate_node.updateEllipsoidParams(
+          convertToRawEllipsoid(add_obj.second));
+      ObjectId new_obj_id = pose_graph_->addNewEllipsoid(
+          estimate_node, uninitialized_bb_info.semantic_class_);
+      LOG(INFO) << "Creating new ellipsoid with id " << new_obj_id;
+      object_appearance_info_[new_obj_id] =
+          uninitialized_bb_info.appearance_info_;
+      updateAppearanceInfoWithObjectIdAssignmentAndInitialization(
+          new_obj_id, add_obj.second, object_appearance_info_[new_obj_id]);
+      for (const UninitializedObjectFactor &bb_factor :
+           uninitialized_bb_info.observation_factors_) {
+        addObservationForObject(bb_factor.frame_id_,
+                                bb_factor.camera_id_,
+                                new_obj_id,
+                                bb_factor.bounding_box_corners_,
+                                bb_factor.bounding_box_corners_covariance_,
+                                bb_factor.detection_confidence_);
+      }
+      added_pending_object_indices.emplace_back(pending_obj_id);
+    }
+
+    LOG(INFO) << "Remove added objects candidates";
     // Sort the objects that just have been added to the pose graph in
     // descending order and delete them from the uninitialized objects list
     // Descending order needed so the indices to delete don't change as
     // they're removed
-    std::sort(newly_initialized_object_init_indices.begin(),
-              newly_initialized_object_init_indices.end(),
+    std::sort(added_pending_object_indices.begin(),
+              added_pending_object_indices.end(),
               std::greater<size_t>());
     for (const size_t &pending_init_object_index :
-         newly_initialized_object_init_indices) {
+         added_pending_object_indices) {
       uninitialized_object_info_.erase(uninitialized_object_info_.begin() +
                                        pending_init_object_index);
     }
@@ -267,7 +350,7 @@ class AbstractBoundingBoxFrontEnd {
 
   virtual void updateAppearanceInfoWithObjectIdAssignmentAndInitialization(
       const ObjectId &obj_id,
-      const EllipsoidEstimateNode &est,
+      const EllipsoidState<double> &est,
       ObjectAssociationInfo &info_to_update) = 0;
 
   virtual SingleBbContextInfo generateSingleBoundingBoxContextInfo(
@@ -291,6 +374,10 @@ class AbstractBoundingBoxFrontEnd {
       const CameraId &camera_id,
       const RefinedBoundingBoxContextInfo &refined_bb_context_info,
       const SingleBbContextInfo &single_bb_context_info,
+      ObjectAssociationInfo &association_info_to_update) = 0;
+
+  virtual void mergeObjectAssociationInfo(
+      const ObjectAssociationInfo &association_info_to_merge_in,
       ObjectAssociationInfo &association_info_to_update) = 0;
 
   virtual Covariance<double, 4> generateBoundingBoxCovariance(
@@ -328,13 +415,24 @@ class AbstractBoundingBoxFrontEnd {
       const vslam_types_refactor::FrameId &frame_id,
       const vslam_types_refactor::CameraId &camera_id) = 0;
 
-  virtual bool tryInitializeEllipsoid(
+  virtual ObjectInitializationStatus tryInitializeEllipsoid(
       const RefinedBoundingBoxContextInfo &refined_bb_context,
       const ObjectAssociationInfo &association_info,
       const std::vector<UninitializedObjectFactor> &factors,
       const std::string &semantic_class,
       const bool &already_init,
-      vslam_types_refactor::EllipsoidEstimateNode &ellipsoid_est) = 0;
+      vslam_types_refactor::EllipsoidState<double> &ellipsoid_est) = 0;
+
+  virtual void searchForObjectMerges(
+      const std::unordered_map<
+          ObjectId,
+          std::pair<ObjectInitializationStatus, EllipsoidState<double>>>
+          &mergable_objects_and_ests,
+      const std::unordered_set<ObjectId> &existing_associated_to_objects,
+      std::vector<std::pair<ObjectId, ObjectId>>
+          &pending_and_initialized_objects_to_merge,
+      std::vector<std::pair<ObjectId, EllipsoidState<double>>>
+          &pending_objects_to_add) = 0;
 
   virtual void addObservationForObject(const FrameId &frame_id,
                                        const CameraId &camera_id,
@@ -389,7 +487,7 @@ class KnownAssociationsOptionalEllipsoidEstBoundingBoxFrontEnd
                const std::vector<UninitializedObjectFactor> &,
                const std::string &,
                const bool &,
-               EllipsoidEstimateNode &)> &initializer_function,
+               EllipsoidState<double> &)> &initializer_function,
       const std::function<Covariance<double, 4>(
           const RawBoundingBox &,
           const FrameId &,
@@ -437,7 +535,7 @@ class KnownAssociationsOptionalEllipsoidEstBoundingBoxFrontEnd
 
   virtual void updateAppearanceInfoWithObjectIdAssignmentAndInitialization(
       const ObjectId &obj_id,
-      const EllipsoidEstimateNode &est,
+      const EllipsoidState<double> &est,
       KnownAssociationObjAssociationInfo &info_to_update) {
     info_to_update.pg_obj_id_ = obj_id;
     input_to_pg_object_id_map_[info_to_update.input_obj_id_] = obj_id;
@@ -475,6 +573,8 @@ class KnownAssociationsOptionalEllipsoidEstBoundingBoxFrontEnd
         cornerLocationsVectorToPair(uninitialized_factor.bounding_box_corners_);
     uninitialized_ellipsoid_info.appearance_info_.input_obj_id_ =
         associations_for_frame_and_cam.at(raw_bb);
+    uninitialized_ellipsoid_info.min_frame_id_ = frame_id;
+    uninitialized_ellipsoid_info.max_frame_id_ = frame_id;
     return uninitialized_ellipsoid_info;
   }
 
@@ -484,7 +584,13 @@ class KnownAssociationsOptionalEllipsoidEstBoundingBoxFrontEnd
       const CameraId &camera_id,
       const RefinedBoundingBoxContextInfo &refined_bb_context_info,
       const util::EmptyStruct &single_bb_context_info,
-      KnownAssociationObjAssociationInfo &association_info_to_update) {}
+      KnownAssociationObjAssociationInfo &association_info_to_update) override {
+  }
+
+  virtual void mergeObjectAssociationInfo(
+      const KnownAssociationObjAssociationInfo &association_info_to_merge_in,
+      KnownAssociationObjAssociationInfo &association_info_to_update)
+      override{};
 
   virtual Covariance<double, 4> generateBoundingBoxCovariance(
       const RawBoundingBox &raw_bb,
@@ -565,20 +671,20 @@ class KnownAssociationsOptionalEllipsoidEstBoundingBoxFrontEnd
     curr_frame_uninit_index_to_input_obj_id_.clear();
   }
 
-  virtual bool tryInitializeEllipsoid(
+  virtual ObjectInitializationStatus tryInitializeEllipsoid(
       const RefinedBoundingBoxContextInfo &refined_bb_context,
       const KnownAssociationObjAssociationInfo &association_info,
       const std::vector<UninitializedObjectFactor> &factors,
       const std::string &semantic_class,
       const bool &already_init,
-      EllipsoidEstimateNode &ellipsoid_est) {
+      EllipsoidState<double> &ellipsoid_est) {
     if (optional_initial_estimates_.find(association_info.input_obj_id_) !=
         optional_initial_estimates_.end()) {
-      ellipsoid_est = EllipsoidEstimateNode(
+      ellipsoid_est = convertToEllipsoidState(
           optional_initial_estimates_.at(association_info.input_obj_id_));
-      return true;
+      return SUFFICIENT_VIEWS_FOR_NEW;
     }
-    return initializer_function_(
+    bool init_result = initializer_function_(
         KnownAssociationsOptionalEllipsoidEstBoundingBoxFrontEnd::pose_graph_,
         refined_bb_context,
         association_info,
@@ -586,6 +692,7 @@ class KnownAssociationsOptionalEllipsoidEstBoundingBoxFrontEnd
         semantic_class,
         already_init,
         ellipsoid_est);
+    return init_result ? SUFFICIENT_VIEWS_FOR_NEW : NOT_INITIALIZED;
   }
 
  private:
@@ -614,7 +721,7 @@ class KnownAssociationsOptionalEllipsoidEstBoundingBoxFrontEnd
                      const std::vector<UninitializedObjectFactor> &,
                      const std::string &,
                      const bool &,
-                     EllipsoidEstimateNode &)>
+                     EllipsoidState<double> &)>
       initializer_function_;
 
   std::function<Covariance<double, 4>(const RawBoundingBox &,
@@ -633,7 +740,8 @@ template <typename VisualFeatureFactorType,
           typename RawBoundingBoxContextInfo,
           typename RefinedBoundingBoxContextInfo,
           typename SingleBbContextInfo,
-          typename FrontEndObjMapData>
+          typename FrontEndObjMapData,
+          typename CandidateInfo>
 class AbstractUnknownDataAssociationBbFrontEnd
     : public AbstractBoundingBoxFrontEnd<VisualFeatureFactorType,
                                          ObjectAssociationInfo,
@@ -656,7 +764,7 @@ class AbstractUnknownDataAssociationBbFrontEnd
  protected:
   virtual void updateAppearanceInfoWithObjectIdAssignmentAndInitialization(
       const ObjectId &obj_id,
-      const EllipsoidEstimateNode &est,
+      const EllipsoidState<double> &est,
       ObjectAssociationInfo &info_to_update) = 0;
 
   virtual SingleBbContextInfo generateSingleBoundingBoxContextInfo(
@@ -705,25 +813,27 @@ class AbstractUnknownDataAssociationBbFrontEnd
 
       LOG(INFO) << "Identifying candidates";
       // For each bounding box, identify candidates
-      std::vector<AssociatedObjectIdentifier> candidates =
-          identifyCandidateMatches(frame_id, camera_id, bb, bb_context);
+      std::vector<std::pair<AssociatedObjectIdentifier, CandidateInfo>>
+          candidates =
+              identifyCandidateMatches(frame_id, camera_id, bb, bb_context);
 
       LOG(INFO) << "Prune candidates based on geometry";
       // For each bounding box, prune candidates using geometric checks
-      candidates = pruneCandidateMatchesBasedOnGeometry(
+      candidates = pruneCandidateMatches(
           frame_id, camera_id, bb, candidates, bb_context);
 
       // For each bounding box, calculate data association scores for each
       // candidate
       LOG(INFO) << "Calculate scores";
-      for (const AssociatedObjectIdentifier &candidate : candidates) {
+      for (const std::pair<AssociatedObjectIdentifier, CandidateInfo>
+               &candidate : candidates) {
         double score =
             scoreCandidateMatch(frame_id, camera_id, bb, candidate, bb_context);
         // If the score is negative infinity, this should not be matched even
         // if there are no better matches (better to make new object)
         if (score != (-1 * std::numeric_limits<double>::infinity())) {
           candidates_with_scores_for_bb.emplace_back(
-              std::make_pair(candidate, score));
+              std::make_pair(candidate.first, score));
         }
       }
       match_candidates_with_scores.emplace_back(candidates_with_scores_for_bb);
@@ -736,25 +846,26 @@ class AbstractUnknownDataAssociationBbFrontEnd
         assignBoundingBoxes(match_candidates_with_scores);
   }
 
-  virtual std::vector<AssociatedObjectIdentifier> identifyCandidateMatches(
-      const FrameId &frame_id,
-      const CameraId &camera_id,
-      const RawBoundingBox &bounding_box,
-      const SingleBbContextInfo &bb_context) = 0;
+  virtual std::vector<std::pair<AssociatedObjectIdentifier, CandidateInfo>>
+  identifyCandidateMatches(const FrameId &frame_id,
+                           const CameraId &camera_id,
+                           const RawBoundingBox &bounding_box,
+                           const SingleBbContextInfo &bb_context) = 0;
 
-  virtual std::vector<AssociatedObjectIdentifier>
-  pruneCandidateMatchesBasedOnGeometry(
+  virtual std::vector<std::pair<AssociatedObjectIdentifier, CandidateInfo>>
+  pruneCandidateMatches(
       const FrameId &frame_id,
       const CameraId &camera_id,
       const RawBoundingBox &bounding_box,
-      const std::vector<AssociatedObjectIdentifier> &candidate_matches,
+      const std::vector<std::pair<AssociatedObjectIdentifier, CandidateInfo>>
+          &candidate_matches,
       const SingleBbContextInfo &bb_context) = 0;
 
   virtual double scoreCandidateMatch(
       const FrameId &frame_id,
       const CameraId &camera_id,
       const RawBoundingBox &bounding_box,
-      const AssociatedObjectIdentifier &candidate,
+      const std::pair<AssociatedObjectIdentifier, CandidateInfo> &candidate,
       const SingleBbContextInfo &bounding_box_appearance_info) = 0;
 
   virtual std::vector<AssociatedObjectIdentifier> assignBoundingBoxes(
@@ -778,13 +889,24 @@ class AbstractUnknownDataAssociationBbFrontEnd
       const vslam_types_refactor::FrameId &frame_id,
       const vslam_types_refactor::CameraId &camera_id) = 0;
 
-  virtual bool tryInitializeEllipsoid(
+  virtual ObjectInitializationStatus tryInitializeEllipsoid(
       const RefinedBoundingBoxContextInfo &refined_bb_context,
       const ObjectAssociationInfo &association_info,
       const std::vector<UninitializedObjectFactor> &factors,
       const std::string &semantic_class,
       const bool &already_init,
-      vslam_types_refactor::EllipsoidEstimateNode &ellipsoid_est) = 0;
+      EllipsoidState<double> &ellipsoid_est) = 0;
+
+  virtual void searchForObjectMerges(
+      const std::unordered_map<
+          ObjectId,
+          std::pair<ObjectInitializationStatus, EllipsoidState<double>>>
+          &mergable_objects_and_ests,
+      const std::unordered_set<ObjectId> &existing_associated_to_objects,
+      std::vector<std::pair<ObjectId, ObjectId>>
+          &pending_and_initialized_objects_to_merge,
+      std::vector<std::pair<ObjectId, EllipsoidState<double>>>
+          &pending_objects_to_add) = 0;
 
  private:
 };

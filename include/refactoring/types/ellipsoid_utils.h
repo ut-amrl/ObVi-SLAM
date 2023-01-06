@@ -171,6 +171,11 @@ BbCornerPair<NumType> getCornerLocationsPair(
   return cornerLocationsVectorToPair<NumType>(corner_locations_raw);
 }
 
+bool pixelInBoundingBoxClosedSet(const BbCornerPair<double> &bb,
+                                 const PixelCoord<double> &pixel) {
+  return ((bb.first.x() <= pixel.x()) && (bb.first.y() <= pixel.y()) &&
+          (bb.second.x() >= pixel.x()) && (bb.second.y() >= pixel.y()));
+}
 }  // namespace vslam_types_refactor
 
 #endif  // UT_VSLAM_REFACTORING_ELLIPSOID_UTILS_H

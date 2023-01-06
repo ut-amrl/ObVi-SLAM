@@ -7,6 +7,7 @@
 
 #include <cv_bridge/cv_bridge.h>
 #include <refactoring/bounding_box_frontend/bounding_box_front_end.h>
+#include <refactoring/bounding_box_frontend/bounding_box_front_end_helpers.h>
 #include <refactoring/types/vslam_types_math_util.h>
 #include <sensor_msgs/Image.h>
 
@@ -16,7 +17,7 @@ const float kHRanges[] = {0, 180};
 const float kSRanges[] = {0, 256};
 const int kHAndSChannels[] = {0, 1};
 
-const int kNoDiscardingConst = INT_MIN;
+const int kNoDiscardingConst = INT_MIN;  // Should htis be min?
 
 struct RoshanBbAssociationParams {
   double max_distance_for_associated_ellipsoids_;
@@ -54,7 +55,8 @@ class RoshanBbFrontEnd
           std::optional<sensor_msgs::Image::ConstPtr>,
           RoshanImageSummaryInfo,
           RoshanBbInfo,
-          std::unordered_map<ObjectId, RoshanAggregateBbInfo>> {
+          std::unordered_map<ObjectId, RoshanAggregateBbInfo>,
+          util::EmptyStruct> {
  public:
   RoshanBbFrontEnd(
       const std::shared_ptr<
@@ -89,7 +91,8 @@ class RoshanBbFrontEnd
             std::optional<sensor_msgs::Image::ConstPtr>,
             RoshanImageSummaryInfo,
             RoshanBbInfo,
-            std::unordered_map<ObjectId, RoshanAggregateBbInfo>>(pose_graph),
+            std::unordered_map<ObjectId, RoshanAggregateBbInfo>,
+            util::EmptyStruct>(pose_graph),
         association_params_(association_params),
         covariance_generator_(covariance_generator),
         observed_corner_locations_(observed_corner_locations),
@@ -122,22 +125,26 @@ class RoshanBbFrontEnd
  protected:
   virtual void updateAppearanceInfoWithObjectIdAssignmentAndInitialization(
       const ObjectId &obj_id,
-      const EllipsoidEstimateNode &est,
+      const EllipsoidState<double> &est,
       RoshanAggregateBbInfo &info_to_update) override {}
 
   virtual std::vector<RawBoundingBox> filterBoundingBoxes(
       const FrameId &frame_id,
       const CameraId &camera_id,
       const std::vector<RawBoundingBox> &original_bounding_boxes) override {
-    std::vector<RawBoundingBox> bbs_to_keep;
-    for (const RawBoundingBox &bounding_box : original_bounding_boxes) {
-      if (bounding_box.detection_confidence_ >
-          association_params_.min_bb_confidence_) {
-        bbs_to_keep.emplace_back(bounding_box);
-        (*all_filtered_corner_locations_)[frame_id][camera_id].emplace_back(
-            std::make_pair(bounding_box.pixel_corner_locations_,
-                           bounding_box.detection_confidence_));
-      }
+    // Note: could couple these in the helper for a tiny speed up
+    // (only 1 for loop instead of 2 that way) -- keeping like this for now
+    // for better modularity
+    std::vector<RawBoundingBox> bbs_to_keep =
+        filterBoundingBoxesWithMinConfidence(
+            frame_id,
+            camera_id,
+            original_bounding_boxes,
+            association_params_.min_bb_confidence_);
+    for (const RawBoundingBox &bb_to_keep : bbs_to_keep) {
+      (*all_filtered_corner_locations_)[frame_id][camera_id].emplace_back(
+          std::make_pair(bb_to_keep.pixel_corner_locations_,
+                         bb_to_keep.detection_confidence_));
     }
     return bbs_to_keep;
   }
@@ -176,16 +183,13 @@ class RoshanBbFrontEnd
                   -1,
                   cv::Mat());
 
-    EllipsoidEstimateNode raw_est;
     bb_info.est_generated_ = initializeEllipsoid(
         frame_id,
         camera_id,
         bb.semantic_class_,
         cornerLocationsPairToVector(bb.pixel_corner_locations_),
-        raw_est);
+        bb_info.single_bb_init_est_);
 
-    bb_info.single_bb_init_est_ =
-        convertToEllipsoidState(*(raw_est.ellipsoid_));
     bb_info.detection_confidence_ = bb.detection_confidence_;
 
     return bb_info;
@@ -206,6 +210,8 @@ class RoshanBbFrontEnd
         single_bb_context_info);
     uninitalized_info.appearance_info_.max_confidence_ =
         single_bb_context_info.detection_confidence_;
+    uninitalized_info.min_frame_id_ = frame_id;
+    uninitalized_info.max_frame_id_ = frame_id;
     return uninitalized_info;
   }
 
@@ -223,6 +229,18 @@ class RoshanBbFrontEnd
                  single_bb_context_info.detection_confidence_);
   }
 
+  virtual void mergeObjectAssociationInfo(
+      const RoshanAggregateBbInfo &association_info_to_merge_in,
+      RoshanAggregateBbInfo &association_info_to_update) {
+    association_info_to_update.infos_for_observed_bbs_.insert(
+        association_info_to_update.infos_for_observed_bbs_.end(),
+        association_info_to_merge_in.infos_for_observed_bbs_.begin(),
+        association_info_to_merge_in.infos_for_observed_bbs_.end());
+    association_info_to_update.max_confidence_ =
+        std::max(association_info_to_update.max_confidence_,
+                 association_info_to_merge_in.max_confidence_);
+  }
+
   virtual Covariance<double, 4> generateBoundingBoxCovariance(
       const RawBoundingBox &raw_bb,
       const FrameId &frame_id,
@@ -233,12 +251,13 @@ class RoshanBbFrontEnd
         raw_bb, frame_id, camera_id, refined_bb_context);
   }
 
-  virtual std::vector<AssociatedObjectIdentifier> identifyCandidateMatches(
-      const FrameId &frame_id,
-      const CameraId &camera_id,
-      const RawBoundingBox &bounding_box,
-      const RoshanBbInfo &bb_context) override {
-    std::vector<AssociatedObjectIdentifier> associated_obj_candidates;
+  virtual std::vector<std::pair<AssociatedObjectIdentifier, util::EmptyStruct>>
+  identifyCandidateMatches(const FrameId &frame_id,
+                           const CameraId &camera_id,
+                           const RawBoundingBox &bounding_box,
+                           const RoshanBbInfo &bb_context) override {
+    std::vector<std::pair<AssociatedObjectIdentifier, util::EmptyStruct>>
+        associated_obj_candidates;
     for (size_t uninitialized_obj_idx = 0;
          uninitialized_obj_idx <
          RoshanBbFrontEnd::uninitialized_object_info_.size();
@@ -249,7 +268,8 @@ class RoshanBbFrontEnd
         AssociatedObjectIdentifier assoc_obj;
         assoc_obj.initialized_ellipsoid_ = false;
         assoc_obj.object_id_ = uninitialized_obj_idx;
-        associated_obj_candidates.emplace_back(assoc_obj);
+        associated_obj_candidates.emplace_back(
+            std::make_pair(assoc_obj, util::EmptyStruct()));
       }
     }
 
@@ -260,17 +280,19 @@ class RoshanBbFrontEnd
       AssociatedObjectIdentifier assoc_obj;
       assoc_obj.initialized_ellipsoid_ = true;
       assoc_obj.object_id_ = candidate;
-      associated_obj_candidates.emplace_back(assoc_obj);
+      associated_obj_candidates.emplace_back(
+          std::make_pair(assoc_obj, util::EmptyStruct()));
     }
     return associated_obj_candidates;
   }
 
-  virtual std::vector<AssociatedObjectIdentifier>
-  pruneCandidateMatchesBasedOnGeometry(
+  virtual std::vector<std::pair<AssociatedObjectIdentifier, util::EmptyStruct>>
+  pruneCandidateMatches(
       const FrameId &frame_id,
       const CameraId &camera_id,
       const RawBoundingBox &bounding_box,
-      const std::vector<AssociatedObjectIdentifier> &candidate_matches,
+      const std::vector<std::pair<AssociatedObjectIdentifier,
+                                  util::EmptyStruct>> &candidate_matches,
       const RoshanBbInfo &bb_context) override {
     if (candidate_matches.empty()) {
       return {};
@@ -278,13 +300,15 @@ class RoshanBbFrontEnd
     if (!bb_context.est_generated_) {
       return {};
     }
-    std::vector<AssociatedObjectIdentifier> pruned_candidates;
-    for (const AssociatedObjectIdentifier &candidate : candidate_matches) {
+    std::vector<std::pair<AssociatedObjectIdentifier, util::EmptyStruct>>
+        pruned_candidates;
+    for (const std::pair<AssociatedObjectIdentifier, util::EmptyStruct>
+             &candidate : candidate_matches) {
       double centroid_dist = std::numeric_limits<double>::max();
-      if (candidate.initialized_ellipsoid_) {
+      if (candidate.first.initialized_ellipsoid_) {
         std::optional<EllipsoidState<double>> candidate_ellispoid_state_opt =
             RoshanBbFrontEnd::pose_graph_->getEllipsoidEst(
-                candidate.object_id_);
+                candidate.first.object_id_);
         if (!candidate_ellispoid_state_opt.has_value()) {
           continue;
         }
@@ -294,7 +318,8 @@ class RoshanBbFrontEnd
                             .norm();
       } else {
         UninitializedEllispoidInfo<RoshanAggregateBbInfo> uninitialized_obj =
-            RoshanBbFrontEnd::uninitialized_object_info_[candidate.object_id_];
+            RoshanBbFrontEnd::uninitialized_object_info_[candidate.first
+                                                             .object_id_];
         for (const RoshanBbInfo &single_bb_info :
              uninitialized_obj.appearance_info_.infos_for_observed_bbs_) {
           double obs_centroid_dist =
@@ -316,15 +341,16 @@ class RoshanBbFrontEnd
       const FrameId &frame_id,
       const CameraId &camera_id,
       const RawBoundingBox &bounding_box,
-      const AssociatedObjectIdentifier &candidate,
+      const std::pair<AssociatedObjectIdentifier, util::EmptyStruct> &candidate,
       const RoshanBbInfo &bounding_box_appearance_info) override {
     RoshanAggregateBbInfo aggregate_bb_info;
-    if (candidate.initialized_ellipsoid_) {
+    if (candidate.first.initialized_ellipsoid_) {
       aggregate_bb_info =
-          RoshanBbFrontEnd::object_appearance_info_[candidate.object_id_];
+          RoshanBbFrontEnd::object_appearance_info_[candidate.first.object_id_];
     } else {
       aggregate_bb_info =
-          RoshanBbFrontEnd::uninitialized_object_info_[candidate.object_id_]
+          RoshanBbFrontEnd::uninitialized_object_info_[candidate.first
+                                                           .object_id_]
               .appearance_info_;
     }
 
@@ -350,61 +376,9 @@ class RoshanBbFrontEnd
           &match_candidates_with_scores) override {
     // TODO for now we're just doing this more or less greedily. Should change
     //  to find best overall matching
-    std::vector<
-        std::pair<uint64_t, std::pair<AssociatedObjectIdentifier, double>>>
-        flattened_scores;
-    for (size_t bb_idx = 0; bb_idx < match_candidates_with_scores.size();
-         bb_idx++) {
-      for (const std::pair<AssociatedObjectIdentifier, double>
-               &candidate_for_bb : match_candidates_with_scores[bb_idx]) {
-        flattened_scores.emplace_back(std::make_pair(bb_idx, candidate_for_bb));
-      }
-    }
-
-    std::sort(
-        flattened_scores.begin(),
-        flattened_scores.end(),
-        [](const std::pair<uint64_t,
-                           std::pair<AssociatedObjectIdentifier, double>> &lhs,
-           const std::pair<uint64_t,
-                           std::pair<AssociatedObjectIdentifier, double>>
-               &rhs) { return lhs.second.second > rhs.second.second; });
-
-    util::BoostHashSet<AssociatedObjectIdentifier> claimed_objs;
-    std::unordered_map<uint64_t, AssociatedObjectIdentifier> assignments_map;
-
-    for (const std::pair<uint64_t,
-                         std::pair<AssociatedObjectIdentifier, double>>
-             &possible_assignment : flattened_scores) {
-      uint64_t bb_idx = possible_assignment.first;
-      if (assignments_map.find(bb_idx) != assignments_map.end()) {
-        continue;
-      }
-      if (claimed_objs.find(possible_assignment.second.first) !=
-          claimed_objs.end()) {
-        continue;
-      }
-      claimed_objs.insert(possible_assignment.second.first);
-      assignments_map[possible_assignment.first] =
-          possible_assignment.second.first;
-    }
-
-    ObjectId next_free_assignment =
-        RoshanBbFrontEnd::uninitialized_object_info_.size();
-    std::vector<AssociatedObjectIdentifier> final_assignments;
-    for (size_t bb_idx = 0; bb_idx < match_candidates_with_scores.size();
-         bb_idx++) {
-      if (assignments_map.find(bb_idx) != assignments_map.end()) {
-        final_assignments.emplace_back(assignments_map.at(bb_idx));
-      } else {
-        AssociatedObjectIdentifier new_ellipsoid_assoc;
-        new_ellipsoid_assoc.initialized_ellipsoid_ = false;
-        new_ellipsoid_assoc.object_id_ = next_free_assignment;
-        final_assignments.emplace_back(new_ellipsoid_assoc);
-        next_free_assignment++;
-      }
-    }
-    return final_assignments;
+    return greedilyAssignBoundingBoxes(
+        match_candidates_with_scores,
+        RoshanBbFrontEnd::uninitialized_object_info_.size());
   }
 
   virtual RoshanImageSummaryInfo generateRefinedBbContextInfo(
@@ -436,20 +410,11 @@ class RoshanBbFrontEnd
     if (association_params_.discard_candidate_after_num_frames_ > 0) {
       std::vector<UninitializedEllispoidInfo<RoshanAggregateBbInfo>>
           uninitialized_object_info_to_keep;
-      for (const UninitializedEllispoidInfo<RoshanAggregateBbInfo>
-               &uninitialized_info :
-           RoshanBbFrontEnd::uninitialized_object_info_) {
-        FrameId max_frame_for_obj = 0;
-        for (const UninitializedObjectFactor &bb_info :
-             uninitialized_info.observation_factors_) {
-          max_frame_for_obj = std::max(bb_info.frame_id_, max_frame_for_obj);
-        }
-        if (frame_id <=
-            (max_frame_for_obj +
-             association_params_.discard_candidate_after_num_frames_)) {
-          uninitialized_object_info_to_keep.emplace_back(uninitialized_info);
-        }
-      }
+      removeStalePendingObjects(
+          RoshanBbFrontEnd::uninitialized_object_info_,
+          frame_id,
+          association_params_.discard_candidate_after_num_frames_,
+          uninitialized_object_info_to_keep);
       // TODO maybe also remove if it hasn't been initialized N frames after
       // first viewing (or maybe remove old viewings)
       RoshanBbFrontEnd::uninitialized_object_info_ =
@@ -457,35 +422,28 @@ class RoshanBbFrontEnd
     }
   }
 
-  bool tryInitializeEllipsoid(
+  ObjectInitializationStatus tryInitializeEllipsoid(
       const RoshanImageSummaryInfo &refined_bb_context,
       const RoshanAggregateBbInfo &association_info,
       const std::vector<UninitializedObjectFactor> &factors,
       const std::string &semantic_class,
       const bool &already_init,
-      vslam_types_refactor::EllipsoidEstimateNode &ellipsoid_est) override {
+      vslam_types_refactor::EllipsoidState<double> &ellipsoid_est) override {
     if (factors.empty()) {
-      return false;
+      return NOT_INITIALIZED;
     }
     if (association_params_.min_observations_ > factors.size()) {
-      return false;
+      return NOT_INITIALIZED;
     }
     if (association_params_.required_min_conf_for_initialization >
         association_info.max_confidence_) {
-      return false;
+      return NOT_INITIALIZED;
     }
 
     RoshanBbInfo single_info = association_info.infos_for_observed_bbs_.back();
-#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
-    ellipsoid_est.updateEllipsoidParams(
-        convertYawOnlyPoseToArray(single_info.single_bb_init_est_.pose_),
-        single_info.single_bb_init_est_.dimensions_);
-#else
-    ellipsoid_est.updateEllipsoidParams(
-        convertPoseToArray(single_info.single_bb_init_est_.pose_),
-        single_info.single_bb_init_est_.dimensions_);
-#endif
-    return single_info.est_generated_;
+    ellipsoid_est = single_info.single_bb_init_est_;
+    return single_info.est_generated_ ? SUFFICIENT_VIEWS_FOR_NEW
+                                      : NOT_INITIALIZED;
   }
 
   virtual void addObservationForObject(
@@ -543,68 +501,34 @@ class RoshanBbFrontEnd
                                                       std::optional<double>>>>>>
       observed_corner_locations_;
 
-  double getObjectDepth(const BbCornerPair<double> &bb,
-                        const ObjectDim<double> &mean_dim_for_class,
-                        const double &fy) {
-    double y_diff = bb.second.y() - bb.first.y();
-    // TODO this isn't a valid way to do it, because this assumes the points
-    // corresponding to the top and bottom of the bounding box correspond to the
-    // min/max points in the z direction on an upright ellipsoid, which would
-    // only be the case if the depth was infinite (as we get closer, the tangent
-    // points are closer to the tip of the ellipsoid facing the camera
-    return mean_dim_for_class.z() * fy / y_diff;
-  }
-
   bool initializeEllipsoid(
       const FrameId &frame_id,
       const CameraId &camera_id,
       const std::string &semantic_class,
       const BbCorners<double> &bb,
-      vslam_types_refactor::EllipsoidEstimateNode &ellipsoid_est) {
-    std::optional<ObjectDim<double>> mean_dim_for_class =
-        RoshanBbFrontEnd::pose_graph_->getShapeDimMean(semantic_class);
+      vslam_types_refactor::EllipsoidState<double> &ellipsoid_est) {
+    return generateSingleViewEllipsoidEstimate(RoshanBbFrontEnd::pose_graph_,
+                                               frame_id,
+                                               camera_id,
+                                               semantic_class,
+                                               bb,
+                                               ellipsoid_est);
+  }
 
-    if (!mean_dim_for_class.has_value()) {
-      LOG(ERROR)
-          << "Could not initialize; no mean dimension provided for class "
-          << semantic_class;
-      return false;
+  virtual void searchForObjectMerges(
+      const std::unordered_map<
+          ObjectId,
+          std::pair<ObjectInitializationStatus, EllipsoidState<double>>>
+          &mergable_objects_and_ests,
+      const std::unordered_set<ObjectId> &existing_associated_to_objects,
+      std::vector<std::pair<ObjectId, ObjectId>>
+          &pending_and_initialized_objects_to_merge,
+      std::vector<std::pair<ObjectId, EllipsoidState<double>>>
+          &pending_objects_to_add) override {
+    for (const auto &mergable_obj : mergable_objects_and_ests) {
+      pending_objects_to_add.emplace_back(
+          std::make_pair(mergable_obj.first, mergable_obj.second.second));
     }
-    ObjectDim<double> dim = mean_dim_for_class.value();
-    CameraIntrinsicsMat<double> intrinsics;
-    RoshanBbFrontEnd::pose_graph_->getIntrinsicsForCamera(camera_id,
-                                                          intrinsics);
-    BbCornerPair<double> bb_pair = cornerLocationsVectorToPair(bb);
-    double depth = getObjectDepth(bb_pair, dim, intrinsics(1, 1));
-    PixelCoord<double> bb_center = (bb_pair.first + bb_pair.second) / 2;
-    Eigen::Vector3d bb_center_homogeneous(bb_center.x(), bb_center.y(), 1);
-    Position3d<double> position_rel_cam =
-        depth * intrinsics.inverse() * bb_center_homogeneous;
-
-    std::optional<RawPose3d<double>> raw_robot_pose =
-        RoshanBbFrontEnd::pose_graph_->getRobotPose(frame_id);
-    if (!raw_robot_pose.has_value()) {
-      return false;
-    }
-    Pose3D<double> robot_pose = convertToPose3D(raw_robot_pose.value());
-    CameraExtrinsics<double> extrinsics;
-    RoshanBbFrontEnd::pose_graph_->getExtrinsicsForCamera(camera_id,
-                                                          extrinsics);
-    Pose3D<double> camera_pose = combinePoses(robot_pose, extrinsics);
-
-#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
-    Position3d<double> global_position =
-        combinePoseAndPosition(camera_pose, position_rel_cam);
-    Pose3DYawOnly<double> global_pose(global_position, 0);
-    ellipsoid_est.updateEllipsoidParams(convertYawOnlyPoseToArray(global_pose),
-                                        dim);
-#else
-    Pose3D<double> pose_rel_to_cam(position_rel_cam, Orientation3D<double>());
-    Pose3D<double> global_pose = combinePoses(camera_pose, pose_rel_to_cam);
-    ellipsoid_est.updateEllipsoidParams(convertPoseToArray(global_pose), dim);
-#endif
-
-    return true;
   }
 };
 
@@ -641,7 +565,7 @@ class RoshanBbFrontEndCreator {
         all_filtered_corner_locations_(all_filtered_corner_locations),
         long_term_map_front_end_data_(long_term_map_front_end_data) {}
 
-  std::shared_ptr<AbstractUnknownDataAssociationBbFrontEnd<
+  std::shared_ptr<AbstractBoundingBoxFrontEnd<
       VisualFeatureFactorType,
       RoshanAggregateBbInfo,
       std::optional<sensor_msgs::Image::ConstPtr>,
@@ -695,7 +619,7 @@ class RoshanBbFrontEndCreator {
 
   std::unordered_map<vslam_types_refactor::ObjectId, RoshanAggregateBbInfo>
       long_term_map_front_end_data_;
-  std::shared_ptr<AbstractUnknownDataAssociationBbFrontEnd<
+  std::shared_ptr<AbstractBoundingBoxFrontEnd<
       VisualFeatureFactorType,
       RoshanAggregateBbInfo,
       std::optional<sensor_msgs::Image::ConstPtr>,
