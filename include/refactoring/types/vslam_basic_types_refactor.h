@@ -65,7 +65,7 @@ struct Pose3D {
 template <typename NumType>
 struct Pose3DYawOnly {
   Position3d<NumType> transl_;
-  NumType yaw_;
+  NumType yaw_ = NumType(0);
 
   Pose3DYawOnly() = default;
   Pose3DYawOnly(const Position3d<NumType> &transl,

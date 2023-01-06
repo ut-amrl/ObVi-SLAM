@@ -12,6 +12,7 @@
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 #include <refactoring/bounding_box_frontend/bounding_box_retriever.h>
+#include <refactoring/bounding_box_frontend/feature_based_bounding_box_front_end.h>
 #include <refactoring/bounding_box_frontend/roshan_bounding_box_front_end.h>
 #include <refactoring/image_processing/image_processing_utils.h>
 #include <refactoring/long_term_map/long_term_map_factor_creator.h>
@@ -28,7 +29,6 @@
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
 #include <sensor_msgs/Image.h>
-// TODO
 
 namespace vtr = vslam_types_refactor;
 
@@ -1119,16 +1119,17 @@ int main(int argc, char **argv) {
         return bb_querier.retrieveBoundingBoxes(
             frame_id_to_query_for, input_problem_data, bounding_boxes_by_cam);
       };
-//  std::function<bool(
-//      const vtr::FrameId &,
-//      std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>> &)>
-//      bb_retriever = [&](const vtr::FrameId &frame_id_to_query_for,
-//                         std::unordered_map<vtr::CameraId,
-//                                            std::vector<vtr::RawBoundingBox>>
-//                             &bounding_boxes_by_cam) {
-//        return vtr::retrievePrecomputedBoundingBoxes(
-//            frame_id_to_query_for, input_problem_data, bounding_boxes_by_cam);
-//      };
+  //  std::function<bool(
+  //      const vtr::FrameId &,
+  //      std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>
+  //      &)> bb_retriever = [&](const vtr::FrameId &frame_id_to_query_for,
+  //                         std::unordered_map<vtr::CameraId,
+  //                                            std::vector<vtr::RawBoundingBox>>
+  //                             &bounding_boxes_by_cam) {
+  //        return vtr::retrievePrecomputedBoundingBoxes(
+  //            frame_id_to_query_for, input_problem_data,
+  //            bounding_boxes_by_cam);
+  //      };
   std::function<void(
       const MainProbData &, const MainPgPtr &, const vtr::FrameId &)>
       frame_data_adder = [&](const MainProbData &problem_data,
@@ -1274,8 +1275,8 @@ int main(int argc, char **argv) {
       optimization_factors_enabled_params;
   optimization_factors_enabled_params.use_pom_ = false;
   optimization_factors_enabled_params.include_visual_factors_ = true;
-      optimization_factors_enabled_params.fix_poses_ = true;
-//  optimization_factors_enabled_params.fix_poses_ = false;
+  optimization_factors_enabled_params.fix_poses_ = true;
+  //  optimization_factors_enabled_params.fix_poses_ = false;
   optimization_factors_enabled_params.fix_visual_features_ = false;
   optimization_factors_enabled_params.fix_objects_ = false;
   optimization_factors_enabled_params.poses_prior_to_window_to_keep_constant_ =
