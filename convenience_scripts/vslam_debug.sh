@@ -123,3 +123,10 @@ if [[ "$stage" < "3" ]]; then # running slam
     echo "finish running slam!"
 fi
 
+if [[ "$stage" < "4" ]]; then
+
+source /home/tiejean/projects/my_venv/bin/activate
+
+deactivate
+
+fi

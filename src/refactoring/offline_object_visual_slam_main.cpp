@@ -102,11 +102,23 @@ std::unordered_map<DebugTypeEnum, std::string> debugLabels = {
 
 class VSLAMDebugger {
 public:
-  VSLAMDebugger(const std::string& root_directory) :
+  VSLAMDebugger(const std::string& root_directory,
+                const std::vector<vtr::CameraId>& cam_ids) :
                 root_directory_(root_directory) { 
     setupOutputDirectory(root_directory_.string());
-    output_image_directory_ = root_directory_ / "images";
-    setupOutputDirectory(output_image_directory_.string());
+    
+    fs::path output_image_directory = root_directory_ / "images";
+    setupOutputDirectory(output_image_directory.string());
+    for (const auto& cam_id : cam_ids) {
+      output_image_directories_[cam_id] = output_image_directory / std::to_string(cam_id);
+      setupOutputDirectory(output_image_directories_[cam_id]);
+    }
+    fs::path output_residual_directory = root_directory_ / "residuals";
+    setupOutputDirectory(output_residual_directory);
+    for (const auto& cam_id : cam_ids) {
+      output_residual_directories_[cam_id] = output_residual_directory / std::to_string(cam_id);
+      setupOutputDirectory(output_residual_directories_[cam_id]);
+    }
 
     fs::path output_pcl_root_directory = root_directory_ / "pointclouds";
     setupOutputDirectory(output_pcl_root_directory.string());
@@ -123,9 +135,6 @@ public:
     for (const auto& output_pose_directory : output_pose_directories_) {
       setupOutputDirectory(output_pose_directory.second.string());
     }
-
-    output_residual_directory_ = root_directory_ / "residuals";
-    setupOutputDirectory(output_residual_directory_);
 
     output_summary_directory_ = root_directory_ / "summaries";
     setupOutputDirectory(output_summary_directory_);
@@ -170,14 +179,23 @@ public:
 
   void debugFeaturePointcloudByFrameId(const vtr::FrameId& frame_id, 
       const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d_init,
-      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d_est) {
+      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d_est,
+      const std::unordered_map<vtr::CameraId,
+                    std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>> features2d) {
     frame_id_ = frame_id;
     fs::path init_path 
         = output_pcl_directories_[DebugTypeEnum::INITALIZED] / (std::to_string(frame_id)+".csv");
     fs::path est_path 
         = output_pcl_directories_[DebugTypeEnum::OPTIMIZED]  / (std::to_string(frame_id)+".csv");
+    
+    std::unordered_map<vtr::FeatureId, vtr::Position3d<double>> new_features3d_init;
+    std::unordered_map<vtr::FeatureId, vtr::Position3d<double>> new_features3d_est;
+
     ToCSV(init_path.string(), features3d_init);
     ToCSV(est_path.string(),  features3d_est);
+
+    features3d_init_ = features3d_init;
+    features3d_est_  = features3d_est;
   }
 
   void debugPosesByFrameId(const vtr::FrameId& frame_id,
@@ -217,80 +235,112 @@ public:
     features2d_ = features2d;
 
     getLowLevelFeaturesLatestImages();
-    logOutputByFrameId();
+    logReprojectionOutputByFrameId();
     plotResidualsHistogram();
   }
 
   // TODO fix hardcoding
   void summarizeByFrameId(const vtr::FrameId& frame_id) {
     frame_id_ = frame_id;
-    fs::path reprojection_path = 
-      output_image_directory_ / (std::to_string(frame_id_) + ".png");
-    fs::path residual_path = 
-      output_residual_directory_ / (std::to_string(frame_id_) + ".png");
-    fs::path trajectory_path = 
-      output_pose_root_directory_ / (std::to_string(frame_id_) + ".png");
-    cv::Mat reprojection = cv::imread(reprojection_path);
-    cv::Mat residual = cv::imread(residual_path);
-    cv::Mat trajectory = cv::imread(trajectory_path);
-    if (reprojection.data == NULL || residual.data == NULL || trajectory.data == NULL) {
-      LOG(FATAL) << "failed to read image data!";
+    std::unordered_map<vtr::CameraId, cv::Mat> cam_ids_and_visualizations;
+    for (const auto& cam_id_and_output_directory : output_image_directories_) {
+      const auto& cam_id = cam_id_and_output_directory.first;
+      const auto& reprojection_path 
+          = output_image_directories_.at(cam_id) / (std::to_string(frame_id_) + ".png");
+      const auto& residual_path     
+          = output_residual_directories_.at(cam_id) / (std::to_string(frame_id_) + ".png");
+      const auto& trajectory_path   
+          = output_pose_root_directory_ / (std::to_string(frame_id_) + ".png");
+      cv::Mat reprojection = cv::imread(reprojection_path);
+      cv::Mat residual = cv::imread(residual_path);
+      cv::Mat trajectory = cv::imread(trajectory_path);
+      if (reprojection.data == NULL || residual.data == NULL || trajectory.data == NULL) {
+        LOG(FATAL) << "failed to read image data!";
+      }
+      if (reprojection.cols != 2 * residual.cols || residual.cols != trajectory.cols) {
+        // TODO use more informative error message
+        LOG(FATAL) << "Doesn't support these image sizes";
+      }
+      size_t summary_height, summary_width;
+      summary_height = reprojection.rows + residual.rows;
+      summary_width  = reprojection.cols;
+      cv::Mat summary = cv::Mat::zeros(summary_height, summary_width, CV_8UC3);
+      reprojection.copyTo(summary(cv::Range(0, reprojection.rows), cv::Range(0, reprojection.cols)));
+      residual.copyTo(summary(cv::Range(reprojection.rows, summary_height), cv::Range(0, residual.cols)));
+      trajectory.copyTo(summary(cv::Range(reprojection.rows, summary_height), cv::Range(residual.cols, summary_width)));
+      cam_ids_and_visualizations[cam_id] = summary;
     }
-    if (reprojection.cols != 2 * residual.cols || residual.cols != trajectory.cols) {
-      // TODO use more informative error message
-      LOG(FATAL) << "Doesn't support these image sizes";
-    }
-    size_t summary_height, summary_width;
-    summary_height = reprojection.rows + residual.rows;
-    summary_width  = reprojection.cols;
-    cv::Mat summary = cv::Mat::zeros(summary_height, summary_width, CV_8UC3);
-    reprojection.copyTo(summary(cv::Range(0, reprojection.rows), cv::Range(0, reprojection.cols)));
-    residual.copyTo(summary(cv::Range(reprojection.rows, summary_height), cv::Range(0, residual.cols)));
-    trajectory.copyTo(summary(cv::Range(reprojection.rows, summary_height), cv::Range(residual.cols, summary_width)));
-  
-    fs::path savepath = 
-      output_summary_directory_ / (std::to_string(frame_id_) + ".png");
-    cv::imwrite(savepath, summary);
-  }
 
-  void logOutputByFrameId() {
-    auto& output_images = output_images_[frame_id_];
-    std::string image_path = 
-          output_image_directory_ / (std::to_string(frame_id_) + ".png");
-    if ( output_images.empty() ) { return; }
-    size_t nrows = output_images.begin()->second->image.rows;
-    size_t ncols = output_images.begin()->second->image.cols;
+    if (cam_ids_and_visualizations.empty()) { return; }
+    size_t summaries_height, summaries_widths;
+    const size_t nrows = cam_ids_and_visualizations.begin()->second.rows;
+    const size_t ncols = cam_ids_and_visualizations.begin()->second.cols;
+    summaries_height = nrows;
+    summaries_widths = ncols * 2;
+    std::vector<vtr::CameraId> cam_ids;
+    for (const auto& cam_id_and_visualization : cam_ids_and_visualizations) {
+      cam_ids.push_back(cam_id_and_visualization.first);
+    }
+    std::sort(cam_ids.begin(), cam_ids.end());
     std::vector<std::pair<int, int>> coordinates;
-    size_t viz_width, viz_height;
-    if (output_images.size() <= 2) {
-      viz_width  = ncols * 2;
-      viz_height = nrows;
-    } else if (output_images.size() <= 4) {
-      viz_width  = ncols * 2;
-      viz_height = nrows * 2;
-    } else {
-      LOG(FATAL) << "undefined code path!";
+    for (size_t i = 0; i < cam_ids_and_visualizations.size(); ++i) {
+        coordinates.emplace_back(0, i*ncols);
     }
-    for (size_t i = 0; i < output_images.size(); ++i) {
-      coordinates.emplace_back((i/2)*nrows, (i%2)*ncols);
-    }
-    // for visualizaiton consistency across frames
-    std::vector<DebugTypeEnum> viz_cases;
-    for (const auto& output : output_images) {
-      viz_cases.emplace_back(output.first);
-    }
-    std::sort(viz_cases.begin(), viz_cases.end());
-
-    cv::Mat viz_image = cv::Mat::zeros(viz_height, viz_width, CV_8UC3);
-    for (size_t i = 0; i < viz_cases.size(); ++i) {
-      const DebugTypeEnum& viz_case = viz_cases[i];
-      const cv::Mat& output_image = output_images[viz_case]->image;
+    cv::Mat summaries = cv::Mat::zeros(summaries_height, summaries_widths, CV_8UC3);
+    for (size_t i = 0; i < cam_ids.size(); ++i) {
+      const auto& cam_id = cam_ids[i];
+      const cv::Mat& visualization = cam_ids_and_visualizations[cam_id];
       const int& row = coordinates[i].first;
       const int& col = coordinates[i].second;
-      output_image.copyTo(viz_image(cv::Range(row, row+nrows), cv::Range(col, col+ncols)));
-      // viz_image(cv::Range(row, row+nrows), cv::Range(col, col+ncols)) = output_image;
+      visualization.copyTo(summaries(cv::Range(row, row+nrows), cv::Range(col, col+ncols)));
     }
-    cv::imwrite(image_path, viz_image);
+    
+    fs::path savepath = 
+      output_summary_directory_ / (std::to_string(frame_id_) + ".png");
+    cv::imwrite(savepath, summaries);
+  }
+
+  // TODO create some helper/wrapper for putting visualization together
+  void logReprojectionOutputByFrameId() {
+    for (const auto& cam_id_and_output_images : output_images_) {
+      const auto& cam_id = cam_id_and_output_images.first;
+      const auto& output_images = cam_id_and_output_images.second;
+      std::string image_path = 
+          output_image_directories_.at(cam_id) / (std::to_string(frame_id_) + ".png");
+      if ( output_images.empty() ) { return; }
+      size_t nrows = output_images.begin()->second->image.rows;
+      size_t ncols = output_images.begin()->second->image.cols;
+      std::vector<std::pair<int, int>> coordinates;
+      size_t viz_width, viz_height;
+      if (output_images.size() <= 2) {
+        viz_width  = ncols * 2;
+        viz_height = nrows;
+      } else if (output_images.size() <= 4) {
+        viz_width  = ncols * 2;
+        viz_height = nrows * 2;
+      } else {
+        LOG(FATAL) << "undefined code path!";
+      }
+      for (size_t i = 0; i < output_images.size(); ++i) {
+        coordinates.emplace_back((i/2)*nrows, (i%2)*ncols);
+      }
+      // for visualizaiton consistency across frames
+      std::vector<DebugTypeEnum> viz_cases;
+      for (const auto& output : output_images) {
+        viz_cases.emplace_back(output.first);
+      }
+      std::sort(viz_cases.begin(), viz_cases.end());
+
+      cv::Mat viz_image = cv::Mat::zeros(viz_height, viz_width, CV_8UC3);
+      for (size_t i = 0; i < viz_cases.size(); ++i) {
+        const DebugTypeEnum& viz_case = viz_cases[i];
+        const cv::Mat& output_image = output_images.at(viz_case)->image;
+        const int& row = coordinates[i].first;
+        const int& col = coordinates[i].second;
+        output_image.copyTo(viz_image(cv::Range(row, row+nrows), cv::Range(col, col+ncols)));
+      }
+      cv::imwrite(image_path, viz_image);
+    }
   }
 
   static void ToCSV(const std::string& filename, 
@@ -325,13 +375,13 @@ public:
     if (!ofile.is_open()) {
         LOG(ERROR) << "failed to open " << filename;
     }
-    ofile << "frame_id" << delimiter << "x" << delimiter 
-          << "y" << delimiter << "z" << delimiter << std::endl;
+    ofile << "feature_id" << delimiter << "x" << delimiter 
+          << "y" << delimiter << "z" << std::endl;
     for (const auto& feature : features) {
       ofile << feature.first << delimiter
             << feature.second[0] << delimiter 
             << feature.second[1] << delimiter
-            << feature.second[2] << delimiter;
+            << feature.second[2] << std::endl;;
     }
     ofile.close();
   }
@@ -363,17 +413,20 @@ private:
   double residuals_init_;
   double residuals_est_;
   size_t nframes_;
-  std::unordered_map<vtr::FrameId, 
+  std::unordered_map<vtr::CameraId, 
       std::unordered_map<DebugTypeEnum, cv_bridge::CvImagePtr>> output_images_;
-  std::unordered_map<vtr::FrameId, 
+  std::unordered_map<vtr::CameraId, 
       std::unordered_map<DebugTypeEnum, std::vector<double>>> output_residuals_;
   std::vector<vtr::Pose3D<double>> init_trajectory_;
   std::vector<vtr::Pose3D<double>> est_trajectory_;
-  fs::path output_image_directory_;
+
+  std::unordered_map<vtr::CameraId, fs::path> output_image_directories_;
+  std::unordered_map<vtr::CameraId, fs::path> output_residual_directories_;
+  // fs::path output_image_directory_;
+  // fs::path output_residual_directory_;
   fs::path output_pose_root_directory_;
   std::unordered_map<DebugTypeEnum, fs::path> output_pcl_directories_;
   std::unordered_map<DebugTypeEnum, fs::path> output_pose_directories_;
-  fs::path output_residual_directory_;
   fs::path output_summary_directory_;
 
   std_msgs::ColorRGBA obs_color_;
@@ -422,24 +475,23 @@ private:
   void plotResidualsHistogram() {
     long bins = 15;
     double alpha = 0.5;
-    fs::path savepath 
-      = output_residual_directory_ / (std::to_string(frame_id_)+".png");
-    auto& output_residuals = output_residuals_[frame_id_];
-    plt::figure();
-    // TODO right now only assume all images have the same size
-    plt::figure_size(img_heights_and_widths_.at(1).second, img_heights_and_widths_.at(1).first);
-    plt::named_hist(debugLabels[DebugTypeEnum::INITALIZED], output_residuals[DebugTypeEnum::INITALIZED], bins, "r", alpha);
-    plt::named_hist(debugLabels[DebugTypeEnum::OPTIMIZED],  output_residuals[DebugTypeEnum::OPTIMIZED],  bins, "b", alpha);
-    plt::legend();
-    plt::title("Reprojection Residual Histogram at Frame " + std::to_string(frame_id_));
-    plt::save(savepath.string());
+    for (const auto& cam_id_and_output_directory : output_residual_directories_) {
+      const auto& cam_id = cam_id_and_output_directory.first;
+      const auto& output_residual_directory = cam_id_and_output_directory.second;
+      fs::path savepath 
+          = output_residual_directory / (std::to_string(frame_id_)+".png");
+      const auto& output_residuals = output_residuals_.at(cam_id);
+      plt::figure();
+      plt::figure_size(img_heights_and_widths_.at(1).second, img_heights_and_widths_.at(1).first);
+      plt::named_hist(debugLabels.at(DebugTypeEnum::INITALIZED), output_residuals.at(DebugTypeEnum::INITALIZED), bins, "r", alpha);
+      plt::named_hist(debugLabels.at(DebugTypeEnum::OPTIMIZED),  output_residuals.at(DebugTypeEnum::OPTIMIZED),  bins, "b", alpha);
+      plt::legend();
+      plt::title("Reprojection Residual Histogram at Frame " + std::to_string(frame_id_));
+      plt::save(savepath.string());
+    }
   }
 
   void getLowLevelFeaturesLatestImages() {
-    output_residuals_[frame_id_] = std::unordered_map<DebugTypeEnum, std::vector<double>>();
-    output_residuals_[frame_id_][DebugTypeEnum::INITALIZED] = std::vector<double>();
-    output_residuals_[frame_id_][DebugTypeEnum::OPTIMIZED]  = std::vector<double>();
-
     for (const auto& obs_feat_and_cam : features2d_) {
       std::vector<double> residuals_init, residuals_est;
 
@@ -533,24 +585,25 @@ private:
         residual_est  = getResidual(observed_feat, projected_est_feat);
         residuals_init_ += residual_init;
         residuals_est_ += residual_est;
-        output_residuals_[frame_id_][DebugTypeEnum::INITALIZED].push_back(residual_init);
-        output_residuals_[frame_id_][DebugTypeEnum::OPTIMIZED].push_back(residual_est);
+        output_residuals_[cam_id][DebugTypeEnum::INITALIZED].push_back(residual_init);
+        output_residuals_[cam_id][DebugTypeEnum::OPTIMIZED].push_back(residual_est);
       }
       PutImageText(debugLabels[DebugTypeEnum::INITALIZED], cv_ptr_init->image);
       PutImageText(debugLabels[DebugTypeEnum::OPTIMIZED],  cv_ptr_est->image);
       PutImageText(debugLabels[DebugTypeEnum::ALL],        cv_ptr->image);
-      output_images_[frame_id_] 
+      output_images_[cam_id] 
               = std::unordered_map<DebugTypeEnum, cv_bridge::CvImagePtr>();
-      output_images_[frame_id_][DebugTypeEnum::INITALIZED]   = cv_ptr_init;
-      output_images_[frame_id_][DebugTypeEnum::OPTIMIZED]    = cv_ptr_est;
-      output_images_[frame_id_][DebugTypeEnum::ALL]          = cv_ptr;
+      output_images_[cam_id][DebugTypeEnum::INITALIZED]   = cv_ptr_init;
+      output_images_[cam_id][DebugTypeEnum::OPTIMIZED]    = cv_ptr_est;
+      output_images_[cam_id][DebugTypeEnum::ALL]          = cv_ptr;
+      cv::imwrite(std::to_string(cam_id) + ".png", cv_ptr->image);
     }
     LOG(INFO) << "Average Reprojection Residual by far: " 
               << " residuals_init_=" << residuals_init_/nframes_ << "residuals_est_" << residuals_est_/nframes_;
   }
 };
 
-VSLAMDebugger debugger("/robodata/taijing/object-slam/vslam/debug/1668019589/");
+VSLAMDebugger debugger("/robodata/taijing/object-slam/vslam/debug/1668019589/", {1,2});
 
 std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
 readCameraIntrinsicsByCameraFromFile(const std::string &file_name) {
@@ -1052,19 +1105,17 @@ void visualizationStub(
           observed_feats_for_frame,
           vtr::PlotType::INITIAL);
       
-      debugger.debugReprojectionByFrameId(max_frame_optimized, 
-          extrinsics, 
-          intrinsics, 
-          img_heights_and_widths, 
+      debugger.debugByFrameId(max_frame_optimized, 
+          extrinsics,
+          intrinsics,
+          img_heights_and_widths,
           images.at(max_frame_optimized),
           input_problem_data.getRobotPoseEstimates().at(max_frame_optimized),
           initial_feat_positions,
           feature_ests,
-          observed_feats_for_frame);
-      debugger.debugPosesByFrameId(max_frame_optimized, 
+          observed_feats_for_frame,
           init_trajectory_vec,
           est_trajectory_vec);
-      debugger.summarizeByFrameId(max_frame_optimized);
 
       break;
     }
@@ -1374,23 +1425,6 @@ int main(int argc, char **argv) {
         return max_frame - 50;
   };
 
-  // std::function<vtr::FrameId(const vtr::FrameId &)> window_provider_func =
-  //     [](const vtr::FrameId &max_frame) -> vtr::FrameId {
-  //   // For now, we'll just optimize the whole trajectory (so return 0 so we
-  //   // start the optimization with node 0
-  //       if ((max_frame % 25) == 0) {
-  //         if (max_frame < 100) {
-  //           return 0;
-  //         } else {
-  //           return max_frame - 100;
-  //         }
-  //       }
-  //       if (max_frame < 25) {
-  //         return 0;
-  //       }
-  //       return max_frame - 25;
-  // };
-
   std::function<bool(
       const MainFactorInfo &, const MainPgPtr &, const util::EmptyStruct &)>
       refresh_residual_checker = checkFactorRefresh;
@@ -1465,6 +1499,7 @@ int main(int argc, char **argv) {
                 std::placeholders::_1,
                 long_term_map_factor_provider,
                 std::placeholders::_2);
+  // Tuning
   std::function<double(const MainProbData &,
                        const MainPgPtr &,
                        const vtr::FrameId &,
