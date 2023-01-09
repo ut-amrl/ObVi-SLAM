@@ -448,6 +448,13 @@ class ObjAndLowLevelFeaturePoseGraph
     return mean_and_cov_by_semantic_class_.at(semantic_class).first;
   }
 
+  virtual std::unordered_map<
+      std::string,
+      std::pair<ObjectDim<double>, Covariance<double, 3>>>
+  getMeanAndCovBySemanticClass() {
+    return mean_and_cov_by_semantic_class_;
+  }
+
   virtual std::unordered_set<ObjectId> getObjectsWithSemanticClass(
       const std::string &semantic_class) const {
     std::unordered_set<ObjectId> objs;

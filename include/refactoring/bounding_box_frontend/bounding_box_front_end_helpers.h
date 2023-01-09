@@ -53,7 +53,8 @@ void identifyMergeCandidates(
         std::unordered_set<ObjectId> filtered_matching_objs;
         std::copy_if(matching_objs.begin(),
                      matching_objs.end(),
-                     std::back_inserter(filtered_matching_objs),
+                     std::inserter(filtered_matching_objs,
+                                   filtered_matching_objs.begin()),
                      [&existing_associated_to_objects](ObjectId obj_id) {
                        return existing_associated_to_objects.find(obj_id) ==
                               existing_associated_to_objects.end();

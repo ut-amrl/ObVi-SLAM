@@ -389,8 +389,6 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
                     "long-term map";
       return false;
     }
-    LOG(INFO) << "In extraction: front end map data size "
-              << front_end_map_data.size();
     long_term_obj_map.setFrontEndObjMapData(front_end_map_data);
 
     long_term_obj_map.setEllipsoidCovariances(ellipsoid_covariances);

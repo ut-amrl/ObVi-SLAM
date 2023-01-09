@@ -60,8 +60,8 @@ bool OrbOutputLowLevelFeatureReader::loadData() {
     FeatureId feat_id = initial_feature_estimates.first;
     Position3d<double> initial_est_for_feat = initial_feature_estimates.second;
     if (feature_obs.find(feat_id) == feature_obs.end()) {
-      LOG(WARNING) << "Found initial feature estimate for feature " << feat_id
-                   << " but no observations; discarding";
+//      LOG(WARNING) << "Found initial feature estimate for feature " << feat_id
+//                   << " but no observations; discarding";
       continue;
     }
     std::unordered_map<FrameId,
@@ -105,8 +105,8 @@ bool OrbOutputLowLevelFeatureReader::loadData() {
     }
 
     if (!has_obs) {
-      LOG(WARNING) << "Found initial feature estimate for feature " << feat_id
-                   << " but no observations; discarding";
+//      LOG(WARNING) << "Found initial feature estimate for feature " << feat_id
+//                   << " but no observations; discarding";
       continue;
     }
 
