@@ -422,7 +422,11 @@ class RoshanBbFrontEnd
     }
   }
 
-  ObjectInitializationStatus tryInitializeEllipsoid(
+  virtual void setupInitialEstimateGeneration(
+      const std::vector<AssociatedObjectIdentifier> &bounding_box_assignments)
+      override {}
+
+  virtual ObjectInitializationStatus tryInitializeEllipsoid(
       const RoshanImageSummaryInfo &refined_bb_context,
       const RoshanAggregateBbInfo &association_info,
       const std::vector<UninitializedObjectFactor> &factors,
@@ -556,7 +560,7 @@ class RoshanBbFrontEndCreator {
                                                 const CameraId &,
                                                 const RoshanImageSummaryInfo &)>
           &covariance_generator,
-      std::unordered_map<vslam_types_refactor::ObjectId, RoshanAggregateBbInfo>
+      const std::unordered_map<vslam_types_refactor::ObjectId, RoshanAggregateBbInfo>
           &long_term_map_front_end_data)
       : association_params_(association_params),
         covariance_generator_(covariance_generator),

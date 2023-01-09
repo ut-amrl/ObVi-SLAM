@@ -116,9 +116,8 @@ class YoloBoundingBoxQuerier {
  private:
   constexpr const static double kWaitForServiceMaxDuration = 10;
 
-  std::string service_name_;
-
   ros::NodeHandle node_handle_;
+  std::string service_name_;
   ros::ServiceClient bounding_box_client_;
 
   bool regenerateClient() {

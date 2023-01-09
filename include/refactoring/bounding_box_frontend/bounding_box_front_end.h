@@ -105,8 +105,6 @@ class AbstractBoundingBoxFrontEnd {
 
     std::vector<SingleBbContextInfo> single_bb_appearance_infos;
     for (const RawBoundingBox &bb : filtered_bounding_boxes) {
-      LOG(INFO) << "refined context has value? "
-                << refined_context.hsv_img_.has_value();
       single_bb_appearance_infos.emplace_back(
           generateSingleBoundingBoxContextInfo(
               bb, frame_id, camera_id, refined_context));
@@ -192,7 +190,8 @@ class AbstractBoundingBoxFrontEnd {
     }
 
     LOG(INFO) << "Initialize estimates";
-
+    setupInitialEstimateGeneration(bounding_box_assignments);
+    LOG(INFO) << "Done setting up initial estimate generation";
     // Initialize or refine estimates
     // For each object, add information and either initialize, delay
     // initialization (until we have more information, or refine estimate (if
@@ -256,6 +255,7 @@ class AbstractBoundingBoxFrontEnd {
                           pending_and_initialized_objects_to_merge,
                           pending_objects_to_add);
 
+    LOG(INFO) << "Merging/adding objects";
     for (const std::pair<ObjectId, ObjectId> &merge_obj :
          pending_and_initialized_objects_to_merge) {
       ObjectId pending_obj_id = merge_obj.first;
@@ -284,6 +284,7 @@ class AbstractBoundingBoxFrontEnd {
     }
     for (const std::pair<ObjectId, EllipsoidState<double>> &add_obj :
          pending_objects_to_add) {
+      LOG(INFO) << "Adding new object";
       ObjectId pending_obj_id = add_obj.first;
 
       UninitializedEllispoidInfo<ObjectAssociationInfo> uninitialized_bb_info =
@@ -309,8 +310,7 @@ class AbstractBoundingBoxFrontEnd {
       }
       added_pending_object_indices.emplace_back(pending_obj_id);
     }
-
-    LOG(INFO) << "Remove added objects candidates";
+    LOG(INFO) << "Remove added objects from pending list";
     // Sort the objects that just have been added to the pose graph in
     // descending order and delete them from the uninitialized objects list
     // Descending order needed so the indices to delete don't change as
@@ -325,6 +325,8 @@ class AbstractBoundingBoxFrontEnd {
     }
 
     cleanupBbAssociationRound(frame_id, camera_id);
+    LOG(INFO) << "Done with bounding box data association for frame "
+              << frame_id << " and camera " << camera_id;
   }
 
   /**
@@ -414,6 +416,10 @@ class AbstractBoundingBoxFrontEnd {
   virtual void cleanupBbAssociationRound(
       const vslam_types_refactor::FrameId &frame_id,
       const vslam_types_refactor::CameraId &camera_id) = 0;
+
+  virtual void setupInitialEstimateGeneration(
+      const std::vector<AssociatedObjectIdentifier>
+          &bounding_box_assignments) = 0;
 
   virtual ObjectInitializationStatus tryInitializeEllipsoid(
       const RefinedBoundingBoxContextInfo &refined_bb_context,
@@ -536,7 +542,7 @@ class KnownAssociationsOptionalEllipsoidEstBoundingBoxFrontEnd
   virtual void updateAppearanceInfoWithObjectIdAssignmentAndInitialization(
       const ObjectId &obj_id,
       const EllipsoidState<double> &est,
-      KnownAssociationObjAssociationInfo &info_to_update) {
+      KnownAssociationObjAssociationInfo &info_to_update) override {
     info_to_update.pg_obj_id_ = obj_id;
     input_to_pg_object_id_map_[info_to_update.input_obj_id_] = obj_id;
     pg_to_input_object_id_map_[obj_id] = info_to_update.input_obj_id_;
@@ -670,6 +676,10 @@ class KnownAssociationsOptionalEllipsoidEstBoundingBoxFrontEnd
     curr_frame_input_obj_id_to_uninit_index_.clear();
     curr_frame_uninit_index_to_input_obj_id_.clear();
   }
+
+  virtual void setupInitialEstimateGeneration(
+      const std::vector<AssociatedObjectIdentifier> &bounding_box_assignments)
+      override {}
 
   virtual ObjectInitializationStatus tryInitializeEllipsoid(
       const RefinedBoundingBoxContextInfo &refined_bb_context,
@@ -817,7 +827,7 @@ class AbstractUnknownDataAssociationBbFrontEnd
           candidates =
               identifyCandidateMatches(frame_id, camera_id, bb, bb_context);
 
-      LOG(INFO) << "Prune candidates based on geometry";
+      LOG(INFO) << "Prune candidates";
       // For each bounding box, prune candidates using geometric checks
       candidates = pruneCandidateMatches(
           frame_id, camera_id, bb, candidates, bb_context);
@@ -888,6 +898,10 @@ class AbstractUnknownDataAssociationBbFrontEnd
   virtual void cleanupBbAssociationRound(
       const vslam_types_refactor::FrameId &frame_id,
       const vslam_types_refactor::CameraId &camera_id) = 0;
+
+  virtual void setupInitialEstimateGeneration(
+      const std::vector<AssociatedObjectIdentifier>
+          &bounding_box_assignments) = 0;
 
   virtual ObjectInitializationStatus tryInitializeEllipsoid(
       const RefinedBoundingBoxContextInfo &refined_bb_context,

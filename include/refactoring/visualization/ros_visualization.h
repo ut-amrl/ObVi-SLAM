@@ -131,7 +131,7 @@ class RosVisualization {
       const bool &different_colors_per_class = true) {
     std::string topic =
         createTopicForPlotTypeAndBase(plot_type, kEllipsoidTopicSuffix);
-    LOG(INFO) << "Publishing ellipsoid for plot type " << topic;
+    LOG(INFO) << "Publishing ellipsoids for plot type " << topic;
     visualizeEllipsoids(ellipsoid_estimates,
                         topic,
                         color_for_plot_type_.at(plot_type),

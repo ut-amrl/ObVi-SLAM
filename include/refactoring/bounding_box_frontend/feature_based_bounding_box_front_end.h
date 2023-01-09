@@ -7,6 +7,7 @@
 
 #include <refactoring/bounding_box_frontend/bounding_box_front_end.h>
 #include <refactoring/bounding_box_frontend/bounding_box_front_end_helpers.h>
+#include <refactoring/bounding_box_frontend/pending_object_estimator.h>
 #include <refactoring/types/ellipsoid_utils.h>
 
 namespace vslam_types_refactor {
@@ -34,23 +35,25 @@ struct FeatureBasedBbCandidateMatchInfo {
       feature_overlap_count_per_obs_;
 };
 
-const int kNoBbDiscardingConst = INT_MAX;
+const int kNoBbDiscardingConst = INT_MIN;
 
 struct FeatureBasedBbAssociationParams {
   double max_distance_for_associated_ellipsoids_;
 
   // TODO tune/override in calling function
-  uint16_t min_observations_for_local_est_ = 5;
-  uint16_t min_observations_ = 1;
+  uint16_t min_observations_for_local_est_ = 3;
+  uint16_t min_observations_ = 10;
   FrameId discard_candidate_after_num_frames_ = kNoBbDiscardingConst;
   double min_bb_confidence_ = 0.3;
   double required_min_conf_for_initialization = 0;
   double min_overlapping_features_for_match_ =
-      3;  // TODO should this be ratio or absolute quantity? Going with absolute
+      2;  // TODO should this be ratio or absolute quantity? Going with absolute
           // quantity for now
   // When we're looking to match bounding boxes to pending or full objects
   // we should consider feature matches at most this many frames ago
   FrameId feature_validity_window_ = INT_MAX;
+
+  PendingObjectEstimatorParams pending_obj_estimator_params_;
 };
 
 template <typename VisualFeatureFactorType>
@@ -100,9 +103,9 @@ class FeatureBasedBoundingBoxFrontEnd
             FeatureBasedSingleBbContextInfo,
             util::EmptyStruct,
             FeatureBasedBbCandidateMatchInfo>(pose_graph),
+        association_params_(association_params),
         covariance_generator_(covariance_generator),
         geometric_similarity_scorer_(geometric_similarity_scorer),
-        association_params_(association_params),
         all_filtered_corner_locations_(all_filtered_corner_locations),
         observed_corner_locations_(observed_corner_locations) {}
 
@@ -113,7 +116,7 @@ class FeatureBasedBoundingBoxFrontEnd
  protected:
   virtual void updateAppearanceInfoWithObjectIdAssignmentAndInitialization(
       const ObjectId &obj_id,
-      const EllipsoidEstimateNode &est,
+      const EllipsoidState<double> &est,
       FeatureBasedFrontEndObjAssociationInfo &info_to_update) override {
   }  // I don't think we need anything here but not sure
 
@@ -150,6 +153,7 @@ class FeatureBasedBoundingBoxFrontEnd
       }
     }
     single_bb_info.detection_confidence_ = bb.detection_confidence_;
+    return single_bb_info;
   }
 
   virtual UninitializedEllispoidInfo<FeatureBasedFrontEndObjAssociationInfo>
@@ -168,6 +172,8 @@ class FeatureBasedBoundingBoxFrontEnd
         single_bb_context_info.features_in_bb_;
     uninitalized_info.appearance_info_.max_confidence_ =
         single_bb_context_info.detection_confidence_;
+    uninitalized_info.max_frame_id_ = frame_id;
+    uninitalized_info.min_frame_id_ = frame_id;
     EllipsoidState<double> ellipsoid_est;
     if (generateSingleViewEllipsoidEstimate(
             FeatureBasedBoundingBoxFrontEnd::pose_graph_,
@@ -186,6 +192,7 @@ class FeatureBasedBoundingBoxFrontEnd
           &association_info_to_merge_in,
       FeatureBasedFrontEndObjAssociationInfo &association_info_to_update)
       override {
+    LOG(INFO) << "Merging association info objects";
     association_info_to_update.max_confidence_ =
         std::max(association_info_to_update.max_confidence_,
                  association_info_to_merge_in.max_confidence_);
@@ -229,13 +236,13 @@ class FeatureBasedBoundingBoxFrontEnd
     association_info_to_update.observed_feats_[frame_id][camera_id] =
         single_bb_context_info.features_in_bb_;
     if (!association_info_to_update.object_estimate_.has_value()) {
-      vslam_types_refactor::EllipsoidState<double> ellipsoid_est;
+      EllipsoidState<double> ellipsoid_est;
       if (generateSingleViewEllipsoidEstimate(
-              FeatureBasedBoundingBoxFrontEnd::pose_graph,
+              FeatureBasedBoundingBoxFrontEnd::pose_graph_,
               frame_id,
               camera_id,
               raw_bb.semantic_class_,
-              raw_bb.pixel_corner_locations_,
+              cornerLocationsPairToVector(raw_bb.pixel_corner_locations_),
               ellipsoid_est)) {
         association_info_to_update.object_estimate_ = ellipsoid_est;
       }
@@ -265,9 +272,9 @@ class FeatureBasedBoundingBoxFrontEnd
          uninitialized_obj_idx <
          FeatureBasedBoundingBoxFrontEnd::uninitialized_object_info_.size();
          uninitialized_obj_idx++) {
-      UninitializedEllispoidInfo<RoshanAggregateBbInfo> uninitialized_obj =
-          FeatureBasedBoundingBoxFrontEnd::uninitialized_object_info_
-              [uninitialized_obj_idx];
+      UninitializedEllispoidInfo<FeatureBasedFrontEndObjAssociationInfo>
+          uninitialized_obj = FeatureBasedBoundingBoxFrontEnd::
+              uninitialized_object_info_[uninitialized_obj_idx];
       if (uninitialized_obj.semantic_class_ == bounding_box.semantic_class_) {
         AssociatedObjectIdentifier assoc_obj;
         assoc_obj.initialized_ellipsoid_ = false;
@@ -301,6 +308,9 @@ class FeatureBasedBoundingBoxFrontEnd
           &candidate_matches,
       const FeatureBasedSingleBbContextInfo &bb_context) override {
     if (candidate_matches.empty()) {
+      LOG(WARNING) << "No candidate matches. This is to be expected for the "
+                      "first occurrence of the object for a given semantic "
+                      "class, but otherwise could indicate a problem.";
       return {};
     }
     std::vector<
@@ -328,7 +338,7 @@ class FeatureBasedBoundingBoxFrontEnd
                 .observed_feats_;
       } else {
         if (FeatureBasedBoundingBoxFrontEnd::uninitialized_object_info_
-                .size() >= candidate.first.object_id_) {
+                .size() <= candidate.first.object_id_) {
           LOG(WARNING) << "Invalid identifier " << candidate.first.object_id_
                        << " for pending object";
           continue;
@@ -348,7 +358,7 @@ class FeatureBasedBoundingBoxFrontEnd
             candidate_copy = candidate;
         candidate_copy.second.feature_overlap_count_per_obs_ =
             feature_overlap_count_per_obs;
-        pruned_candidates.emplace_back(candidate);
+        pruned_candidates.emplace_back(candidate_copy);
       }
     }
     return pruned_candidates;
@@ -380,7 +390,7 @@ class FeatureBasedBoundingBoxFrontEnd
               .at(candidate.first.object_id_)
               .observed_feats_;
     } else {
-      if (FeatureBasedBoundingBoxFrontEnd::uninitialized_object_info_.size() >=
+      if (FeatureBasedBoundingBoxFrontEnd::uninitialized_object_info_.size() <=
           candidate.first.object_id_) {
         LOG(WARNING) << "Invalid identifier " << candidate.first.object_id_
                      << " for pending object";
@@ -445,8 +455,6 @@ class FeatureBasedBoundingBoxFrontEnd
         UninitializedEllispoidInfo<FeatureBasedFrontEndObjAssociationInfo>>
         uninitialized_object_info_to_keep;
     if (association_params_.discard_candidate_after_num_frames_ > 0) {
-      std::vector<UninitializedEllispoidInfo<RoshanAggregateBbInfo>>
-          uninitialized_object_info_to_keep;
       removeStalePendingObjects(
           FeatureBasedBoundingBoxFrontEnd::uninitialized_object_info_,
           frame_id,
@@ -458,21 +466,21 @@ class FeatureBasedBoundingBoxFrontEnd
 
     for (UninitializedEllispoidInfo<FeatureBasedFrontEndObjAssociationInfo>
              &uninitialized_info : uninitialized_object_info_to_keep) {
-      LOG(INFO) << "Num frames with features "
-                << uninitialized_info.appearance_info_.observed_feats_.size();
-      for (const auto &frame_id_and_obs :
-           uninitialized_info.appearance_info_.observed_feats_) {
+      std::unordered_map<
+          FrameId,
+          std::unordered_map<CameraId, std::unordered_set<FeatureId>>>
+          observed_feats_copy =
+              uninitialized_info.appearance_info_.observed_feats_;
+      for (const auto &frame_id_and_obs : observed_feats_copy) {
         if ((frame_id_and_obs.first +
              association_params_.feature_validity_window_) < frame_id) {
           uninitialized_info.appearance_info_.observed_feats_.erase(
               frame_id_and_obs.first);
-          LOG(INFO) << "Removing stale features ";
+
           // TODO very that this modifies the copy stored in uninitialized
           // object info to keep
         }
       }
-      LOG(INFO) << "After pruning: Num frames with features "
-                << uninitialized_info.appearance_info_.observed_feats_.size();
     }
 
     FeatureBasedBoundingBoxFrontEnd::uninitialized_object_info_ =
@@ -485,19 +493,18 @@ class FeatureBasedBoundingBoxFrontEnd
          FeatureBasedBoundingBoxFrontEnd::object_appearance_info_) {
       FeatureBasedFrontEndObjAssociationInfo association_info =
           obj_id_and_appearance.second;
-      LOG(INFO) << "Num frames with features "
-                << association_info.observed_feats_.size();
-      for (const auto &frame_id_and_obs : association_info.observed_feats_) {
+      std::unordered_map<
+          FrameId,
+          std::unordered_map<CameraId, std::unordered_set<FeatureId>>>
+          observed_feats_copy = association_info.observed_feats_;
+      for (const auto &frame_id_and_obs : observed_feats_copy) {
         if ((frame_id_and_obs.first +
              association_params_.feature_validity_window_) < frame_id) {
           association_info.observed_feats_.erase(frame_id_and_obs.first);
-          LOG(INFO) << "Removing stale features ";
           // TODO very that this modifies the copy stored in uninitialized
           // object info to keep
         }
       }
-      LOG(INFO) << "After pruning: Num frames with features "
-                << association_info.observed_feats_.size();
       updated_object_appearance_info[obj_id_and_appearance.first] =
           association_info;
     }
@@ -505,8 +512,51 @@ class FeatureBasedBoundingBoxFrontEnd
         updated_object_appearance_info;
   }
 
+  virtual void setupInitialEstimateGeneration(
+      const std::vector<AssociatedObjectIdentifier> &bounding_box_assignments)
+      override {
+    std::unordered_map<ObjectId, EllipsoidState<double>>
+        rough_initial_estimates;
+    std::unordered_map<
+        ObjectId,
+        UninitializedEllispoidInfo<FeatureBasedFrontEndObjAssociationInfo>>
+        uninitialized_obj_info_for_pending_objs;
+    for (const AssociatedObjectIdentifier &association :
+         bounding_box_assignments) {
+      if (association.initialized_ellipsoid_) {
+        continue;
+      }
+      if (association.object_id_ >=
+          FeatureBasedBoundingBoxFrontEnd::uninitialized_object_info_.size()) {
+        LOG(ERROR) << "No pending object for id " << association.object_id_;
+        exit(1);
+      }
+      UninitializedEllispoidInfo<FeatureBasedFrontEndObjAssociationInfo>
+          association_info = FeatureBasedBoundingBoxFrontEnd::
+              uninitialized_object_info_[association.object_id_];
+      if (association_info.appearance_info_.object_estimate_.has_value()) {
+        rough_initial_estimates[association.object_id_] =
+            association_info.appearance_info_.object_estimate_.value();
+        uninitialized_obj_info_for_pending_objs[association.object_id_] =
+            association_info;
+      }
+    }
+    std::unordered_map<ObjectId, EllipsoidState<double>>
+        refined_initial_estimates = refineInitialEstimateForPendingObjects(
+            rough_initial_estimates,
+            uninitialized_obj_info_for_pending_objs,
+            FeatureBasedBoundingBoxFrontEnd::pose_graph_,
+            association_params_.pending_obj_estimator_params_);
+    for (const auto &pending_obj_initial_est : refined_initial_estimates) {
+      FeatureBasedBoundingBoxFrontEnd::uninitialized_object_info_
+          [pending_obj_initial_est.first]
+              .appearance_info_.object_estimate_ =
+          pending_obj_initial_est.second;
+    }
+  }
+
   virtual ObjectInitializationStatus tryInitializeEllipsoid(
-      const util::EmptyStruct &refined_bb_context,
+      const FeatureBasedContextInfo &refined_bb_context,
       const FeatureBasedFrontEndObjAssociationInfo &association_info,
       const std::vector<UninitializedObjectFactor> &factors,
       const std::string &semantic_class,
@@ -522,10 +572,12 @@ class FeatureBasedBoundingBoxFrontEnd
         association_info.max_confidence_) {
       return NOT_INITIALIZED;
     }
-    // TODO fill in
-    // TODO generate initial estimate (Is this where we should do this?)
-    //
 
+    if (!association_info.object_estimate_.has_value()) {
+      LOG(WARNING) << "No initial value for otherwise possible new ellipsoid";
+      return NOT_INITIALIZED;
+    }
+    ellipsoid_est = association_info.object_estimate_.value();
     if (factors.size() < association_params_.min_observations_) {
       return ENOUGH_VIEWS_FOR_MERGE;
     } else {
@@ -712,7 +764,115 @@ class FeatureBasedBoundingBoxFrontEnd
         max_common_feats = std::max(max_common_feats, common_feats);
       }
     }
+    return max_common_feats;
   }
+};
+
+template <typename VisualFeatureFactorType>
+class FeatureBasedBoundingBoxFrontEndCreator {
+ public:
+  FeatureBasedBoundingBoxFrontEndCreator(
+      const FeatureBasedBbAssociationParams &association_params,
+      const std::function<Covariance<double, 4>(
+          const RawBoundingBox &,
+          const FrameId &,
+          const CameraId &,
+          const FeatureBasedContextInfo &)> &covariance_generator,
+      const std::function<bool(const EllipsoidState<double> &,
+                               const EllipsoidState<double> &,
+                               double &)>
+          &geometric_similarity_scorer,  // Consider adding uncertainty in here?
+      const std::shared_ptr<std::unordered_map<
+          FrameId,
+          std::unordered_map<CameraId,
+                             std::vector<std::pair<BbCornerPair<double>,
+                                                   std::optional<double>>>>>>
+          &all_filtered_corner_locations,
+      const std::shared_ptr<std::unordered_map<
+          FrameId,
+          std::unordered_map<
+              CameraId,
+              std::unordered_map<
+                  ObjectId,
+                  std::pair<BbCornerPair<double>, std::optional<double>>>>>>
+          &observed_corner_locations)
+      : association_params_(association_params),
+        covariance_generator_(covariance_generator),
+        geometric_similarity_scorer_(geometric_similarity_scorer),
+        all_filtered_corner_locations_(all_filtered_corner_locations),
+        observed_corner_locations_(observed_corner_locations),
+        initialized_(false) {}
+
+  std::shared_ptr<AbstractUnknownDataAssociationBbFrontEnd<
+      VisualFeatureFactorType,
+      FeatureBasedFrontEndObjAssociationInfo,
+      FeatureBasedContextInfo,
+      FeatureBasedContextInfo,
+      FeatureBasedSingleBbContextInfo,
+      util::EmptyStruct,
+      FeatureBasedBbCandidateMatchInfo>>
+  getDataAssociator(const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph>
+                        &pose_graph) {
+    if (!initialized_) {
+      feature_based_front_end_ = std::make_shared<
+          FeatureBasedBoundingBoxFrontEnd<VisualFeatureFactorType>>(
+          pose_graph,
+          association_params_,
+          covariance_generator_,
+          geometric_similarity_scorer_,  // Consider adding uncertainty in here?
+          all_filtered_corner_locations_,
+          observed_corner_locations_);
+      initialized_ = true;
+    }
+    return feature_based_front_end_;
+  }
+
+ private:
+  FeatureBasedBbAssociationParams association_params_;
+
+  std::function<Covariance<double, 4>(const RawBoundingBox &,
+                                      const FrameId &,
+                                      const CameraId &,
+                                      const FeatureBasedContextInfo &)>
+      covariance_generator_;
+
+  // Scores returned should have higher scores for better matches and lower
+  // scores for worse
+  std::function<bool(
+      const EllipsoidState<double> &, const EllipsoidState<double> &, double &)>
+      geometric_similarity_scorer_;
+
+  std::shared_ptr<std::unordered_map<
+      FrameId,
+      std::unordered_map<
+          CameraId,
+          std::vector<std::pair<BbCornerPair<double>, std::optional<double>>>>>>
+      all_filtered_corner_locations_;
+
+  /**
+   * Observed corner locations that have been associated to an object stored by
+   * frame then camera, then object id.
+   *
+   * Optional double is the uncertainty of the bounding box.
+   */
+  std::shared_ptr<std::unordered_map<
+      FrameId,
+      std::unordered_map<CameraId,
+                         std::unordered_map<ObjectId,
+                                            std::pair<BbCornerPair<double>,
+                                                      std::optional<double>>>>>>
+      observed_corner_locations_;
+
+  bool initialized_;
+  std::shared_ptr<AbstractUnknownDataAssociationBbFrontEnd<
+      VisualFeatureFactorType,
+      FeatureBasedFrontEndObjAssociationInfo,
+      FeatureBasedContextInfo,
+      FeatureBasedContextInfo,
+      FeatureBasedSingleBbContextInfo,
+      util::EmptyStruct,
+      FeatureBasedBbCandidateMatchInfo>>
+      feature_based_front_end_;
 };
 
 }  // namespace vslam_types_refactor

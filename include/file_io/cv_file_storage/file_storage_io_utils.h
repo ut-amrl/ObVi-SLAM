@@ -5,6 +5,8 @@
 #ifndef UT_VSLAM_FILE_STORAGE_IO_UTILS_H
 #define UT_VSLAM_FILE_STORAGE_IO_UTILS_H
 
+#include <base_lib/basic_utils.h>
+
 #include <opencv2/core.hpp>
 
 namespace vslam_types_refactor {
@@ -128,11 +130,13 @@ class SerializablePair : public FileStorageSerializable<
     SerializableSecondEntryType serializable_second;
     node[kFirstEntryLabel] >> serializable_first;
     node[kSecondEntryLabel] >> serializable_second;
-    data_ = std::make_pair(serializable_first.getEntry(), serializable_second.getEntry());
+    data_ = std::make_pair(serializable_first.getEntry(),
+                           serializable_second.getEntry());
   }
 
  protected:
-  using FileStorageSerializable<std::pair<FirstEntryType, SecondEntryType>>::data_;
+  using FileStorageSerializable<
+      std::pair<FirstEntryType, SecondEntryType>>::data_;
 
  private:
   inline static const std::string kFirstEntryLabel = "first";
@@ -218,6 +222,40 @@ static void read(
     SerializableVector<EntryType, SerializableEntryType> &data,
     const SerializableVector<EntryType, SerializableEntryType> &default_data =
         SerializableVector<EntryType, SerializableEntryType>()) {
+  if (node.empty()) {
+    data = default_data;
+  } else {
+    data.read(node);
+  }
+}
+
+class SerializableEmptyStruct
+    : public FileStorageSerializable<util::EmptyStruct> {
+ public:
+  SerializableEmptyStruct() : FileStorageSerializable<util::EmptyStruct>() {}
+  SerializableEmptyStruct(const util::EmptyStruct &data)
+      : FileStorageSerializable<util::EmptyStruct>(data) {}
+
+  virtual void write(cv::FileStorage &fs) const override {
+    fs << "{";
+    fs << "}";
+  }
+
+  virtual void read(const cv::FileNode &node) override {
+    // TODO verify that read inherently does take care of the {} left on write
+  }
+};
+
+static void write(cv::FileStorage &fs,
+                  const std::string &,
+                  const SerializableEmptyStruct &data) {
+  data.write(fs);
+}
+
+static void read(
+    const cv::FileNode &node,
+    SerializableEmptyStruct &data,
+    const SerializableEmptyStruct &default_data = SerializableEmptyStruct()) {
   if (node.empty()) {
     data = default_data;
   } else {
