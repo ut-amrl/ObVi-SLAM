@@ -13,7 +13,8 @@ BoundingBoxFactor::BoundingBoxFactor(
       sqrt_inf_mat_bounding_box_corners_(
           corner_detections_covariance.inverse().sqrt()),
       camera_intrinsics_mat_(intrinsics.camera_mat),
-      robot_to_cam_tf_((Eigen::Translation3f(extrinsics.translation) *
-                       extrinsics.rotation).inverse()) {}
+      robot_to_cam_tf_(
+          (Eigen::Translation3f(extrinsics.translation) * extrinsics.rotation)
+              .inverse()) {}
 
 }  // namespace vslam_solver

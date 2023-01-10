@@ -222,18 +222,20 @@ filterByVisibility(
     const std::pair<std::vector<vslam_types::ObjectImageBoundingBoxDetection>,
                     std::vector<vslam_types::ObjectImageBoundingBoxDetection>>
         &gt_and_noisy_bounding_boxes_unfiltered) {
-
   // TODO
   // Group detections by camera id and robot pose
   // For each camera id and robot (camera pose)
   //    Determine what the foreground order of the ellipsoids is
   //    Order the unfiltered bounding boxes by foreground order
   //    For each gt and noisy bounding box
-  //        Find the pixels that make up the union of the unfiltered bounding boxes in the foreground
-  //        Find the intersection of these pixels and those in the gt bounding box
-  //        If this intersection is greater than the specified percentage of the total gt bounding box, exclude the gt and noisy bounding boxes
+  //        Find the pixels that make up the union of the unfiltered bounding
+  //        boxes in the foreground Find the intersection of these pixels and
+  //        those in the gt bounding box If this intersection is greater than
+  //        the specified percentage of the total gt bounding box, exclude the
+  //        gt and noisy bounding boxes
 
-  // TODO to simulate occulsions, we'd find the min/max of the unocculated pixels (gt bounding box - noted intersection)
+  // TODO to simulate occulsions, we'd find the min/max of the unocculated
+  // pixels (gt bounding box - noted intersection)
 
   return gt_and_noisy_bounding_boxes_unfiltered;
 }

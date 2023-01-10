@@ -1,5 +1,7 @@
 #include <gflags/gflags.h>
 #include <glog/logging.h>
+#include <vslam_noise_util.h>
+#include <vslam_types_math_util.h>
 
 #include <iostream>
 
@@ -9,8 +11,6 @@
 #include "vslam_io.h"
 #include "vslam_math_util.h"
 #include "vslam_types.h"
-#include <vslam_noise_util.h>
-#include <vslam_types_math_util.h>
 
 DEFINE_string(dataset_path,
               "",
@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
 
   if (FLAGS_save_poses) {
     vslam_io::SaveKITTIPoses(FLAGS_output_path + "start.txt",
-                               adjusted_to_zero_answer);
+                             adjusted_to_zero_answer);
   }
 
   Eigen::Vector3d feature_sigma_linear(0.0, 0.0, 0.0);
@@ -137,7 +137,7 @@ int main(int argc, char **argv) {
 
   if (FLAGS_save_poses) {
     vslam_io::SaveKITTIPoses(FLAGS_output_path + "answer.txt",
-                               adjusted_to_zero_answer);
+                             adjusted_to_zero_answer);
   }
 
   return 0;

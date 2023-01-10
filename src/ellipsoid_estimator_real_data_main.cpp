@@ -194,9 +194,9 @@ int main(int argc, char **argv) {
       LOG(ERROR) << "No robot pose for node num " << node_num;
       exit(1);
     }
-//    if (node_num >= 5) {
-//      break;
-//    }
+    //    if (node_num >= 5) {
+    //      break;
+    //    }
     robot_poses.emplace_back(robot_poses_by_node_num[node_num]);
   }
 
@@ -349,7 +349,8 @@ int main(int argc, char **argv) {
   LOG(INFO) << "Done with problem setup";
 
   for (const auto &intrinsics_for_cam : intrinsics) {
-    LOG(INFO) << "Intrinsics for " << intrinsics_for_cam.first << ": " << intrinsics_for_cam.second.camera_mat;
+    LOG(INFO) << "Intrinsics for " << intrinsics_for_cam.first << ": "
+              << intrinsics_for_cam.second.camera_mat;
   }
 
   std_msgs::ColorRGBA initial_ellipsoid_color;

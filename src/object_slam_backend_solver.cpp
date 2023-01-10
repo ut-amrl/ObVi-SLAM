@@ -104,7 +104,9 @@ void AddEllipsoidFactors(
        slam_problem.bounding_boxes) {
     LOG(INFO) << "Frame id " << bounding_box.frame_idx;
     if (bounding_box.frame_idx >= robot_pose_nodes.size()) {
-      LOG(WARNING) << "Skipping bounding box observation because the frame number did not match a robot pose " << bounding_box.frame_idx;
+      LOG(WARNING) << "Skipping bounding box observation because the frame "
+                      "number did not match a robot pose "
+                   << bounding_box.frame_idx;
       continue;
     }
 

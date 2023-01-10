@@ -27,7 +27,6 @@ void writeRoshanFrontEndEntryToFile(
       file_stream);
   for (const vslam_types_refactor::RoshanBbInfo &indiv_entry :
        roshan_front_end_entry.second.infos_for_observed_bbs_) {
-
 #ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
     vslam_types_refactor::Pose3DYawOnly<double> ellipsoid_pose =
         indiv_entry.single_bb_init_est_.pose_;
@@ -155,7 +154,8 @@ bool readRoshanFrontEndDataFromFile(
 #ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
               vslam_types_refactor::Pose3DYawOnly<double>(
                   vslam_types_refactor::Position3d<double>(
-                      transl_x, transl_y, transl_z), yaw),
+                      transl_x, transl_y, transl_z),
+                  yaw),
 #else
               vslam_types_refactor::Pose3D<double>(
                   vslam_types_refactor::Position3d<double>(
@@ -247,7 +247,8 @@ bool readEllipsoidResultEntryFromFile(
 #ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
               vslam_types_refactor::Pose3DYawOnly<double>(
                   vslam_types_refactor::Position3d<double>(
-                      transl_x, transl_y, transl_z), yaw),
+                      transl_x, transl_y, transl_z),
+                  yaw),
 #else
               vslam_types_refactor::Pose3D<double>(
                   vslam_types_refactor::Position3d<double>(
@@ -509,13 +510,12 @@ bool readPairwiseEllipsoidCovarianceEntryFromFile(
 
 #ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
   Eigen::Matrix<double, 7, 7> cov;
-  cov << cov_00, cov_01, cov_02, cov_03, cov_04, cov_05, cov_06,
-      cov_10, cov_11, cov_12, cov_13, cov_14, cov_15, cov_16,
-      cov_20, cov_21, cov_22, cov_23, cov_24, cov_25, cov_26,
-      cov_30, cov_31, cov_32, cov_33, cov_34, cov_35, cov_36,
-      cov_40, cov_41, cov_42, cov_43, cov_44, cov_45, cov_46,
-      cov_50, cov_51, cov_52, cov_53, cov_54, cov_55, cov_56,
-      cov_60, cov_61, cov_62, cov_63, cov_64, cov_65, cov_66;
+  cov << cov_00, cov_01, cov_02, cov_03, cov_04, cov_05, cov_06, cov_10, cov_11,
+      cov_12, cov_13, cov_14, cov_15, cov_16, cov_20, cov_21, cov_22, cov_23,
+      cov_24, cov_25, cov_26, cov_30, cov_31, cov_32, cov_33, cov_34, cov_35,
+      cov_36, cov_40, cov_41, cov_42, cov_43, cov_44, cov_45, cov_46, cov_50,
+      cov_51, cov_52, cov_53, cov_54, cov_55, cov_56, cov_60, cov_61, cov_62,
+      cov_63, cov_64, cov_65, cov_66;
 #else
   Eigen::Matrix<double, 9, 9> cov;
   cov << cov_00, cov_01, cov_02, cov_03, cov_04, cov_05, cov_06, cov_07, cov_08,

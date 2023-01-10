@@ -94,7 +94,7 @@ refineInitialEstimateForPendingObjects(
   // TODO configure options
 
   options.max_num_iterations =
-//      estimator_params.solver_params_.max_num_iterations_;
+      //      estimator_params.solver_params_.max_num_iterations_;
       500;
   options.num_threads = 10;
   options.linear_solver_type = ceres::DENSE_SCHUR;

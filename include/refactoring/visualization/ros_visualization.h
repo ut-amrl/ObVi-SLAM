@@ -1268,8 +1268,8 @@ class RosVisualization {
     marker.pose.position.z = ellipsoid.pose_.transl_.z();
 
 #ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
-    Eigen::Quaterniond ellipsoid_quat(Eigen::AngleAxisd(
-        ellipsoid.pose_.yaw_, Eigen::Vector3d::UnitZ()));
+    Eigen::Quaterniond ellipsoid_quat(
+        Eigen::AngleAxisd(ellipsoid.pose_.yaw_, Eigen::Vector3d::UnitZ()));
 #else
     Eigen::Quaterniond ellipsoid_quat(ellipsoid.pose_.orientation_);
 #endif

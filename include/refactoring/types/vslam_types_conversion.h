@@ -104,13 +104,14 @@ Pose3D<NumType> convertToPose3D(const RawPose3d<NumType> &raw_pose) {
 
 template <typename NumType>
 void convertToYawOnlyPose3D(const RawPose3dYawOnly<NumType> &raw_pose,
-                     Pose3DYawOnly<NumType> &pose) {
+                            Pose3DYawOnly<NumType> &pose) {
   extractPosition(raw_pose, pose.transl_);
   pose.yaw_ = raw_pose(3);
 }
 
 template <typename NumType>
-Pose3DYawOnly<NumType> convertToYawOnlyPose3D(const RawPose3dYawOnly<NumType> &raw_pose) {
+Pose3DYawOnly<NumType> convertToYawOnlyPose3D(
+    const RawPose3dYawOnly<NumType> &raw_pose) {
   Pose3DYawOnly<NumType> pose;
   convertToYawOnlyPose3D(raw_pose, pose);
   return pose;

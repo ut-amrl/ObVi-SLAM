@@ -86,10 +86,10 @@ class BoundingBoxFactor {
 
     Eigen::Matrix<T, 4, 1> deviation =
         corner_results - corner_detections_.template cast<T>();
-//        LOG(INFO) << "Detection " << corner_detections_;
-//        LOG(INFO) << "Deviation " << deviation;
-//        LOG(INFO) << "Sqrt inf mat bounding box "
-//                  << sqrt_inf_mat_bounding_box_corners_;
+    //        LOG(INFO) << "Detection " << corner_detections_;
+    //        LOG(INFO) << "Deviation " << deviation;
+    //        LOG(INFO) << "Sqrt inf mat bounding box "
+    //                  << sqrt_inf_mat_bounding_box_corners_;
 
     Eigen::Map<Eigen::Matrix<T, 4, 1>> residuals(residuals_ptr);
     residuals =

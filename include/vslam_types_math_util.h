@@ -1,12 +1,11 @@
 #ifndef UT_VSLAM_SLAM_TYPES_MATH_UTIL_H
 #define UT_VSLAM_SLAM_TYPES_MATH_UTIL_H
 
+#include <glog/logging.h>
 #include <vslam_types.h>
 
-#include <vector>
-
-#include <glog/logging.h>
 #include <unsupported/Eigen/MatrixFunctions>
+#include <vector>
 
 namespace vslam_util {
 

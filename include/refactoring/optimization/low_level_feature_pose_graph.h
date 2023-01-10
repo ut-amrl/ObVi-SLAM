@@ -271,9 +271,7 @@ class LowLevelFeaturePoseGraph {
 
   virtual void getVisualFeatureEstimates(
       std::unordered_map<FeatureId, Position3d<double>>
-  &visual_feature_estimates) const {
-
-  }
+          &visual_feature_estimates) const {}
 
  protected:
   /**

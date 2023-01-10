@@ -107,7 +107,7 @@ bool getCornerLocationsVector(
     Eigen::Matrix<T, 4, 1> &corner_results) {
   Eigen::Transform<T, 3, Eigen::Affine> robot_to_world_current =
       PoseArrayToAffine(&(robot_pose[3]), &(robot_pose[0]));
-//    LOG(INFO) << "Robot pose " << robot_to_world_current.matrix();
+  //    LOG(INFO) << "Robot pose " << robot_to_world_current.matrix();
 
   // Robot to world defines the robot's pose in the world frame
   // Cam to robot defines the camera pose in the robot's frame
@@ -122,8 +122,8 @@ bool getCornerLocationsVector(
   Eigen::Matrix<T, 3, 3> g_mat =
       intrinsics * world_to_camera_compact.matrix() * ellipsoid_dual_rep *
       world_to_camera_compact.matrix().transpose() * intrinsics.transpose();
-//  LOG(INFO) << "G mat ";
-//  LOG(INFO) << g_mat;
+  //  LOG(INFO) << "G mat ";
+  //  LOG(INFO) << g_mat;
   T g1_1 = g_mat(0, 0);
   T g1_3 = g_mat(0, 2);
   T g2_2 = g_mat(1, 1);

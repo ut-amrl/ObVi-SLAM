@@ -115,12 +115,14 @@ std::unordered_map<vtr::FrameId, vtr::FrameId> getSparsifiedFrames(
     if ((relative_since_last_pose.first.norm() > kMaxPoseIncThresholdTransl) ||
         (Eigen::AngleAxisd(relative_since_last_pose.second).angle() >
          kMaxPoseIncThresholdRot)) {
-      old_frame_to_new_frame_mapping[next_candidate_pose.first] = next_new_frame_id;
+      old_frame_to_new_frame_mapping[next_candidate_pose.first] =
+          next_new_frame_id;
       next_new_frame_id++;
       last_added_pose = next_candidate_pose.second;
     }
   }
-  if (old_frame_to_new_frame_mapping.find(poses.back().first) == old_frame_to_new_frame_mapping.end()) {
+  if (old_frame_to_new_frame_mapping.find(poses.back().first) ==
+      old_frame_to_new_frame_mapping.end()) {
     old_frame_to_new_frame_mapping[poses.back().first] = next_new_frame_id;
   }
   return old_frame_to_new_frame_mapping;

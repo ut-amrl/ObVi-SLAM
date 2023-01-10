@@ -14,7 +14,6 @@ namespace vslam_types_refactor {
 using SerializableFrameId = SerializableUint64;
 using SerializableCameraId = SerializableUint64;
 
-
 template <typename NumType, int Rows, int Cols>
 class SerializableEigenMat
     : public FileStorageSerializable<Eigen::Matrix<NumType, Rows, Cols>> {
@@ -193,9 +192,11 @@ static void read(const cv::FileNode &node,
 }
 
 template <typename NumType>
-class SerializablePose3DYawOnly : public FileStorageSerializable<Pose3DYawOnly<NumType>> {
+class SerializablePose3DYawOnly
+    : public FileStorageSerializable<Pose3DYawOnly<NumType>> {
  public:
-  SerializablePose3DYawOnly() : FileStorageSerializable<Pose3DYawOnly<NumType>>() {}
+  SerializablePose3DYawOnly()
+      : FileStorageSerializable<Pose3DYawOnly<NumType>>() {}
   SerializablePose3DYawOnly(const Pose3DYawOnly<NumType> &data)
       : FileStorageSerializable<Pose3DYawOnly<NumType>>(data) {}
 
@@ -235,7 +236,7 @@ template <typename NumType>
 static void read(const cv::FileNode &node,
                  SerializablePose3DYawOnly<NumType> &data,
                  const SerializablePose3DYawOnly<NumType> &default_data =
-                 SerializablePose3DYawOnly<NumType>()) {
+                     SerializablePose3DYawOnly<NumType>()) {
   if (node.empty()) {
     data = default_data;
   } else {
@@ -245,14 +246,13 @@ static void read(const cv::FileNode &node,
 
 class SerializableFeatureId : public FileStorageSerializable<FeatureId> {
  public:
-  SerializableFeatureId()
-      : FileStorageSerializable<FeatureId>() {}
+  SerializableFeatureId() : FileStorageSerializable<FeatureId>() {}
   SerializableFeatureId(const FeatureId &data)
       : FileStorageSerializable<FeatureId>(data) {}
 
   virtual void write(cv::FileStorage &fs) const override {
     std::string feat_id_str = std::to_string(data_);
-    fs <<  feat_id_str;
+    fs << feat_id_str;
   }
 
   virtual void read(const cv::FileNode &node) override {
@@ -272,17 +272,16 @@ static void write(cv::FileStorage &fs,
   data.write(fs);
 }
 
-static void read(const cv::FileNode &node,
-                 SerializableFeatureId &data,
-                 const SerializableFeatureId &default_data =
-                 SerializableFeatureId()) {
+static void read(
+    const cv::FileNode &node,
+    SerializableFeatureId &data,
+    const SerializableFeatureId &default_data = SerializableFeatureId()) {
   if (node.empty()) {
     data = default_data;
   } else {
     data.read(node);
   }
 }
-
 
 }  // namespace vslam_types_refactor
 

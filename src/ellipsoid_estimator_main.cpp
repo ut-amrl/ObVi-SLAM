@@ -19,13 +19,12 @@ int main(int argc, char **argv) {
 
   std::unordered_map<std::string, std::pair<Eigen::Vector3f, Eigen::Vector3f>>
       shape_mean_and_std_devs_by_semantic_class;
-//  shape_mean_and_std_devs_by_semantic_class[car_semantic_class_str] =
-//      std::make_pair(Eigen::Vector3f(4.885, 1.84, 1.445),
-//                     Eigen::Vector3f(1.0, 0.6, 0.5));
+  //  shape_mean_and_std_devs_by_semantic_class[car_semantic_class_str] =
+  //      std::make_pair(Eigen::Vector3f(4.885, 1.84, 1.445),
+  //                     Eigen::Vector3f(1.0, 0.6, 0.5));
   shape_mean_and_std_devs_by_semantic_class[car_semantic_class_str] =
       std::make_pair(Eigen::Vector3f(4.885, 1.84, 1.445) / 2,
                      Eigen::Vector3f(1.0, 0.6, 0.5) / 2);
-
 
   std::string param_prefix = FLAGS_param_prefix;
   std::string node_prefix = FLAGS_param_prefix;

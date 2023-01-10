@@ -1,12 +1,12 @@
 #ifndef UT_VSLAM_SLAM_TYPE_CONVERSION_UTIL_H
 #define UT_VSLAM_SLAM_TYPE_CONVERSION_UTIL_H
 
+#include <glog/logging.h>
 #include <vslam_math_util.h>
-#include <vector>
+#include <vslam_types.h>
 
 #include <eigen3/Eigen/Dense>
-#include <vslam_types.h>
-#include <glog/logging.h>
+#include <vector>
 
 namespace vslam_util {
 
@@ -40,8 +40,8 @@ vslam_types::EllipsoidEstimate FromEllipsoidNode(
  *                                  each ellipsoid estimate.
  */
 void EllipsoidEstimatesToNodes(
-    const std::vector<vslam_types::EllipsoidEstimate> &ellipsoid_estimates,
-    std::vector<vslam_types::EllipsoidEstimateNode> &nodes);
+    const std::vector<vslam_types::EllipsoidEstimate>& ellipsoid_estimates,
+    std::vector<vslam_types::EllipsoidEstimateNode>& nodes);
 
 /**
  * Clear the updated estimates list and create new entries from the nodes.
@@ -52,8 +52,8 @@ void EllipsoidEstimatesToNodes(
  *                                  estimates.
  */
 void EllipsoidNodesToEllipsoidEstimates(
-    const std::vector<vslam_types::EllipsoidEstimateNode> &ellipsoid_nodes,
-    std::vector<vslam_types::EllipsoidEstimate> &updated_estimates);
+    const std::vector<vslam_types::EllipsoidEstimateNode>& ellipsoid_nodes,
+    std::vector<vslam_types::EllipsoidEstimate>& updated_estimates);
 
 /**
  * Create an SLAM node from a robot pose data structure.
@@ -99,7 +99,7 @@ void SLAMNodesToRobotPoses(const std::vector<vslam_types::SLAMNode>& slam_nodes,
 template <typename T>
 Eigen::Matrix<T, 4, 1> cornerLocationsPairToVector(
     const std::pair<Eigen::Matrix<T, 2, 1>, Eigen::Matrix<T, 2, 1>>&
-    corner_pair) {
+        corner_pair) {
   return Eigen::Matrix<T, 4, 1>(corner_pair.first.x(),
                                 corner_pair.second.x(),
                                 corner_pair.first.y(),

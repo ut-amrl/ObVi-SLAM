@@ -15,7 +15,6 @@ namespace vslam_types_refactor {
 // structure that contains both
 template <typename FrontEndObjMapData>
 class AbsLongTermObjectMap {
-
  public:
   /**
    * Set the ellipsoid results (contains ellipsoid state estimates).

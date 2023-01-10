@@ -78,7 +78,8 @@ DEFINE_string(low_level_feats_dir,
               "Directory that contains low level features");
 DEFINE_string(bb_associations_out_file,
               "",
-              "File to write ellipsoid results and associated bounding boxes to. Skipped if this param is not set");
+              "File to write ellipsoid results and associated bounding boxes "
+              "to. Skipped if this param is not set");
 
 std::string kCompressedImageSuffix = "compressed";
 
@@ -1059,7 +1060,7 @@ int main(int argc, char **argv) {
   //          return roshan_associator_creator.getDataAssociator(pg);
   //        };
   vtr::GeometricSimilarityScorerParams geometric_similiarity_scorer_params;
-//  geometric_similiarity_scorer_params.max_merge_distance_ = 2.5;
+  //  geometric_similiarity_scorer_params.max_merge_distance_ = 2.5;
   std::function<std::pair<bool, vtr::FeatureBasedContextInfo>(
       const vtr::FrameId &, const vtr::CameraId &, const MainProbData &)>
       bb_context_retriever = [&](const vtr::FrameId &frame_id,
@@ -1210,11 +1211,11 @@ int main(int argc, char **argv) {
                       front_end_map_data_extractor,
                       ltm_extractor_out);
                 };
-                vtr::extractLongTermObjectMapAndResults(
-                    pose_graph,
-                    optimization_factors_enabled_params,
-                    long_term_object_map_extractor,
-                    output_problem_data);
+        vtr::extractLongTermObjectMapAndResults(
+            pose_graph,
+            optimization_factors_enabled_params,
+            long_term_object_map_extractor,
+            output_problem_data);
       };
 
   std::function<std::vector<std::shared_ptr<ceres::IterationCallback>>(
@@ -1304,13 +1305,16 @@ int main(int argc, char **argv) {
   //            << output_results.ellipsoid_results_.ellipsoids_.size();
 
   if (!FLAGS_bb_associations_out_file.empty()) {
-
     cv::FileStorage bb_associations_out(FLAGS_bb_associations_out_file,
-                               cv::FileStorage::WRITE);
+                                        cv::FileStorage::WRITE);
     vtr::ObjectDataAssociationResults data_assoc_results;
-    data_assoc_results.ellipsoid_pose_results_ = output_results.ellipsoid_results_;
-    data_assoc_results.associated_bounding_boxes_ = *associated_observed_corner_locations;
-    bb_associations_out << "bounding_box_associations" << vtr::SerializableObjectDataAssociationResults(data_assoc_results);
+    data_assoc_results.ellipsoid_pose_results_ =
+        output_results.ellipsoid_results_;
+    data_assoc_results.associated_bounding_boxes_ =
+        *associated_observed_corner_locations;
+    bb_associations_out << "bounding_box_associations"
+                        << vtr::SerializableObjectDataAssociationResults(
+                               data_assoc_results);
     bb_associations_out.release();
   }
 

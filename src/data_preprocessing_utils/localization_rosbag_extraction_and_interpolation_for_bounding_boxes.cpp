@@ -52,8 +52,8 @@ const double kMaxPoseIncThresholdRot = 0.25;  // TODO?
 
 // const double kPoseEquivToleranceTransl = 0.2;
 // const double kPoseEquivToleranceRot = 0.2;
-//const double kPoseEquivToleranceTransl = 2e-3;
-//const double kPoseEquivToleranceRot = 2e-3;
+// const double kPoseEquivToleranceTransl = 2e-3;
+// const double kPoseEquivToleranceRot = 2e-3;
 const double kPoseEquivToleranceTransl = 0.1;
 const double kPoseEquivToleranceRot = 0.1;
 

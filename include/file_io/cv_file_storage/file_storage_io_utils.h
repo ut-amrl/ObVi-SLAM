@@ -267,13 +267,14 @@ template <typename EntryType, typename SerializableEntryType>
 class SerializableOptional
     : public FileStorageSerializable<std::optional<EntryType>> {
  public:
-  SerializableOptional() : FileStorageSerializable<std::optional<EntryType>>() {}
+  SerializableOptional()
+      : FileStorageSerializable<std::optional<EntryType>>() {}
   SerializableOptional(const std::optional<EntryType> &data)
       : FileStorageSerializable<std::optional<EntryType>>(data) {}
 
   virtual void write(cv::FileStorage &fs) const override {
     fs << "{";
-    if(data_.has_value()) {
+    if (data_.has_value()) {
       fs << kHasValueLabel << 1;
       fs << kValueLabel << SerializableEntryType(data_.value());
     } else {
@@ -291,17 +292,19 @@ class SerializableOptional
     } else if (hasValue == 0) {
       data_ = std::nullopt;
     } else {
-      LOG(ERROR) << "Entry for " << kHasValueLabel << " should have either been 0 or 1 but was " << hasValue << ". Exiting";
+      LOG(ERROR) << "Entry for " << kHasValueLabel
+                 << " should have either been 0 or 1 but was " << hasValue
+                 << ". Exiting";
       exit(1);
     }
   }
 
  protected:
   using FileStorageSerializable<std::optional<EntryType>>::data_;
+
  private:
   inline static const std::string kHasValueLabel = "has_value";
   inline static const std::string kValueLabel = "value";
-
 };
 
 template <typename EntryType, typename SerializableEntryType>
@@ -316,7 +319,7 @@ static void read(
     const cv::FileNode &node,
     SerializableOptional<EntryType, SerializableEntryType> &data,
     const SerializableOptional<EntryType, SerializableEntryType> &default_data =
-    SerializableOptional<EntryType, SerializableEntryType>()) {
+        SerializableOptional<EntryType, SerializableEntryType>()) {
   if (node.empty()) {
     data = default_data;
   } else {
@@ -369,13 +372,9 @@ class SerializableDouble : public FileStorageSerializable<double> {
   SerializableDouble(const double &data)
       : FileStorageSerializable<double>(data) {}
 
-  virtual void write(cv::FileStorage &fs) const override {
-    fs << data_;
-  }
+  virtual void write(cv::FileStorage &fs) const override { fs << data_; }
 
-  virtual void read(const cv::FileNode &node) override {
-    node >> data_;
-  }
+  virtual void read(const cv::FileNode &node) override { node >> data_; }
 
  protected:
   using FileStorageSerializable<double>::data_;

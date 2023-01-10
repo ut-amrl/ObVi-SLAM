@@ -101,10 +101,9 @@ void getCornerLocationsVector(
     const Eigen::Transform<T, 3, Eigen::Affine> &robot_to_cam_tf,
     const Eigen::Matrix<T, 3, 3> &intrinsics,
     Eigen::Matrix<T, 4, 1> &corner_results) {
-
   Eigen::Transform<T, 3, Eigen::Affine> robot_to_world_current =
       PoseArrayToAffine(&(robot_pose[3]), &(robot_pose[0]));
-//  LOG(INFO) << "Robot pose " << robot_to_world_current.matrix();
+  //  LOG(INFO) << "Robot pose " << robot_to_world_current.matrix();
 
   // Robot to world defines the robot's pose in the world frame
   // Cam to robot defines the camera pose in the robot's frame
@@ -116,13 +115,13 @@ void getCornerLocationsVector(
   Eigen::Matrix<T, 4, 4> ellipsoid_dual_rep =
       vslam_util::createDualRepresentationForEllipsoid(ellipsoid);
 
-//  LOG(INFO) << "Ellipsoid dual rep " << ellipsoid_dual_rep;
+  //  LOG(INFO) << "Ellipsoid dual rep " << ellipsoid_dual_rep;
 
   Eigen::Matrix<T, 3, 3> g_mat =
       intrinsics * world_to_camera_compact.matrix() * ellipsoid_dual_rep *
       world_to_camera_compact.matrix().transpose() * intrinsics.transpose();
 
-//  LOG(INFO) << "G mat " << g_mat;
+  //  LOG(INFO) << "G mat " << g_mat;
   T g1_1 = g_mat(0, 0);
   T g1_3 = g_mat(0, 2);
   T g2_2 = g_mat(1, 1);
@@ -131,7 +130,8 @@ void getCornerLocationsVector(
   T x_sqrt_component = sqrt(pow(g1_3, 2) - (g1_1 * g3_3));
   T y_sqrt_component = sqrt(pow(g2_3, 2) - (g2_2 * g3_3));
 
-//  LOG(INFO) << "x/y sqrt components " << x_sqrt_component << "; " << y_sqrt_component;
+  //  LOG(INFO) << "x/y sqrt components " << x_sqrt_component << "; " <<
+  //  y_sqrt_component;
 
   // TODO Verify once we have real data that these are in the right order?
   //  is min and max actually the min and max?

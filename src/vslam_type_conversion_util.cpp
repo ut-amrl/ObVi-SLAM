@@ -30,18 +30,18 @@ vslam_types::EllipsoidEstimate FromEllipsoidNode(
 }
 
 void EllipsoidEstimatesToNodes(
-    const std::vector<vslam_types::EllipsoidEstimate> &ellipsoid_estimates,
-    std::vector<vslam_types::EllipsoidEstimateNode> &nodes) {
-  for (const vslam_types::EllipsoidEstimate &estimate : ellipsoid_estimates) {
+    const std::vector<vslam_types::EllipsoidEstimate>& ellipsoid_estimates,
+    std::vector<vslam_types::EllipsoidEstimateNode>& nodes) {
+  for (const vslam_types::EllipsoidEstimate& estimate : ellipsoid_estimates) {
     nodes.emplace_back(FromEllipsoidEstimate(estimate));
   }
 }
 
 void EllipsoidNodesToEllipsoidEstimates(
-    const std::vector<vslam_types::EllipsoidEstimateNode> &ellipsoid_nodes,
-    std::vector<vslam_types::EllipsoidEstimate> &updated_estimates) {
+    const std::vector<vslam_types::EllipsoidEstimateNode>& ellipsoid_nodes,
+    std::vector<vslam_types::EllipsoidEstimate>& updated_estimates) {
   updated_estimates.clear();
-  for (const vslam_types::EllipsoidEstimateNode &node : ellipsoid_nodes) {
+  for (const vslam_types::EllipsoidEstimateNode& node : ellipsoid_nodes) {
     updated_estimates.emplace_back(FromEllipsoidNode(node));
   }
 }

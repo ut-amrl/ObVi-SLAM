@@ -9,8 +9,6 @@
 
 namespace vslam_solver {
 
-
-
 /**
  * Class for updating the robot poses given the SLAM problem constraints between
  * poses.

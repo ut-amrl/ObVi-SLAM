@@ -2,8 +2,8 @@
 #define UT_VSLAM_REPROJECTION_COST_FUNCTOR_H
 
 #include <ceres/autodiff_cost_function.h>
-#include <vslam_types.h>
 #include <vslam_math_util.h>
+#include <vslam_types.h>
 
 #include <eigen3/Eigen/Dense>
 
