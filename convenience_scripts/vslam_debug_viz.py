@@ -29,20 +29,11 @@ def plot_pointclouds_by_frameid(args, frame_id):
     for case, pcl_directory in pcl_directories.items():
         filepath = os.path.join(pcl_directory, filename)
         points_df = pd.read_csv(filepath)
-        print(points_df.head(5))
-        print("points_df " + case, points_df.values.shape)
         points_df["label"] = debug_labels[case]
         plot_df = plot_df.append(points_df)
-        print("plot_df ", plot_df.shape)
     fig = px.scatter_3d(plot_df, x='x', y='y', z='z', color='label')
-
-    # cases = list(pcl_directories.keys())
-    # if len(cases) == 2:
-    #     case1, case2 = cases[0], cases[1]
-    #     filepath1, filepath2 = os.path.join(pcl_directories[case1], filename), os.path.join(pcl_directories[case2], filename)
-    #     points1_df, points2_df = pd.read_csv(filepath1), pd.read_csv(filepath2)
-
     savepath = os.path.join(args.pcl_directory, str(frame_id) + ".html")
+    print("savepath: ", savepath)
     fig.write_html(savepath)
 
 def plot_pointclouds(args):

@@ -157,7 +157,8 @@ public:
       const std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>& intrinsics,
       const std::unordered_map<vtr::CameraId, std::pair<double, double>>& img_heights_and_widths,
       const std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr> images,
-      const vtr::Pose3D<double>& pose,
+      const vtr::Pose3D<double>& pose_init,
+      const vtr::Pose3D<double>& pose_est,
       const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d_init,
       const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d_est,
       const std::unordered_map<vtr::CameraId,
@@ -169,11 +170,13 @@ public:
         intrinsics,
         img_heights_and_widths,
         images,
-        pose,
+        pose_init,
+        pose_est,
         features3d_init,
         features3d_est,
         features2d);
     debugPosesByFrameId(frame_id, init_trajectory_vec, est_trajectory_vec);
+    debugFeaturePointcloudByFrameId(frame_id, features3d_init, features3d_est, features2d);
     summarizeByFrameId(frame_id);
   }
 
@@ -190,12 +193,23 @@ public:
     
     std::unordered_map<vtr::FeatureId, vtr::Position3d<double>> new_features3d_init;
     std::unordered_map<vtr::FeatureId, vtr::Position3d<double>> new_features3d_est;
+    for (const auto& cam_id_and_feature2d : features2d) {
+      for (const auto& feat_id_and_feature : cam_id_and_feature2d.second) {
+        const auto& feat_id = feat_id_and_feature.first;
+        if (features3d_init.find(feat_id) != features3d_init.end()) {
+          new_features3d_init[feat_id] = features3d_init.at(feat_id);
+        }
+        if (features3d_est.find(feat_id) != features3d_est.end()) {
+          new_features3d_est[feat_id] = features3d_est.at(feat_id);
+        }
+      }
+    }
 
-    ToCSV(init_path.string(), features3d_init);
-    ToCSV(est_path.string(),  features3d_est);
+    ToCSV(init_path.string(), new_features3d_init);
+    ToCSV(est_path.string(),  new_features3d_est);
 
-    features3d_init_ = features3d_init;
-    features3d_est_  = features3d_est;
+    features3d_init_ = new_features3d_init;
+    features3d_est_  = new_features3d_est;
   }
 
   void debugPosesByFrameId(const vtr::FrameId& frame_id,
@@ -219,7 +233,8 @@ public:
       const std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>& intrinsics,
       const std::unordered_map<vtr::CameraId, std::pair<double, double>>& img_heights_and_widths,
       const std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr> images,
-      const vtr::Pose3D<double>& pose,
+      const vtr::Pose3D<double>& pose_init,
+      const vtr::Pose3D<double>& pose_est,
       const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d_init,
       const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d_est,
       const std::unordered_map<vtr::CameraId,
@@ -229,7 +244,8 @@ public:
     intrinsics_ = intrinsics;
     img_heights_and_widths_ = img_heights_and_widths;
     images_ = images;
-    pose_ = pose;
+    pose_init_ = pose_init;
+    pose_est_  = pose_est;
     features3d_init_ = features3d_init;
     features3d_est_ = features3d_est;
     features2d_ = features2d;
@@ -403,7 +419,8 @@ private:
   std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>> intrinsics_;
   std::unordered_map<vtr::CameraId, std::pair<double, double>> img_heights_and_widths_;
   std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr> images_;
-  vtr::Pose3D<double> pose_;
+  vtr::Pose3D<double> pose_init_;
+  vtr::Pose3D<double> pose_est_;
   std::unordered_map<vtr::FeatureId, vtr::Position3d<double>> features3d_;
   std::unordered_map<vtr::FeatureId, vtr::Position3d<double>> features3d_init_;
   std::unordered_map<vtr::FeatureId, vtr::Position3d<double>> features3d_est_;
@@ -513,7 +530,7 @@ private:
           obs_feat_and_cam.second.end()) { continue; }
         projected_init_pixels[feat.first] = 
           vtr::getProjectedPixelCoord(feat.second,
-                                      pose_,
+                                      pose_est_,
                                       extrinsics_for_cam,
                                       intrinsics_for_cam);
       }
@@ -522,7 +539,7 @@ private:
           obs_feat_and_cam.second.end()) { continue; }
         projected_est_pixels[feat.first] = 
           vtr::getProjectedPixelCoord(feat.second,
-                                      pose_,
+                                      pose_est_,
                                       extrinsics_for_cam,
                                       intrinsics_for_cam);
       }
@@ -1002,6 +1019,7 @@ void visualizationStub(
         }
       }
       vis_manager->visualizeEllipsoids(ltm_ellipsoids, vtr::INITIAL, false);
+      LOG(INFO) << "finish visualizeEllipsoids";
       vis_manager->visualizeCameraObservations(
           max_frame_optimized,
           initial_robot_pose_estimates,
@@ -1018,6 +1036,7 @@ void visualizationStub(
           *observed_corner_locations,
           {},
           false);
+      LOG(INFO) << "finish visualizeCameraObservations";
 
       vis_manager->publishDetectedBoundingBoxesWithUncertainty(
           max_frame_optimized,
@@ -1026,13 +1045,10 @@ void visualizationStub(
           intrinsics,
           img_heights_and_widths,
           vtr::PlotType::ESTIMATED);
+      LOG(INFO) << "finish publishDetectedBoundingBoxesWithUncertainty";
 
       std::vector<vtr::Pose3D<double>> est_trajectory_vec;
       std::vector<vtr::Pose3D<double>> init_trajectory_vec;
-      //      for (size_t i = 0; i <= (max_frame_optimized -
-      //      min_frame_optimized);
-      //           i++) {
-      //        vtr::FrameId frame_id = i + min_frame_optimized;
       for (vtr::FrameId frame_id = 0; frame_id <= max_frame_optimized;
            frame_id++) {
         est_trajectory_vec.emplace_back(optimized_trajectory.at(frame_id));
@@ -1045,6 +1061,7 @@ void visualizationStub(
                                        vtr::PlotType::ESTIMATED);
       vis_manager->publishTfForLatestPose(est_trajectory_vec.back(),
                                           vtr::PlotType::ESTIMATED);
+      LOG(INFO) << "finish publishTfForLatestPose";
 
       std::unordered_map<vtr::FeatureId, vtr::Position3d<double>> feature_ests;
       std::unordered_map<
@@ -1081,6 +1098,7 @@ void visualizationStub(
       }
       vis_manager->visualizeFeatureEstimates(curr_frame_est_feature_ests,
                                              vtr::PlotType::ESTIMATED);
+      LOG(INFO) << "finish visualizeFeatureEstimates";
       publishLowLevelFeaturesLatestImages(
           vis_manager,
           extrinsics,
@@ -1111,11 +1129,13 @@ void visualizationStub(
           img_heights_and_widths,
           images.at(max_frame_optimized),
           input_problem_data.getRobotPoseEstimates().at(max_frame_optimized),
+          optimized_trajectory.at(max_frame_optimized),
           initial_feat_positions,
           feature_ests,
           observed_feats_for_frame,
           init_trajectory_vec,
           est_trajectory_vec);
+      LOG(INFO) << "finish debugByFrameId";
 
       break;
     }

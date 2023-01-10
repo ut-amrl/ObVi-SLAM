@@ -1,13 +1,18 @@
 #!/bin/bash
 
-bagname="1668019589"
-CALIB_DIR="/robodata/taijing/object-slam/calibration/husky_zed/"
-SLAM_DIR="/home/tiejean/projects/ut_semantic_vslam/"
+seq_no="03"
+bagname="KITTI"$seq_no
+
+CALIB_DIR="/robodata/taijing/object-slam/calibration/kitti"${seq_no}/
 ORB_DIR="/home/tiejean/projects/ORB_SLAM2/"
+KITTI_DIR="/robodata/taijing/KITTI/dataset/sequences/"
+SLAM_DIR="/home/tiejean/projects/ut_semantic_vslam/"
 DATA_DIR="/robodata/taijing/object-slam/vslam/"
-BAG_DIR="/robodata/husky_logs/"
 YOLO_DIR="/home/tiejean/projects/yolov5-ros/"
 yolo_weight="/robodata/taijing/object-slam/yolov5-models/outdoors-final-yolov5s-0.pt"
+
+# TODO fix hardcoding
+bagfile="/robodata/taijing/object-slam/"${bagname}".bag"
 
 stage="0"
 while getopts s:d:b:c:y:w flag
@@ -22,13 +27,13 @@ do
     esac
 done
 
-bagfile=${BAG_DIR}${bagname}.bag
-
 ORB_OUT_DIR=${DATA_DIR}orb_out/${bagname}/
+ORB_TRAJ_DIR=${DATA_DIR}orb_traj/${bagname}/
 VSLAM_IN_DIR=${DATA_DIR}vslam_in/${bagname}/
 VSLAM_IN_SPARSE_DIR=${DATA_DIR}vslam_in_sparse/${bagname}/
 VSLAM_OUT_DIR=${DATA_DIR}vslam_out/${bagname}/
 [ ! -d $ORB_OUT_DIR ]         && mkdir -p $ORB_OUT_DIR
+[ ! -d $ORB_TRAJ_DIR ]        && mkdir -p $ORB_TRAJ_DIR
 [ ! -d $VSLAM_IN_DIR ]        && mkdir -p $VSLAM_IN_DIR
 [ ! -d $VSLAM_IN_SPARSE_DIR ] && mkdir -p $VSLAM_IN_SPARSE_DIR
 [ ! -d $VSLAM_OUT_DIR ]       && mkdir -p $VSLAM_OUT_DIR
@@ -36,6 +41,7 @@ VSLAM_OUT_DIR=${DATA_DIR}vslam_out/${bagname}/
 echo "bagfile:        "$bagfile
 echo "slam directory: "$SLAM_DIR
 echo "ORB  directory: "$ORB_DIR
+echo "ORB trajectory directory: "$ORB_TRAJ_DIR
 echo "ORB  Output directory: "$ORB_OUT_DIR
 echo "SLAM Intput directory: "$VSLAM_IN_DIR
 echo "SLAM Intput directory (Sparse): "$VSLAM_IN_SPARSE_DIR
@@ -43,21 +49,23 @@ echo "SLAM Intput directory (Sparse): "$VSLAM_IN_SPARSE_DIR
 source ~/.bashrc
 rosparam set /use_sim_time false
 
-# (roslaunch /robodata/taijing/scripts/launch/decompress-images.launch) &
-# decompress_pid=$!
-
 if [[ "$stage" < "1" ]]; then # run ORB_SLAM2
+
+    if [[ $seq_no < "03" ]]; then
+        cam_config_file="${ORB_DIR}Examples/Stereo/KITTI00-02.yaml"
+    elif [[ $seq_no == "03"  ]]; then
+        cam_config_file="${ORB_DIR}Examples/Stereo/KITTI03.yaml"
+    else
+        cam_config_file="${ORB_DIR}Examples/Stereo/KITTI04-12.yaml"
+    fi 
+    kitti_path="${KITTI_DIR}${seq_no}/"
+
     echo "start running ORB_SLAM2...."
     cd $ORB_DIR
     ./build.sh $$ ./build_ros.sh
-    (rosrun ORB_SLAM2 Stereo Vocabulary/ORBvoc.txt Examples/Stereo/husky_zed_rectified.yaml false $ORB_OUT_DIR false) &
-    orb_pid=$!
-    echo "launching ORB_SLAM2"
-    sleep 8 # make sure orb slam finish loading the vocabulary file
-    rosbag play --clock $bagfile -r .25 --duration=30
-    # rosbag play --clock $bagfile -r .25
-    sleep 1
-    kill -9 $orb_pid
+    # echo "./Examples/ROS/ORB_SLAM2/StereoKITTI Vocabulary/ORBvoc.txt $cam_config_file $kitti_path $ORB_OUT_DIR $bagfile"
+    ./Examples/ROS/ORB_SLAM2/StereoKITTI Vocabulary/ORBvoc.txt $cam_config_file $kitti_path $ORB_OUT_DIR $bagfile
+    mv CameraTrajectory.txt $ORB_TRAJ_DIR
     echo "finish running ORB_SLAM2!"
 fi
 
@@ -122,12 +130,4 @@ if [[ "$stage" < "3" ]]; then # running slam
 
     kill -9 $yolo_pid
     echo "finish running slam!"
-fi
-
-if [[ "$stage" < "4" ]]; then
-
-source /home/tiejean/projects/my_venv/bin/activate
-python ./convenience_scripts/vslam_debug_viz.py
-deactivate
-
 fi
