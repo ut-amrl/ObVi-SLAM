@@ -12,45 +12,12 @@
 
 namespace vslam_types_refactor {
 
-class SerializableObjectId : public FileStorageSerializable<ObjectId> {
- public:
-  SerializableObjectId()
-      : FileStorageSerializable<ObjectId>() {}
-  SerializableObjectId(const ObjectId &data)
-      : FileStorageSerializable<ObjectId>(data) {}
+using SerializableObjectId = SerializableUint64;
 
-  virtual void write(cv::FileStorage &fs) const override {
-    std::string obj_id_str = std::to_string(data_);
-    fs <<  obj_id_str;
-  }
-
-  virtual void read(const cv::FileNode &node) override {
-    std::string obj_id_str;
-    node >> obj_id_str;
-    std::istringstream obj_id_stream(obj_id_str);
-    obj_id_stream >> data_;
-  }
-
- protected:
-  using FileStorageSerializable<ObjectId>::data_;
-};
-
-static void write(cv::FileStorage &fs,
-                  const std::string &,
-                  const SerializableObjectId &data) {
-  data.write(fs);
-}
-
-static void read(const cv::FileNode &node,
-                 SerializableObjectId &data,
-                 const SerializableObjectId &default_data =
-                 SerializableObjectId()) {
-  if (node.empty()) {
-    data = default_data;
-  } else {
-    data.read(node);
-  }
-}
+using SerializableBbCornerPair = SerializablePair<PixelCoord<double>,
+                                                  SerializablePixelCoord,
+                                                  PixelCoord<double>,
+                                                  SerializablePixelCoord>;
 
 template <typename NumType>
 class SerializableEllipsoidState
@@ -76,7 +43,6 @@ class SerializableEllipsoidState
   }
 
   virtual void read(const cv::FileNode &node) override {
-
 #ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
     SerializablePose3DYawOnly<NumType> pose;
 #else

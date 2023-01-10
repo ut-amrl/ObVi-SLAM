@@ -54,6 +54,7 @@ struct FeatureBasedBbAssociationParams {
   FrameId feature_validity_window_ = INT_MAX;
 
   PendingObjectEstimatorParams pending_obj_estimator_params_;
+  double bounding_box_inflation_size_ = 0;
 };
 
 template <typename VisualFeatureFactorType>
@@ -146,8 +147,20 @@ class FeatureBasedBoundingBoxFrontEnd
     // Note: could do this with a KD tree, but we likely don't have enough
     // bounding boxes to warrant optimizing the search in that way
     FeatureBasedSingleBbContextInfo single_bb_info;
+    BbCornerPair<double> original_bb = bb.pixel_corner_locations_;
+    BbCornerPair<double> inflated_bounding_box = std::make_pair(
+        PixelCoord<double>(
+            original_bb.first.x() -
+                association_params_.bounding_box_inflation_size_,
+            original_bb.first.y() -
+                association_params_.bounding_box_inflation_size_),
+        PixelCoord<double>(
+            original_bb.second.x() +
+                association_params_.bounding_box_inflation_size_,
+            original_bb.second.y() +
+                association_params_.bounding_box_inflation_size_));
     for (const auto &feats_and_coord : refined_context.observed_features_) {
-      if (pixelInBoundingBoxClosedSet(bb.pixel_corner_locations_,
+      if (pixelInBoundingBoxClosedSet(inflated_bounding_box,
                                       feats_and_coord.second)) {
         single_bb_info.features_in_bb_.insert(feats_and_coord.first);
       }
