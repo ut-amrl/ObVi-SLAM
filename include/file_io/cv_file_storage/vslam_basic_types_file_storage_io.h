@@ -11,6 +11,10 @@
 
 namespace vslam_types_refactor {
 
+using SerializableFrameId = SerializableUint64;
+using SerializableCameraId = SerializableUint64;
+
+
 template <typename NumType, int Rows, int Cols>
 class SerializableEigenMat
     : public FileStorageSerializable<Eigen::Matrix<NumType, Rows, Cols>> {
@@ -83,6 +87,8 @@ static void read(const cv::FileNode &node,
     data.read(node);
   }
 }
+
+using SerializablePixelCoord = SerializableEigenMat<double, 2, 1>;
 
 template <typename NumType>
 class SerializableEigenAngleAxis

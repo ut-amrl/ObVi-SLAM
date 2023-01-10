@@ -38,5 +38,16 @@ struct LongTermObjectMapAndResults {
   EllipsoidResults ellipsoid_results_;
 };
 
+struct ObjectDataAssociationResults {
+  EllipsoidResults ellipsoid_pose_results_;
+  std::unordered_map<
+      FrameId,
+      std::unordered_map<CameraId,
+                         std::unordered_map<ObjectId,
+                                            std::pair<BbCornerPair<double>,
+                                                      std::optional<double>>>>>
+      associated_bounding_boxes_;
+};
+
 }  // namespace vslam_types_refactor
 #endif  // UT_VSLAM_OUTPUT_PROBLEM_DATA_H
