@@ -31,7 +31,13 @@ def plot_pointclouds_by_frameid(args, frame_id):
         points_df = pd.read_csv(filepath)
         points_df["label"] = debug_labels[case]
         plot_df = plot_df.append(points_df)
+    kOutlierThresh = 100
+    mask = (plot_df["x"] < kOutlierThresh) & (plot_df["x"] > -kOutlierThresh) \
+        & (plot_df["y"] < kOutlierThresh) & (plot_df["y"] > -kOutlierThresh) \
+        & (plot_df["z"] < kOutlierThresh) & (plot_df["z"] > -kOutlierThresh)
+    plot_df = plot_df[mask]
     fig = px.scatter_3d(plot_df, x='x', y='y', z='z', color='label')
+    fig.update_traces(marker_size = 2.5)
     savepath = os.path.join(args.pcl_directory, str(frame_id) + ".html")
     print("savepath: ", savepath)
     fig.write_html(savepath)

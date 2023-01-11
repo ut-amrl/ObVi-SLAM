@@ -22,6 +22,8 @@ namespace vslam_types_refactor {
 const std::string kGtPrefix = "gt_";
 const std::string kInitPrefix = "init_";
 const std::string kEstPrefix = "est_";
+const std::string kImageEncoding = sensor_msgs::image_encodings::MONO8;
+
 
 enum PlotType { GROUND_TRUTH, INITIAL, ESTIMATED };
 
@@ -773,8 +775,7 @@ class RosVisualization {
     if (image.has_value()) {
       //      image_stamp = image.value()->header.stamp;
       try {
-        cv_ptr = cv_bridge::toCvCopy(image.value(),
-                                     sensor_msgs::image_encodings::BGR8);
+        cv_ptr = cv_bridge::toCvCopy(image.value(), kImageEncoding);
         cv_ptr->header.frame_id = frame_id;
         image_stamp = ros::Time::now();
         cv_ptr->header.stamp = image_stamp;
@@ -793,8 +794,7 @@ class RosVisualization {
       std_msgs::Header img_header;
       img_header.stamp = image_stamp;
       img_header.frame_id = frame_id;
-      cv_ptr = boost::make_shared<cv_bridge::CvImage>(
-          img_header, sensor_msgs::image_encodings::BGR8, cv_img);
+      cv_ptr = boost::make_shared<cv_bridge::CvImage>(img_header, kImageEncoding, cv_img);
     }
 
     // Draw provided bounding boxes
@@ -885,7 +885,7 @@ class RosVisualization {
     cv_bridge::CvImagePtr cv_ptr;
     ros::Time image_stamp;
     try {
-      cv_ptr = cv_bridge::toCvCopy(image, sensor_msgs::image_encodings::BGR8);
+      cv_ptr = cv_bridge::toCvCopy(image, kImageEncoding);
       cv_ptr->header.frame_id = frame_id;
       image_stamp = ros::Time::now();
       cv_ptr->header.stamp = image_stamp;
@@ -964,8 +964,7 @@ class RosVisualization {
     if (image.has_value()) {
       //      image_stamp = image.value()->header.stamp;
       try {
-        cv_ptr = cv_bridge::toCvCopy(image.value(),
-                                     sensor_msgs::image_encodings::BGR8);
+        cv_ptr = cv_bridge::toCvCopy(image.value(), kImageEncoding);
         cv_ptr->header.frame_id = camera_frame_id;
         image_stamp = ros::Time::now();
         cv_ptr->header.stamp = image_stamp;
@@ -985,7 +984,7 @@ class RosVisualization {
       img_header.stamp = image_stamp;
       img_header.frame_id = camera_frame_id;
       cv_ptr = boost::make_shared<cv_bridge::CvImage>(
-          img_header, sensor_msgs::image_encodings::BGR8, cv_img);
+          img_header, kImageEncoding, cv_img);
     }
 
     for (const auto &obs_pix : observed_pixels) {

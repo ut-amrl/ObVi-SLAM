@@ -49,7 +49,7 @@ rosparam set /use_sim_time false
 if [[ "$stage" < "1" ]]; then # run ORB_SLAM2
     echo "start running ORB_SLAM2...."
     cd $ORB_DIR
-    ./build.sh $$ ./build_ros.sh
+    ./build.sh && ./build_ros.sh
     (rosrun ORB_SLAM2 Stereo Vocabulary/ORBvoc.txt Examples/Stereo/husky_zed_rectified.yaml false $ORB_OUT_DIR false) &
     orb_pid=$!
     echo "launching ORB_SLAM2"

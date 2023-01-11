@@ -347,7 +347,16 @@ public:
       }
       std::sort(viz_cases.begin(), viz_cases.end());
 
-      cv::Mat viz_image = cv::Mat::zeros(viz_height, viz_width, CV_8UC3);
+      unsigned int encoding;
+      if (vtr::kImageEncoding == sensor_msgs::image_encodings::MONO8) {
+        encoding = CV_8UC1;
+      } else if (vtr::kImageEncoding == sensor_msgs::image_encodings::BGR8) {
+        encoding = CV_8UC3;
+      } else {
+        LOG(FATAL) << "doesn't support encoding " << encoding;
+        exit(1);
+      }
+      cv::Mat viz_image = cv::Mat::zeros(viz_height, viz_width, encoding);
       for (size_t i = 0; i < viz_cases.size(); ++i) {
         const DebugTypeEnum& viz_case = viz_cases[i];
         const cv::Mat& output_image = output_images.at(viz_case)->image;
@@ -548,12 +557,9 @@ private:
       cv_bridge::CvImagePtr cv_ptr, cv_ptr_init, cv_ptr_est;
       if (img_for_cam.has_value()) {
         try {
-          cv_ptr = cv_bridge::toCvCopy(img_for_cam.value(),
-                                       sensor_msgs::image_encodings::BGR8);
-          cv_ptr_init = cv_bridge::toCvCopy(img_for_cam.value(),
-                                       sensor_msgs::image_encodings::BGR8);
-          cv_ptr_est = cv_bridge::toCvCopy(img_for_cam.value(),
-                                       sensor_msgs::image_encodings::BGR8);
+          cv_ptr = cv_bridge::toCvCopy(img_for_cam.value(), vtr::kImageEncoding);
+          cv_ptr_init = cv_bridge::toCvCopy(img_for_cam.value(), vtr::kImageEncoding);
+          cv_ptr_est = cv_bridge::toCvCopy(img_for_cam.value(), vtr::kImageEncoding);
         } catch (cv_bridge::Exception &e) {
           LOG(ERROR) << "cv_bridge exception: " << e.what();
           exit(1);
@@ -746,6 +752,8 @@ getImagesFromRosbag(const std::string &rosbag_file_name,
         raw_node_id_and_timestamp.node_id_;
   }
 
+  LOG(INFO) << "nodes_for_timestamps_map size: " << nodes_for_timestamps_map.size();
+
   // Read the images
   rosbag::Bag bag;
   bag.open(FLAGS_rosbag_file, rosbag::bagmode::Read);
@@ -787,6 +795,7 @@ getImagesFromRosbag(const std::string &rosbag_file_name,
       //      LOG(INFO) << "No image for timestamp";
     }
   }
+  LOG(INFO) << "images_by_frame_and_cam size: " << images_by_frame_and_cam.size();
   return images_by_frame_and_cam;
 }
 

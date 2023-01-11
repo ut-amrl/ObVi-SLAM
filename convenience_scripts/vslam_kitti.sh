@@ -62,8 +62,8 @@ if [[ "$stage" < "1" ]]; then # run ORB_SLAM2
 
     echo "start running ORB_SLAM2...."
     cd $ORB_DIR
-    ./build.sh $$ ./build_ros.sh
-    # echo "./Examples/ROS/ORB_SLAM2/StereoKITTI Vocabulary/ORBvoc.txt $cam_config_file $kitti_path $ORB_OUT_DIR $bagfile"
+    ./build.sh && ./build_ros.sh
+    echo "./Examples/ROS/ORB_SLAM2/StereoKITTI Vocabulary/ORBvoc.txt $cam_config_file $kitti_path $ORB_OUT_DIR $bagfile"
     ./Examples/ROS/ORB_SLAM2/StereoKITTI Vocabulary/ORBvoc.txt $cam_config_file $kitti_path $ORB_OUT_DIR $bagfile
     mv CameraTrajectory.txt $ORB_TRAJ_DIR
     echo "finish running ORB_SLAM2!"
@@ -75,7 +75,7 @@ if [[ "$stage" < "2" ]]; then # format vslam_in
     python3 src/data_preprocessing_utils/orb_stereo_reformat_data.py -i $ORB_OUT_DIR -o $VSLAM_IN_DIR 
     make -j4
     ./bin/initialize_traj_and_feats_from_orb_out --raw_data_path $ORB_OUT_DIR --calibration_path $CALIB_DIR --processed_data_path $VSLAM_IN_DIR
-    # ./bin/orb_trajectory_sparsifier -input_processed_data_path $VSLAM_IN_DIR --output_processed_data_path $VSLAM_IN_SPARSE_DIR
+    ./bin/orb_trajectory_sparsifier -input_processed_data_path $VSLAM_IN_DIR --output_processed_data_path $VSLAM_IN_SPARSE_DIR
     echo "finish formating vslam_in!"
 fi
 
