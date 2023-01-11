@@ -173,18 +173,15 @@ cv::Mat SummarizeVisualization(
   const size_t& height = ids_and_visualizations.begin()->second.rows;
   const size_t& width = ids_and_visualizations.begin()->second.cols;
   const size_t& nvisualization = ids_and_visualizations.size();
-  const size_t& nimages_per_row = nimages_per_row == -1 ? nvisualization : nimages_per_row;
-  const size_t& nimages_per_col = nvisualization / nimages_per_row;
+  const size_t& nimages_per_row = (nimages_each_row == -1) ? nvisualization : (size_t) nimages_each_row;
+  const size_t& nimages_per_col = (nvisualization % nimages_per_row == 0) ? 
+      nvisualization / nimages_per_row : nvisualization / nimages_per_row + 1;
   summary_height = nimages_per_col * height;
   summary_width  = nimages_per_row * width;
   cv::Mat summary = cv::Mat::zeros(summary_height, summary_width, CV_8UC3);
-  LOG(INFO) << "nimages_row: " << nimages_per_row << ", nimages_col: " << nimages_per_col;
-  LOG(INFO) << "summary_width: " << summary_width << ", summary_height: " << summary_height;
-  LOG(INFO) << "width: " << width << ", height: " << height;
   std::vector<std::pair<int, int>> coordinates;
   for (size_t i = 0; i < nvisualization; ++i) {
       coordinates.emplace_back( (i/nimages_per_row)*height, (i%nimages_per_row)*width );
-      LOG(INFO) << (i/nimages_per_row)*height << "," << (i%nimages_per_row)*width;
   }
 
   for (size_t i = 0; i < ids.size(); ++i) {
@@ -195,6 +192,22 @@ cv::Mat SummarizeVisualization(
     visualization.copyTo(summary(cv::Range(row, row+height), cv::Range(col, col+width)));
   }
   return summary;
+}
+
+template <typename IdType>
+cv::Mat SummarizeVisualization(
+    const std::unordered_map<IdType, cv_bridge::CvImagePtr> &ids_and_visualizations, 
+    const int &nimages_each_row = -1) {
+  std::unordered_map<IdType, cv::Mat> new_ids_and_visualizations;
+  for (const auto& id_and_visualization : ids_and_visualizations) {
+    const IdType& id = id_and_visualization.first;
+    const cv_bridge::CvImagePtr& imgptr = id_and_visualization.second;
+    new_ids_and_visualizations[id] = imgptr->image;
+  }
+  LOG(INFO) << "before SummarizeVisualization";
+  cv::Mat ret = SummarizeVisualization(new_ids_and_visualizations, nimages_each_row);
+  LOG(INFO) << "after SummarizeVisualization";
+  return ret;
 }
 
 void setupOutputDirectory(const std::string& output_dir) {
@@ -368,29 +381,6 @@ public:
 
     if (cam_ids_and_visualizations.empty()) { return; }
     cv::Mat summaries = SummarizeVisualization(cam_ids_and_visualizations);
-    // size_t summaries_height, summaries_widths;
-    // const size_t nrows = cam_ids_and_visualizations.begin()->second.rows;
-    // const size_t ncols = cam_ids_and_visualizations.begin()->second.cols;
-    // summaries_height = nrows;
-    // summaries_widths = ncols * 2;
-    // std::vector<vtr::CameraId> cam_ids;
-    // for (const auto& cam_id_and_visualization : cam_ids_and_visualizations) {
-    //   cam_ids.push_back(cam_id_and_visualization.first);
-    // }
-    // std::sort(cam_ids.begin(), cam_ids.end());
-    // std::vector<std::pair<int, int>> coordinates;
-    // for (size_t i = 0; i < cam_ids_and_visualizations.size(); ++i) {
-    //     coordinates.emplace_back(0, i*ncols);
-    // }
-    // cv::Mat summaries = cv::Mat::zeros(summaries_height, summaries_widths, CV_8UC3);
-    // for (size_t i = 0; i < cam_ids.size(); ++i) {
-    //   const auto& cam_id = cam_ids[i];
-    //   const cv::Mat& visualization = cam_ids_and_visualizations[cam_id];
-    //   const int& row = coordinates[i].first;
-    //   const int& col = coordinates[i].second;
-    //   visualization.copyTo(summaries(cv::Range(row, row+nrows), cv::Range(col, col+ncols)));
-    // }
-    
     fs::path savepath = 
       output_summary_directory_ / (std::to_string(frame_id_) + ".png");
     cv::imwrite(savepath, summaries);
@@ -401,41 +391,45 @@ public:
     for (const auto& cam_id_and_output_images : output_images_) {
       const auto& cam_id = cam_id_and_output_images.first;
       const auto& output_images = cam_id_and_output_images.second;
+      if ( output_images.empty() ) { return; }
+      const int nimage_per_row = 2;
+      LOG(INFO) << "before SummarizeVisualization";
+      cv::Mat summary = SummarizeVisualization(output_images, nimage_per_row);
+      LOG(INFO) << "after SummarizeVisualization";
       std::string image_path = 
           output_image_directories_.at(cam_id) / (std::to_string(frame_id_) + ".png");
-      if ( output_images.empty() ) { return; }
-      size_t nrows = output_images.begin()->second->image.rows;
-      size_t ncols = output_images.begin()->second->image.cols;
-      std::vector<std::pair<int, int>> coordinates;
-      size_t viz_width, viz_height;
-      if (output_images.size() <= 2) {
-        viz_width  = ncols * 2;
-        viz_height = nrows;
-      } else if (output_images.size() <= 4) {
-        viz_width  = ncols * 2;
-        viz_height = nrows * 2;
-      } else {
-        LOG(FATAL) << "undefined code path!";
-      }
-      for (size_t i = 0; i < output_images.size(); ++i) {
-        coordinates.emplace_back((i/2)*nrows, (i%2)*ncols);
-      }
-      // for visualizaiton consistency across frames
-      std::vector<DebugTypeEnum> viz_cases;
-      for (const auto& output : output_images) {
-        viz_cases.emplace_back(output.first);
-      }
-      std::sort(viz_cases.begin(), viz_cases.end());
+      // size_t nrows = output_images.begin()->second->image.rows;
+      // size_t ncols = output_images.begin()->second->image.cols;
+      // std::vector<std::pair<int, int>> coordinates;
+      // size_t viz_width, viz_height;
+      // if (output_images.size() <= 2) {
+      //   viz_width  = ncols * 2;
+      //   viz_height = nrows;
+      // } else if (output_images.size() <= 4) {
+      //   viz_width  = ncols * 2;
+      //   viz_height = nrows * 2;
+      // } else {
+      //   LOG(FATAL) << "undefined code path!";
+      // }
+      // for (size_t i = 0; i < output_images.size(); ++i) {
+      //   coordinates.emplace_back((i/2)*nrows, (i%2)*ncols);
+      // }
+      // // for visualizaiton consistency across frames
+      // std::vector<DebugTypeEnum> viz_cases;
+      // for (const auto& output : output_images) {
+      //   viz_cases.emplace_back(output.first);
+      // }
+      // std::sort(viz_cases.begin(), viz_cases.end());
 
-      cv::Mat viz_image = cv::Mat::zeros(viz_height, viz_width, encoding_);
-      for (size_t i = 0; i < viz_cases.size(); ++i) {
-        const DebugTypeEnum& viz_case = viz_cases[i];
-        const cv::Mat& output_image = output_images.at(viz_case)->image;
-        const int& row = coordinates[i].first;
-        const int& col = coordinates[i].second;
-        output_image.copyTo(viz_image(cv::Range(row, row+nrows), cv::Range(col, col+ncols)));
-      }
-      cv::imwrite(image_path, viz_image);
+      // cv::Mat viz_image = cv::Mat::zeros(viz_height, viz_width, encoding_);
+      // for (size_t i = 0; i < viz_cases.size(); ++i) {
+      //   const DebugTypeEnum& viz_case = viz_cases[i];
+      //   const cv::Mat& output_image = output_images.at(viz_case)->image;
+      //   const int& row = coordinates[i].first;
+      //   const int& col = coordinates[i].second;
+      //   output_image.copyTo(viz_image(cv::Range(row, row+nrows), cv::Range(col, col+ncols)));
+      // }
+      cv::imwrite(image_path, summary);
     }
   }
 
