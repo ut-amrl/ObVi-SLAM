@@ -619,10 +619,7 @@ private:
       output_images_[cam_id][DebugTypeEnum::INITALIZED]   = cv_ptr_init;
       output_images_[cam_id][DebugTypeEnum::OPTIMIZED]    = cv_ptr_est;
       output_images_[cam_id][DebugTypeEnum::ALL]          = cv_ptr;
-      cv::imwrite(std::to_string(cam_id) + ".png", cv_ptr->image);
     }
-    LOG(INFO) << "Average Reprojection Residual by far: " 
-              << " residuals_init_=" << residuals_init_/nframes_ << "residuals_est_" << residuals_est_/nframes_;
   }
 };
 
