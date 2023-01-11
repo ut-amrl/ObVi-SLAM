@@ -127,7 +127,7 @@ fi
 if [[ "$stage" < "4" ]]; then
 
 source /home/tiejean/projects/my_venv/bin/activate
-python ./convenience_scripts/vslam_debug_viz.py
+# python ./convenience_scripts/vslam_debug_viz.py
 deactivate
 
 fi

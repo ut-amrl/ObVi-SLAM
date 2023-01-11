@@ -153,6 +153,50 @@ void PutImageText(const std::string& text, cv::Mat image) {
               2.0); // line thickness
 }
 
+// assume each visualization has the same size
+template <typename IdType>
+cv::Mat SummarizeVisualization(
+    const std::unordered_map<IdType, cv::Mat> &ids_and_visualizations, 
+    const int &nimages_each_row = -1) {
+  
+  if (ids_and_visualizations.empty()) { 
+    LOG(FATAL) << "Doesn't support this control path! "
+               << "Please check ids_and_visualizations is non-empty before calling SummarizeVisualization()";
+  }
+  std::vector<IdType> ids;
+  for (const auto& id_and_visualization : ids_and_visualizations) {
+    ids.push_back(id_and_visualization.first);
+  }
+  std::sort(ids.begin(), ids.end());
+
+  size_t summary_height, summary_width;
+  const size_t& height = ids_and_visualizations.begin()->second.rows;
+  const size_t& width = ids_and_visualizations.begin()->second.cols;
+  const size_t& nvisualization = ids_and_visualizations.size();
+  const size_t& nimages_per_row = nimages_per_row == -1 ? nvisualization : nimages_per_row;
+  const size_t& nimages_per_col = nvisualization / nimages_per_row;
+  summary_height = nimages_per_col * height;
+  summary_width  = nimages_per_row * width;
+  cv::Mat summary = cv::Mat::zeros(summary_height, summary_width, CV_8UC3);
+  LOG(INFO) << "nimages_row: " << nimages_per_row << ", nimages_col: " << nimages_per_col;
+  LOG(INFO) << "summary_width: " << summary_width << ", summary_height: " << summary_height;
+  LOG(INFO) << "width: " << width << ", height: " << height;
+  std::vector<std::pair<int, int>> coordinates;
+  for (size_t i = 0; i < nvisualization; ++i) {
+      coordinates.emplace_back( (i/nimages_per_row)*height, (i%nimages_per_row)*width );
+      LOG(INFO) << (i/nimages_per_row)*height << "," << (i%nimages_per_row)*width;
+  }
+
+  for (size_t i = 0; i < ids.size(); ++i) {
+    const auto& id = ids[i];
+    const cv::Mat& visualization = ids_and_visualizations.at(id);
+    const int& row = coordinates[i].first;
+    const int& col = coordinates[i].second;
+    visualization.copyTo(summary(cv::Range(row, row+height), cv::Range(col, col+width)));
+  }
+  return summary;
+}
+
 void setupOutputDirectory(const std::string& output_dir) {
   if (!fs::is_directory(output_dir) || !fs::exists(output_dir)) {
     if (!fs::create_directory(output_dir)) {
@@ -177,7 +221,8 @@ public:
       const fs::path& output_summary_directory,
       const std_msgs::ColorRGBA& obs_color,
       const std_msgs::ColorRGBA& init_color,
-      const std_msgs::ColorRGBA& est_color) 
+      const std_msgs::ColorRGBA& est_color,
+      const unsigned int& encoding) 
         : frame_id_(frame_id), 
           output_image_directories_(output_image_directories),
           output_residual_directories_(output_residual_directories),
@@ -187,7 +232,8 @@ public:
           output_summary_directory_(output_summary_directory),
           obs_color_(obs_color), 
           init_color_(init_color),
-          est_color_(est_color) {}
+          est_color_(est_color),
+          encoding_(encoding) {}
 
   void debugByFrameId(
       const std::unordered_map<vtr::CameraId, vtr::CameraExtrinsics<double>>& extrinsics,
@@ -321,28 +367,29 @@ public:
     }
 
     if (cam_ids_and_visualizations.empty()) { return; }
-    size_t summaries_height, summaries_widths;
-    const size_t nrows = cam_ids_and_visualizations.begin()->second.rows;
-    const size_t ncols = cam_ids_and_visualizations.begin()->second.cols;
-    summaries_height = nrows;
-    summaries_widths = ncols * 2;
-    std::vector<vtr::CameraId> cam_ids;
-    for (const auto& cam_id_and_visualization : cam_ids_and_visualizations) {
-      cam_ids.push_back(cam_id_and_visualization.first);
-    }
-    std::sort(cam_ids.begin(), cam_ids.end());
-    std::vector<std::pair<int, int>> coordinates;
-    for (size_t i = 0; i < cam_ids_and_visualizations.size(); ++i) {
-        coordinates.emplace_back(0, i*ncols);
-    }
-    cv::Mat summaries = cv::Mat::zeros(summaries_height, summaries_widths, CV_8UC3);
-    for (size_t i = 0; i < cam_ids.size(); ++i) {
-      const auto& cam_id = cam_ids[i];
-      const cv::Mat& visualization = cam_ids_and_visualizations[cam_id];
-      const int& row = coordinates[i].first;
-      const int& col = coordinates[i].second;
-      visualization.copyTo(summaries(cv::Range(row, row+nrows), cv::Range(col, col+ncols)));
-    }
+    cv::Mat summaries = SummarizeVisualization(cam_ids_and_visualizations);
+    // size_t summaries_height, summaries_widths;
+    // const size_t nrows = cam_ids_and_visualizations.begin()->second.rows;
+    // const size_t ncols = cam_ids_and_visualizations.begin()->second.cols;
+    // summaries_height = nrows;
+    // summaries_widths = ncols * 2;
+    // std::vector<vtr::CameraId> cam_ids;
+    // for (const auto& cam_id_and_visualization : cam_ids_and_visualizations) {
+    //   cam_ids.push_back(cam_id_and_visualization.first);
+    // }
+    // std::sort(cam_ids.begin(), cam_ids.end());
+    // std::vector<std::pair<int, int>> coordinates;
+    // for (size_t i = 0; i < cam_ids_and_visualizations.size(); ++i) {
+    //     coordinates.emplace_back(0, i*ncols);
+    // }
+    // cv::Mat summaries = cv::Mat::zeros(summaries_height, summaries_widths, CV_8UC3);
+    // for (size_t i = 0; i < cam_ids.size(); ++i) {
+    //   const auto& cam_id = cam_ids[i];
+    //   const cv::Mat& visualization = cam_ids_and_visualizations[cam_id];
+    //   const int& row = coordinates[i].first;
+    //   const int& col = coordinates[i].second;
+    //   visualization.copyTo(summaries(cv::Range(row, row+nrows), cv::Range(col, col+ncols)));
+    // }
     
     fs::path savepath = 
       output_summary_directory_ / (std::to_string(frame_id_) + ".png");
@@ -380,16 +427,7 @@ public:
       }
       std::sort(viz_cases.begin(), viz_cases.end());
 
-      unsigned int encoding;
-      if (vtr::kImageEncoding == sensor_msgs::image_encodings::MONO8) {
-        encoding = CV_8UC1;
-      } else if (vtr::kImageEncoding == sensor_msgs::image_encodings::BGR8) {
-        encoding = CV_8UC3;
-      } else {
-        LOG(FATAL) << "doesn't support encoding " << encoding;
-        exit(1);
-      }
-      cv::Mat viz_image = cv::Mat::zeros(viz_height, viz_width, encoding);
+      cv::Mat viz_image = cv::Mat::zeros(viz_height, viz_width, encoding_);
       for (size_t i = 0; i < viz_cases.size(); ++i) {
         const DebugTypeEnum& viz_case = viz_cases[i];
         const cv::Mat& output_image = output_images.at(viz_case)->image;
@@ -433,6 +471,7 @@ private:
   std_msgs::ColorRGBA obs_color_;
   std_msgs::ColorRGBA init_color_;
   std_msgs::ColorRGBA est_color_;
+  unsigned int encoding_;
 
   double getResidual(const vtr::PixelCoord<double>& pixel1, 
       const vtr::PixelCoord<double>& pixel2) {
@@ -486,8 +525,8 @@ private:
       std::vector<double> residuals_init, residuals_est;
 
       vtr::CameraId cam_id = obs_feat_and_cam.first;
-      std::pair<double, double> img_height_and_width =
-        img_heights_and_widths_.at(cam_id);
+      // std::pair<double, double> img_height_and_width =
+      //   img_heights_and_widths_.at(cam_id);
       vtr::CameraExtrinsics<double> extrinsics_for_cam = extrinsics_.at(cam_id);
       vtr::CameraIntrinsicsMat<double> intrinsics_for_cam = intrinsics_.at(cam_id);
 
@@ -632,6 +671,15 @@ public:
     init_color_.r = 1;
 
     est_color_.b = 1;
+
+    if (vtr::kImageEncoding == sensor_msgs::image_encodings::MONO8) {
+      encoding_ = CV_8UC1;
+    } else if (vtr::kImageEncoding == sensor_msgs::image_encodings::BGR8) {
+      encoding_ = CV_8UC3;
+    } else {
+      LOG(FATAL) << "doesn't support encoding " << encoding_;
+      exit(1);
+    }
   }
 
   void debugByFrameId(const vtr::FrameId& frame_id,
@@ -658,7 +706,8 @@ public:
                              output_summary_directory_,
                              obs_color_,
                              init_color_,
-                             est_color_);
+                             est_color_,
+                             encoding_);
     frame_ids_and_debuggers_[frame_id].debugByFrameId(extrinsics, 
         intrinsics, 
         img_heights_and_widths, 
@@ -693,6 +742,7 @@ private:
   std_msgs::ColorRGBA obs_color_;
   std_msgs::ColorRGBA init_color_;
   std_msgs::ColorRGBA est_color_;
+  unsigned int encoding_;
 };
 
 // TODO read from user specified input
@@ -822,8 +872,6 @@ getImagesFromRosbag(const std::string &rosbag_file_name,
         raw_node_id_and_timestamp.node_id_;
   }
 
-  LOG(INFO) << "nodes_for_timestamps_map size: " << nodes_for_timestamps_map.size();
-
   // Read the images
   rosbag::Bag bag;
   bag.open(FLAGS_rosbag_file, rosbag::bagmode::Read);
@@ -865,7 +913,6 @@ getImagesFromRosbag(const std::string &rosbag_file_name,
       //      LOG(INFO) << "No image for timestamp";
     }
   }
-  LOG(INFO) << "images_by_frame_and_cam size: " << images_by_frame_and_cam.size();
   return images_by_frame_and_cam;
 }
 

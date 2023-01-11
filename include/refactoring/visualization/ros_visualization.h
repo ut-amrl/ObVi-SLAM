@@ -22,7 +22,8 @@ namespace vslam_types_refactor {
 const std::string kGtPrefix = "gt_";
 const std::string kInitPrefix = "init_";
 const std::string kEstPrefix = "est_";
-const std::string kImageEncoding = sensor_msgs::image_encodings::MONO8;
+// TODO detect from input image
+const std::string kImageEncoding = sensor_msgs::image_encodings::BGR8;
 
 
 enum PlotType { GROUND_TRUTH, INITIAL, ESTIMATED };
