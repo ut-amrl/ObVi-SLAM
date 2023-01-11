@@ -6,7 +6,9 @@
 #define UT_VSLAM_LONG_TERM_OBJECT_MAP_EXTRACTION_H
 
 #include <ceres/ceres.h>
+#include <ceres/problem.h>
 #include <refactoring/long_term_map/long_term_object_map.h>
+#include <refactoring/optimization/jacobian_extraction.h>
 #include <refactoring/optimization/object_pose_graph.h>
 #include <refactoring/optimization/object_pose_graph_optimizer.h>
 #include <refactoring/output_problem_data_extraction.h>
@@ -28,7 +30,11 @@ bool runOptimizationForLtmExtraction(
     const pose_graph_optimizer::OptimizationFactorsEnabledParams
         &optimization_factor_configuration,
     std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
-    ceres::Problem *problem) {
+    ceres::Problem *problem,
+    std::unordered_map<vslam_types_refactor::FactorType,
+                       std::unordered_map<vslam_types_refactor::FeatureFactorId,
+                                          ceres::ResidualBlockId>>
+        &residual_info) {
   std::pair<FrameId, FrameId> min_and_max_frame_id =
       pose_graph->getMinMaxFrameId();
   std::function<bool(
@@ -68,7 +74,7 @@ bool runOptimizationForLtmExtraction(
       ObjectAndReprojectionFeaturePoseGraph>
       optimizer(refresh_residual_checker, residual_creator);
 
-  optimizer.buildPoseGraphOptimization(
+  residual_info = optimizer.buildPoseGraphOptimization(
       ltm_optimization_scope_params, residual_params, pose_graph, problem);
 
   bool opt_success = optimizer.solveOptimization(problem, solver_params, {});
@@ -107,8 +113,8 @@ class PairwiseCovarianceLongTermObjectMapExtractor {
   /**
    * Create the long term map extractor.
    *
-   * @param covariance_extractor_params Parameters to be used during covariance
-   * extraction.
+   * @param covariance_extractor_params Parameters to be used during
+   * covariance extraction.
    */
   PairwiseCovarianceLongTermObjectMapExtractor(
       const CovarianceExtractorParams &covariance_extractor_params,
@@ -120,12 +126,16 @@ class PairwiseCovarianceLongTermObjectMapExtractor {
           ceres::Problem *,
           ceres::ResidualBlockId &,
           util::EmptyStruct &)> &residual_creator,
+      const std::function<bool(const FactorType &,
+                               const FeatureFactorId &,
+                               ObjectId &)> &long_term_map_obj_retriever,
       const pose_graph_optimization::ObjectVisualPoseGraphResidualParams
           &ltm_residual_params,
       const pose_graph_optimization::OptimizationSolverParams
           &ltm_solver_params)
       : covariance_extractor_params_(covariance_extractor_params),
         residual_creator_(residual_creator),
+        long_term_map_obj_retriever_(long_term_map_obj_retriever),
         ltm_residual_params_(ltm_residual_params),
         ltm_solver_params_(ltm_solver_params) {}
 
@@ -138,8 +148,8 @@ class PairwiseCovarianceLongTermObjectMapExtractor {
    *                            needed for long-term map.
    * @param problem[in]         The ceres problem from which to extract the
    *                            covariance. Assumes that the problem was left
-   *                            in a complete state (not missing variables that
-   *                            should be included in the long-term map or
+   *                            in a complete state (not missing variables
+   *                            that should be included in the long-term map or
    *                            factored into the covariance extraction.
    * @param long_term_map[out]  Long term map to update with information.
    *
@@ -153,17 +163,32 @@ class PairwiseCovarianceLongTermObjectMapExtractor {
           &optimization_factor_configuration,
       const std::function<bool(FrontEndObjMapData &)>
           front_end_map_data_extractor,
+      const std::string &jacobian_output_dir,
       IndependentEllipsoidsLongTermObjectMap<FrontEndObjMapData>
           &long_term_obj_map) {
     std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> pose_graph_copy =
         pose_graph->makeDeepCopy();
     ceres::Problem problem_for_ltm;
+    std::unordered_map<vslam_types_refactor::FactorType,
+                       std::unordered_map<vslam_types_refactor::FeatureFactorId,
+                                          ceres::ResidualBlockId>>
+        residual_info;
     runOptimizationForLtmExtraction(residual_creator_,
                                     ltm_residual_params_,
                                     ltm_solver_params_,
                                     optimization_factor_configuration,
                                     pose_graph_copy,
-                                    &problem_for_ltm);
+                                    &problem_for_ltm,
+                                    residual_info);
+
+    if (!jacobian_output_dir.empty()) {
+      outputJacobianInfo(jacobian_output_dir,
+                         residual_info,
+                         pose_graph_copy,
+                         long_term_map_obj_retriever_,
+                         problem_for_ltm);
+    }
+
     EllipsoidResults ellipsoid_results;
     extractEllipsoidEstimates(pose_graph_copy, ellipsoid_results);
     long_term_obj_map.setEllipsoidResults(ellipsoid_results);
@@ -263,6 +288,8 @@ class PairwiseCovarianceLongTermObjectMapExtractor {
       ceres::ResidualBlockId &,
       util::EmptyStruct &)>
       residual_creator_;
+  std::function<bool(const FactorType &, const FeatureFactorId &, ObjectId &)>
+      long_term_map_obj_retriever_;
   pose_graph_optimization::ObjectVisualPoseGraphResidualParams
       ltm_residual_params_;
   pose_graph_optimization::OptimizationSolverParams ltm_solver_params_;
@@ -274,8 +301,8 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
   /**
    * Create the long term map extractor.
    *
-   * @param covariance_extractor_params Parameters to be used during covariance
-   * extraction.
+   * @param covariance_extractor_params Parameters to be used during
+   * covariance extraction.
    */
   IndependentEllipsoidsLongTermObjectMapExtractor(
       const CovarianceExtractorParams &covariance_extractor_params,
@@ -287,12 +314,16 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
           ceres::Problem *,
           ceres::ResidualBlockId &,
           util::EmptyStruct &)> &residual_creator,
+      const std::function<bool(const FactorType &,
+                               const FeatureFactorId &,
+                               ObjectId &)> &long_term_map_obj_retriever,
       const pose_graph_optimization::ObjectVisualPoseGraphResidualParams
           &ltm_residual_params,
       const pose_graph_optimization::OptimizationSolverParams
           &ltm_solver_params)
       : covariance_extractor_params_(covariance_extractor_params),
         residual_creator_(residual_creator),
+        long_term_map_obj_retriever_(long_term_map_obj_retriever),
         ltm_residual_params_(ltm_residual_params),
         ltm_solver_params_(ltm_solver_params) {}
 
@@ -305,8 +336,8 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
    *                            needed for long-term map.
    * @param problem[in]         The ceres problem from which to extract the
    *                            covariance. Assumes that the problem was left
-   *                            in a complete state (not missing variables that
-   *                            should be included in the long-term map or
+   *                            in a complete state (not missing variables
+   *                            that should be included in the long-term map or
    *                            factored into the covariance extraction.
    * @param long_term_map[out]  Long term map to update with information.
    *
@@ -320,17 +351,31 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
           &optimization_factor_configuration,
       const std::function<bool(FrontEndObjMapData &)>
           front_end_map_data_extractor,
+      const std::string &jacobian_output_dir,
       IndependentEllipsoidsLongTermObjectMap<FrontEndObjMapData>
           &long_term_obj_map) {
     std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> pose_graph_copy =
         pose_graph->makeDeepCopy();
     ceres::Problem problem_for_ltm;
+    std::unordered_map<vslam_types_refactor::FactorType,
+                       std::unordered_map<vslam_types_refactor::FeatureFactorId,
+                                          ceres::ResidualBlockId>>
+        residual_info;
     runOptimizationForLtmExtraction(residual_creator_,
                                     ltm_residual_params_,
                                     ltm_solver_params_,
                                     optimization_factor_configuration,
                                     pose_graph_copy,
-                                    &problem_for_ltm);
+                                    &problem_for_ltm,
+                                    residual_info);
+
+    if (!jacobian_output_dir.empty()) {
+      outputJacobianInfo(jacobian_output_dir,
+                         residual_info,
+                         pose_graph_copy,
+                         long_term_map_obj_retriever_,
+                         problem_for_ltm);
+    }
 
     EllipsoidResults ellipsoid_results;
     extractEllipsoidEstimates(pose_graph_copy, ellipsoid_results);
@@ -354,6 +399,10 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
       pose_graph_copy->getObjectParamPointers(obj_id, &obj_ptr);
       covariance_blocks.emplace_back(std::make_pair(obj_ptr, obj_ptr));
     }
+    double *frame_1_block;
+    pose_graph_copy->getPosePointers(1, &frame_1_block);
+    covariance_blocks.emplace_back(
+        std::make_pair(frame_1_block, frame_1_block));
 
     bool covariance_compute_result =
         covariance_extractor.Compute(covariance_blocks, &problem_for_ltm);
@@ -410,6 +459,8 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
       ceres::ResidualBlockId &,
       util::EmptyStruct &)>
       residual_creator_;
+  std::function<bool(const FactorType &, const FeatureFactorId &, ObjectId &)>
+      long_term_map_obj_retriever_;
   pose_graph_optimization::ObjectVisualPoseGraphResidualParams
       ltm_residual_params_;
   pose_graph_optimization::OptimizationSolverParams ltm_solver_params_;

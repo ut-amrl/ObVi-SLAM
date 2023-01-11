@@ -80,8 +80,10 @@ DEFINE_string(bb_associations_out_file,
               "",
               "File to write ellipsoid results and associated bounding boxes "
               "to. Skipped if this param is not set");
-
-std::string kCompressedImageSuffix = "compressed";
+DEFINE_string(ltm_opt_jacobian_info_directory,
+              "",
+              "Directory to write jacobian info from the LTM optimization for");
+DEFINE_string(visual_feature_results_file, "", "Visual feature results");
 
 std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
 readCameraIntrinsicsByCameraFromFile(const std::string &file_name) {
@@ -185,70 +187,6 @@ std::unordered_map<vtr::FrameId, vtr::Pose3D<double>> readRobotPosesFromFile(
     robot_poses_by_node_num[pose_3d_with_frame.first] = pose;
   }
   return robot_poses_by_node_num;
-}
-
-std::unordered_map<
-    vtr::FrameId,
-    std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>>
-getImagesFromRosbag(const std::string &rosbag_file_name,
-                    const std::string &nodes_by_timestamp_file,
-                    const std::unordered_map<std::string, vtr::CameraId>
-                        &camera_topic_to_camera_id) {
-  std::vector<file_io::NodeIdAndTimestamp> nodes_by_timestamps_vec;
-  util::BoostHashMap<pose::Timestamp, vtr::FrameId> nodes_for_timestamps_map;
-  file_io::readNodeIdsAndTimestampsFromFile(FLAGS_nodes_by_timestamp_file,
-                                            nodes_by_timestamps_vec);
-
-  for (const file_io::NodeIdAndTimestamp &raw_node_id_and_timestamp :
-       nodes_by_timestamps_vec) {
-    nodes_for_timestamps_map[std::make_pair(
-        raw_node_id_and_timestamp.seconds_,
-        raw_node_id_and_timestamp.nano_seconds_)] =
-        raw_node_id_and_timestamp.node_id_;
-  }
-
-  // Read the images
-  rosbag::Bag bag;
-  bag.open(FLAGS_rosbag_file, rosbag::bagmode::Read);
-  // TODO do we want to make a new back with uncompressed images or handle the
-  // compression here?
-
-  std::vector<std::string> topics;
-  for (const auto &camera_topic_and_id : camera_topic_to_camera_id) {
-    topics.emplace_back(camera_topic_and_id.first);
-    //    LOG(INFO) << "Checking topic " << camera_topic_and_id.first;
-  }
-
-  rosbag::View view(bag, rosbag::TopicQuery(topics));
-
-  std::unordered_map<
-      vtr::FrameId,
-      std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>>
-      images_by_frame_and_cam;
-  for (const rosbag::MessageInstance &m : view) {
-    sensor_msgs::Image::ConstPtr msg;
-    if (m.getTopic().find(kCompressedImageSuffix) != std::string::npos) {
-      sensor_msgs::CompressedImage::ConstPtr compressed_msg =
-          m.instantiate<sensor_msgs::CompressedImage>();
-      image_utils::decompressImage(compressed_msg, msg);
-    } else {
-      msg = m.instantiate<sensor_msgs::Image>();
-    }
-    //    LOG(INFO) << "Checking image message";
-
-    pose::Timestamp img_timestamp =
-        std::make_pair(msg->header.stamp.sec, msg->header.stamp.nsec);
-    if (nodes_for_timestamps_map.find(img_timestamp) !=
-        nodes_for_timestamps_map.end()) {
-      //      LOG(INFO) << "Found image for timestamp ";
-      vtr::CameraId cam = camera_topic_to_camera_id.at(m.getTopic());
-      vtr::FrameId frame_id = nodes_for_timestamps_map[img_timestamp];
-      images_by_frame_and_cam[frame_id][cam] = msg;
-    } else {
-      //      LOG(INFO) << "No image for timestamp";
-    }
-  }
-  return images_by_frame_and_cam;
 }
 
 std::vector<std::shared_ptr<ceres::IterationCallback>>
@@ -774,9 +712,9 @@ int main(int argc, char **argv) {
   std::unordered_map<
       vtr::FrameId,
       std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>>
-      images = getImagesFromRosbag(FLAGS_rosbag_file,
-                                   FLAGS_nodes_by_timestamp_file,
-                                   camera_topic_to_camera_id);
+      images = image_utils::getImagesFromRosbag(FLAGS_rosbag_file,
+                                                FLAGS_nodes_by_timestamp_file,
+                                                camera_topic_to_camera_id);
 
   std::unordered_map<vtr::CameraId, std::pair<double, double>>
       img_heights_and_widths;
@@ -1160,11 +1098,29 @@ int main(int argc, char **argv) {
 
   // TODO maybe replace params with something that will yield more accurate
   // results
+  std::function<bool(
+      const vtr::FactorType &, const vtr::FeatureFactorId &, vtr::ObjectId &)>
+      long_term_map_obj_retriever = [&](const vtr::FactorType &factor_type,
+                                        const vtr::FeatureFactorId &factor_id,
+                                        vtr::ObjectId &object_id) {
+        std::unordered_set<vtr::ObjectId> obj_ids;
+        if (!ltm_factor_creator.getObjectIdsForFactor(
+                factor_type, factor_id, obj_ids)) {
+          return false;
+        }
+        if (obj_ids.size() != 1) {
+          LOG(ERROR) << "This only works with factors that have one object";
+          exit(1);
+        }
+        object_id = *obj_ids.begin();
+      };
+
   vtr::IndependentEllipsoidsLongTermObjectMapExtractor<
       //      std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>
       util::EmptyStruct>
       ltm_extractor(ltm_covariance_params,
                     residual_creator,
+                    long_term_map_obj_retriever,
                     residual_params,
                     solver_params);
 
@@ -1211,6 +1167,7 @@ int main(int argc, char **argv) {
                       ltm_pose_graph,
                       ltm_optimization_factors_enabled_params,
                       front_end_map_data_extractor,
+                      FLAGS_ltm_opt_jacobian_info_directory,
                       ltm_extractor_out);
                 };
         vtr::extractLongTermObjectMapAndResults(
@@ -1289,6 +1246,23 @@ int main(int argc, char **argv) {
   vtr::LongTermObjectMapAndResults<MainLtm> output_results;
   offline_problem_runner.runOptimization(
       input_problem_data, optimization_factors_enabled_params, output_results);
+
+  if (!FLAGS_visual_feature_results_file.empty()) {
+    cv::FileStorage visual_feature_fs(FLAGS_visual_feature_results_file,
+                                      cv::FileStorage::WRITE);
+
+    visual_feature_fs << "visual_feats"
+                      << vtr::SerializableVisualFeatureResults(
+                             output_results.visual_feature_results_);
+    visual_feature_fs.release();
+    for (const auto &feat_and_pos :
+         output_results.visual_feature_results_.visual_feature_positions_) {
+      if (feat_and_pos.second.norm() > 10000) {
+        LOG(WARNING) << "High norm for feature " << feat_and_pos.first << ": "
+                     << feat_and_pos.second.norm();
+      }
+    }
+  }
 
   cv::FileStorage ltm_out_fs(FLAGS_long_term_map_output,
                              cv::FileStorage::WRITE);
