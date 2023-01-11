@@ -220,7 +220,8 @@ class RosVisualization {
               CameraId,
               std::unordered_map<ObjectId, BbCornerPair<double>>>>
           &gt_corner_locations,
-      const bool &display_boxes_if_no_image) {
+      const bool &display_boxes_if_no_image,
+      const double &near_edge_threshold = -1) {
     // Publish frames for ellipsoids
     if (initial_ellipsoid_estimates.has_value()) {
       publishEllipsoidTransforms(initial_ellipsoid_estimates.value(),
@@ -251,7 +252,8 @@ class RosVisualization {
         images,
         observed_corner_locations,
         gt_corner_locations,
-        display_boxes_if_no_image);
+        display_boxes_if_no_image,
+        near_edge_threshold);
     if (optimized_trajectory.has_value()) {
       publishTransformsForEachCamera(
           max_frame, optimized_trajectory.value(), extrinsics, kEstPrefix);
@@ -268,7 +270,8 @@ class RosVisualization {
           images,
           observed_corner_locations,
           gt_corner_locations,
-          display_boxes_if_no_image);
+          display_boxes_if_no_image,
+          near_edge_threshold);
     }
     if (gt_trajectory.has_value()) {
       publishTransformsForEachCamera(
@@ -286,7 +289,8 @@ class RosVisualization {
           images,
           observed_corner_locations,
           gt_corner_locations,
-          display_boxes_if_no_image);
+          display_boxes_if_no_image,
+          near_edge_threshold);
     }
   }
 
@@ -371,7 +375,8 @@ class RosVisualization {
             cam_intrinsics,
             image_height_and_width,
             image,
-            observed_corners_for_pose_and_cam);
+            observed_corners_for_pose_and_cam,
+            std::to_string(pose_idx));
 
         if (pose_idx == max_frame) {
           std::pair<std::string, std::string>
@@ -387,7 +392,8 @@ class RosVisualization {
               cam_intrinsics,
               image_height_and_width,
               image,
-              observed_corners_for_pose_and_cam);
+              observed_corners_for_pose_and_cam,
+              std::to_string(pose_idx));
         }
       }
     }
@@ -425,7 +431,8 @@ class RosVisualization {
               CameraId,
               std::unordered_map<ObjectId, BbCornerPair<double>>>>
           &gt_corner_locations,
-      const bool &display_boxes_if_no_image) {
+      const bool &display_boxes_if_no_image,
+      const double &near_edge_threshold) {
     publishBoundingBoxDataFromTrajectory(
         max_frame,
         trajectory,
@@ -439,7 +446,8 @@ class RosVisualization {
         images,
         observed_corner_locations_with_opt_confidence,
         gt_corner_locations,
-        display_boxes_if_no_image);
+        display_boxes_if_no_image,
+        near_edge_threshold);
   }
 
   void publishBoundingBoxDataFromTrajectory(
@@ -474,7 +482,8 @@ class RosVisualization {
               CameraId,
               std::unordered_map<ObjectId, BbCornerPair<double>>>>
           &gt_corner_locations,
-      const bool &display_boxes_if_no_image) {
+      const bool &display_boxes_if_no_image,
+      const double &near_edge_threshold) {
     // For each robot pose
     for (FrameId pose_idx = 0; pose_idx <= max_frame; pose_idx++) {
       Pose3D<double> robot_pose = trajectory.at(pose_idx);
@@ -639,7 +648,9 @@ class RosVisualization {
                                         gt_corners,
                                         predicted_corners_from_optimized,
                                         predicted_corners_from_initial,
-                                        predicted_corners_from_gt);
+                                        predicted_corners_from_gt,
+                                        near_edge_threshold,
+                                        std::to_string(pose_idx));
 
           if (pose_idx == max_frame) {
             std::pair<std::string, std::string>
@@ -660,7 +671,9 @@ class RosVisualization {
                 gt_corners,
                 predicted_corners_from_optimized,
                 predicted_corners_from_initial,
-                predicted_corners_from_gt);
+                predicted_corners_from_gt,
+                near_edge_threshold,
+                std::to_string(pose_idx));
           }
         }
       }
@@ -764,7 +777,9 @@ class RosVisualization {
       const std::optional<std::unordered_map<ObjectId, BbCornerPair<double>>>
           &predicted_corner_locations_from_initial,
       const std::optional<std::unordered_map<ObjectId, BbCornerPair<double>>>
-          &predicted_corner_locations_from_gt) {
+          &predicted_corner_locations_from_gt,
+      const double &near_edge_threshold,
+      const std::string &img_disp_text = "") {
     // Get or create publishers
     ros::Publisher intrinsics_pub =
         getOrCreatePublisher<sensor_msgs::CameraInfo>(camera_info_topic_id,
@@ -859,6 +874,10 @@ class RosVisualization {
                             cv_ptr);
     }
 
+    displayLinesFromEdges(near_edge_threshold, img_height_and_width, cv_ptr);
+    optionallyDisplayCornerTextOnImage(
+        img_disp_text, img_height_and_width, cv_ptr);
+
     // Publish image and camera info
 
     image_pub.publish(cv_ptr->toImageMsg());
@@ -878,7 +897,8 @@ class RosVisualization {
       const std::pair<double, double> &img_height_and_width,
       const sensor_msgs::Image::ConstPtr &image,
       const std::vector<std::pair<BbCornerPair<double>, std::optional<double>>>
-          &observed_corner_locations) {
+          &observed_corner_locations,
+      const std::string &img_disp_text) {
     // Get or create publishers
     ros::Publisher intrinsics_pub =
         getOrCreatePublisher<sensor_msgs::CameraInfo>(camera_info_topic_id,
@@ -906,6 +926,8 @@ class RosVisualization {
                            bounding_box_corners_entry.second,
                            cv_ptr);
     }
+    optionallyDisplayCornerTextOnImage(
+        img_disp_text, img_height_and_width, cv_ptr);
 
     // Publish image and camera info
     image_pub.publish(cv_ptr->toImageMsg());
@@ -914,6 +936,56 @@ class RosVisualization {
                       intrinsics,
                       img_height_and_width,
                       intrinsics_pub);
+  }
+
+  void displayLinesFromEdges(
+      const double &near_edge_threshold,
+      const std::pair<double, double> &img_height_and_width,
+      cv_bridge::CvImagePtr &cv_ptr) {
+    if (near_edge_threshold < 0) {
+      return;
+    }
+
+    std_msgs::ColorRGBA line_color;
+    line_color.a = line_color.r = line_color.g = line_color.b = 1;
+
+    PixelCoord<double> px1(0, near_edge_threshold);
+    PixelCoord<double> px2(img_height_and_width.second, near_edge_threshold);
+    drawLineOnImage(px1, px2, line_color, cv_ptr);
+
+    PixelCoord<double> px1b(0,
+                            img_height_and_width.first - near_edge_threshold);
+    PixelCoord<double> px2b(img_height_and_width.second,
+                            img_height_and_width.first - near_edge_threshold);
+    drawLineOnImage(px1b, px2b, line_color, cv_ptr);
+
+    PixelCoord<int> px1c(near_edge_threshold, 0);
+    PixelCoord<int> px2c(near_edge_threshold, img_height_and_width.first);
+    drawLineOnImage(px1c, px2c, line_color, cv_ptr);
+
+    PixelCoord<int> px1d(img_height_and_width.second - near_edge_threshold, 0);
+    PixelCoord<int> px2d(img_height_and_width.second - near_edge_threshold,
+                         img_height_and_width.first);
+    drawLineOnImage(px1d, px2d, line_color, cv_ptr);
+  }
+
+  void optionallyDisplayCornerTextOnImage(
+      const std::string &img_disp_text,
+      const std::pair<double, double> &img_height_and_width,
+      const cv_bridge::CvImagePtr &cv_ptr) {
+    if (!img_disp_text.empty()) {
+      std_msgs::ColorRGBA text_color;
+      text_color.a = text_color.r = text_color.g = text_color.b = 1;
+      cv::putText(cv_ptr->image,
+                  img_disp_text,
+                  cv::Point(kFrameNumLabelXOffset,
+                            img_height_and_width.first -
+                                kFrameNumLabelYOffsetFromBottom),
+                  cv::FONT_HERSHEY_SIMPLEX,
+                  kBoundingBoxLabelFontScale,
+                  convertColorMsgToOpenCvColor(text_color),
+                  kBoundingBoxLabelTextThickness);
+    }
   }
 
   void visualizeFeatureEstimates(
@@ -1009,19 +1081,9 @@ class RosVisualization {
       drawLineOnImage(
           observed_feat, projected_feat, residual_feature_color_, cv_ptr);
     }
-    if (!img_disp_text.empty()) {
-      std_msgs::ColorRGBA text_color;
-      text_color.a = text_color.r = text_color.g = text_color.b = 1;
-      cv::putText(cv_ptr->image,
-                  img_disp_text,
-                  cv::Point(kFrameNumLabelXOffset,
-                            img_height_and_width.first -
-                                kFrameNumLabelYOffsetFromBottom),
-                  cv::FONT_HERSHEY_SIMPLEX,
-                  kBoundingBoxLabelFontScale,
-                  convertColorMsgToOpenCvColor(text_color),
-                  kBoundingBoxLabelTextThickness);
-    }
+
+    optionallyDisplayCornerTextOnImage(
+        img_disp_text, img_height_and_width, cv_ptr);
 
     LOG(INFO) << "Publishing image for frame " << camera_frame_id
               << " to topic " << image_pub.getTopic();
@@ -1132,11 +1194,12 @@ class RosVisualization {
 
   const static int kBoundingBoxMinCornerLabelXOffset = 0;
   const static int kBoundingBoxMinCornerLabelYOffset = -10;
+  const static int kBoundingBoxMinCornerBelowLabelYOffset = -50;
 
   const static int kFrameNumLabelXOffset = 10;
   const static int kFrameNumLabelYOffsetFromBottom = 10;
 
-  const static constexpr double kBoundingBoxLabelFontScale = 2.0;
+  const static constexpr double kBoundingBoxLabelFontScale = 1.5;
   const static int kBoundingBoxLabelTextThickness = 2;
   const static int kPixelMarkerCircleRad = 3;
 
@@ -1173,6 +1236,9 @@ class RosVisualization {
   const std::string kLowLevelFeatsImageLabel = "feats";
   const std::string kFrameForLatestNode = "slam_base_link";
   const std::string kFrustumTopicSuffix = "frustums";
+
+  const double kEllipsoidTextBuffer = 0.5;
+  const int kEllipsoidLabelIdIncrement = 3000;
 
   std::unordered_map<std::string, std_msgs::ColorRGBA>
       colors_for_semantic_classes_;
@@ -1211,7 +1277,7 @@ class RosVisualization {
       ros::Publisher pub = node_handle_.advertise<visualization_msgs::Marker>(
           topic_name, queue_size);
       publishers_by_topic_[topic_name] = pub;
-      sleep_after_create.sleep();
+      //      sleep_after_create.sleep();
       publishDeleteAllMarker(pub);
     }
     return publishers_by_topic_[topic_name];
@@ -1268,8 +1334,8 @@ class RosVisualization {
     marker.pose.position.z = ellipsoid.pose_.transl_.z();
 
 #ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
-    Eigen::Quaterniond ellipsoid_quat(Eigen::AngleAxisd(
-        ellipsoid.pose_.yaw_, Eigen::Vector3d::UnitZ()));
+    Eigen::Quaterniond ellipsoid_quat(
+        Eigen::AngleAxisd(ellipsoid.pose_.yaw_, Eigen::Vector3d::UnitZ()));
 #else
     Eigen::Quaterniond ellipsoid_quat(ellipsoid.pose_.orientation_);
 #endif
@@ -1286,6 +1352,22 @@ class RosVisualization {
     marker.color = color;
 
     publishMarker(marker, pub);
+
+    visualization_msgs::Marker text_marker;
+
+    text_marker.color = color;
+    text_marker.id = obj_id + kEllipsoidLabelIdIncrement;
+    text_marker.text = std::to_string(obj_id);
+    text_marker.type = visualization_msgs::Marker::Type::TEXT_VIEW_FACING;
+    text_marker.scale.z = 1;
+    text_marker.pose.orientation.w = 1.0;
+    text_marker.pose.position.x = ellipsoid.pose_.transl_.x();
+    text_marker.pose.position.y = ellipsoid.pose_.transl_.y();
+    // Consider taking max of all 3 dimensions instead of just height
+    text_marker.pose.position.z = ellipsoid.pose_.transl_.z() +
+                                  (ellipsoid.dimensions_.z() / 2) +
+                                  kEllipsoidTextBuffer;
+    publishMarker(text_marker, pub);
   }
 
   std::string createTopicForPlotTypeAndBase(const PlotType &plot_type,
@@ -1297,17 +1379,24 @@ class RosVisualization {
     return CV_RGB(color.r * 255, color.g * 255, color.b * 255);
   }
 
-  void drawLineOnImage(const PixelCoord<double> &px1,
-                       const PixelCoord<double> &px2,
+  void drawLineOnImage(const PixelCoord<int> &px1,
+                       const PixelCoord<int> &px2,
                        const std_msgs::ColorRGBA &color,
                        cv_bridge::CvImagePtr &cv_ptr) {
     // TODO verify
     int thickness = 1;
-    cv::line(cv_ptr->image,
-             cv::Point(px1.x(), px1.y()),
-             cv::Point(px2.x(), px2.y()),
-             convertColorMsgToOpenCvColor(color),
-             thickness);
+    cv::Point p1(px1.x(), px1.y());
+    cv::Point p2(px2.x(), px2.y());
+    cv::line(
+        cv_ptr->image, p1, p2, convertColorMsgToOpenCvColor(color), thickness);
+  }
+
+  void drawLineOnImage(const PixelCoord<double> &px1,
+                       const PixelCoord<double> &px2,
+                       const std_msgs::ColorRGBA &color,
+                       cv_bridge::CvImagePtr &cv_ptr) {
+    drawLineOnImage(
+        (PixelCoord<int>)px1.cast<int>(), px2.cast<int>(), color, cv_ptr);
   }
 
   void drawTinyCircleOnImage(const PixelCoord<double> &px,
@@ -1368,16 +1457,19 @@ class RosVisualization {
                   kBoundingBoxLineThickness);
 
     if (bounding_box_numeric_label.has_value()) {
-      cv::putText(cv_ptr->image,
-                  std::to_string(bounding_box_numeric_label.value()),
-                  cv::Point(bounding_box_corners.first.x() +
-                                kBoundingBoxMinCornerLabelXOffset,
-                            bounding_box_corners.first.y() +
-                                kBoundingBoxMinCornerLabelYOffset),
-                  cv::FONT_HERSHEY_SIMPLEX,
-                  kBoundingBoxLabelFontScale,
-                  convertColorMsgToOpenCvColor(color),
-                  kBoundingBoxLabelTextThickness);
+      cv::putText(
+          cv_ptr->image,
+          std::to_string(bounding_box_numeric_label.value()),
+          cv::Point(std::max((double)0,
+                             bounding_box_corners.first.x() +
+                                 kBoundingBoxMinCornerLabelXOffset),
+                    std::max((double)0,
+                             bounding_box_corners.second.y() -
+                                 kBoundingBoxMinCornerBelowLabelYOffset)),
+          cv::FONT_HERSHEY_SIMPLEX,
+          kBoundingBoxLabelFontScale,
+          convertColorMsgToOpenCvColor(color),
+          kBoundingBoxLabelTextThickness);
     }
     if (confidence.has_value()) {
       std::stringstream confidence_stream;
@@ -1385,10 +1477,12 @@ class RosVisualization {
                         << confidence.value();
       cv::putText(cv_ptr->image,
                   confidence_stream.str(),
-                  cv::Point(bounding_box_corners.first.x() +
-                                kBoundingBoxMinCornerLabelXOffset,
-                            bounding_box_corners.second.y() +
-                                kBoundingBoxMinCornerLabelYOffset),
+                  cv::Point(std::max((double)0,
+                                     bounding_box_corners.first.x() +
+                                         kBoundingBoxMinCornerLabelXOffset),
+                            std::max((double)0,
+                                     bounding_box_corners.second.y() +
+                                         kBoundingBoxMinCornerLabelYOffset)),
                   cv::FONT_HERSHEY_SIMPLEX,
                   kBoundingBoxLabelFontScale,
                   convertColorMsgToOpenCvColor(color),

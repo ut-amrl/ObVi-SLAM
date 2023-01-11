@@ -14,7 +14,7 @@ namespace vslam_types_refactor {
 struct BoundingBoxCovGenParams {
   Covariance<double, 4> bounding_box_cov_ =
       createDiagCovFromStdDevs(Eigen::Vector4d(30, 30, 30, 30));
-  double near_edge_threshold_ = 2500; // TODO tune
+  double near_edge_threshold_ = 25; // TODO tune
   double image_boundary_variance_ = pow(200.0, 2.0);  // TODO tune
 };
 

@@ -419,7 +419,8 @@ void visualizationStub(
         &pose_graph,
     const vtr::FrameId &min_frame_optimized,
     const vtr::FrameId &max_frame_optimized,
-    const vtr::VisualizationTypeEnum &visualization_stage) {
+    const vtr::VisualizationTypeEnum &visualization_stage,
+    const double &near_edge_threshold) {
   switch (visualization_stage) {
     case vtr::BEFORE_ANY_OPTIMIZATION:
       vis_manager->publishTransformsForEachCamera(
@@ -494,7 +495,8 @@ void visualizationStub(
           images,
           *observed_corner_locations,
           {},
-          false);
+          false,
+          near_edge_threshold);
 
       vis_manager->publishDetectedBoundingBoxesWithUncertainty(
           max_frame_optimized,
@@ -1250,7 +1252,8 @@ int main(int argc, char **argv) {
                           superclass_ptr,
                           min_frame_id,
                           max_frame_id,
-                          visualization_type);
+                          visualization_type,
+                          cov_gen_params.near_edge_threshold_);
       };
   vtr::OfflineProblemRunner<MainProbData,
                             vtr::ReprojectionErrorFactor,
