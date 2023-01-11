@@ -204,9 +204,7 @@ cv::Mat SummarizeVisualization(
     const cv_bridge::CvImagePtr& imgptr = id_and_visualization.second;
     new_ids_and_visualizations[id] = imgptr->image;
   }
-  LOG(INFO) << "before SummarizeVisualization";
   cv::Mat ret = SummarizeVisualization(new_ids_and_visualizations, nimages_each_row);
-  LOG(INFO) << "after SummarizeVisualization";
   return ret;
 }
 
@@ -393,42 +391,9 @@ public:
       const auto& output_images = cam_id_and_output_images.second;
       if ( output_images.empty() ) { return; }
       const int nimage_per_row = 2;
-      LOG(INFO) << "before SummarizeVisualization";
       cv::Mat summary = SummarizeVisualization(output_images, nimage_per_row);
-      LOG(INFO) << "after SummarizeVisualization";
       std::string image_path = 
           output_image_directories_.at(cam_id) / (std::to_string(frame_id_) + ".png");
-      // size_t nrows = output_images.begin()->second->image.rows;
-      // size_t ncols = output_images.begin()->second->image.cols;
-      // std::vector<std::pair<int, int>> coordinates;
-      // size_t viz_width, viz_height;
-      // if (output_images.size() <= 2) {
-      //   viz_width  = ncols * 2;
-      //   viz_height = nrows;
-      // } else if (output_images.size() <= 4) {
-      //   viz_width  = ncols * 2;
-      //   viz_height = nrows * 2;
-      // } else {
-      //   LOG(FATAL) << "undefined code path!";
-      // }
-      // for (size_t i = 0; i < output_images.size(); ++i) {
-      //   coordinates.emplace_back((i/2)*nrows, (i%2)*ncols);
-      // }
-      // // for visualizaiton consistency across frames
-      // std::vector<DebugTypeEnum> viz_cases;
-      // for (const auto& output : output_images) {
-      //   viz_cases.emplace_back(output.first);
-      // }
-      // std::sort(viz_cases.begin(), viz_cases.end());
-
-      // cv::Mat viz_image = cv::Mat::zeros(viz_height, viz_width, encoding_);
-      // for (size_t i = 0; i < viz_cases.size(); ++i) {
-      //   const DebugTypeEnum& viz_case = viz_cases[i];
-      //   const cv::Mat& output_image = output_images.at(viz_case)->image;
-      //   const int& row = coordinates[i].first;
-      //   const int& col = coordinates[i].second;
-      //   output_image.copyTo(viz_image(cv::Range(row, row+nrows), cv::Range(col, col+ncols)));
-      // }
       cv::imwrite(image_path, summary);
     }
   }
@@ -519,8 +484,6 @@ private:
       std::vector<double> residuals_init, residuals_est;
 
       vtr::CameraId cam_id = obs_feat_and_cam.first;
-      // std::pair<double, double> img_height_and_width =
-      //   img_heights_and_widths_.at(cam_id);
       vtr::CameraExtrinsics<double> extrinsics_for_cam = extrinsics_.at(cam_id);
       vtr::CameraIntrinsicsMat<double> intrinsics_for_cam = intrinsics_.at(cam_id);
 
