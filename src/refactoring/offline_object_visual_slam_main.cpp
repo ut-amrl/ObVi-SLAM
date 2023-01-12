@@ -92,6 +92,20 @@ enum DebugTypeEnum {
   ALL
 };
 
+enum ReprojectionTypeEnum {
+  PROJECT_INIT_FEATURES_TO_INIT_POSE,
+  PROJECT_INIT_FEATURES_TO_EST_POSE,
+  PROJECT_EST_FEATURES_TO_INIT_POSE,
+  PROJECT_EST_FEATURES_TO_EST_POSE
+};
+
+std::unordered_map<ReprojectionTypeEnum, std::string> reprojectionLabels = {
+  {ReprojectionTypeEnum::PROJECT_INIT_FEATURES_TO_INIT_POSE, "Project Initialized Features to Initialized Robot Pose"},
+  {ReprojectionTypeEnum::PROJECT_INIT_FEATURES_TO_EST_POSE,  "Project Initialized Features to Optimized Robot Pose"},
+  {ReprojectionTypeEnum::PROJECT_EST_FEATURES_TO_INIT_POSE,  "Project Optimized Features to Initialized Robot Pose"},
+  {ReprojectionTypeEnum::PROJECT_EST_FEATURES_TO_EST_POSE,   "Project Optimized Features to Optimized Robot Pose"}
+};
+
 std::unordered_map<DebugTypeEnum, std::string> debugLabels = {
   {DebugTypeEnum::INITALIZED, "initialization"},
   {DebugTypeEnum::OPTIMIZED,  "after optimization"},
@@ -230,6 +244,7 @@ public:
       const fs::path& output_pose_root_directory,
       const std::unordered_map<DebugTypeEnum, fs::path>& output_pose_directories,
       const fs::path& output_summary_directory,
+      const std::unordered_map<vtr::CameraId, fs::path>& output_opt_window_directories_,
       const std_msgs::ColorRGBA& obs_color,
       const std_msgs::ColorRGBA& init_color,
       const std_msgs::ColorRGBA& est_color,
@@ -241,10 +256,97 @@ public:
           output_pose_root_directory_(output_pose_root_directory),
           output_pose_directories_(output_pose_directories),
           output_summary_directory_(output_summary_directory),
+          output_opt_window_directories_(output_opt_window_directories_),
           obs_color_(obs_color), 
           init_color_(init_color),
           est_color_(est_color),
           encoding_(encoding) {}
+  
+  void setImagesAndFeatures2dForDebuggingOptWindow(
+      const std::unordered_map<vtr::CameraId, vtr::CameraExtrinsics<double>>& extrinsics,
+      const std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>& intrinsics,
+      const std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>& images,
+      const std::unordered_map<vtr::CameraId,
+          std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>>& features2d) {
+    extrinsics_ = extrinsics;
+    intrinsics_ = intrinsics;
+    images_ = images;
+    features2d_ = features2d;
+  }
+
+  bool updateFeatures3dForDebuggingOptWindow(
+      const vtr::Pose3D<double>& pose_init,
+      const vtr::Pose3D<double>& pose_est,
+      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& all_features3d_init,
+      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& all_features3d_est,
+      const size_t& local_BA_window) {
+    
+    std::unordered_map<vtr::CameraId, cv_bridge::CvImagePtr> cam_ids_and_visualizations;
+
+    for (const auto& cam_id_and_feature2d : features2d_) {
+      const vtr::CameraId& cam_id = cam_id_and_feature2d.first;
+      const vtr::CameraExtrinsics<double>& extrinsics_for_cam = extrinsics_.at(cam_id);
+      const vtr::CameraIntrinsicsMat<double>& intrinsics_for_cam = intrinsics_.at(cam_id);
+
+      const sensor_msgs::Image::ConstPtr& img_for_cam = images_.at(cam_id);
+      cv_bridge::CvImagePtr cv_ptr;
+      try {
+        cv_ptr = cv_bridge::toCvCopy(img_for_cam, vtr::kImageEncoding);
+      } catch (cv_bridge::Exception &e) {
+        LOG(ERROR) << "cv_bridge exception: " << e.what();
+        exit(1);
+      }
+
+      for (const auto& feat_id_and_feature : cam_id_and_feature2d.second) {
+        const auto& feat_id = feat_id_and_feature.first;
+        const auto& observed_feat = feat_id_and_feature.second;
+        if (all_features3d_init.find(feat_id) == all_features3d_init.end() 
+                || all_features3d_est.find(feat_id) == all_features3d_est.end()) {
+          continue;
+        }
+        vtr::Position3d<double> feature3d_est = all_features3d_est.at(feat_id);
+        vtr::PixelCoord<double> projected_est_pixel_at_est_pose = 
+          vtr::getProjectedPixelCoord(feature3d_est,
+                                      pose_est,
+                                      extrinsics_for_cam,
+                                      intrinsics_for_cam);
+
+        vtr::RosVisualization::drawTinyCircleOnImage(
+            observed_feat, obs_color_, cv_ptr);
+        vtr::RosVisualization::drawTinyCircleOnImage(
+            projected_est_pixel_at_est_pose, est_color_, cv_ptr);
+        vtr::RosVisualization::drawLineOnImage(
+            observed_feat, projected_est_pixel_at_est_pose, est_color_, cv_ptr);
+      }
+      cam_ids_and_visualizations[cam_id] = cv_ptr;
+    }
+    for (const auto& cam_id_and_visualization : cam_ids_and_visualizations) {
+      const vtr::CameraId& cam_id = cam_id_and_visualization.first;
+      const auto& visualization = cam_id_and_visualization.second;
+      output_images_within_opt_window_[cam_id].push_back(visualization);
+    }
+
+    if (output_images_within_opt_window_.empty() 
+            || output_images_within_opt_window_.begin()->second.size() < local_BA_window) { return false; }
+    std::unordered_map<vtr::CameraId, cv::Mat> cam_ids_and_summaries;
+    for (const auto& cam_id_and_visualizations : output_images_within_opt_window_) {
+      const vtr::CameraId& cam_id = cam_id_and_visualizations.first;
+      const auto& visualizations = cam_id_and_visualizations.second;
+        std::unordered_map<size_t, cv_bridge::CvImagePtr> opt_ids_and_visualizations;
+      for (size_t i = 0; i < visualizations.size(); ++i) {
+        opt_ids_and_visualizations[i] = visualizations[i];
+      }
+      cam_ids_and_summaries[cam_id] = SummarizeVisualization(opt_ids_and_visualizations, 5);
+    }
+    for (const auto& cam_id_and_summary : cam_ids_and_summaries) {
+      const auto& cam_id = cam_id_and_summary.first;
+      const auto& summary = cam_id_and_summary.second;
+      fs::path savepath 
+          = output_opt_window_directories_[cam_id] / (std::to_string(frame_id_)+".png");
+      cv::imwrite(savepath, summary);
+    }
+    return true;
+  }
 
   void debugByFrameId(
       const std::unordered_map<vtr::CameraId, vtr::CameraExtrinsics<double>>& extrinsics,
@@ -399,7 +501,7 @@ public:
   }
 
 private:
-  fs::path root_directory_;
+  // Debug at each frame
   vtr::FrameId frame_id_;
   std::unordered_map<vtr::CameraId, vtr::CameraExtrinsics<double>> extrinsics_;
   std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>> intrinsics_;
@@ -420,13 +522,18 @@ private:
   std::vector<vtr::Pose3D<double>> init_trajectory_;
   std::vector<vtr::Pose3D<double>> est_trajectory_;
 
+  fs::path root_directory_;
   std::unordered_map<vtr::CameraId, fs::path> output_image_directories_;
   std::unordered_map<vtr::CameraId, fs::path> output_residual_directories_;
   fs::path output_pose_root_directory_;
   std::unordered_map<DebugTypeEnum, fs::path> output_pcl_directories_;
   std::unordered_map<DebugTypeEnum, fs::path> output_pose_directories_;
   fs::path output_summary_directory_;
+  std::unordered_map<vtr::CameraId, fs::path> output_opt_window_directories_;
 
+  // Debug Optimization Window; Duplicate stored values for fast look-ups
+  std::unordered_map<vtr::CameraId, std::vector<cv_bridge::CvImagePtr>> output_images_within_opt_window_;
+  
   std_msgs::ColorRGBA obs_color_;
   std_msgs::ColorRGBA init_color_;
   std_msgs::ColorRGBA est_color_;
@@ -620,6 +727,13 @@ public:
     output_summary_directory_ = root_directory_ / "summaries";
     setupOutputDirectory(output_summary_directory_);
 
+    fs::path output_opt_window_root_directory = root_directory_ / "optimizations";
+    setupOutputDirectory(output_opt_window_root_directory.string());
+    for (const auto& cam_id : cam_ids) {
+      output_opt_window_directories_[cam_id] = output_opt_window_root_directory / std::to_string(cam_id);
+      setupOutputDirectory(output_opt_window_directories_[cam_id]);
+    }
+
     float alpha = .8;
     obs_color_.a = init_color_.a = est_color_.a = alpha;
 
@@ -636,6 +750,35 @@ public:
     } else {
       LOG(FATAL) << "doesn't support encoding " << encoding_;
       exit(1);
+    }
+  }
+
+  void debugOptimizationWindow(const vtr::FrameId& min_frame_id, 
+      const vtr::FrameId& max_frame_id, 
+      const std::unordered_map<vtr::CameraId, vtr::CameraExtrinsics<double>>& extrinsics,
+      const std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>& intrinsics,
+      const std::unordered_map<vtr::FrameId, vtr::Pose3D<double>>& poses_init,
+      const std::unordered_map<vtr::FrameId, vtr::Pose3D<double>>& poses_est,
+      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& all_features3d_init,
+      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& all_features3d_est,
+      const std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr> cam_ids_and_images,
+      const std::unordered_map<vtr::CameraId,
+                std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>>& features2d_at_max_frame_id,
+      const size_t& local_BA_window = 50) {
+    // update features associated with the latest (max) frame 
+    // frame_ids_and_debuggers_[frame_id] 
+    frame_ids_and_debuggers_[max_frame_id]
+        .setImagesAndFeatures2dForDebuggingOptWindow(
+            extrinsics, intrinsics, cam_ids_and_images, features2d_at_max_frame_id);
+    for (size_t frame_id = min_frame_id; frame_id <= max_frame_id; ++frame_id) {
+      const auto& pose_init = poses_init.at(frame_id);
+      const auto& pose_est  = poses_est.at(frame_id);
+      if (frame_ids_and_debuggers_.find(frame_id) != frame_ids_and_debuggers_.end()) {
+        bool logged = frame_ids_and_debuggers_[frame_id]
+          .updateFeatures3dForDebuggingOptWindow(
+                pose_init, pose_est, all_features3d_init, all_features3d_est, local_BA_window);
+        if (logged) { frame_ids_and_debuggers_.erase(frame_id); }
+      }
     }
   }
 
@@ -661,6 +804,7 @@ public:
                              output_pose_root_directory_, 
                              output_pose_directories_, 
                              output_summary_directory_,
+                             output_opt_window_directories_,
                              obs_color_,
                              init_color_,
                              est_color_,
@@ -695,6 +839,7 @@ private:
   std::unordered_map<DebugTypeEnum, fs::path> output_pcl_directories_;
   std::unordered_map<DebugTypeEnum, fs::path> output_pose_directories_;
   fs::path output_summary_directory_;
+  std::unordered_map<vtr::CameraId, fs::path> output_opt_window_directories_;
 
   std_msgs::ColorRGBA obs_color_;
   std_msgs::ColorRGBA init_color_;
@@ -1102,7 +1247,6 @@ void visualizationStub(
         }
       }
       vis_manager->visualizeEllipsoids(ltm_ellipsoids, vtr::INITIAL, false);
-      LOG(INFO) << "finish visualizeEllipsoids";
       vis_manager->visualizeCameraObservations(
           max_frame_optimized,
           initial_robot_pose_estimates,
@@ -1119,7 +1263,6 @@ void visualizationStub(
           *observed_corner_locations,
           {},
           false);
-      LOG(INFO) << "finish visualizeCameraObservations";
 
       vis_manager->publishDetectedBoundingBoxesWithUncertainty(
           max_frame_optimized,
@@ -1128,7 +1271,6 @@ void visualizationStub(
           intrinsics,
           img_heights_and_widths,
           vtr::PlotType::ESTIMATED);
-      LOG(INFO) << "finish publishDetectedBoundingBoxesWithUncertainty";
 
       std::vector<vtr::Pose3D<double>> est_trajectory_vec;
       std::vector<vtr::Pose3D<double>> init_trajectory_vec;
@@ -1144,7 +1286,6 @@ void visualizationStub(
                                        vtr::PlotType::ESTIMATED);
       vis_manager->publishTfForLatestPose(est_trajectory_vec.back(),
                                           vtr::PlotType::ESTIMATED);
-      LOG(INFO) << "finish publishTfForLatestPose";
 
       std::unordered_map<vtr::FeatureId, vtr::Position3d<double>> feature_ests;
       std::unordered_map<
@@ -1181,7 +1322,6 @@ void visualizationStub(
       }
       vis_manager->visualizeFeatureEstimates(curr_frame_est_feature_ests,
                                              vtr::PlotType::ESTIMATED);
-      LOG(INFO) << "finish visualizeFeatureEstimates";
       publishLowLevelFeaturesLatestImages(
           vis_manager,
           extrinsics,
@@ -1218,7 +1358,16 @@ void visualizationStub(
           observed_feats_for_frame,
           init_trajectory_vec,
           est_trajectory_vec);
-      LOG(INFO) << "finish debugByFrameId";
+        debugger.debugOptimizationWindow(min_frame_optimized,
+            max_frame_optimized,
+            extrinsics,
+            intrinsics,
+            input_problem_data.getRobotPoseEstimates(),
+            optimized_trajectory,
+            initial_feat_positions,
+            feature_ests,
+            images.at(max_frame_optimized),
+            observed_feats_for_frame);
 
       break;
     }

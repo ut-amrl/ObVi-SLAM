@@ -5,7 +5,7 @@ CALIB_DIR="/robodata/taijing/object-slam/calibration/husky_zed/"
 SLAM_DIR="/home/tiejean/projects/ut_semantic_vslam/"
 ORB_DIR="/home/tiejean/projects/ORB_SLAM2/"
 DATA_DIR="/robodata/taijing/object-slam/vslam/"
-BAG_DIR="/robodata/husky_logs/"
+BAG_DIR="/robodata/taijing/object-slam/"
 YOLO_DIR="/home/tiejean/projects/yolov5-ros/"
 yolo_weight="/robodata/taijing/object-slam/yolov5-models/outdoors-final-yolov5s-0.pt"
 
