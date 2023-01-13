@@ -1378,6 +1378,154 @@ void visualizationStub(
   }
 }
 
+bool initialize_features3d(
+      const pose_graph_optimization::ObjectVisualPoseGraphResidualParams
+          &residual_params,
+      const std::function<bool()> &continue_opt_checker,
+      const std::function<vtr::FrameId(const vtr::FrameId &)> &window_provider_func,
+      const std::function<
+          bool(const MainFactorInfo &, 
+               const MainPgPtr &, 
+               const util::EmptyStruct &)> &refresh_residual_checker,
+      const std::function<
+          bool(const MainFactorInfo &,
+               const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
+               const MainPgPtr &,
+               ceres::Problem *,
+               ceres::ResidualBlockId &,
+               util::EmptyStruct &)> &residual_creator,
+      const std::function<void(const MainProbData &, MainPgPtr &)>
+          &pose_graph_creator,
+      std::function<void(const MainProbData &, 
+                         const MainPgPtr &, 
+                         const vtr::FrameId &)> &frame_data_adder,
+      const std::function<
+          void(const MainProbData &,
+               const MainPgPtr &,
+               const pose_graph_optimizer::OptimizationFactorsEnabledParams &,
+               vtr::LongTermObjectMapAndResults<MainLtm> &)> &output_data_extractor,
+      const std::function<
+          std::vector<std::shared_ptr<ceres::IterationCallback>>(
+              const MainProbData &,
+              const MainPgPtr &,
+              const vtr::FrameId &,
+              const vtr::FrameId &)> &ceres_callback_creator,
+      const std::function<
+          void(const MainProbData &,
+               const MainPgPtr &,
+               const vtr::FrameId &,
+               const vtr::FrameId &,
+               const vtr::VisualizationTypeEnum &)> &visualization_callback,
+      const pose_graph_optimization::OptimizationSolverParams &solver_params,
+      MainProbData &input_problem_data) {
+
+  pose_graph_optimization::ObjectVisualPoseGraphResidualParams my_residual_params = residual_params;
+  my_residual_params.visual_residual_params_.reprojection_error_huber_loss_param_ = 1.0; // Tuning
+
+  std::function<bool()> my_continue_opt_checker = continue_opt_checker;
+
+  std::function<vtr::FrameId(const vtr::FrameId &)> my_window_provider_func =
+      [](const vtr::FrameId &max_frame) -> vtr::FrameId {
+    return 0;
+  };
+
+  std::function<bool(
+      const MainFactorInfo &, const MainPgPtr &, const util::EmptyStruct &)>
+      my_refresh_residual_checker = refresh_residual_checker;
+
+  std::function<bool(
+      const MainFactorInfo &,
+      const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
+      const MainPgPtr &,
+      ceres::Problem *,
+      ceres::ResidualBlockId &,
+      util::EmptyStruct &)>
+      my_residual_creator = residual_creator;
+  
+  std::function<void(const MainProbData &, MainPgPtr &)> my_pose_graph_creator = pose_graph_creator;
+
+  std::function<void(
+      const MainProbData &, const MainPgPtr &, const vtr::FrameId &)>
+      my_frame_data_adder = frame_data_adder;
+
+  std::function<void(
+      const MainProbData &,
+      const MainPgPtr &,
+      const pose_graph_optimizer::OptimizationFactorsEnabledParams &,
+      vtr::LongTermObjectMapAndResults<MainLtm> &)>
+      my_output_data_extractor = output_data_extractor;
+
+  std::function<std::vector<std::shared_ptr<ceres::IterationCallback>>(
+      const MainProbData &,
+      const MainPgPtr &,
+      const vtr::FrameId &,
+      const vtr::FrameId &)> my_ceres_callback_creator = ceres_callback_creator;
+
+  std::function<void(const MainProbData &,
+                     const MainPgPtr &,
+                     const vtr::FrameId &,
+                     const vtr::FrameId &,
+                     const vtr::VisualizationTypeEnum &)>
+      my_visualization_callback = visualization_callback;
+  
+  pose_graph_optimization::OptimizationSolverParams my_solver_params = solver_params;
+  my_solver_params.max_num_iterations_ = 5000;
+
+  vtr::OfflineProblemRunner<MainProbData,
+                            vtr::ReprojectionErrorFactor,
+                            vtr::LongTermObjectMapAndResults<MainLtm>,
+                            util::EmptyStruct,
+                            MainPg>
+      offline_problem_runner(my_residual_params,
+                             my_continue_opt_checker,
+                             my_window_provider_func,
+                             my_refresh_residual_checker,
+                             my_residual_creator,
+                             my_pose_graph_creator,
+                             my_frame_data_adder,
+                             my_output_data_extractor,
+                             my_ceres_callback_creator,
+                             my_visualization_callback,
+                             my_solver_params);
+
+  pose_graph_optimizer::OptimizationFactorsEnabledParams
+      optimization_factors_enabled_params;
+  optimization_factors_enabled_params.use_pom_ = false;
+  optimization_factors_enabled_params.include_visual_factors_ = true;
+  optimization_factors_enabled_params.fix_poses_ = true;
+  optimization_factors_enabled_params.fix_visual_features_ = false;
+  optimization_factors_enabled_params.fix_objects_ = false;
+  optimization_factors_enabled_params.poses_prior_to_window_to_keep_constant_ = 1;
+
+  vtr::LongTermObjectMapAndResults<MainLtm> output_results;
+  bool success = offline_problem_runner.runOptimization(
+      input_problem_data, optimization_factors_enabled_params, output_results, false);
+  if (!success) { return false; }
+
+  std::unordered_map<vtr::FeatureId, vtr::StructuredVisionFeatureTrack> visual_features_init;
+  std::unordered_map<vtr::FeatureId, vtr::StructuredVisionFeatureTrack> visual_features_est;
+  visual_features_init = input_problem_data.getVisualFeatures();
+  for (const auto& feat_id_and_feature3d : output_results.visual_feature_results_.visual_feature_positions_) {
+    const auto& feat_id = feat_id_and_feature3d.first;
+    const auto& feature3d = feat_id_and_feature3d.second;
+    if (visual_features_init.find(feat_id) != visual_features_init.end()) {
+      visual_features_est[feat_id] = visual_features_init[feat_id];
+      visual_features_est[feat_id].feature_pos_ = feature3d;
+    }
+  }
+
+  input_problem_data = MainProbData(input_problem_data.getCameraIntrinsicsByCamera(),
+                                    input_problem_data.getCameraExtrinsicsByCamera(),
+                                    visual_features_est,
+                                    input_problem_data.getRobotPoseEstimates(),
+                                    input_problem_data.getObjDimMeanAndCovByClass(),
+                                    input_problem_data.getBoundingBoxes(),
+                                    input_problem_data.getLongTermObjectMap(),
+                                    input_problem_data.getImages());
+
+  return true;
+}
+
 int main(int argc, char **argv) {
   google::InitGoogleLogging(argv[0]);
   google::ParseCommandLineFlags(&argc, &argv, true);
@@ -1529,7 +1677,6 @@ int main(int argc, char **argv) {
       vtr::FrameId,
       std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>>
       bounding_boxes;
-  // TODO fix this
   for (const auto &frame_id_bb_entry : init_bounding_boxes) {
     for (const auto &camera_bb_entry : frame_id_bb_entry.second) {
       for (const vtr::RawBoundingBox &bb : camera_bb_entry.second) {
@@ -1996,6 +2143,21 @@ int main(int argc, char **argv) {
 
   //  vtr::SpatialEstimateOnlyResults output_results;
   vtr::LongTermObjectMapAndResults<MainLtm> output_results;
+  if (!initialize_features3d(residual_params,
+                             continue_opt_checker,
+                             window_provider_func,
+                             refresh_residual_checker,
+                             residual_creator,
+                             pose_graph_creator,
+                             frame_data_adder,
+                             output_data_extractor,
+                             ceres_callback_creator,
+                             visualization_callback,
+                             solver_params, 
+                             input_problem_data) ) {
+    LOG(ERROR) << "Failed to initalize feature positions";
+    exit(1);
+  }
   offline_problem_runner.runOptimization(
       input_problem_data, optimization_factors_enabled_params, output_results);
 

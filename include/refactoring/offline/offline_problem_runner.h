@@ -82,7 +82,8 @@ class OfflineProblemRunner {
       const InputProblemData &problem_data,
       const pose_graph_optimizer::OptimizationFactorsEnabledParams
           &optimization_factors_enabled_params,
-      OutputProblemData &output_problem_data) {
+      OutputProblemData &output_problem_data, 
+      const bool &sliding_window_optim = true) {
     std::shared_ptr<PoseGraphType> pose_graph;
 
     ceres::Problem problem;
@@ -115,51 +116,74 @@ class OfflineProblemRunner {
                             max_frame_id,  // Should this be max or 0
                             VisualizationTypeEnum::BEFORE_ANY_OPTIMIZATION);
     LOG(INFO) << "Ready to run optimization";
-    for (FrameId next_frame_id = 1; next_frame_id <= max_frame_id;
-         next_frame_id++) {
-      //    for (FrameId next_frame_id = 1; next_frame_id <= 300;
-      //         next_frame_id++) {
-      if (!continue_opt_checker_) {
-        LOG(WARNING)
-            << "Halted optimization due to continue checker reporting false";
-        return false;
+    
+    if (sliding_window_optim) {
+      for (FrameId next_frame_id = 1; next_frame_id <= max_frame_id;
+          next_frame_id++) {
+        //    for (FrameId next_frame_id = 1; next_frame_id <= 300;
+        //         next_frame_id++) {
+        if (!continue_opt_checker_) {
+          LOG(WARNING)
+              << "Halted optimization due to continue checker reporting false";
+          return false;
+        }
+        // This function is also responsible for adjusting the initial estimate
+        // for the pose at next_frame_id given the optimized pose at next_frame_id
+        // - 1
+        frame_data_adder_(problem_data, pose_graph, next_frame_id);
+        FrameId start_opt_with_frame = window_provider_func_(next_frame_id);
+        optimization_scope_params.min_frame_id_ = start_opt_with_frame;
+        optimization_scope_params.max_frame_id_ = next_frame_id;
+
+        LOG(INFO) << "Building optimization";
+        optimizer_.buildPoseGraphOptimization(
+            optimization_scope_params, residual_params_, pose_graph, &problem);
+
+        visualization_callback_(problem_data,
+                                pose_graph,
+                                start_opt_with_frame,
+                                next_frame_id,
+                                VisualizationTypeEnum::BEFORE_EACH_OPTIMIZATION);
+        std::vector<std::shared_ptr<ceres::IterationCallback>> ceres_callbacks =
+            ceres_callback_creator_(
+                problem_data, pose_graph, start_opt_with_frame, next_frame_id);
+        LOG(INFO) << "Solving optimization";
+        bool opt_success = optimizer_.solveOptimization(
+            &problem, solver_params_, ceres_callbacks);
+
+        visualization_callback_(problem_data,
+                                pose_graph,
+                                start_opt_with_frame,
+                                next_frame_id,
+                                VisualizationTypeEnum::AFTER_EACH_OPTIMIZATION);
+        if (!opt_success) {
+          // TODO do we want to quit or just silently let this iteration fail?
+          LOG(ERROR) << "Optimization failed at max frame id " << next_frame_id;
+          return false;
+        }
       }
-      // This function is also responsible for adjusting the initial estimate
-      // for the pose at next_frame_id given the optimized pose at next_frame_id
-      // - 1
-      frame_data_adder_(problem_data, pose_graph, next_frame_id);
-      FrameId start_opt_with_frame = window_provider_func_(next_frame_id);
+    } else {
+      // add all data to pose graph
+      for (FrameId next_frame_id = 1; next_frame_id <= max_frame_id; next_frame_id++) {
+        frame_data_adder_(problem_data, pose_graph, next_frame_id);
+      }
+      FrameId start_opt_with_frame = window_provider_func_(max_frame_id);
       optimization_scope_params.min_frame_id_ = start_opt_with_frame;
-      optimization_scope_params.max_frame_id_ = next_frame_id;
-
-      LOG(INFO) << "Building optimization";
+      optimization_scope_params.max_frame_id_ = max_frame_id;
       optimizer_.buildPoseGraphOptimization(
-          optimization_scope_params, residual_params_, pose_graph, &problem);
-
-      visualization_callback_(problem_data,
-                              pose_graph,
-                              start_opt_with_frame,
-                              next_frame_id,
-                              VisualizationTypeEnum::BEFORE_EACH_OPTIMIZATION);
+            optimization_scope_params, residual_params_, pose_graph, &problem);
       std::vector<std::shared_ptr<ceres::IterationCallback>> ceres_callbacks =
-          ceres_callback_creator_(
-              problem_data, pose_graph, start_opt_with_frame, next_frame_id);
-      LOG(INFO) << "Solving optimization";
+            ceres_callback_creator_(
+                problem_data, pose_graph, start_opt_with_frame, max_frame_id);
       bool opt_success = optimizer_.solveOptimization(
-          &problem, solver_params_, ceres_callbacks);
-
-      visualization_callback_(problem_data,
-                              pose_graph,
-                              start_opt_with_frame,
-                              next_frame_id,
-                              VisualizationTypeEnum::AFTER_EACH_OPTIMIZATION);
+            &problem, solver_params_, ceres_callbacks);
       if (!opt_success) {
         // TODO do we want to quit or just silently let this iteration fail?
-        LOG(ERROR) << "Optimization failed at max frame id " << next_frame_id;
+        LOG(ERROR) << "Optimization failed at max frame id " << max_frame_id;
         return false;
       }
     }
-
+    
     visualization_callback_(problem_data,
                             pose_graph,
                             0,
