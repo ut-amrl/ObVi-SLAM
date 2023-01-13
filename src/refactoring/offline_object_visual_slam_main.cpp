@@ -222,7 +222,7 @@ cv::Mat SummarizeVisualization(
   return ret;
 }
 
-void setupOutputDirectory(const std::string& output_dir) {
+void SetupOutputDirectory(const std::string& output_dir) {
   if (!fs::is_directory(output_dir) || !fs::exists(output_dir)) {
     if (!fs::create_directory(output_dir)) {
       LOG(FATAL) << "failed to create directory " << output_dir;
@@ -693,45 +693,45 @@ public:
   VSLAMDebugger(const std::string& root_directory,
                 const std::vector<vtr::CameraId>& cam_ids) :
                 root_directory_(root_directory) {
-    setupOutputDirectory(root_directory_.string());
+    SetupOutputDirectory(root_directory_.string());
     
     fs::path output_image_directory = root_directory_ / "images";
-    setupOutputDirectory(output_image_directory.string());
+    SetupOutputDirectory(output_image_directory.string());
     for (const auto& cam_id : cam_ids) {
       output_image_directories_[cam_id] = output_image_directory / std::to_string(cam_id);
-      setupOutputDirectory(output_image_directories_[cam_id]);
+      SetupOutputDirectory(output_image_directories_[cam_id]);
     }
     fs::path output_residual_directory = root_directory_ / "residuals";
-    setupOutputDirectory(output_residual_directory);
+    SetupOutputDirectory(output_residual_directory);
     for (const auto& cam_id : cam_ids) {
       output_residual_directories_[cam_id] = output_residual_directory / std::to_string(cam_id);
-      setupOutputDirectory(output_residual_directories_[cam_id]);
+      SetupOutputDirectory(output_residual_directories_[cam_id]);
     }
 
     fs::path output_pcl_root_directory = root_directory_ / "pointclouds";
-    setupOutputDirectory(output_pcl_root_directory.string());
+    SetupOutputDirectory(output_pcl_root_directory.string());
     output_pcl_directories_[DebugTypeEnum::INITALIZED] = output_pcl_root_directory / "init";
     output_pcl_directories_[DebugTypeEnum::OPTIMIZED]  = output_pcl_root_directory / "est";
     for (const auto& output_pcl_directory : output_pcl_directories_) {
-      setupOutputDirectory(output_pcl_directory.second.string());
+      SetupOutputDirectory(output_pcl_directory.second.string());
     }
 
     output_pose_root_directory_ = root_directory_ / "poses";
-    setupOutputDirectory(output_pose_root_directory_.string());
+    SetupOutputDirectory(output_pose_root_directory_.string());
     output_pose_directories_[DebugTypeEnum::INITALIZED] = output_pose_root_directory_ / "init";
     output_pose_directories_[DebugTypeEnum::OPTIMIZED]  = output_pose_root_directory_ / "est";
     for (const auto& output_pose_directory : output_pose_directories_) {
-      setupOutputDirectory(output_pose_directory.second.string());
+      SetupOutputDirectory(output_pose_directory.second.string());
     }
 
     output_summary_directory_ = root_directory_ / "summaries";
-    setupOutputDirectory(output_summary_directory_);
+    SetupOutputDirectory(output_summary_directory_);
 
     fs::path output_opt_window_root_directory = root_directory_ / "optimizations";
-    setupOutputDirectory(output_opt_window_root_directory.string());
+    SetupOutputDirectory(output_opt_window_root_directory.string());
     for (const auto& cam_id : cam_ids) {
       output_opt_window_directories_[cam_id] = output_opt_window_root_directory / std::to_string(cam_id);
-      setupOutputDirectory(output_opt_window_directories_[cam_id]);
+      SetupOutputDirectory(output_opt_window_directories_[cam_id]);
     }
 
     float alpha = .8;
