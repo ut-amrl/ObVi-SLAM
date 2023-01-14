@@ -85,30 +85,18 @@ std::string kCompressedImageSuffix = "compressed";
 namespace fs = std::filesystem;
 
 enum DebugTypeEnum {
-  INITALIZED,
-  OPTIMIZED,
+  INITIALIZED,
+  BEFORE_OPTIM,
+  AFTER_OPTIM,
   ORBSLAM,
   OBSERVED,
   ALL
 };
 
-enum ReprojectionTypeEnum {
-  PROJECT_INIT_FEATURES_TO_INIT_POSE,
-  PROJECT_INIT_FEATURES_TO_EST_POSE,
-  PROJECT_EST_FEATURES_TO_INIT_POSE,
-  PROJECT_EST_FEATURES_TO_EST_POSE
-};
-
-std::unordered_map<ReprojectionTypeEnum, std::string> reprojectionLabels = {
-  {ReprojectionTypeEnum::PROJECT_INIT_FEATURES_TO_INIT_POSE, "Project Initialized Features to Initialized Robot Pose"},
-  {ReprojectionTypeEnum::PROJECT_INIT_FEATURES_TO_EST_POSE,  "Project Initialized Features to Optimized Robot Pose"},
-  {ReprojectionTypeEnum::PROJECT_EST_FEATURES_TO_INIT_POSE,  "Project Optimized Features to Initialized Robot Pose"},
-  {ReprojectionTypeEnum::PROJECT_EST_FEATURES_TO_EST_POSE,   "Project Optimized Features to Optimized Robot Pose"}
-};
-
 std::unordered_map<DebugTypeEnum, std::string> debugLabels = {
-  {DebugTypeEnum::INITALIZED, "initialization"},
-  {DebugTypeEnum::OPTIMIZED,  "after optimization"},
+  {DebugTypeEnum::INITIALIZED, "initialization"},
+  {DebugTypeEnum::BEFORE_OPTIM, "before optimization"},
+  {DebugTypeEnum::AFTER_OPTIM,  "after optimization"},
   {DebugTypeEnum::ORBSLAM,    "from ORBSLAM"},
   {DebugTypeEnum::OBSERVED,   "observations"},
   {DebugTypeEnum::ALL,        "all"}
@@ -155,6 +143,19 @@ void ToCSV(const std::string& filename,
           << feature.second[2] << std::endl;;
   }
   ofile.close();
+}
+
+template <typename datatype>
+void LogToCSV(
+    const std::unordered_map<DebugTypeEnum, fs::path>& save_directories,
+    const std::unordered_map<DebugTypeEnum, datatype>& types_and_datas,
+    const vtr::FrameId& frame_id) {
+  for (const auto& type_and_data : types_and_datas) {
+    const auto& type = type_and_data.first;
+    const auto& data = type_and_data.second;
+    fs::path savepath = save_directories.at(type) / (std::to_string(frame_id)+".csv");
+    ToCSV(savepath, data);
+  }
 }
 
 void PutImageText(const std::string& text, cv::Mat image) {
@@ -238,6 +239,12 @@ public:
   VSLAMFrameDebugger() {}
 
   VSLAMFrameDebugger(const vtr::FrameId& frame_id,
+      const std::unordered_map<vtr::CameraId, vtr::CameraExtrinsics<double>>& extrinsics,
+      const std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>& intrinsics,
+      const std::unordered_map<vtr::CameraId, std::pair<double, double>>& img_heights_and_widths,
+      const std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>& images,
+      const std::unordered_map<vtr::CameraId,
+          std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>>& features2d,
       const std::unordered_map<vtr::CameraId, fs::path>& output_image_directories,
       const std::unordered_map<vtr::CameraId, fs::path>& output_residual_directories,
       const std::unordered_map<DebugTypeEnum, fs::path>& output_pcl_directories,
@@ -245,11 +252,14 @@ public:
       const std::unordered_map<DebugTypeEnum, fs::path>& output_pose_directories,
       const fs::path& output_summary_directory,
       const std::unordered_map<vtr::CameraId, fs::path>& output_opt_window_directories_,
-      const std_msgs::ColorRGBA& obs_color,
-      const std_msgs::ColorRGBA& init_color,
-      const std_msgs::ColorRGBA& est_color,
+      const std::unordered_map<DebugTypeEnum, std_msgs::ColorRGBA>& deubg_types_and_ros_colors,
       const unsigned int& encoding) 
         : frame_id_(frame_id), 
+          extrinsics_(extrinsics),
+          intrinsics_(intrinsics),
+          img_heights_and_widths_(img_heights_and_widths),
+          images_(images),
+          features2d_(features2d),
           output_image_directories_(output_image_directories),
           output_residual_directories_(output_residual_directories),
           output_pcl_directories_(output_pcl_directories),
@@ -257,28 +267,13 @@ public:
           output_pose_directories_(output_pose_directories),
           output_summary_directory_(output_summary_directory),
           output_opt_window_directories_(output_opt_window_directories_),
-          obs_color_(obs_color), 
-          init_color_(init_color),
-          est_color_(est_color),
+          deubg_types_and_ros_colors_(deubg_types_and_ros_colors),
           encoding_(encoding) {}
   
-  void setImagesAndFeatures2dForDebuggingOptWindow(
-      const std::unordered_map<vtr::CameraId, vtr::CameraExtrinsics<double>>& extrinsics,
-      const std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>& intrinsics,
-      const std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>& images,
-      const std::unordered_map<vtr::CameraId,
-          std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>>& features2d) {
-    extrinsics_ = extrinsics;
-    intrinsics_ = intrinsics;
-    images_ = images;
-    features2d_ = features2d;
-  }
-
   bool updateFeatures3dForDebuggingOptWindow(
-      const vtr::Pose3D<double>& pose_init,
-      const vtr::Pose3D<double>& pose_est,
-      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& all_features3d_init,
-      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& all_features3d_est,
+      const vtr::Pose3D<double>& pose,
+      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d,
+      const DebugTypeEnum& debug_type,
       const size_t& local_BA_window) {
     
     std::unordered_map<vtr::CameraId, cv_bridge::CvImagePtr> cam_ids_and_visualizations;
@@ -300,23 +295,20 @@ public:
       for (const auto& feat_id_and_feature : cam_id_and_feature2d.second) {
         const auto& feat_id = feat_id_and_feature.first;
         const auto& observed_feat = feat_id_and_feature.second;
-        if (all_features3d_init.find(feat_id) == all_features3d_init.end() 
-                || all_features3d_est.find(feat_id) == all_features3d_est.end()) {
-          continue;
-        }
-        vtr::Position3d<double> feature3d_est = all_features3d_est.at(feat_id);
-        vtr::PixelCoord<double> projected_est_pixel_at_est_pose = 
-          vtr::getProjectedPixelCoord(feature3d_est,
-                                      pose_est,
+        if (features3d.find(feat_id) == features3d.end()) { continue; }
+        vtr::Position3d<double> feature3d = features3d.at(feat_id);
+        vtr::PixelCoord<double> projected_pixel = 
+          vtr::getProjectedPixelCoord(feature3d,
+                                      pose,
                                       extrinsics_for_cam,
                                       intrinsics_for_cam);
 
         vtr::RosVisualization::drawTinyCircleOnImage(
-            observed_feat, obs_color_, cv_ptr);
+            observed_feat, deubg_types_and_ros_colors_[DebugTypeEnum::OBSERVED], cv_ptr);
         vtr::RosVisualization::drawTinyCircleOnImage(
-            projected_est_pixel_at_est_pose, est_color_, cv_ptr);
+            projected_pixel, deubg_types_and_ros_colors_[debug_type], cv_ptr);
         vtr::RosVisualization::drawLineOnImage(
-            observed_feat, projected_est_pixel_at_est_pose, est_color_, cv_ptr);
+            observed_feat, projected_pixel, deubg_types_and_ros_colors_[debug_type], cv_ptr);
       }
       cam_ids_and_visualizations[cam_id] = cv_ptr;
     }
@@ -348,104 +340,78 @@ public:
     return true;
   }
 
-  void debugByFrameId(
-      const std::unordered_map<vtr::CameraId, vtr::CameraExtrinsics<double>>& extrinsics,
-      const std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>& intrinsics,
-      const std::unordered_map<vtr::CameraId, std::pair<double, double>>& img_heights_and_widths,
-      const std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr> images,
-      const vtr::Pose3D<double>& pose_init,
-      const vtr::Pose3D<double>& pose_est,
-      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d_init,
-      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d_est,
-      const std::unordered_map<vtr::CameraId,
-                    std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>> features2d,
-      const std::vector<vtr::Pose3D<double>>& init_trajectory_vec,
-      const std::vector<vtr::Pose3D<double>>& est_trajectory_vec) {
-    debugReprojectionByFrameId(
-        extrinsics, 
-        intrinsics,
-        img_heights_and_widths,
-        images,
-        pose_init,
-        pose_est,
-        features3d_init,
-        features3d_est,
-        features2d);
-    debugPosesByFrameId(init_trajectory_vec, est_trajectory_vec);
-    debugFeaturePointcloudByFrameId(features3d_init, features3d_est, features2d);
-    summarizeByFrameId();
+  void debug(const vtr::Pose3D<double>& pose,
+      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d,
+      const std::vector<vtr::Pose3D<double>>& trajectory_vec,
+      const DebugTypeEnum& debug_type) {
+    getLowLevelFeaturesLatestImages(features3d, pose, debug_type);
+    debugPoses(trajectory_vec, debug_type);
   }
 
-  void debugFeaturePointcloudByFrameId(
-      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d_init,
-      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d_est,
-      const std::unordered_map<vtr::CameraId,
-                    std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>> features2d) {
-    fs::path init_path 
-        = output_pcl_directories_[DebugTypeEnum::INITALIZED] / (std::to_string(frame_id_)+".csv");
-    fs::path est_path 
-        = output_pcl_directories_[DebugTypeEnum::OPTIMIZED]  / (std::to_string(frame_id_)+".csv");
-    
-    std::unordered_map<vtr::FeatureId, vtr::Position3d<double>> new_features3d_init;
-    std::unordered_map<vtr::FeatureId, vtr::Position3d<double>> new_features3d_est;
-    for (const auto& cam_id_and_feature2d : features2d) {
-      for (const auto& feat_id_and_feature : cam_id_and_feature2d.second) {
+  // void debugByFrameId(
+  //     const vtr::Pose3D<double>& pose_init,
+  //     const vtr::Pose3D<double>& pose_est,
+  //     const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d_init,
+  //     const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d_est,
+  //     const std::vector<vtr::Pose3D<double>>& init_trajectory_vec,
+  //     const std::vector<vtr::Pose3D<double>>& est_trajectory_vec) {
+  //   debugReprojectionByFrameId(
+  //       pose_init,
+  //       pose_est,
+  //       features3d_init,
+  //       features3d_est);
+  //   debugPosesByFrameId(init_trajectory_vec, est_trajectory_vec);
+  //   debugFeaturePointcloudByFrameId(features3d_init, features3d_est, features2d);
+  //   summarizeByFrameId();
+  // }
+
+  void debugFeaturePointcloud(
+      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d,
+      const DebugTypeEnum& debug_type) {
+    std::unordered_map<vtr::FeatureId, vtr::Position3d<double>> new_features3d;
+    for (const auto& cam_id_and_observations : features2d_) {
+      for (const auto& feat_id_and_feature : cam_id_and_observations.second) {
         const auto& feat_id = feat_id_and_feature.first;
-        if (features3d_init.find(feat_id) != features3d_init.end()) {
-          new_features3d_init[feat_id] = features3d_init.at(feat_id);
-        }
-        if (features3d_est.find(feat_id) != features3d_est.end()) {
-          new_features3d_est[feat_id] = features3d_est.at(feat_id);
+        if (features3d.find(feat_id) != features3d.end()) {
+          new_features3d[feat_id] = features3d.at(feat_id);
         }
       }
     }
-
-    ToCSV(init_path.string(), new_features3d_init);
-    ToCSV(est_path.string(),  new_features3d_est);
-
-    features3d_init_ = new_features3d_init;
-    features3d_est_  = new_features3d_est;
+    output_pointclouds_[debug_type] = new_features3d;
   }
 
-  void debugPosesByFrameId(
-      const std::vector<vtr::Pose3D<double>>& init_trajectory_vec,
-      const std::vector<vtr::Pose3D<double>>& est_trajectory_vec) {
-    fs::path init_path 
-        = output_pose_directories_[DebugTypeEnum::INITALIZED] / (std::to_string(frame_id_)+".csv");
-    fs::path est_path 
-        = output_pose_directories_[DebugTypeEnum::OPTIMIZED]  / (std::to_string(frame_id_)+".csv");
-    ToCSV(init_path.string(), init_trajectory_vec);
-    ToCSV(est_path.string(),  est_trajectory_vec);
-
-    init_trajectory_ = init_trajectory_vec;
-    est_trajectory_  = est_trajectory_vec;
-    plotTrajectory2D();
+  void debugPoses(
+      const std::vector<vtr::Pose3D<double>>& trajectory_vec,
+      const DebugTypeEnum& debug_type) {
+    output_trajectories_[debug_type] = trajectory_vec;
   }
 
-  void debugReprojectionByFrameId(
-      const std::unordered_map<vtr::CameraId, vtr::CameraExtrinsics<double>>& extrinsics,
-      const std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>& intrinsics,
-      const std::unordered_map<vtr::CameraId, std::pair<double, double>>& img_heights_and_widths,
-      const std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr> images,
-      const vtr::Pose3D<double>& pose_init,
-      const vtr::Pose3D<double>& pose_est,
-      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d_init,
-      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d_est,
-      const std::unordered_map<vtr::CameraId,
-                    std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>> features2d) {
-    extrinsics_ = extrinsics;
-    intrinsics_ = intrinsics;
-    img_heights_and_widths_ = img_heights_and_widths;
-    images_ = images;
-    pose_init_ = pose_init;
-    pose_est_  = pose_est;
-    features3d_init_ = features3d_init;
-    features3d_est_ = features3d_est;
-    features2d_ = features2d;
+  void logOutputs() {
+    if (!output_images_.empty()) {
+      for (const auto& cam_id_and_output_images : output_images_) {
+        const auto& cam_id = cam_id_and_output_images.first;
+        const auto& output_images = cam_id_and_output_images.second;
+        if ( output_images.empty() ) { return; }
+        const int nimage_per_row = 2;
+        cv::Mat summary = SummarizeVisualization(output_images, nimage_per_row);
+        std::string image_path = 
+            output_image_directories_.at(cam_id) / (std::to_string(frame_id_) + ".png");
+        cv::imwrite(image_path, summary);
+      }
+    }
 
-    getLowLevelFeaturesLatestImages();
-    logReprojectionOutputByFrameId();
-    plotResidualsHistogram();
+    if (!output_residuals_.empty()) {
+      
+    }
+
+    if (!output_trajectories_.empty()) {
+      LogToCSV(output_pose_directories_, output_trajectories_, frame_id_);
+      plotTrajectory2D();
+    }
+    
+    if (output_pointclouds_.empty()) {
+      LogToCSV(output_pcl_directories_, output_pointclouds_, frame_id_);
+    }
   }
 
   // TODO fix hardcoding
@@ -486,17 +452,55 @@ public:
     cv::imwrite(savepath, summaries);
   }
 
-  // TODO create some helper/wrapper for putting visualization together
-  void logReprojectionOutputByFrameId() {
-    for (const auto& cam_id_and_output_images : output_images_) {
-      const auto& cam_id = cam_id_and_output_images.first;
-      const auto& output_images = cam_id_and_output_images.second;
-      if ( output_images.empty() ) { return; }
-      const int nimage_per_row = 2;
-      cv::Mat summary = SummarizeVisualization(output_images, nimage_per_row);
-      std::string image_path = 
-          output_image_directories_.at(cam_id) / (std::to_string(frame_id_) + ".png");
-      cv::imwrite(image_path, summary);
+  void getLowLevelFeaturesLatestImages(
+      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& feat_ids_and_features3d,
+      const vtr::Pose3D<double>& pose,
+      const DebugTypeEnum& debug_type) {
+
+    for (const auto& cam_id_and_observations : features2d_) {
+      std::vector<double> residuals;
+      const vtr::CameraId& cam_id = cam_id_and_observations.first;
+      const vtr::CameraExtrinsics<double>& extrinsics_for_cam = extrinsics_.at(cam_id);
+      const vtr::CameraIntrinsicsMat<double>& intrinsics_for_cam = intrinsics_.at(cam_id);
+      std::optional<sensor_msgs::Image::ConstPtr> img_for_cam = std::nullopt;
+      if (images_.find(cam_id) != images_.end()) {
+        img_for_cam = images_.at(cam_id);
+      }
+
+      cv_bridge::CvImagePtr cv_ptr;
+      if (img_for_cam.has_value()) {
+        try {
+          cv_ptr = cv_bridge::toCvCopy(img_for_cam.value(), vtr::kImageEncoding);
+        } catch (cv_bridge::Exception &e) {
+          LOG(ERROR) << "cv_bridge exception: " << e.what();
+          exit(1);
+        }
+      }
+      for (const auto &feat_id_and_feature2d : cam_id_and_observations.second) {
+        const auto& feat_id = feat_id_and_feature2d.first;
+        const auto& feature2d_obs = feat_id_and_feature2d.second;
+        if (feat_ids_and_features3d.find(feat_id) ==
+          feat_ids_and_features3d.end()) { continue; }
+        vtr::PixelCoord<double> projected_pixels = 
+        vtr::getProjectedPixelCoord(feat_ids_and_features3d.at(feat_id),
+                                    pose,
+                                    extrinsics_for_cam,
+                                    intrinsics_for_cam);
+        vtr::RosVisualization::drawTinyCircleOnImage(
+            feature2d_obs, deubg_types_and_ros_colors_[DebugTypeEnum::OBSERVED], cv_ptr);
+        vtr::RosVisualization::drawTinyCircleOnImage(
+            projected_pixels, deubg_types_and_ros_colors_[debug_type], cv_ptr);
+        vtr::RosVisualization::drawLineOnImage(
+            feature2d_obs, projected_pixels, deubg_types_and_ros_colors_[debug_type], cv_ptr);
+        double residual = getResidual(feature2d_obs, projected_pixels);
+        output_residuals_[cam_id][debug_type].push_back(residual);
+      }
+      PutImageText(debugLabels[debug_type], cv_ptr->image);
+      if (output_images_.find(cam_id) == output_images_.end()) {
+        output_images_[cam_id] 
+              = std::unordered_map<DebugTypeEnum, cv_bridge::CvImagePtr>();
+      }
+      output_images_[cam_id][debug_type] = cv_ptr;
     }
   }
 
@@ -507,11 +511,6 @@ private:
   std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>> intrinsics_;
   std::unordered_map<vtr::CameraId, std::pair<double, double>> img_heights_and_widths_;
   std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr> images_;
-  vtr::Pose3D<double> pose_init_;
-  vtr::Pose3D<double> pose_est_;
-  std::unordered_map<vtr::FeatureId, vtr::Position3d<double>> features3d_;
-  std::unordered_map<vtr::FeatureId, vtr::Position3d<double>> features3d_init_;
-  std::unordered_map<vtr::FeatureId, vtr::Position3d<double>> features3d_est_;
   std::unordered_map<vtr::CameraId,
       std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>> features2d_;
 
@@ -519,8 +518,10 @@ private:
       std::unordered_map<DebugTypeEnum, cv_bridge::CvImagePtr>> output_images_;
   std::unordered_map<vtr::CameraId, 
       std::unordered_map<DebugTypeEnum, std::vector<double>>> output_residuals_;
-  std::vector<vtr::Pose3D<double>> init_trajectory_;
-  std::vector<vtr::Pose3D<double>> est_trajectory_;
+  std::unordered_map<DebugTypeEnum, 
+      std::vector<vtr::Pose3D<double>>> output_trajectories_;
+  std::unordered_map<DebugTypeEnum, 
+      std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>> output_pointclouds_;
 
   fs::path root_directory_;
   std::unordered_map<vtr::CameraId, fs::path> output_image_directories_;
@@ -534,9 +535,7 @@ private:
   // Debug Optimization Window; Duplicate stored values for fast look-ups
   std::unordered_map<vtr::CameraId, std::vector<cv_bridge::CvImagePtr>> output_images_within_opt_window_;
   
-  std_msgs::ColorRGBA obs_color_;
-  std_msgs::ColorRGBA init_color_;
-  std_msgs::ColorRGBA est_color_;
+  std::unordered_map<DebugTypeEnum, std_msgs::ColorRGBA> deubg_types_and_ros_colors_;
   unsigned int encoding_;
 
   double getResidual(const vtr::PixelCoord<double>& pixel1, 
@@ -547,21 +546,24 @@ private:
   void plotTrajectory2D() {
     fs::path savepath 
       = output_pose_root_directory_ / (std::to_string(frame_id_)+".png");
-    std::vector<double> init_x_poses, init_y_poses;
-    for (const auto& pose : init_trajectory_) {
-      init_x_poses.push_back(pose.transl_.x());
-      init_y_poses.push_back(pose.transl_.y());
-    }
-    std::vector<double> est_x_poses, est_y_poses;
-    for (const auto& pose : est_trajectory_) {
-      est_x_poses.push_back(pose.transl_.x());
-      est_y_poses.push_back(pose.transl_.y());
+    std::unordered_map<DebugTypeEnum, std::vector<double>> types_and_xs;
+    std::unordered_map<DebugTypeEnum, std::vector<double>> types_and_ys;
+    for (const auto& type_and_traj : output_trajectories_) {
+      const auto& type = type_and_traj.first;
+      for (const auto& pose : type_and_traj.second) {
+        types_and_xs[type].push_back(pose.transl_.x());
+        types_and_ys[type].push_back(pose.transl_.y());
+      }
     }
     plt::figure();
     // TODO right now only assume all images have the same size
     plt::figure_size(img_heights_and_widths_.at(1).second, img_heights_and_widths_.at(1).first);
-    plt::named_plot(debugLabels[DebugTypeEnum::INITALIZED], init_x_poses, init_y_poses);
-    plt::named_plot(debugLabels[DebugTypeEnum::OPTIMIZED],  est_x_poses,  est_y_poses);
+    for (const auto& type_and_traj : output_trajectories_) {
+      const auto& type = type_and_traj.first;
+      const auto& xs = types_and_xs.at(type);
+      const auto& ys = types_and_ys.at(type);
+      plt::named_plot(debugLabels[type], xs, ys);
+    }
     plt::legend();
     plt::title("Trajectory at Frame" + std::to_string(frame_id_));
     plt::save(savepath.string());
@@ -578,114 +580,21 @@ private:
       const auto& output_residuals = output_residuals_.at(cam_id);
       plt::figure();
       plt::figure_size(img_heights_and_widths_.at(1).second, img_heights_and_widths_.at(1).first);
-      plt::named_hist(debugLabels.at(DebugTypeEnum::INITALIZED), output_residuals.at(DebugTypeEnum::INITALIZED), bins, "r", alpha);
-      plt::named_hist(debugLabels.at(DebugTypeEnum::OPTIMIZED),  output_residuals.at(DebugTypeEnum::OPTIMIZED),  bins, "b", alpha);
+      // TODO fix this configurations;
+      std::unordered_map<DebugTypeEnum, std::string> colors 
+          = {{DebugTypeEnum::INITIALIZED, "y"},
+             {DebugTypeEnum::BEFORE_OPTIM, "r"},
+             {DebugTypeEnum::AFTER_OPTIM, "b"}};
+      for (const auto& type_and_residuals : output_residuals) {
+        const auto& type = type_and_residuals.first;
+        plt::named_hist(debugLabels.at(type), output_residuals.at(type), bins, colors.at(type), alpha);
+      }
       plt::legend();
       plt::title("Reprojection Residual Histogram at Frame " + std::to_string(frame_id_));
       plt::save(savepath.string());
     }
   }
 
-  void getLowLevelFeaturesLatestImages() {
-    for (const auto& obs_feat_and_cam : features2d_) {
-      std::vector<double> residuals_init, residuals_est;
-
-      vtr::CameraId cam_id = obs_feat_and_cam.first;
-      vtr::CameraExtrinsics<double> extrinsics_for_cam = extrinsics_.at(cam_id);
-      vtr::CameraIntrinsicsMat<double> intrinsics_for_cam = intrinsics_.at(cam_id);
-
-      std::optional<sensor_msgs::Image::ConstPtr> img_for_cam = std::nullopt;
-      if (images_.find(cam_id) != images_.end()) {
-        img_for_cam = images_.at(cam_id);
-      }
-
-      std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>> projected_init_pixels;
-      std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>> projected_est_pixels;
-      for (const auto &feat : features3d_init_) {
-        if (obs_feat_and_cam.second.find(feat.first) ==
-          obs_feat_and_cam.second.end()) { continue; }
-        projected_init_pixels[feat.first] = 
-          vtr::getProjectedPixelCoord(feat.second,
-                                      pose_est_,
-                                      extrinsics_for_cam,
-                                      intrinsics_for_cam);
-      }
-      for (const auto &feat : features3d_est_) {
-        if (obs_feat_and_cam.second.find(feat.first) ==
-          obs_feat_and_cam.second.end()) { continue; }
-        projected_est_pixels[feat.first] = 
-          vtr::getProjectedPixelCoord(feat.second,
-                                      pose_est_,
-                                      extrinsics_for_cam,
-                                      intrinsics_for_cam);
-      }
-
-      // adapted from publishLatestImageWithReprojectionResiduals in ros_visualization.h
-      cv_bridge::CvImagePtr cv_ptr, cv_ptr_init, cv_ptr_est;
-      if (img_for_cam.has_value()) {
-        try {
-          cv_ptr = cv_bridge::toCvCopy(img_for_cam.value(), vtr::kImageEncoding);
-          cv_ptr_init = cv_bridge::toCvCopy(img_for_cam.value(), vtr::kImageEncoding);
-          cv_ptr_est = cv_bridge::toCvCopy(img_for_cam.value(), vtr::kImageEncoding);
-        } catch (cv_bridge::Exception &e) {
-          LOG(ERROR) << "cv_bridge exception: " << e.what();
-          exit(1);
-        }
-      }
-
-      for (const auto& id_and_pixel : obs_feat_and_cam.second) {
-        vtr::FeatureId feat_id = id_and_pixel.first;
-        vtr::PixelCoord<double> observed_feat = id_and_pixel.second;
-        vtr::PixelCoord<double> projected_init_feat, projected_est_feat;
-        if (projected_init_pixels.find(feat_id) == projected_init_pixels.end() 
-            || projected_est_pixels.find(feat_id) == projected_est_pixels.end() ) {
-          continue;
-        }
-        projected_init_feat = projected_init_pixels.at(feat_id);
-        projected_est_feat  = projected_est_pixels.at(feat_id);
-
-        // Final visualization
-        vtr::RosVisualization::drawTinyCircleOnImage(
-            observed_feat, obs_color_, cv_ptr);
-        vtr::RosVisualization::drawTinyCircleOnImage(
-            projected_init_feat, init_color_, cv_ptr);
-        vtr::RosVisualization::drawTinyCircleOnImage(
-            projected_est_feat, est_color_, cv_ptr);
-        vtr::RosVisualization::drawLineOnImage(
-            observed_feat, projected_init_feat, init_color_, cv_ptr);
-        vtr::RosVisualization::drawLineOnImage(
-            observed_feat, projected_est_feat, est_color_, cv_ptr);
-        // visualize projected init features
-        vtr::RosVisualization::drawTinyCircleOnImage(
-            observed_feat, obs_color_, cv_ptr_init);
-        vtr::RosVisualization::drawTinyCircleOnImage(
-            projected_init_feat, init_color_, cv_ptr_init);
-        vtr::RosVisualization::drawLineOnImage(
-            observed_feat, projected_init_feat, init_color_, cv_ptr_init);
-        // visualize projected est features
-        vtr::RosVisualization::drawTinyCircleOnImage(
-            observed_feat, obs_color_, cv_ptr_est);
-        vtr::RosVisualization::drawTinyCircleOnImage(
-            projected_est_feat, est_color_, cv_ptr_est);
-        vtr::RosVisualization::drawLineOnImage(
-            observed_feat, projected_est_feat, est_color_, cv_ptr_est);
-
-        double residual_init, residual_est;
-        residual_init = getResidual(observed_feat, projected_init_feat);
-        residual_est  = getResidual(observed_feat, projected_est_feat);
-        output_residuals_[cam_id][DebugTypeEnum::INITALIZED].push_back(residual_init);
-        output_residuals_[cam_id][DebugTypeEnum::OPTIMIZED].push_back(residual_est);
-      }
-      PutImageText(debugLabels[DebugTypeEnum::INITALIZED], cv_ptr_init->image);
-      PutImageText(debugLabels[DebugTypeEnum::OPTIMIZED],  cv_ptr_est->image);
-      PutImageText(debugLabels[DebugTypeEnum::ALL],        cv_ptr->image);
-      output_images_[cam_id] 
-              = std::unordered_map<DebugTypeEnum, cv_bridge::CvImagePtr>();
-      output_images_[cam_id][DebugTypeEnum::INITALIZED]   = cv_ptr_init;
-      output_images_[cam_id][DebugTypeEnum::OPTIMIZED]    = cv_ptr_est;
-      output_images_[cam_id][DebugTypeEnum::ALL]          = cv_ptr;
-    }
-  }
 };
 
 class VSLAMDebugger {
@@ -710,16 +619,18 @@ public:
 
     fs::path output_pcl_root_directory = root_directory_ / "pointclouds";
     SetupOutputDirectory(output_pcl_root_directory.string());
-    output_pcl_directories_[DebugTypeEnum::INITALIZED] = output_pcl_root_directory / "init";
-    output_pcl_directories_[DebugTypeEnum::OPTIMIZED]  = output_pcl_root_directory / "est";
+    output_pcl_directories_[DebugTypeEnum::INITIALIZED] = output_pcl_root_directory   / "init";
+    output_pcl_directories_[DebugTypeEnum::BEFORE_OPTIM]  = output_pcl_root_directory / "before_optim";
+    output_pcl_directories_[DebugTypeEnum::AFTER_OPTIM]  = output_pcl_root_directory / "after_optim";
     for (const auto& output_pcl_directory : output_pcl_directories_) {
       SetupOutputDirectory(output_pcl_directory.second.string());
     }
 
     output_pose_root_directory_ = root_directory_ / "poses";
     SetupOutputDirectory(output_pose_root_directory_.string());
-    output_pose_directories_[DebugTypeEnum::INITALIZED] = output_pose_root_directory_ / "init";
-    output_pose_directories_[DebugTypeEnum::OPTIMIZED]  = output_pose_root_directory_ / "est";
+    output_pose_directories_[DebugTypeEnum::INITIALIZED] = output_pose_root_directory_ / "init";
+    output_pose_directories_[DebugTypeEnum::BEFORE_OPTIM]  = output_pose_root_directory_ / "before_optim";
+    output_pose_directories_[DebugTypeEnum::AFTER_OPTIM]  = output_pose_root_directory_ / "after_optim";
     for (const auto& output_pose_directory : output_pose_directories_) {
       SetupOutputDirectory(output_pose_directory.second.string());
     }
@@ -735,13 +646,22 @@ public:
     }
 
     float alpha = .8;
-    obs_color_.a = init_color_.a = est_color_.a = alpha;
+    std_msgs::ColorRGBA obs_color;
+    std_msgs::ColorRGBA init_color;
+    std_msgs::ColorRGBA before_optim_color;
+    std_msgs::ColorRGBA after_optim_color;
+    obs_color.a = init_color.a = before_optim_color.a = after_optim_color.a = alpha;
 
-    obs_color_.g = 1;
-
-    init_color_.r = 1;
-
-    est_color_.b = 1;
+    obs_color.g = 1;  // green
+    init_color.r = 1; // yellow
+    init_color.g = 1;
+    before_optim_color.r = 1; // red
+    after_optim_color.b = 1; // blue
+    
+    deubg_types_and_ros_colors_[DebugTypeEnum::OBSERVED] = obs_color;
+    deubg_types_and_ros_colors_[DebugTypeEnum::INITIALIZED] = init_color;
+    deubg_types_and_ros_colors_[DebugTypeEnum::BEFORE_OPTIM] = before_optim_color;
+    deubg_types_and_ros_colors_[DebugTypeEnum::AFTER_OPTIM] = after_optim_color;
 
     if (vtr::kImageEncoding == sensor_msgs::image_encodings::MONO8) {
       encoding_ = CV_8UC1;
@@ -753,51 +673,21 @@ public:
     }
   }
 
-  void debugOptimizationWindow(const vtr::FrameId& min_frame_id, 
-      const vtr::FrameId& max_frame_id, 
+  void setupFrameDebuggerByFrameId(const vtr::FrameId& frame_id, 
       const std::unordered_map<vtr::CameraId, vtr::CameraExtrinsics<double>>& extrinsics,
       const std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>& intrinsics,
-      const std::unordered_map<vtr::FrameId, vtr::Pose3D<double>>& poses_init,
-      const std::unordered_map<vtr::FrameId, vtr::Pose3D<double>>& poses_est,
-      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& all_features3d_init,
-      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& all_features3d_est,
-      const std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr> cam_ids_and_images,
-      const std::unordered_map<vtr::CameraId,
-                std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>>& features2d_at_max_frame_id,
-      const size_t& local_BA_window = 50) {
-    // update features associated with the latest (max) frame 
-    // frame_ids_and_debuggers_[frame_id] 
-    frame_ids_and_debuggers_[max_frame_id]
-        .setImagesAndFeatures2dForDebuggingOptWindow(
-            extrinsics, intrinsics, cam_ids_and_images, features2d_at_max_frame_id);
-    for (size_t frame_id = min_frame_id; frame_id <= max_frame_id; ++frame_id) {
-      const auto& pose_init = poses_init.at(frame_id);
-      const auto& pose_est  = poses_est.at(frame_id);
-      if (frame_ids_and_debuggers_.find(frame_id) != frame_ids_and_debuggers_.end()) {
-        bool logged = frame_ids_and_debuggers_[frame_id]
-          .updateFeatures3dForDebuggingOptWindow(
-                pose_init, pose_est, all_features3d_init, all_features3d_est, local_BA_window);
-        if (logged) { frame_ids_and_debuggers_.erase(frame_id); }
-      }
-    }
-  }
-
-  void debugByFrameId(const vtr::FrameId& frame_id,
-      const std::unordered_map<vtr::CameraId, vtr::CameraExtrinsics<double>>& extrinsics,
-      const std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>& intrinsics,
+      const std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>& images,
       const std::unordered_map<vtr::CameraId, std::pair<double, double>>& img_heights_and_widths,
-      const std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr> images,
-      const vtr::Pose3D<double>& pose_init,
-      const vtr::Pose3D<double>& pose_est,
-      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d_init,
-      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d_est,
       const std::unordered_map<vtr::CameraId,
-                    std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>> features2d,
-      const std::vector<vtr::Pose3D<double>>& init_trajectory_vec,
-      const std::vector<vtr::Pose3D<double>>& est_trajectory_vec) {
+          std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>>& features2d) {
 
     frame_ids_and_debuggers_[frame_id] 
         = VSLAMFrameDebugger(frame_id, 
+                             extrinsics,
+                             intrinsics,
+                             img_heights_and_widths,
+                             images,
+                             features2d,
                              output_image_directories_, 
                              output_residual_directories_,
                              output_pcl_directories_,
@@ -805,21 +695,50 @@ public:
                              output_pose_directories_, 
                              output_summary_directory_,
                              output_opt_window_directories_,
-                             obs_color_,
-                             init_color_,
-                             est_color_,
+                             deubg_types_and_ros_colors_,
                              encoding_);
-    frame_ids_and_debuggers_[frame_id].debugByFrameId(extrinsics, 
-        intrinsics, 
-        img_heights_and_widths, 
-        images, 
-        pose_init,
-        pose_est, 
-        features3d_init, 
-        features3d_est,
-        features2d, 
-        init_trajectory_vec, 
-        est_trajectory_vec);
+  }
+
+  void debugOptimizationWindow(const vtr::FrameId& min_frame_id, 
+      const vtr::FrameId& max_frame_id, 
+      const std::unordered_map<vtr::FrameId, vtr::Pose3D<double>>& poses,
+      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d,
+      const size_t& local_BA_window = 50) {
+    // update features associated with the latest (max) frame 
+    // frame_ids_and_debuggers_[frame_id] 
+    for (size_t frame_id = min_frame_id; frame_id <= max_frame_id; ++frame_id) {
+      const auto& pose = poses.at(frame_id);
+      if (frame_ids_and_debuggers_.find(frame_id) != frame_ids_and_debuggers_.end()) {
+        bool logged = frame_ids_and_debuggers_[frame_id]
+          .updateFeatures3dForDebuggingOptWindow(
+                pose, features3d, DebugTypeEnum::AFTER_OPTIM, local_BA_window);
+        if (logged) { frame_ids_and_debuggers_.erase(frame_id); }
+      }
+    }
+  }
+
+  void debugByFrameId(const vtr::FrameId& frame_id,
+      const vtr::Pose3D<double>& pose,
+      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d,
+      const std::vector<vtr::Pose3D<double>>& trajectory_vec,
+      const DebugTypeEnum& debug_type) {
+    if (frame_ids_and_debuggers_.find(frame_id) == frame_ids_and_debuggers_.end()) {
+      LOG(INFO) << "Please call setupFrameDebuggerByFrameId before calling debugByFrameId";
+      exit(1);
+    }
+    frame_ids_and_debuggers_[frame_id].debug(
+        pose,
+        features3d, 
+        trajectory_vec,
+        debug_type);
+  }
+
+  void logOutputsByFrameId(const vtr::FrameId& frame_id) {
+    if (frame_ids_and_debuggers_.find(frame_id) == frame_ids_and_debuggers_.end()) {
+      LOG(INFO) << "Please call setupFrameDebuggerByFrameId before calling debugByFrameId";
+      exit(1);
+    }
+    frame_ids_and_debuggers_[frame_id].logOutputs();
   }
 
 private:
@@ -841,9 +760,7 @@ private:
   fs::path output_summary_directory_;
   std::unordered_map<vtr::CameraId, fs::path> output_opt_window_directories_;
 
-  std_msgs::ColorRGBA obs_color_;
-  std_msgs::ColorRGBA init_color_;
-  std_msgs::ColorRGBA est_color_;
+  std::unordered_map<DebugTypeEnum, std_msgs::ColorRGBA> deubg_types_and_ros_colors_;
   unsigned int encoding_;
 };
 
@@ -1197,8 +1114,43 @@ void visualizationStub(
 
       sleep(3);
       break;
-    case vtr::BEFORE_EACH_OPTIMIZATION:
+    case vtr::BEFORE_EACH_OPTIMIZATION: {
+      debugger.setupFrameDebuggerByFrameId(
+          max_frame_optimized,
+          extrinsics, 
+          intrinsics, 
+          images.at(max_frame_optimized), 
+          img_heights_and_widths,
+          observed_features.at(max_frame_optimized));
+
+      std::unordered_map<vtr::FrameId, vtr::RawPose3d<double>>
+          optimized_robot_pose_estimates;
+      pose_graph->getRobotPoseEstimates(optimized_robot_pose_estimates);
+      std::unordered_map<vtr::FrameId, vtr::Pose3D<double>>
+          optimized_trajectory;
+      for (const auto &frame_raw_pose : optimized_robot_pose_estimates) {
+        optimized_trajectory[frame_raw_pose.first] =
+            vtr::convertToPose3D(frame_raw_pose.second);
+      }
+      const vtr::Pose3D<double>& pose = optimized_trajectory.at(max_frame_optimized);
+      
+      std::unordered_map<vtr::FeatureId, vtr::Position3d<double>> feature_before_optim;
+      pose_graph->getVisualFeatureEstimates(feature_before_optim);
+
+      std::vector<vtr::Pose3D<double>> before_optim_trajectory_vec;
+      for (vtr::FrameId frame_id = 0; frame_id <= max_frame_optimized;
+           frame_id++) {
+        before_optim_trajectory_vec.emplace_back(optimized_trajectory.at(frame_id));
+      }
+
+      debugger.debugByFrameId(
+          max_frame_optimized, 
+          pose, 
+          feature_before_optim, 
+          before_optim_trajectory_vec,
+          DebugTypeEnum::BEFORE_OPTIM);
       break;
+    }
     case vtr::AFTER_EACH_OPTIMIZATION: {
       std::unordered_map<vtr::FrameId, vtr::RawPose3d<double>>
           optimized_robot_pose_estimates;
@@ -1346,28 +1298,38 @@ void visualizationStub(
           observed_feats_for_frame,
           vtr::PlotType::INITIAL);
       
-      debugger.debugByFrameId(max_frame_optimized,
-          extrinsics,
-          intrinsics,
-          img_heights_and_widths,
-          images.at(max_frame_optimized),
+      debugger.debugByFrameId(
+          max_frame_optimized, 
           input_problem_data.getRobotPoseEstimates().at(max_frame_optimized),
-          optimized_trajectory.at(max_frame_optimized),
-          initial_feat_positions,
-          feature_ests,
-          observed_feats_for_frame,
+          initial_feat_positions, 
           init_trajectory_vec,
-          est_trajectory_vec);
-        debugger.debugOptimizationWindow(min_frame_optimized,
-            max_frame_optimized,
-            extrinsics,
-            intrinsics,
-            input_problem_data.getRobotPoseEstimates(),
-            optimized_trajectory,
-            initial_feat_positions,
-            feature_ests,
-            images.at(max_frame_optimized),
-            observed_feats_for_frame);
+          DebugTypeEnum::INITIALIZED);
+      debugger.debugByFrameId(
+          max_frame_optimized, 
+          optimized_trajectory.at(max_frame_optimized), 
+          feature_ests, 
+          est_trajectory_vec,
+          DebugTypeEnum::AFTER_OPTIM);
+      debugger.logOutputsByFrameId(max_frame_optimized);
+
+      // debugger.debugByFrameId(max_frame_optimized,
+      //     input_problem_data.getRobotPoseEstimates().at(max_frame_optimized),
+      //     optimized_trajectory.at(max_frame_optimized),
+      //     initial_feat_positions,
+      //     feature_ests,
+      //     observed_feats_for_frame,
+      //     init_trajectory_vec,
+      //     est_trajectory_vec);
+      // debugger.debugOptimizationWindow(min_frame_optimized,
+      //     max_frame_optimized,
+      //     extrinsics,
+      //     intrinsics,
+      //     input_problem_data.getRobotPoseEstimates(),
+      //     optimized_trajectory,
+      //     initial_feat_positions,
+      //     feature_ests,
+      //     images.at(max_frame_optimized),
+      //     observed_feats_for_frame);
 
       break;
     }
@@ -1514,6 +1476,7 @@ bool initialize_features3d(
     }
   }
 
+  // TODO add setters instead of copying everything!
   input_problem_data = MainProbData(input_problem_data.getCameraIntrinsicsByCamera(),
                                     input_problem_data.getCameraExtrinsicsByCamera(),
                                     visual_features_est,
