@@ -409,8 +409,8 @@ class ObjectPoseGraphOptimizer {
                                      problem);
     last_optimized_nodes_ = optimized_frames;
 
-    std::unordered_set<vslam_types_refactor::FrameId> features_to_remove;
-    std::unordered_set<vslam_types_refactor::FrameId>
+    std::unordered_set<vslam_types_refactor::FeatureId> features_to_remove;
+    std::unordered_set<vslam_types_refactor::FeatureId>
         next_last_optimized_features;
     if (use_visual_feature_param_blocks) {
       //      LOG(INFO) << "Setting variability of feature param blocks";
@@ -429,7 +429,7 @@ class ObjectPoseGraphOptimizer {
       //          optimized_features.begin(),
       //          optimized_features.end(),
       //          std::inserter(features_to_remove, features_to_remove.end()));
-      for (const vslam_types_refactor::ObjectId &last_opt :
+      for (const vslam_types_refactor::FeatureId &last_opt :
            last_optimized_features_) {
         if (optimized_features.find(last_opt) == optimized_features.end()) {
           features_to_remove.insert(last_opt);
