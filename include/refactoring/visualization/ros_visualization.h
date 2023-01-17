@@ -59,6 +59,11 @@ class RosVisualization {
     residual_feature_color_.g = 234.0 / 255.0;
     residual_feature_color_.b = 0;
 
+    pending_obj_color_.a = 0.7;
+    pending_obj_color_.r = 137.0 / 255;
+    pending_obj_color_.g = 250.0 / 255;
+    pending_obj_color_.b = 224.0 / 255;
+
     color_for_plot_type_[GROUND_TRUTH] = ground_truth_bounding_box_color_;
     color_for_plot_type_[ESTIMATED] =
         predicted_bounding_box_from_optimized_color_;
@@ -137,6 +142,38 @@ class RosVisualization {
                         topic,
                         color_for_plot_type_.at(plot_type),
                         different_colors_per_class);
+  }
+
+  void visualizePendingEllipsoids(
+      const std::shared_ptr<std::vector<
+          std::pair<std::string, std::optional<EllipsoidState<double>>>>>
+          &pending_objects,
+      const std::vector<size_t> &num_obs_per_obj,
+      const size_t &min_obs_threshold,
+      const bool &different_colors_per_class = true) {
+    std::string topic = topic_prefix_ + "pending_" + kEllipsoidTopicSuffix;
+    ros::Publisher pub = getOrCreateVisMarkerPublisherAndClearPrevious(
+        topic, kEllipsoidMarkerPubQueueSize);
+    publishDeleteAllMarker(pub);
+    std::vector<std::pair<std::string, std::optional<EllipsoidState<double>>>>
+        pending_objects_vec = *pending_objects;
+    for (size_t ellipsoid_id = 0; ellipsoid_id < pending_objects_vec.size();
+         ellipsoid_id++) {
+      std::pair<std::string, std::optional<EllipsoidState<double>>> ellipsoid =
+          pending_objects_vec[ellipsoid_id];
+      if (ellipsoid.second.has_value()) {
+        std_msgs::ColorRGBA color_for_ellipsoid = pending_obj_color_;
+        if (different_colors_per_class) {
+          color_for_ellipsoid = brightenColor(getColorForClass(ellipsoid.first), .25);
+        }
+        color_for_ellipsoid.a = (((0.8 - 0.25) * num_obs_per_obj[ellipsoid_id]) / min_obs_threshold) + 0.25;
+        publishEllipsoid(ellipsoid.second.value(),
+                         ellipsoid_id,
+                         pub,
+                         color_for_ellipsoid,
+                         false);
+      }
+    }
   }
 
   void visualizeEllipsoids(
@@ -1202,6 +1239,8 @@ class RosVisualization {
 
   std_msgs::ColorRGBA residual_feature_color_;
 
+  std_msgs::ColorRGBA pending_obj_color_;
+
   std::unordered_map<PlotType, std_msgs::ColorRGBA> color_for_plot_type_;
   std::unordered_map<PlotType, std::string> prefixes_for_plot_type_;
 
@@ -1302,12 +1341,14 @@ class RosVisualization {
     marker_msg.action = visualization_msgs::Marker::DELETEALL;
     //    ros::Duration(2).sleep();
     marker_pub.publish(marker_msg);
+    ros::Duration(0.05).sleep();
   }
 
   void publishEllipsoid(const EllipsoidState<double> &ellipsoid,
                         const ObjectId &obj_id,
                         ros::Publisher &pub,
-                        const std_msgs::ColorRGBA &color) {
+                        const std_msgs::ColorRGBA &color,
+                        const bool &visualize_id = true) {
     visualization_msgs::Marker marker;
     marker.scale.x = ellipsoid.dimensions_.x();
     marker.scale.y = ellipsoid.dimensions_.y();
@@ -1337,21 +1378,23 @@ class RosVisualization {
 
     publishMarker(marker, pub);
 
-    visualization_msgs::Marker text_marker;
+    if (visualize_id) {
+      visualization_msgs::Marker text_marker;
 
-    text_marker.color = color;
-    text_marker.id = obj_id + kEllipsoidLabelIdIncrement;
-    text_marker.text = std::to_string(obj_id);
-    text_marker.type = visualization_msgs::Marker::Type::TEXT_VIEW_FACING;
-    text_marker.scale.z = 1;
-    text_marker.pose.orientation.w = 1.0;
-    text_marker.pose.position.x = ellipsoid.pose_.transl_.x();
-    text_marker.pose.position.y = ellipsoid.pose_.transl_.y();
-    // Consider taking max of all 3 dimensions instead of just height
-    text_marker.pose.position.z = ellipsoid.pose_.transl_.z() +
-                                  (ellipsoid.dimensions_.z() / 2) +
-                                  kEllipsoidTextBuffer;
-    publishMarker(text_marker, pub);
+      text_marker.color = color;
+      text_marker.id = obj_id + kEllipsoidLabelIdIncrement;
+      text_marker.text = std::to_string(obj_id);
+      text_marker.type = visualization_msgs::Marker::Type::TEXT_VIEW_FACING;
+      text_marker.scale.z = 1;
+      text_marker.pose.orientation.w = 1.0;
+      text_marker.pose.position.x = ellipsoid.pose_.transl_.x();
+      text_marker.pose.position.y = ellipsoid.pose_.transl_.y();
+      // Consider taking max of all 3 dimensions instead of just height
+      text_marker.pose.position.z = ellipsoid.pose_.transl_.z() +
+                                    (ellipsoid.dimensions_.z() / 2) +
+                                    kEllipsoidTextBuffer;
+      publishMarker(text_marker, pub);
+    }
   }
 
   std::string createTopicForPlotTypeAndBase(const PlotType &plot_type,

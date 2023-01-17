@@ -95,7 +95,15 @@ class FeatureBasedBoundingBoxFrontEnd
               std::unordered_map<
                   ObjectId,
                   std::pair<BbCornerPair<double>, std::optional<double>>>>>>
-          &observed_corner_locations)
+          &observed_corner_locations,
+      const std::shared_ptr<std::vector<std::unordered_map<
+          FrameId,
+          std::unordered_map<CameraId,
+                             std::pair<BbCornerPair<double>, double>>>>>
+          &bounding_boxes_for_pending_object,
+      const std::shared_ptr<std::vector<
+          std::pair<std::string, std::optional<EllipsoidState<double>>>>>
+          &pending_objects)
       : AbstractUnknownDataAssociationBbFrontEnd<
             VisualFeatureFactorType,
             FeatureBasedFrontEndObjAssociationInfo,
@@ -108,7 +116,9 @@ class FeatureBasedBoundingBoxFrontEnd
         covariance_generator_(covariance_generator),
         geometric_similarity_scorer_(geometric_similarity_scorer),
         all_filtered_corner_locations_(all_filtered_corner_locations),
-        observed_corner_locations_(observed_corner_locations) {}
+        observed_corner_locations_(observed_corner_locations),
+        bounding_boxes_for_pending_object_(bounding_boxes_for_pending_object),
+        pending_objects_(pending_objects) {}
 
   virtual bool getFrontEndObjMapData(util::EmptyStruct &map_data) override {
     return true;
@@ -523,6 +533,27 @@ class FeatureBasedBoundingBoxFrontEnd
     }
     FeatureBasedBoundingBoxFrontEnd::object_appearance_info_ =
         updated_object_appearance_info;
+    bounding_boxes_for_pending_object_->clear();
+    pending_objects_->clear();
+    for (const UninitializedEllispoidInfo<
+             FeatureBasedFrontEndObjAssociationInfo> &uninitialized_obj :
+         FeatureBasedBoundingBoxFrontEnd::uninitialized_object_info_) {
+      std::unordered_map<
+          FrameId,
+          std::unordered_map<CameraId, std::pair<BbCornerPair<double>, double>>>
+          obs_for_obj;
+      for (const UninitializedObjectFactor &obj_factor :
+           uninitialized_obj.observation_factors_) {
+        obs_for_obj[obj_factor.frame_id_][obj_factor.camera_id_] =
+            std::make_pair(
+                cornerLocationsVectorToPair(obj_factor.bounding_box_corners_),
+                obj_factor.detection_confidence_);
+      }
+      bounding_boxes_for_pending_object_->emplace_back(obs_for_obj);
+      pending_objects_->emplace_back(
+          std::make_pair(uninitialized_obj.semantic_class_,
+                         uninitialized_obj.appearance_info_.object_estimate_));
+    }
   }
 
   virtual void setupInitialEstimateGeneration(
@@ -755,6 +786,15 @@ class FeatureBasedBoundingBoxFrontEnd
                                                       std::optional<double>>>>>>
       observed_corner_locations_;
 
+  std::shared_ptr<std::vector<std::unordered_map<
+      FrameId,
+      std::unordered_map<CameraId, std::pair<BbCornerPair<double>, double>>>>>
+      bounding_boxes_for_pending_object_;
+
+  std::shared_ptr<std::vector<
+      std::pair<std::string, std::optional<EllipsoidState<double>>>>>
+      pending_objects_;
+
   int getMaxFeatureIntersection(
       const std::unordered_set<FeatureId> &features_in_bb,
       const std::unordered_map<
@@ -808,12 +848,22 @@ class FeatureBasedBoundingBoxFrontEndCreator {
               std::unordered_map<
                   ObjectId,
                   std::pair<BbCornerPair<double>, std::optional<double>>>>>>
-          &observed_corner_locations)
+          &observed_corner_locations,
+      const std::shared_ptr<std::vector<std::unordered_map<
+          FrameId,
+          std::unordered_map<CameraId,
+                             std::pair<BbCornerPair<double>, double>>>>>
+          &bounding_boxes_for_pending_object,
+      const std::shared_ptr<std::vector<
+          std::pair<std::string, std::optional<EllipsoidState<double>>>>>
+          &pending_objects)
       : association_params_(association_params),
         covariance_generator_(covariance_generator),
         geometric_similarity_scorer_(geometric_similarity_scorer),
         all_filtered_corner_locations_(all_filtered_corner_locations),
         observed_corner_locations_(observed_corner_locations),
+        bounding_boxes_for_pending_object_(bounding_boxes_for_pending_object),
+        pending_objects_(pending_objects),
         initialized_(false) {}
 
   std::shared_ptr<AbstractUnknownDataAssociationBbFrontEnd<
@@ -834,7 +884,9 @@ class FeatureBasedBoundingBoxFrontEndCreator {
           covariance_generator_,
           geometric_similarity_scorer_,  // Consider adding uncertainty in here?
           all_filtered_corner_locations_,
-          observed_corner_locations_);
+          observed_corner_locations_,
+          bounding_boxes_for_pending_object_,
+          pending_objects_);
       initialized_ = true;
     }
     return feature_based_front_end_;
@@ -875,6 +927,15 @@ class FeatureBasedBoundingBoxFrontEndCreator {
                                             std::pair<BbCornerPair<double>,
                                                       std::optional<double>>>>>>
       observed_corner_locations_;
+
+  std::shared_ptr<std::vector<std::unordered_map<
+      FrameId,
+      std::unordered_map<CameraId, std::pair<BbCornerPair<double>, double>>>>>
+      bounding_boxes_for_pending_object_;
+
+  std::shared_ptr<std::vector<
+      std::pair<std::string, std::optional<EllipsoidState<double>>>>>
+      pending_objects_;
 
   bool initialized_;
   std::shared_ptr<AbstractUnknownDataAssociationBbFrontEnd<

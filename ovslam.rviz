@@ -14,6 +14,7 @@ Panels:
         - /EstBbs21
         - /AllBbs21
         - /AllBbs21/Status1
+        - /Marker1
       Splitter Ratio: 0.5
     Tree Height: 151
   - Class: rviz/Selection
@@ -99,6 +100,7 @@ Visualization Manager:
         InitFeats2: true
         InitFeatureCloud: true
         InitPose: true
+        Marker: true
         TF: true
         Value: true
       Zoom Factor: 1
@@ -126,6 +128,7 @@ Visualization Manager:
         InitFeats1: true
         InitFeatureCloud: true
         InitPose: true
+        Marker: true
         TF: true
         Value: true
       Zoom Factor: 1
@@ -161,6 +164,7 @@ Visualization Manager:
         InitFeats2: true
         InitFeatureCloud: true
         InitPose: true
+        Marker: true
         TF: true
         Value: true
       Zoom Factor: 1
@@ -188,6 +192,7 @@ Visualization Manager:
         InitFeats2: true
         InitFeatureCloud: true
         InitPose: true
+        Marker: true
         TF: true
         Value: true
       Zoom Factor: 1
@@ -287,6 +292,7 @@ Visualization Manager:
         InitFeats2: true
         InitFeatureCloud: true
         InitPose: true
+        Marker: true
         TF: true
         Value: true
       Zoom Factor: 1
@@ -314,6 +320,7 @@ Visualization Manager:
         InitFeats2: true
         InitFeatureCloud: true
         InitPose: true
+        Marker: true
         TF: true
         Value: true
       Zoom Factor: 1
@@ -341,6 +348,7 @@ Visualization Manager:
         InitFeats2: true
         InitFeatureCloud: true
         InitPose: true
+        Marker: true
         TF: true
         Value: true
       Zoom Factor: 1
@@ -368,9 +376,18 @@ Visualization Manager:
         InitFeats2: true
         InitFeatureCloud: true
         InitPose: true
+        Marker: true
         TF: true
         Value: true
       Zoom Factor: 1
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /pending_ellipsoids
+      Name: Marker
+      Namespaces:
+        ut_vslam: true
+      Queue Size: 1000
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 255; 255; 255
@@ -399,7 +416,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 135.29684448242188
+      Distance: 21.59466552734375
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -407,17 +424,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 3.5248284339904785
-        Y: -3.1308610439300537
-        Z: -0.0038329411763697863
+        X: -4.303472995758057
+        Y: 4.018791198730469
+        Z: 0.7308717966079712
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.5697963237762451
+      Pitch: 0.23479849100112915
       Target Frame: est_slam_base_link
-      Yaw: 4.935446739196777
+      Yaw: 0.2741045653820038
     Saved: ~
 Window Geometry:
   AllBbs1:

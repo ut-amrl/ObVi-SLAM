@@ -26,6 +26,7 @@
 #include <refactoring/output_problem_data_extraction.h>
 #include <refactoring/visual_feature_processing/orb_output_low_level_feature_reader.h>
 #include <refactoring/visualization/ros_visualization.h>
+#include <refactoring/visualization/save_to_file_visualizer.h>
 #include <ros/ros.h>
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
@@ -84,6 +85,10 @@ DEFINE_string(ltm_opt_jacobian_info_directory,
               "",
               "Directory to write jacobian info from the LTM optimization for");
 DEFINE_string(visual_feature_results_file, "", "Visual feature results");
+DEFINE_string(debug_images_output_directory,
+              "",
+              "Directory to output debug images to. If not specified, no debug "
+              "images saved");
 
 std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
 readCameraIntrinsicsByCameraFromFile(const std::string &file_name) {
@@ -320,6 +325,7 @@ void publishLowLevelFeaturesLatestImages(
 
 void visualizationStub(
     const std::shared_ptr<vtr::RosVisualization> &vis_manager,
+    const vtr::SaveToFileVisualizer &save_to_file_visualizer,
     const std::unordered_map<vtr::CameraId, vtr::CameraExtrinsics<double>>
         &extrinsics,
     const std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
@@ -344,6 +350,14 @@ void visualizationStub(
                 vtr::ObjectId,
                 std::pair<vtr::BbCornerPair<double>, std::optional<double>>>>>>
         &observed_corner_locations,
+    const std::shared_ptr<std::vector<std::unordered_map<
+        vtr::FrameId,
+        std::unordered_map<vtr::CameraId,
+                           std::pair<vtr::BbCornerPair<double>, double>>>>>
+        &bounding_boxes_for_pending_object,
+    const std::shared_ptr<std::vector<
+        std::pair<std::string, std::optional<vtr::EllipsoidState<double>>>>>
+        &pending_objects,
     const std::unordered_map<
         vtr::FrameId,
         std::unordered_map<
@@ -359,7 +373,8 @@ void visualizationStub(
     const vtr::FrameId &min_frame_optimized,
     const vtr::FrameId &max_frame_optimized,
     const vtr::VisualizationTypeEnum &visualization_stage,
-    const double &near_edge_threshold) {
+    const double &near_edge_threshold,
+    const size_t &pending_obj_min_obs_threshold) {
   switch (visualization_stage) {
     case vtr::BEFORE_ANY_OPTIMIZATION:
       vis_manager->publishTransformsForEachCamera(
@@ -419,6 +434,21 @@ void visualizationStub(
         }
       }
       vis_manager->visualizeEllipsoids(ltm_ellipsoids, vtr::INITIAL, false);
+
+      std::vector<size_t> num_obs_per_pending_obj;
+      for (const auto &pending_obj_obs : *bounding_boxes_for_pending_object) {
+        size_t num_obs_for_pending_obj = 0;
+        for (const auto &obs_for_frame : pending_obj_obs) {
+          for (const auto &obs_for_cam : obs_for_frame.second) {
+            num_obs_for_pending_obj++;
+          }
+        }
+        num_obs_per_pending_obj.emplace_back(num_obs_for_pending_obj);
+      }
+      vis_manager->visualizePendingEllipsoids(pending_objects,
+                                              num_obs_per_pending_obj,
+                                              pending_obj_min_obs_threshold);
+
       vis_manager->visualizeCameraObservations(
           max_frame_optimized,
           initial_robot_pose_estimates,
@@ -518,6 +548,17 @@ void visualizationStub(
           initial_feat_positions,
           observed_feats_for_frame,
           vtr::PlotType::INITIAL);
+
+      save_to_file_visualizer.boundingBoxFrontEndVisualization(
+          images,
+          bounding_boxes_for_pending_object,
+          extrinsics,
+          intrinsics,
+          all_observed_corner_locations_with_uncertainty,
+          observed_corner_locations,
+          observed_features,
+          min_frame_optimized,
+          max_frame_optimized);
 
       break;
     }
@@ -791,9 +832,23 @@ int main(int argc, char **argv) {
                                   long_term_map,
                                   images);
 
+  // Configurable params ------------------------------------------------------
+  vtr::FeatureBasedBbAssociationParams association_params;  // TODO populate
+  association_params.discard_candidate_after_num_frames_ = 40;
+  association_params.feature_validity_window_ = 20;
+
+  vtr::SaveToFileVisualizerConfig save_to_file_visualizer_config;
+  save_to_file_visualizer_config.bb_assoc_visualizer_config_
+      .bounding_box_inflation_size_ =
+      association_params.bounding_box_inflation_size_;
+  save_to_file_visualizer_config.bb_assoc_visualizer_config_
+      .feature_validity_window_ = association_params.feature_validity_window_;
+
   // Connect up functions needed for the optimizer --------------------------
   std::shared_ptr<vtr::RosVisualization> vis_manager =
       std::make_shared<vtr::RosVisualization>(node_handle);
+  vtr::SaveToFileVisualizer save_to_file_visualizer(
+      FLAGS_debug_images_output_directory, save_to_file_visualizer_config);
   //    vtr::RawEllipsoid<double> ellipsoid;
   //    ellipsoid << -0.164291, 0.41215, -0.0594742, 79.9495, 209.015, 248.223,
   //        0.432929, 0.450756, 2.05777;
@@ -968,6 +1023,22 @@ int main(int argc, char **argv) {
                                      std::pair<vtr::BbCornerPair<double>,
                                                std::optional<double>>>>>>();
 
+  std::shared_ptr<std::vector<std::unordered_map<
+      vtr::FrameId,
+      std::unordered_map<vtr::CameraId,
+                         std::pair<vtr::BbCornerPair<double>, double>>>>>
+      bounding_boxes_for_pending_object =
+          std::make_shared<std::vector<std::unordered_map<
+              vtr::FrameId,
+              std::unordered_map<
+                  vtr::CameraId,
+                  std::pair<vtr::BbCornerPair<double>, double>>>>>();
+  std::shared_ptr<std::vector<
+      std::pair<std::string, std::optional<vtr::EllipsoidState<double>>>>>
+      pending_objects = std::make_shared<
+          std::vector<std::pair<std::string,
+                                std::optional<vtr::EllipsoidState<double>>>>>();
+
   vtr::BoundingBoxCovGenParams cov_gen_params;
   //    std::function<std::pair<bool,
   //    std::optional<sensor_msgs::Image::ConstPtr>>(
@@ -1024,9 +1095,12 @@ int main(int argc, char **argv) {
       feature_based_associator_creator = vtr::generateFeatureBasedBbCreator(
           associated_observed_corner_locations,
           all_observed_corner_locations_with_uncertainty,
+          bounding_boxes_for_pending_object,
+          pending_objects,
           img_heights_and_widths,
           cov_gen_params,
-          geometric_similiarity_scorer_params);
+          geometric_similiarity_scorer_params,
+          association_params);
   std::function<std::shared_ptr<vtr::AbstractBoundingBoxFrontEnd<
       vtr::ReprojectionErrorFactor,
       vtr::FeatureBasedFrontEndObjAssociationInfo,
@@ -1199,12 +1273,15 @@ int main(int argc, char **argv) {
             vtr::ObjAndLowLevelFeaturePoseGraph<vtr::ReprojectionErrorFactor>>
             superclass_ptr = pose_graph;
         visualizationStub(vis_manager,
+                          save_to_file_visualizer,
                           camera_extrinsics_by_camera,
                           camera_intrinsics_by_camera,
                           img_heights_and_widths,
                           images,
                           all_observed_corner_locations_with_uncertainty,
                           associated_observed_corner_locations,
+                          bounding_boxes_for_pending_object,
+                          pending_objects,
                           low_level_features_map,
                           initial_feat_positions,
                           input_problem_data,
@@ -1212,7 +1289,8 @@ int main(int argc, char **argv) {
                           min_frame_id,
                           max_frame_id,
                           visualization_type,
-                          cov_gen_params.near_edge_threshold_);
+                          cov_gen_params.near_edge_threshold_,
+                          association_params.min_observations_);
       };
   vtr::OfflineProblemRunner<MainProbData,
                             vtr::ReprojectionErrorFactor,
