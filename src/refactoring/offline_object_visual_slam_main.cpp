@@ -1312,25 +1312,6 @@ void visualizationStub(
           DebugTypeEnum::AFTER_OPTIM);
       debugger.logOutputsByFrameId(max_frame_optimized);
 
-      // debugger.debugByFrameId(max_frame_optimized,
-      //     input_problem_data.getRobotPoseEstimates().at(max_frame_optimized),
-      //     optimized_trajectory.at(max_frame_optimized),
-      //     initial_feat_positions,
-      //     feature_ests,
-      //     observed_feats_for_frame,
-      //     init_trajectory_vec,
-      //     est_trajectory_vec);
-      // debugger.debugOptimizationWindow(min_frame_optimized,
-      //     max_frame_optimized,
-      //     extrinsics,
-      //     intrinsics,
-      //     input_problem_data.getRobotPoseEstimates(),
-      //     optimized_trajectory,
-      //     initial_feat_positions,
-      //     feature_ests,
-      //     images.at(max_frame_optimized),
-      //     observed_feats_for_frame);
-
       break;
     }
     case vtr::AFTER_ALL_OPTIMIZATION:
@@ -1461,7 +1442,7 @@ bool initialize_features3d(
 
   vtr::LongTermObjectMapAndResults<MainLtm> output_results;
   bool success = offline_problem_runner.runOptimization(
-      input_problem_data, optimization_factors_enabled_params, output_results, false);
+      input_problem_data, optimization_factors_enabled_params, output_results, vtr::OptimTypeEnum::STATIC);
   if (!success) { return false; }
 
   std::unordered_map<vtr::FeatureId, vtr::StructuredVisionFeatureTrack> visual_features_init;
@@ -2106,23 +2087,23 @@ int main(int argc, char **argv) {
 
   //  vtr::SpatialEstimateOnlyResults output_results;
   vtr::LongTermObjectMapAndResults<MainLtm> output_results;
-  if (!initialize_features3d(residual_params,
-                             continue_opt_checker,
-                             window_provider_func,
-                             refresh_residual_checker,
-                             residual_creator,
-                             pose_graph_creator,
-                             frame_data_adder,
-                             output_data_extractor,
-                             ceres_callback_creator,
-                             visualization_callback,
-                             solver_params, 
-                             input_problem_data) ) {
-    LOG(ERROR) << "Failed to initalize feature positions";
-    exit(1);
-  }
+  // if (!initialize_features3d(residual_params,
+  //                            continue_opt_checker,
+  //                            window_provider_func,
+  //                            refresh_residual_checker,
+  //                            residual_creator,
+  //                            pose_graph_creator,
+  //                            frame_data_adder,
+  //                            output_data_extractor,
+  //                            ceres_callback_creator,
+  //                            visualization_callback,
+  //                            solver_params, 
+  //                            input_problem_data) ) {
+  //   LOG(ERROR) << "Failed to initalize feature positions";
+  //   exit(1);
+  // }
   offline_problem_runner.runOptimization(
-      input_problem_data, optimization_factors_enabled_params, output_results);
+      input_problem_data, optimization_factors_enabled_params, output_results, vtr::OptimTypeEnum::SLIDING_WINDOW);
 
   cv::FileStorage ltm_out_fs(FLAGS_long_term_map_output,
                              cv::FileStorage::WRITE);
