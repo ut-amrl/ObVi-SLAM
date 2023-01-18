@@ -80,6 +80,12 @@ bool runOptimizationForLtmExtraction(
   return true;
 }
 
+void outputJacobianInfo(const std::string &jacobian_output_dir,
+                        ceres::Problem &problem_for_ltm) {
+  // TODO
+  problem_for_ltm.Evaluate()
+}
+
 /**
  * Parameters used in pairwise covariance extraction process.
  */
@@ -153,6 +159,7 @@ class PairwiseCovarianceLongTermObjectMapExtractor {
           &optimization_factor_configuration,
       const std::function<bool(FrontEndObjMapData &)>
           front_end_map_data_extractor,
+      const std::string &jacobian_output_dir,
       IndependentEllipsoidsLongTermObjectMap<FrontEndObjMapData>
           &long_term_obj_map) {
     std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> pose_graph_copy =
@@ -164,6 +171,11 @@ class PairwiseCovarianceLongTermObjectMapExtractor {
                                     optimization_factor_configuration,
                                     pose_graph_copy,
                                     &problem_for_ltm);
+
+    if (!jacobian_output_dir.empty()) {
+      outputJacobianInfo(jacobian_output_dir, problem_for_ltm);
+    }
+
     EllipsoidResults ellipsoid_results;
     extractEllipsoidEstimates(pose_graph_copy, ellipsoid_results);
     long_term_obj_map.setEllipsoidResults(ellipsoid_results);
@@ -320,6 +332,7 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
           &optimization_factor_configuration,
       const std::function<bool(FrontEndObjMapData &)>
           front_end_map_data_extractor,
+      const std::string &jacobian_output_dir,
       IndependentEllipsoidsLongTermObjectMap<FrontEndObjMapData>
           &long_term_obj_map) {
     std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> pose_graph_copy =
@@ -331,6 +344,10 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
                                     optimization_factor_configuration,
                                     pose_graph_copy,
                                     &problem_for_ltm);
+
+    if (!jacobian_output_dir.empty()) {
+      outputJacobianInfo(jacobian_output_dir, problem_for_ltm);
+    }
 
     EllipsoidResults ellipsoid_results;
     extractEllipsoidEstimates(pose_graph_copy, ellipsoid_results);
