@@ -348,23 +348,6 @@ public:
     debugPoses(trajectory_vec, debug_type);
   }
 
-  // void debugByFrameId(
-  //     const vtr::Pose3D<double>& pose_init,
-  //     const vtr::Pose3D<double>& pose_est,
-  //     const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d_init,
-  //     const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d_est,
-  //     const std::vector<vtr::Pose3D<double>>& init_trajectory_vec,
-  //     const std::vector<vtr::Pose3D<double>>& est_trajectory_vec) {
-  //   debugReprojectionByFrameId(
-  //       pose_init,
-  //       pose_est,
-  //       features3d_init,
-  //       features3d_est);
-  //   debugPosesByFrameId(init_trajectory_vec, est_trajectory_vec);
-  //   debugFeaturePointcloudByFrameId(features3d_init, features3d_est, features2d);
-  //   summarizeByFrameId();
-  // }
-
   void debugFeaturePointcloud(
       const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d,
       const DebugTypeEnum& debug_type) {
