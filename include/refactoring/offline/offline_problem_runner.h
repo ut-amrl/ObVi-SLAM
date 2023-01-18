@@ -148,8 +148,17 @@ class OfflineProblemRunner {
             ceres_callback_creator_(
                 problem_data, pose_graph, start_opt_with_frame, next_frame_id);
         LOG(INFO) << "Solving optimization";
+        
+        std::optional<RawPose3d<double>> raw_pose_before_optim =
+            pose_graph->getRobotPose(next_frame_id);
+        Pose3D<double>  pose_before_optim = convertToPose3D(raw_pose_before_optim.value());
+        LOG(INFO) << "pose_before_optim: " << pose_before_optim.transl_.transpose();
         bool opt_success = optimizer_.solveOptimization(
             &problem, solver_params_, ceres_callbacks);
+        std::optional<RawPose3d<double>> raw_pose_after_optim =
+                pose_graph->getRobotPose(next_frame_id);
+        Pose3D<double>  pose_after_optim = convertToPose3D(raw_pose_after_optim.value());
+        LOG(INFO) << "pose_after_optim: " << pose_after_optim.transl_.transpose();
 
         visualization_callback_(problem_data,
                                 pose_graph,
