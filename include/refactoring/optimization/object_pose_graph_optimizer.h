@@ -144,7 +144,18 @@ class ObjectPoseGraphOptimizer {
       : refresh_residual_checker_(refresh_residual_checker),
         residual_creator_(residual_creator) {}
 
-  void buildPoseGraphOptimization(
+  /**
+   *
+   * @param optimization_scope
+   * @param residual_params
+   * @param pose_graph
+   * @param problem
+   * @return Current residuals in the problem
+   */
+  std::unordered_map<vslam_types_refactor::FactorType,
+                     std::unordered_map<vslam_types_refactor::FeatureFactorId,
+                                        ceres::ResidualBlockId>>
+  buildPoseGraphOptimization(
       const OptimizationScopeParams &optimization_scope,
       const pose_graph_optimization::ObjectVisualPoseGraphResidualParams
           &residual_params,
@@ -555,6 +566,20 @@ class ObjectPoseGraphOptimizer {
                                      pose_graph,
                                      problem);
     last_optimized_objects_ = next_last_optimized_objects;
+
+    std::unordered_map<vslam_types_refactor::FactorType,
+                       std::unordered_map<vslam_types_refactor::FeatureFactorId,
+                                          ceres::ResidualBlockId>>
+        current_residual_block_info;
+    for (const auto &factor_type_and_residuals :
+         residual_blocks_and_cached_info_by_factor_id_) {
+      for (const auto &factor_id_and_info : factor_type_and_residuals.second) {
+        current_residual_block_info[factor_type_and_residuals.first]
+                                   [factor_id_and_info.first] =
+                                       factor_id_and_info.second.first;
+      }
+    }
+    return current_residual_block_info;
   }
 
   bool solveOptimization(
