@@ -146,11 +146,10 @@ void addFrameDataAssociatedBoundingBox(
           pose_graph->getRobotPose(frame_to_add - 1);
       if (revised_prev_pose_raw.has_value()) {
         // Add initial estimate for pose
-        Pose3D<double> relative_pose = getPose2RelativeToPose1(
-            convertToPose3D(revised_prev_pose_raw.value()),
-            pose_at_frame_init_est);
-        Pose3D<double> corrected_pose_at_frame =
-            combinePoses(prev_pose_init, relative_pose);
+        Pose3D<double> relative_pose =
+            getPose2RelativeToPose1(prev_pose_init, pose_at_frame_init_est);
+        Pose3D<double> corrected_pose_at_frame = combinePoses(
+            convertToPose3D(revised_prev_pose_raw.value()), relative_pose);
         pose_graph->addFrame(frame_to_add, corrected_pose_at_frame);
       } else {
         LOG(ERROR) << "Could not find revised estimate for frame "
