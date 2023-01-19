@@ -23,7 +23,7 @@ enum VisualizationTypeEnum {
 enum OptimTypeEnum {
   SLIDING_WINDOW,
   STATIC,
-  TWOPAHSE_SLIDING_WINDOW,
+  TWOPHASE_SLIDING_WINDOW,
 };
 
 template <typename InputProblemData,
@@ -103,6 +103,8 @@ class OfflineProblemRunner {
    * @return false optimization fails
    */
   bool runOptimizationHelper(
+      const bool visualize_before_optim,
+      const bool visualize_after_optim,
       const InputProblemData &problem_data,
       const FrameId start_frame_id,
       const FrameId end_frame_id,
@@ -116,10 +118,12 @@ class OfflineProblemRunner {
     for (const auto& frame_id_to_add : frame_ids_to_add) {
       frame_data_adder_(problem_data, pose_graph, frame_id_to_add);
     }
+    LOG(INFO) << "Finish adding frame";
     pose_graph_optimizer::OptimizationScopeParams my_optimization_scope_params
         = optimization_scope_params;
     my_optimization_scope_params.min_frame_id_ = start_frame_id;
     my_optimization_scope_params.max_frame_id_ = end_frame_id;
+    LOG(INFO) << "before buildPoseGraphOptimization";
     std::unordered_map<vslam_types_refactor::FactorType,
         std::unordered_map<vslam_types_refactor::FeatureFactorId,
                           ceres::ResidualBlockId>> current_residual_block_info = 
@@ -129,22 +133,30 @@ class OfflineProblemRunner {
           pose_graph, 
           &problem, 
           residual_block_ids_to_remove);
-    visualization_callback_(problem_data,
-                            pose_graph,
-                            start_frame_id,
-                            end_frame_id,
-                            VisualizationTypeEnum::BEFORE_EACH_OPTIMIZATION);
+    LOG(INFO) << "after buildPoseGraphOptimization";
+    if (visualize_before_optim) {
+      LOG(INFO) << "before visualization_callback_ visualize_before_optim";
+       visualization_callback_(problem_data,
+                              pose_graph,
+                              start_frame_id,
+                              end_frame_id,
+                              VisualizationTypeEnum::BEFORE_EACH_OPTIMIZATION);
+      LOG(INFO) << "after visualization_callback_ visualize_before_optim";
+    }
     std::vector<std::shared_ptr<ceres::IterationCallback>> ceres_callbacks =
         ceres_callback_creator_(
             problem_data, pose_graph, start_frame_id, end_frame_id);
     LOG(INFO) << "Solving optimization";
     bool opt_success = optimizer_.solveOptimization(
         &problem, solver_params_, ceres_callbacks, block_ids_and_residuals_ptr);
-    visualization_callback_(problem_data,
-                            pose_graph,
-                            start_frame_id,
-                            end_frame_id,
-                            VisualizationTypeEnum::AFTER_EACH_OPTIMIZATION);
+    if (visualize_after_optim) {
+      visualization_callback_(problem_data,
+                              pose_graph,
+                              start_frame_id,
+                              end_frame_id,
+                              VisualizationTypeEnum::AFTER_EACH_OPTIMIZATION);
+    }
+    
     if (!opt_success) {
       // TODO do we want to quit or just silently let this iteration fail?
       LOG(ERROR) << "Optimization failed at max frame id " << end_frame_id;
@@ -207,6 +219,7 @@ class OfflineProblemRunner {
           std::vector<FrameId> frame_ids_to_add = {next_frame_id};
           bool optim_success = 
               runOptimizationHelper(
+                  true, true,
                   problem_data, 
                   start_frame_id,
                   next_frame_id,
@@ -228,6 +241,7 @@ class OfflineProblemRunner {
         }
         bool optim_success = 
               runOptimizationHelper(
+                  true, true,
                   problem_data, 
                   start_frame_id,
                   max_frame_id,
@@ -240,7 +254,7 @@ class OfflineProblemRunner {
         if (!optim_success) { return false; }
         break;
       }
-      case OptimTypeEnum::TWOPAHSE_SLIDING_WINDOW: {
+      case OptimTypeEnum::TWOPHASE_SLIDING_WINDOW: {
         bool optim_success;
         for (FrameId next_frame_id = 1; next_frame_id <= max_frame_id;
             next_frame_id++) {
@@ -248,9 +262,10 @@ class OfflineProblemRunner {
           std::vector<FrameId> frame_ids_to_add = {next_frame_id};
           std::unordered_map<ceres::ResidualBlockId, double> block_ids_and_residuals;
           optim_success = runOptimizationHelper(
+                  true, false,
                   problem_data, 
                   start_frame_id,
-                  max_frame_id,
+                  next_frame_id,
                   frame_ids_to_add,
                   optimization_scope_params,
                   problem, 
@@ -278,9 +293,10 @@ class OfflineProblemRunner {
             residual_block_ids_to_remove.push_back(block_id_and_residual.first);
           }
           optim_success = runOptimizationHelper(
+                  false, true,
                   problem_data, 
                   start_frame_id,
-                  max_frame_id,
+                  next_frame_id,
                   {},
                   optimization_scope_params,
                   problem, 
