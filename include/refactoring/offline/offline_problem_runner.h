@@ -11,6 +11,8 @@
 
 namespace vslam_types_refactor {
 
+const double kFeatureOutlierPercentage = 0.1;
+
 enum VisualizationTypeEnum {
   BEFORE_ANY_OPTIMIZATION,
   BEFORE_EACH_OPTIMIZATION,
@@ -84,6 +86,22 @@ class OfflineProblemRunner {
         visualization_callback_(visualization_callback),
         solver_params_(solver_params) {}
   
+  /**
+   * @brief 
+   * 
+   * @param problem_data [input]
+   * @param start_frame_id [input]
+   * @param end_frame_id [input]
+   * @param frame_ids_to_add [input]
+   * @param optimization_scope_params [input]
+   * @param problem [input]
+   * @param pose_graph [input]
+   * @param output_problem_data [output]
+   * @param block_ids_and_residuals_ptr [output]
+   * @param residual_block_ids_to_remove [input]
+   * @return true optimization succeeds
+   * @return false optimization fails
+   */
   bool runOptimizationHelper(
       const InputProblemData &problem_data,
       const FrameId start_frame_id,
@@ -92,7 +110,9 @@ class OfflineProblemRunner {
       const pose_graph_optimizer::OptimizationScopeParams& optimization_scope_params,
       ceres::Problem& problem,
       std::shared_ptr<PoseGraphType>& pose_graph,
-      OutputProblemData &output_problem_data) {
+      OutputProblemData &output_problem_data,
+      std::unordered_map<ceres::ResidualBlockId, double>* block_ids_and_residuals_ptr,
+      const std::vector<ceres::ResidualBlockId> residual_block_ids_to_remove = {}) {
     for (const auto& frame_id_to_add : frame_ids_to_add) {
       frame_data_adder_(problem_data, pose_graph, frame_id_to_add);
     }
@@ -100,9 +120,15 @@ class OfflineProblemRunner {
         = optimization_scope_params;
     my_optimization_scope_params.min_frame_id_ = start_frame_id;
     my_optimization_scope_params.max_frame_id_ = end_frame_id;
-    LOG(INFO) << "Building optimization";
-    optimizer_.buildPoseGraphOptimization(
-        my_optimization_scope_params, residual_params_, pose_graph, &problem);
+    std::unordered_map<vslam_types_refactor::FactorType,
+        std::unordered_map<vslam_types_refactor::FeatureFactorId,
+                          ceres::ResidualBlockId>> current_residual_block_info = 
+      optimizer_.buildPoseGraphOptimization(
+          my_optimization_scope_params, 
+          residual_params_, 
+          pose_graph, 
+          &problem, 
+          residual_block_ids_to_remove);
     visualization_callback_(problem_data,
                             pose_graph,
                             start_frame_id,
@@ -113,7 +139,7 @@ class OfflineProblemRunner {
             problem_data, pose_graph, start_frame_id, end_frame_id);
     LOG(INFO) << "Solving optimization";
     bool opt_success = optimizer_.solveOptimization(
-        &problem, solver_params_, ceres_callbacks);
+        &problem, solver_params_, ceres_callbacks, block_ids_and_residuals_ptr);
     visualization_callback_(problem_data,
                             pose_graph,
                             start_frame_id,
@@ -188,7 +214,8 @@ class OfflineProblemRunner {
                   optimization_scope_params,
                   problem, 
                   pose_graph,
-                  output_problem_data);
+                  output_problem_data,
+                  nullptr);
           if (!optim_success) { return optim_success; }
         }
         break;
@@ -208,15 +235,60 @@ class OfflineProblemRunner {
                   optimization_scope_params,
                   problem, 
                   pose_graph,
-                  output_problem_data);
+                  output_problem_data,
+                  nullptr);
         if (!optim_success) { return false; }
         break;
       }
       case OptimTypeEnum::TWOPAHSE_SLIDING_WINDOW: {
+        bool optim_success;
         for (FrameId next_frame_id = 1; next_frame_id <= max_frame_id;
             next_frame_id++) {
           FrameId start_frame_id = window_provider_func_(next_frame_id);
-
+          std::vector<FrameId> frame_ids_to_add = {next_frame_id};
+          std::unordered_map<ceres::ResidualBlockId, double> block_ids_and_residuals;
+          optim_success = runOptimizationHelper(
+                  problem_data, 
+                  start_frame_id,
+                  max_frame_id,
+                  frame_ids_to_add,
+                  optimization_scope_params,
+                  problem, 
+                  pose_graph,
+                  output_problem_data,
+                  &block_ids_and_residuals);
+          if (!optim_success) { return false; }
+          std::vector<std::pair<ceres::ResidualBlockId, double>> block_ids_and_residuals_to_sort;
+          for (const auto&block_id_and_residual : block_ids_and_residuals) {
+            block_ids_and_residuals_to_sort.emplace_back(
+                block_id_and_residual.first, block_id_and_residual.second);
+          }
+          std::sort(block_ids_and_residuals_to_sort.begin(), 
+                    block_ids_and_residuals_to_sort.end(),
+                    [] (std::pair<ceres::ResidualBlockId, double> p1,
+                        std::pair<ceres::ResidualBlockId, double> p2) {
+                          return p1.second > p2.second;
+                        });
+          size_t n_outliers = (size_t)(block_ids_and_residuals_to_sort.size() * kFeatureOutlierPercentage);
+          std::vector<std::pair<ceres::ResidualBlockId, double>> 
+            block_ids_and_residuals_tmp(block_ids_and_residuals_to_sort.begin(), 
+                                        block_ids_and_residuals_to_sort.begin()+n_outliers);
+          std::vector<ceres::ResidualBlockId> residual_block_ids_to_remove;
+          for (const auto& block_id_and_residual : block_ids_and_residuals_tmp) {
+            residual_block_ids_to_remove.push_back(block_id_and_residual.first);
+          }
+          optim_success = runOptimizationHelper(
+                  problem_data, 
+                  start_frame_id,
+                  max_frame_id,
+                  {},
+                  optimization_scope_params,
+                  problem, 
+                  pose_graph,
+                  output_problem_data,
+                  nullptr,
+                  residual_block_ids_to_remove);
+          if (!optim_success) { return false; }
         }
         break;
       }

@@ -2086,7 +2086,10 @@ int main(int argc, char **argv) {
   //   exit(1);
   // }
   offline_problem_runner.runOptimization(
-      input_problem_data, optimization_factors_enabled_params, output_results, vtr::OptimTypeEnum::SLIDING_WINDOW);
+      input_problem_data, 
+      optimization_factors_enabled_params, 
+      output_results, 
+      vtr::OptimTypeEnum::SLIDING_WINDOW);
 
   cv::FileStorage ltm_out_fs(FLAGS_long_term_map_output,
                              cv::FileStorage::WRITE);

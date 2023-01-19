@@ -145,12 +145,16 @@ class ObjectPoseGraphOptimizer {
       : refresh_residual_checker_(refresh_residual_checker),
         residual_creator_(residual_creator) {}
 
-  void buildPoseGraphOptimization(
+  std::unordered_map<vslam_types_refactor::FactorType,
+                     std::unordered_map<vslam_types_refactor::FeatureFactorId,
+                                        ceres::ResidualBlockId>> 
+  buildPoseGraphOptimization(
       const OptimizationScopeParams &optimization_scope,
       const pose_graph_optimization::ObjectVisualPoseGraphResidualParams
           &residual_params,
       std::shared_ptr<PoseGraphType> &pose_graph,
-      ceres::Problem *problem) {
+      ceres::Problem *problem,
+      const std::vector<ceres::ResidualBlockId>& residual_block_ids_to_remove = {}) {
     // Check for invalid combinations of scope and reject
     CHECK(checkInvalidOptimizationScopeParams(optimization_scope));
 
@@ -556,6 +560,19 @@ class ObjectPoseGraphOptimizer {
                                      pose_graph,
                                      problem);
     last_optimized_objects_ = next_last_optimized_objects;
+    std::unordered_map<vslam_types_refactor::FactorType,
+                       std::unordered_map<vslam_types_refactor::FeatureFactorId,
+                                          ceres::ResidualBlockId>>
+        current_residual_block_info;
+    for (const auto &factor_type_and_residuals :
+         residual_blocks_and_cached_info_by_factor_id_) {
+      for (const auto &factor_id_and_info : factor_type_and_residuals.second) {
+        current_residual_block_info[factor_type_and_residuals.first]
+                                   [factor_id_and_info.first] =
+                                       factor_id_and_info.second.first;
+      }
+    }
+    return current_residual_block_info;
   }
 
   bool solveOptimization(
@@ -595,7 +612,7 @@ class ObjectPoseGraphOptimizer {
       ceres::Problem *problem,
       const pose_graph_optimization::OptimizationSolverParams &solver_params,
       const std::vector<std::shared_ptr<ceres::IterationCallback>> callbacks,
-      std::unordered_map<ceres::ResidualBlockId, double> block_ids_and_residuals) {
+      std::unordered_map<ceres::ResidualBlockId, double>* block_ids_and_residuals_ptr) {
     CHECK(problem != NULL);
     ceres::Solver::Options options;
     for (const std::shared_ptr<ceres::IterationCallback> &callback_smart_ptr :
@@ -612,15 +629,18 @@ class ObjectPoseGraphOptimizer {
     ceres::Solve(options, problem, &summary);
     std::cout << summary.FullReport() << '\n';
 
-    std::vector<ceres::ResidualBlockId> residual_block_ids;
-    problem->GetResidualBlocks(&residual_block_ids);
-    ceres::Problem::EvaluateOptions eval_options;
-    eval_options.residual_blocks = residual_block_ids;
-    std::vector<double> residuals;
-    problem->Evaluate(eval_options, nullptr, &residuals, nullptr, nullptr);
-    for (size_t i = 0; i < residual_block_ids.size(); ++i) {
-      const ceres::ResidualBlockId& block_id = residual_block_ids[i];
-      const double& residual = residuals[i];
+    if (block_ids_and_residuals_ptr != nullptr) {
+      std::vector<ceres::ResidualBlockId> residual_block_ids;
+      problem->GetResidualBlocks(&residual_block_ids);
+      ceres::Problem::EvaluateOptions eval_options;
+      eval_options.residual_blocks = residual_block_ids;
+      std::vector<double> residuals;
+      problem->Evaluate(eval_options, nullptr, &residuals, nullptr, nullptr);
+      for (size_t i = 0; i < residual_block_ids.size(); ++i) {
+        const ceres::ResidualBlockId& block_id = residual_block_ids[i];
+        const double& residual = residuals[i];
+        block_ids_and_residuals_ptr->insert({block_id, residual});
+      }
     }
 
     if ((summary.termination_type == ceres::TerminationType::FAILURE) ||
