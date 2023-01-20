@@ -154,7 +154,8 @@ class ObjectPoseGraphOptimizer {
           &residual_params,
       std::shared_ptr<PoseGraphType> &pose_graph,
       ceres::Problem *problem,
-      const std::vector<ceres::ResidualBlockId>& residual_block_ids_to_remove = {}) {
+      const std::unordered_set<vslam_types_refactor::FeatureFactorId> 
+          &feature_factor_ids_to_remove = {}) {
     // Check for invalid combinations of scope and reject
     CHECK(checkInvalidOptimizationScopeParams(optimization_scope));
 

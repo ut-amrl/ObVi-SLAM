@@ -402,6 +402,20 @@ class ObjAndLowLevelFeaturePoseGraph
     return true;
   }
 
+  virtual bool getObjectObservationFactor(
+      const std::vector<FeatureFactorId> &factor_ids,
+      std::vector<ObjectObservationFactor> &obs_factors) const {
+    for (const auto &factor_id : factor_ids) {
+      if (object_observation_factors_.find(factor_id) ==
+          object_observation_factors_.end()) {
+        return false;
+      }
+      obs_factors.emplace_back(
+          object_observation_factors_.at(factor_id));
+    }
+    return true;
+  }
+
   virtual bool getShapeDimPriorFactor(
       const FeatureFactorId &factor_id,
       ShapeDimPriorFactor &shape_dim_factor) const {
@@ -410,6 +424,20 @@ class ObjAndLowLevelFeaturePoseGraph
       return false;
     }
     shape_dim_factor = shape_dim_prior_factors_.at(factor_id);
+    return true;
+  }
+
+  virtual bool getShapeDimPriorFactor(
+      const std::vector<FeatureFactorId> &factor_ids,
+      std::vector<ShapeDimPriorFactor> &shape_dim_factors) const {
+    for (const auto &factor_id : factor_ids) {
+      if (shape_dim_prior_factors_.find(factor_id) ==
+          shape_dim_prior_factors_.end()) {
+        return false;
+      }
+      shape_dim_factors.emplace_back(
+          shape_dim_prior_factors_.at(factor_id));
+    }
     return true;
   }
 
