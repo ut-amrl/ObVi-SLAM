@@ -296,6 +296,12 @@ class OfflineProblemRunner {
               }
             }
           }
+          optimizer_.buildPoseGraphOptimization(
+              optimization_scope_params, 
+              residual_params_, 
+              pose_graph, 
+              &problem,
+              feature_factor_ids_to_remove);
           // TODO extract feature_factor_ids_to_remove from block_ids_and_residuals
           optim_success = runOptimizationHelper(
               start_frame_id,
