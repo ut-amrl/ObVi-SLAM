@@ -78,7 +78,11 @@ DEFINE_string(low_level_feats_dir,
               "Directory that contains low level features");
 DEFINE_string(bb_associations_out_file,
               "",
-              "File to write ellipsoid results and associated bounding boxes to. Skipped if this param is not set");
+              "File to write ellipsoid results and associated bounding boxes "
+              "to. Skipped if this param is not set");
+DEFINE_string(ltm_opt_jacobian_info_directory,
+              "",
+              "Directory to write jacobian info from the LTM optimization for");
 
 std::string kCompressedImageSuffix = "compressed";
 
@@ -1061,7 +1065,7 @@ int main(int argc, char **argv) {
   //          return roshan_associator_creator.getDataAssociator(pg);
   //        };
   vtr::GeometricSimilarityScorerParams geometric_similiarity_scorer_params;
-//  geometric_similiarity_scorer_params.max_merge_distance_ = 2.5;
+  //  geometric_similiarity_scorer_params.max_merge_distance_ = 2.5;
   std::function<std::pair<bool, vtr::FeatureBasedContextInfo>(
       const vtr::FrameId &, const vtr::CameraId &, const MainProbData &)>
       bb_context_retriever = [&](const vtr::FrameId &frame_id,
@@ -1099,17 +1103,7 @@ int main(int argc, char **argv) {
             return feature_based_associator_creator.getDataAssociator(pg);
           };
 
-  vtr::YoloBoundingBoxQuerier bb_querier(node_handle);
-  std::function<bool(
-      const vtr::FrameId &,
-      std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>> &)>
-      bb_retriever = [&](const vtr::FrameId &frame_id_to_query_for,
-                         std::unordered_map<vtr::CameraId,
-                                            std::vector<vtr::RawBoundingBox>>
-                             &bounding_boxes_by_cam) {
-        return bb_querier.retrieveBoundingBoxes(
-            frame_id_to_query_for, input_problem_data, bounding_boxes_by_cam);
-      };
+  //  vtr::YoloBoundingBoxQuerier bb_querier(node_handle);
   //  std::function<bool(
   //      const vtr::FrameId &,
   //      std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>
@@ -1117,10 +1111,20 @@ int main(int argc, char **argv) {
   //                         std::unordered_map<vtr::CameraId,
   //                                            std::vector<vtr::RawBoundingBox>>
   //                             &bounding_boxes_by_cam) {
-  //        return vtr::retrievePrecomputedBoundingBoxes(
+  //        return bb_querier.retrieveBoundingBoxes(
   //            frame_id_to_query_for, input_problem_data,
   //            bounding_boxes_by_cam);
   //      };
+  std::function<bool(
+      const vtr::FrameId &,
+      std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>> &)>
+      bb_retriever = [&](const vtr::FrameId &frame_id_to_query_for,
+                         std::unordered_map<vtr::CameraId,
+                                            std::vector<vtr::RawBoundingBox>>
+                             &bounding_boxes_by_cam) {
+        return vtr::retrievePrecomputedBoundingBoxes(
+            frame_id_to_query_for, input_problem_data, bounding_boxes_by_cam);
+      };
   std::function<void(
       const MainProbData &, const MainPgPtr &, const vtr::FrameId &)>
       frame_data_adder = [&](const MainProbData &problem_data,
@@ -1159,11 +1163,21 @@ int main(int argc, char **argv) {
 
   // TODO maybe replace params with something that will yield more accurate
   // results
+  std::function<bool(
+      const vtr::FactorType &, const vtr::FeatureFactorId &, vtr::ObjectId &)>
+      long_term_map_obj_retriever = [&](const vtr::FactorType &factor_type,
+                                        const vtr::FeatureFactorId &factor_id,
+                                        vtr::ObjectId &object_id) {
+        return ltm_factor_creator.getObjectIdForFactor(
+            factor_type, factor_id, object_id);
+      };
+
   vtr::IndependentEllipsoidsLongTermObjectMapExtractor<
       //      std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>
       util::EmptyStruct>
       ltm_extractor(ltm_covariance_params,
                     residual_creator,
+                    long_term_map_obj_retriever,
                     residual_params,
                     solver_params);
 
@@ -1210,13 +1224,14 @@ int main(int argc, char **argv) {
                       ltm_pose_graph,
                       ltm_optimization_factors_enabled_params,
                       front_end_map_data_extractor,
+                      FLAGS_ltm_opt_jacobian_info_directory,
                       ltm_extractor_out);
                 };
-                vtr::extractLongTermObjectMapAndResults(
-                    pose_graph,
-                    optimization_factors_enabled_params,
-                    long_term_object_map_extractor,
-                    output_problem_data);
+        vtr::extractLongTermObjectMapAndResults(
+            pose_graph,
+            optimization_factors_enabled_params,
+            long_term_object_map_extractor,
+            output_problem_data);
       };
 
   std::function<std::vector<std::shared_ptr<ceres::IterationCallback>>(
@@ -1275,7 +1290,7 @@ int main(int argc, char **argv) {
   pose_graph_optimizer::OptimizationFactorsEnabledParams
       optimization_factors_enabled_params;
   optimization_factors_enabled_params.use_pom_ = false;
-  optimization_factors_enabled_params.include_visual_factors_ = false;
+  optimization_factors_enabled_params.include_visual_factors_ = true;
   optimization_factors_enabled_params.fix_poses_ = true;
   //  optimization_factors_enabled_params.fix_poses_ = false;
   optimization_factors_enabled_params.fix_visual_features_ = false;
@@ -1307,13 +1322,16 @@ int main(int argc, char **argv) {
   //            << output_results.ellipsoid_results_.ellipsoids_.size();
 
   if (!FLAGS_bb_associations_out_file.empty()) {
-
     cv::FileStorage bb_associations_out(FLAGS_bb_associations_out_file,
-                               cv::FileStorage::WRITE);
+                                        cv::FileStorage::WRITE);
     vtr::ObjectDataAssociationResults data_assoc_results;
-    data_assoc_results.ellipsoid_pose_results_ = output_results.ellipsoid_results_;
-    data_assoc_results.associated_bounding_boxes_ = *associated_observed_corner_locations;
-    bb_associations_out << "bounding_box_associations" << vtr::SerializableObjectDataAssociationResults(data_assoc_results);
+    data_assoc_results.ellipsoid_pose_results_ =
+        output_results.ellipsoid_results_;
+    data_assoc_results.associated_bounding_boxes_ =
+        *associated_observed_corner_locations;
+    bb_associations_out << "bounding_box_associations"
+                        << vtr::SerializableObjectDataAssociationResults(
+                               data_assoc_results);
     bb_associations_out.release();
   }
 

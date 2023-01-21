@@ -3,6 +3,8 @@
 #rosbag_base_name=cobot_orbit_blue_chair_2022-03-16-15-40-13
 rosbag_base_name="1669743059"
 
+ltm_opt_jacobian_info_directory="/home/amanda/rosbags/ellipsoid_slam/eer_bags/jacobian_debugging/1669743059/visual_only_jacobian_info"
+
 root_data_dir=/home/amanda/rosbags/ellipsoid_slam/eer_bags/
 calib_base_dir=${root_data_dir}zed_calib/
 obj_det_base_dir=${root_data_dir}obj_det/
@@ -35,5 +37,6 @@ make && ./bin/offline_object_visual_slam_main --intrinsics_file ${intrinsics_fil
 --extrinsics_file ${extrinsics_file} --bounding_boxes_by_node_id_file ${bounding_boxes_by_node_id_file} \
 --poses_by_node_id_file ${poses_by_node_id_file} --nodes_by_timestamp_file ${nodes_by_timestamp_file} \
 --rosbag_file ${rosbag_file} --long_term_map_output ${long_term_map_output_file} \
---low_level_feats_dir ${low_level_feats_dir}
+--low_level_feats_dir ${low_level_feats_dir} \
+--ltm_opt_jacobian_info_directory ${ltm_opt_jacobian_info_directory}
 

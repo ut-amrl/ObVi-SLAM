@@ -39,6 +39,10 @@ class AbsLongTermMapFactorCreator {
       ceres::Problem *problem,
       ceres::ResidualBlockId &residual_id,
       CachedInfo &cached_info) const = 0;
+
+  virtual bool getObjectIdForFactor(const FactorType &factor_type,
+                                    const FeatureFactorId &factor_id,
+                                    ObjectId &object_id) = 0;
 };
 
 struct PairwiseCovarianceLongTermMapFactorData {
@@ -171,6 +175,14 @@ class PairwiseCovarianceLongTermObjectMapFactorCreator
     return true;
   }
 
+  virtual bool getObjectIdForFactor(const FactorType &factor_type,
+                                    const FeatureFactorId &factor_id,
+                                    ObjectId &object_id) override {
+    LOG(WARNING) << "Cannot get single object id from pairwise map (not "
+                    "implemented). Need to revise code to handle pairwise map";
+    return false;
+  }
+
  private:
   std::unordered_map<
       FactorType,
@@ -274,6 +286,29 @@ class IndependentEllipsoidsLongTermObjectMapFactorCreator
             residual_params.long_term_map_params_.pair_huber_loss_param_),
         ellipsoid_param_block);
     return true;
+  }
+
+  virtual bool getObjectIdForFactor(const FactorType &factor_type,
+                                    const FeatureFactorId &factor_id,
+                                    ObjectId &object_id) override {
+    if (factor_data_.find(factor_type) == factor_data_.end()) {
+      LOG(ERROR) << "Could not find factor type " << factor_type
+                 << " when creating residual.";
+      return false;
+    }
+    std::unordered_map<FeatureFactorId,
+                       IndependentEllipsoidsLongTermMapFactorData>
+        features_for_factor_type = factor_data_.at(factor_type);
+    if (features_for_factor_type.find(factor_id) ==
+        features_for_factor_type.end()) {
+      LOG(ERROR) << "Could not find feature id " << factor_id
+                 << " with factor type " << factor_type
+                 << " when creating residual.";
+      return false;
+    }
+    IndependentEllipsoidsLongTermMapFactorData factor_entry =
+        features_for_factor_type.at(factor_id);
+    object_id = factor_entry.obj_id_;
   }
 
  private:
