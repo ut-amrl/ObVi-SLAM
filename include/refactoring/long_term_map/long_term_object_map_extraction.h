@@ -679,6 +679,9 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
       pose_graph_copy->getObjectParamPointers(obj_id, &obj_ptr);
       covariance_blocks.emplace_back(std::make_pair(obj_ptr, obj_ptr));
     }
+    double *frame_1_block;
+    pose_graph_copy->getPosePointers(1, &frame_1_block);
+    covariance_blocks.emplace_back(std::make_pair(frame_1_block, frame_1_block));
 
     bool covariance_compute_result =
         covariance_extractor.Compute(covariance_blocks, &problem_for_ltm);

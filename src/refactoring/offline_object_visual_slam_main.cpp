@@ -1291,8 +1291,8 @@ int main(int argc, char **argv) {
       optimization_factors_enabled_params;
   optimization_factors_enabled_params.use_pom_ = false;
   optimization_factors_enabled_params.include_visual_factors_ = true;
-  optimization_factors_enabled_params.fix_poses_ = true;
-  //  optimization_factors_enabled_params.fix_poses_ = false;
+  //  optimization_factors_enabled_params.fix_poses_ = true;
+  optimization_factors_enabled_params.fix_poses_ = false;
   optimization_factors_enabled_params.fix_visual_features_ = false;
   optimization_factors_enabled_params.fix_objects_ = false;
   optimization_factors_enabled_params.poses_prior_to_window_to_keep_constant_ =
