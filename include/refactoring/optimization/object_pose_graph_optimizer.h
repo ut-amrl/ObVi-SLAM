@@ -154,8 +154,10 @@ class ObjectPoseGraphOptimizer {
           &residual_params,
       std::shared_ptr<PoseGraphType> &pose_graph,
       ceres::Problem *problem,
-      const std::unordered_set<vslam_types_refactor::FeatureFactorId> 
-          &excluded_feature_factor_ids = {}) {
+      const util::BoostHashSet<
+          std::pair<vslam_types_refactor::FactorType, 
+                    vslam_types_refactor::FeatureFactorId>>
+          &excluded_feature_factor_types_and_ids = {}) {
     // Check for invalid combinations of scope and reject
     CHECK(checkInvalidOptimizationScopeParams(optimization_scope));
 
@@ -346,13 +348,13 @@ class ObjectPoseGraphOptimizer {
                            vslam_types_refactor::FeatureFactorId>
                &matching_factor : matching_visual_feature_factors) {
         // Don't add to required_feature_factors if this FeatureFactorId
-        // is in excluded_feature_factor_ids
+        // is in excluded_feature_factor_types_and_ids
         const vslam_types_refactor::FactorType &factor_type 
             = matching_factor.first;
         const vslam_types_refactor::FeatureFactorId &feature_factor_id 
             = matching_factor.second;
-        if (excluded_feature_factor_ids.find(feature_factor_id) 
-            == excluded_feature_factor_ids.end()) {
+        if (excluded_feature_factor_types_and_ids.find(matching_factor) 
+            == excluded_feature_factor_types_and_ids.end()) {
           required_feature_factors[matching_factor.first].insert(
             matching_factor.second);
           vslam_types_refactor::ReprojectionErrorFactor factor;

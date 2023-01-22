@@ -282,15 +282,16 @@ class OfflineProblemRunner {
                         });
           size_t n_outliers = 
               (size_t)(block_ids_and_residuals_pairs.size() * kFeatureOutlierPercentage);
-          std::unordered_set<vslam_types_refactor::FeatureFactorId> excluded_feature_factor_ids;
+          util::BoostHashSet<std::pair<FactorType, FeatureFactorId>> excluded_feature_factor_types_and_ids;
           // TODO fix the brutal fix backtrack!!
           for (size_t i = 0; i < n_outliers; ++i) {
-            // TODO emplace back excluded_feature_factor_ids
             const ceres::ResidualBlockId& block_id = block_ids_and_residuals_pairs[i].first;
             for (const auto &factor_types_and_info : current_residual_block_info) {
+              const auto &factor_type = factor_types_and_info.first;
               for (const auto& factor_id_and_block_id : factor_types_and_info.second) {
+                const auto &factor_id = factor_id_and_block_id.first;
                 if (factor_id_and_block_id.second == block_id) {
-                  excluded_feature_factor_ids.insert(factor_id_and_block_id.first);
+                  excluded_feature_factor_types_and_ids.insert(std::make_pair(factor_type, factor_id));
                 }
               }
             }
@@ -300,7 +301,7 @@ class OfflineProblemRunner {
               residual_params_, 
               pose_graph, 
               &problem,
-              excluded_feature_factor_ids);
+              excluded_feature_factor_types_and_ids);
           // TODO extract feature_factor_ids_to_remove from block_ids_and_residuals
           optim_success = runOptimizationHelper(
               start_frame_id,
