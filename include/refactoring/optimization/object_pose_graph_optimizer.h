@@ -161,11 +161,17 @@ class ObjectPoseGraphOptimizer {
     // Check for invalid combinations of scope and reject
     CHECK(checkInvalidOptimizationScopeParams(optimization_scope));
 
-    std::unordered_set<vslam_types_refactor::ObjectId> observed_objects;
+    // std::unordered_set<vslam_types_refactor::ObjectId> observed_objects;
     // std::unordered_set<vslam_types_refactor::FeatureId> optimized_features;
     std::unordered_set<vslam_types_refactor::FrameId> optimized_frames;
     std::unordered_set<vslam_types_refactor::ObjectId> ltm_object_ids;
 
+    // TODO (Taijing) Again, I'm not sure about when all those
+    // flags are true (if one flag being true is the precondition 
+    // of the other one), so the code here may be repeated
+    // Ideally, initialize both structure inside 
+    // if(use_object_param_blocks) {} and
+    // if(use_visual_feature_param_blocks) {}
     std::unordered_map<vslam_types_refactor::FeatureId, 
         util::BoostHashSet<std::pair<vslam_types_refactor::FactorType, 
                                      vslam_types_refactor::FeatureFactorId>>> 
@@ -210,10 +216,10 @@ class ObjectPoseGraphOptimizer {
       } else {
         min_frame_for_obj = optimization_scope.min_frame_id_;
       }
-      pose_graph->getObjectsViewedBetweenFramesInclusive(
-          min_frame_for_obj,
-          optimization_scope.max_frame_id_,
-          observed_objects);
+      // pose_graph->getObjectsViewedBetweenFramesInclusive(
+      //     min_frame_for_obj,
+      //     optimization_scope.max_frame_id_,
+      //     observed_objects);
       // TODO -- if no objects in the long-term map are observed, then nothing
       // in the long-term map will change,
       //  so we could omit those objects, the object only factors, and the
@@ -227,10 +233,6 @@ class ObjectPoseGraphOptimizer {
       } else {
         min_frame_for_feats = optimization_scope.min_frame_id_;
       }
-      // pose_graph->getFeaturesViewedBetweenFramesInclusive(
-      //     min_frame_for_feats,
-      //     optimization_scope.max_frame_id_,
-      //     optimized_features);
     }
     std::unordered_set<vslam_types_refactor::FrameId> all_frames =
         pose_graph->getFrameIds();
@@ -249,12 +251,21 @@ class ObjectPoseGraphOptimizer {
           matching_obj_only_factors;
       std::unordered_set<vslam_types_refactor::ObjectId>
           objects_with_object_only_factors;
+      std::unordered_set<vslam_types_refactor::ObjectId> observed_objects;
+      pose_graph->getObjectsViewedBetweenFramesInclusive(
+          optimization_scope.min_frame_id_ + 1,
+          optimization_scope.max_frame_id_,
+          observed_objects);
       if (fix_ltm_param_blocks) {
         // If the long term map is fixed, we only need the object-only factors
         // for the objects not in the long-term map
         // If at some point we marginalize mid-run, we may need to look for the
         // LTM objects that are connected to the observed ones (rather than just
         // the observed ones)
+
+        // TODO (Taijing) unsure if I can change order of this block with 
+        // the next one as I'm not sure if it's possible to have 
+        // (use_object_pose_factors == false) && (fix_ltm_param_blocks == true)
         for (const vslam_types_refactor::ObjectId &observed_obj :
              observed_objects) {
           if (ltm_object_ids.find(observed_obj) == ltm_object_ids.end()) {
@@ -282,19 +293,30 @@ class ObjectPoseGraphOptimizer {
           optimization_scope.use_pom_,
           !fix_ltm_param_blocks,
           matching_obj_only_factors);
+      // TODO not sure if it's correct to add all of them to 
+      // objects to include
       for (const std::pair<vslam_types_refactor::FactorType,
                            vslam_types_refactor::FeatureFactorId>
                &obj_only_factor : matching_obj_only_factors) {
+        const vslam_types_refactor::FactorType &factor_type 
+            = obj_only_factor.first;
         const vslam_types_refactor::FeatureFactorId &feature_factor_id 
             = obj_only_factor.second;
-        required_feature_factors[obj_only_factor.first].insert(
+        if (excluded_feature_factor_types_and_ids.find(obj_only_factor) 
+            == excluded_feature_factor_types_and_ids.end()) {
+          required_feature_factors[obj_only_factor.first].insert(
               obj_only_factor.second);
-        // TODO verify correctness and uncomment the following sections
-        // if (excluded_feature_factor_ids.find(feature_factor_id) 
-        //     == excluded_feature_factor_ids.end()) {
-        //   required_feature_factors[obj_only_factor.first].insert(
-        //       obj_only_factor.second);
-        // }
+          vslam_types_refactor::ObjectObservationFactor factor;
+          pose_graph->getObjectObservationFactor(feature_factor_id, factor);
+          const vslam_types_refactor::ObjectId &object_id = factor.object_id_;
+          if (objects_to_include.find(object_id) 
+              == objects_to_include.end()) {
+            objects_to_include[object_id] 
+                = util::BoostHashSet<std::pair<vslam_types_refactor::FactorType, 
+                                      vslam_types_refactor::FeatureFactorId>>();
+          }
+          objects_to_include[object_id].emplace(factor_type, feature_factor_id);
+        }
       }
     }
 
@@ -318,14 +340,24 @@ class ObjectPoseGraphOptimizer {
       for (const std::pair<vslam_types_refactor::FactorType,
                            vslam_types_refactor::FeatureFactorId> &factor :
            matching_observation_factor_ids) {
+        const vslam_types_refactor::FactorType &factor_type 
+            = factor.first;
         const vslam_types_refactor::FeatureFactorId &feature_factor_id 
             = factor.second;
-        required_feature_factors[factor.first].insert(factor.second);
-        // TODO verify correctness and uncomment the following sections
-        // if (excluded_feature_factor_ids.find(feature_factor_id) 
-        //     == excluded_feature_factor_ids.end()) {
-        //   required_feature_factors[factor.first].insert(factor.second);
-        // }
+        if (excluded_feature_factor_types_and_ids.find(factor) 
+            == excluded_feature_factor_types_and_ids.end()) {
+          required_feature_factors[factor.first].insert(factor.second);
+          vslam_types_refactor::ObjectObservationFactor factor;
+          pose_graph->getObjectObservationFactor(feature_factor_id, factor);
+          const vslam_types_refactor::ObjectId &object_id = factor.object_id_;
+          if (objects_to_include.find(object_id) 
+              == objects_to_include.end()) {
+            objects_to_include[object_id] 
+                = util::BoostHashSet<std::pair<vslam_types_refactor::FactorType, 
+                                      vslam_types_refactor::FeatureFactorId>>();
+          }
+          objects_to_include[object_id].emplace(factor_type, feature_factor_id);
+        }
       }
     }
 
@@ -510,6 +542,11 @@ class ObjectPoseGraphOptimizer {
     std::unordered_set<vslam_types_refactor::ObjectId> objects_to_remove;
     std::unordered_set<vslam_types_refactor::ObjectId>
         next_last_optimized_objects;
+    // TODO maybe change to set of pointers?
+    std::unordered_set<vslam_types_refactor::ObjectId> observed_objects;
+    for (const auto &object_to_include : objects_to_include) {
+      observed_objects.insert(object_to_include.first);
+    }
     if (use_object_param_blocks) {
       std::unordered_set<vslam_types_refactor::ObjectId>
           constant_object_param_blocks;
@@ -528,11 +565,11 @@ class ObjectPoseGraphOptimizer {
         //                            ltm_object_ids.end(),
         //                            std::inserter(variable_object_param_blocks,
         //                                          variable_object_param_blocks.end()));
-        for (const vslam_types_refactor::ObjectId &obs_obj : observed_objects) {
-          if (ltm_object_ids.find(obs_obj) == ltm_object_ids.end()) {
-            variable_object_param_blocks.insert(obs_obj);
+        for (const auto &obs_obj : objects_to_include) {
+          if (ltm_object_ids.find(obs_obj.first) == ltm_object_ids.end()) {
+            variable_object_param_blocks.insert(obs_obj.first);
           } else {
-            constant_object_param_blocks.insert(obs_obj);
+            constant_object_param_blocks.insert(obs_obj.first);
           }
         }
         // The constant ones are the ones that are observed and in the long-term
@@ -552,9 +589,9 @@ class ObjectPoseGraphOptimizer {
         //                       ltm_object_ids.end(),
         //                       std::inserter(variable_object_param_blocks,
         //                                     variable_object_param_blocks.end()));
-        for (const vslam_types_refactor::ObjectId &observed_obj :
-             observed_objects) {
-          variable_object_param_blocks.insert(observed_obj);
+        for (const auto &observed_obj :
+             objects_to_include) {
+          variable_object_param_blocks.insert(observed_obj.first);
         }
         for (const vslam_types_refactor::ObjectId &ltm_obj : ltm_object_ids) {
           variable_object_param_blocks.insert(ltm_obj);
