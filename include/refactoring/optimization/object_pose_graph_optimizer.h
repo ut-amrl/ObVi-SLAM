@@ -160,7 +160,7 @@ class ObjectPoseGraphOptimizer {
     CHECK(checkInvalidOptimizationScopeParams(optimization_scope));
 
     std::unordered_set<vslam_types_refactor::ObjectId> observed_objects;
-    std::unordered_set<vslam_types_refactor::FeatureId> optimized_features;
+    // std::unordered_set<vslam_types_refactor::FeatureId> optimized_features;
     std::unordered_set<vslam_types_refactor::FrameId> optimized_frames;
     std::unordered_set<vslam_types_refactor::ObjectId> ltm_object_ids;
 
@@ -225,10 +225,10 @@ class ObjectPoseGraphOptimizer {
       } else {
         min_frame_for_feats = optimization_scope.min_frame_id_;
       }
-      pose_graph->getFeaturesViewedBetweenFramesInclusive(
-          min_frame_for_feats,
-          optimization_scope.max_frame_id_,
-          optimized_features);
+      // pose_graph->getFeaturesViewedBetweenFramesInclusive(
+      //     min_frame_for_feats,
+      //     optimization_scope.max_frame_id_,
+      //     optimized_features);
     }
     std::unordered_set<vslam_types_refactor::FrameId> all_frames =
         pose_graph->getFrameIds();
@@ -369,13 +369,6 @@ class ObjectPoseGraphOptimizer {
       }
     }
 
-    // update optimized features
-    for (const auto &feature_id : optimized_features) {
-      if (features_to_include.find(feature_id) == features_to_include.end()) {
-        optimized_features.erase(feature_id);
-      }
-    }
-
     for (const vslam_types_refactor::FactorType &type_to_exclude :
          optimization_scope.factor_types_to_exclude) {
       required_feature_factors.erase(type_to_exclude);
@@ -487,17 +480,19 @@ class ObjectPoseGraphOptimizer {
       //          std::inserter(features_to_remove, features_to_remove.end()));
       for (const vslam_types_refactor::FeatureId &last_opt :
            last_optimized_features_) {
-        if (optimized_features.find(last_opt) == optimized_features.end()) {
+        if (features_to_include.find(last_opt) == features_to_include.end()) {
           features_to_remove.insert(last_opt);
         }
       }
-      setVariabilityForParamBlocks(optimized_features,
+      setVariabilityForParamBlocks(features_to_include,
                                    set_constant,
                                    kFeatureTypeStr,
                                    getParamBlockForFeature<PoseGraphType>,
                                    pose_graph,
                                    problem);
-      next_last_optimized_features = optimized_features;
+      for (const auto &feature : features_to_include) {
+        next_last_optimized_features.insert(feature.first);
+      }
     } else {
       // Remove all visual feature param blocks
       features_to_remove = last_optimized_features_;
@@ -754,6 +749,34 @@ class ObjectPoseGraphOptimizer {
     for (const IdentifierType &param_identifier : param_identifiers) {
       double *param_ptr = NULL;
       if (param_block_retriever(param_identifier, pose_graph, &param_ptr)) {
+        if (set_constant) {
+          problem->SetParameterBlockConstant(param_ptr);
+        } else {
+          problem->SetParameterBlockVariable(param_ptr);
+        }
+      } else {
+        LOG(WARNING) << "No parameter block found for object with id "
+                     << identifier_type
+                     << "; not able to set variability in optimization problem";
+      }
+    }
+  }
+
+  template <typename IdentifierKeyType,
+            typename IdentifierValueType>
+  void setVariabilityForParamBlocks(
+      const std::unordered_map<IdentifierKeyType, IdentifierValueType> 
+            &param_identifiers,
+      const bool &set_constant,
+      const std::string &identifier_type,
+      const std::function<bool(const IdentifierKeyType &,
+                               const std::shared_ptr<PoseGraphType> &,
+                               double **)> &param_block_retriever,
+      const std::shared_ptr<PoseGraphType> &pose_graph,
+      ceres::Problem *problem) {
+    for (const auto &param_identifier : param_identifiers) {
+      double *param_ptr = NULL;
+      if (param_block_retriever(param_identifier.first, pose_graph, &param_ptr)) {
         if (set_constant) {
           problem->SetParameterBlockConstant(param_ptr);
         } else {
