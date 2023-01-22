@@ -154,7 +154,7 @@ class ObjectPoseGraphOptimizer {
    */
   std::unordered_map<vslam_types_refactor::FactorType,
                      std::unordered_map<vslam_types_refactor::FeatureFactorId,
-                                        ceres::ResidualBlockId>> 
+                                        ceres::ResidualBlockId>>
   buildPoseGraphOptimization(
       const OptimizationScopeParams &optimization_scope,
       const pose_graph_optimization::ObjectVisualPoseGraphResidualParams
@@ -296,12 +296,6 @@ class ObjectPoseGraphOptimizer {
             = obj_only_factor.second;
         required_feature_factors[obj_only_factor.first].insert(
               obj_only_factor.second);
-        // TODO verify correctness and uncomment the following sections
-        // if (excluded_feature_factor_ids.find(feature_factor_id) 
-        //     == excluded_feature_factor_ids.end()) {
-        //   required_feature_factors[obj_only_factor.first].insert(
-        //       obj_only_factor.second);
-        // }
       }
     }
 
@@ -328,11 +322,6 @@ class ObjectPoseGraphOptimizer {
         const vslam_types_refactor::FeatureFactorId &feature_factor_id 
             = factor.second;
         required_feature_factors[factor.first].insert(factor.second);
-        // TODO verify correctness and uncomment the following sections
-        // if (excluded_feature_factor_ids.find(feature_factor_id) 
-        //     == excluded_feature_factor_ids.end()) {
-        //   required_feature_factors[factor.first].insert(factor.second);
-        // }
       }
     }
 
