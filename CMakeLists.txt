@@ -37,8 +37,7 @@ include_directories(include
         ${CERES_INCLUDE_DIRS}
         ${OpenCV_INCLUDE_DIRS}
         ${Pangolin_INCLUDE_DIRS}
-        ${PCL_INCLUDE_DIRS}
-        /home/amanda/darknet_ros_catkin_ws/install/include/darknet_ros_msgs)
+        ${PCL_INCLUDE_DIRS})
 LINK_DIRECTORIES(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 

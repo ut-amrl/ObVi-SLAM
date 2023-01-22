@@ -91,9 +91,11 @@ class LowLevelFeaturePoseGraph {
       const std::unordered_map<CameraId, CameraExtrinsics<double>>
           &camera_extrinsics_by_camera,
       const std::unordered_map<CameraId, CameraIntrinsicsMat<double>>
-          &camera_intrinsics_by_camera)
+          &camera_intrinsics_by_camera,
+      const FactorType &visual_factor_type)
       : camera_extrinsics_by_camera_(camera_extrinsics_by_camera),
         camera_intrinsics_by_camera_(camera_intrinsics_by_camera),
+        visual_factor_type_(visual_factor_type),
         min_frame_id_(std::numeric_limits<FrameId>::max()),
         max_frame_id_(std::numeric_limits<FrameId>::min()) {}
 
@@ -182,13 +184,13 @@ class LowLevelFeaturePoseGraph {
   virtual void getVisualFeatureFactorIdsBetweenFrameIdsInclusive(
       const FrameId &min_frame_id,
       const FrameId &max_frame_id,
-      std::vector<std::pair<FactorType, FeatureFactorId>> &matching_factors) {
+      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
+          &matching_factors) {
     for (const auto &frame_and_matching_factors :
          visual_feature_factors_by_frame_) {
       if ((frame_and_matching_factors.first >= min_frame_id) &&
           (frame_and_matching_factors.first <= max_frame_id)) {
-        matching_factors.insert(matching_factors.end(),
-                                frame_and_matching_factors.second.begin(),
+        matching_factors.insert(frame_and_matching_factors.second.begin(),
                                 frame_and_matching_factors.second.end());
       }
     }
@@ -288,6 +290,23 @@ class LowLevelFeaturePoseGraph {
     return true;
   }
 
+  bool getFeatureIdForObservationFactor(
+      const std::pair<vslam_types_refactor::FactorType,
+                      vslam_types_refactor::FeatureFactorId> &factor_info,
+      vslam_types_refactor::FeatureId &feature_id) const {
+    if (factor_info.first != visual_factor_type_) {
+      LOG(WARNING) << "Visual factor type for this pose graph "
+                   << visual_factor_type_ << " didn't match the requested one "
+                   << factor_info.first;
+      return false;
+    }
+    if (factors_.find(factor_info.second) == factors_.end()) {
+      return false;
+    }
+    feature_id = factors_.at(factor_info.second).feature_id_;
+    return true;
+  };
+
  protected:
   /**
    * Extrinsics for each camera.
@@ -300,6 +319,7 @@ class LowLevelFeaturePoseGraph {
    */
   std::unordered_map<CameraId, CameraIntrinsicsMat<double>>
       camera_intrinsics_by_camera_;
+  FactorType visual_factor_type_;
   FrameId min_frame_id_;
   FrameId max_frame_id_;
 
@@ -334,7 +354,9 @@ class ReprojectionLowLevelFeaturePoseGraph
       const std::unordered_map<CameraId, CameraIntrinsicsMat<double>>
           &camera_intrinsics_by_camera)
       : LowLevelFeaturePoseGraph<ReprojectionErrorFactor>(
-            camera_extrinsics_by_camera, camera_intrinsics_by_camera) {}
+            camera_extrinsics_by_camera,
+            camera_intrinsics_by_camera,
+            kReprojectionErrorFactorTypeId) {}
   virtual ~ReprojectionLowLevelFeaturePoseGraph() = default;
   virtual bool getFeaturePointers(const FeatureId &feature_id,
                                   double **feature_ptr) override {

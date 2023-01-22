@@ -132,12 +132,15 @@ class ObjAndLowLevelFeaturePoseGraph
       const std::unordered_map<ObjectId,
                                std::pair<std::string, RawEllipsoid<double>>>
           &long_term_map_objects_with_semantic_class,
-      const std::function<bool(
-          util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
-                                       vslam_types_refactor::FeatureFactorId>>
-              &)> &long_term_map_factor_provider)
+      const std::function<
+          bool(util::BoostHashMap<std::pair<FactorType, FeatureFactorId>,
+                                  std::unordered_set<ObjectId>> &)>
+          &long_term_map_factor_provider,
+      const FactorType &visual_feature_factor_type)
       : LowLevelFeaturePoseGraph<VisualFeatureFactorType>(
-            camera_extrinsics_by_camera, camera_intrinsics_by_camera),
+            camera_extrinsics_by_camera,
+            camera_intrinsics_by_camera,
+            visual_feature_factor_type),
         mean_and_cov_by_semantic_class_(mean_and_cov_by_semantic_class),
         max_object_id_(0),
         max_object_observation_factor_(0),
@@ -376,23 +379,34 @@ class ObjAndLowLevelFeaturePoseGraph
       const std::unordered_set<ObjectId> &objects,
       const bool &use_pom,
       const bool &include_ltm_factors,
-      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
+      std::unordered_map<
+          ObjectId,
+          util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>
           &matching_factors) {
     for (const ObjectId &object_id : objects) {
       if (object_only_factors_by_object_.find(object_id) !=
           object_only_factors_by_object_.end()) {
+        // This assumes that all non-LTM object only factors are for a single
+        // object. If this changes, this will have to be revised
         util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
             factors_for_obj = object_only_factors_by_object_[object_id];
-        matching_factors.insert(factors_for_obj.begin(), factors_for_obj.end());
+        matching_factors[object_id].insert(factors_for_obj.begin(),
+                                           factors_for_obj.end());
       }
     }
     if (include_ltm_factors) {
-      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>> ltm_factors;
+      util::BoostHashMap<std::pair<FactorType, FeatureFactorId>,
+                         std::unordered_set<ObjectId>>
+          ltm_factors;
       if (!long_term_map_factor_provider_(ltm_factors)) {
         LOG(ERROR) << "Could not add long term map factors to the set to "
                       "include in the optimization. Skipping them.";
       }
-      matching_factors.insert(ltm_factors.begin(), ltm_factors.end());
+      for (const auto &ltm_factor : ltm_factors) {
+        for (const auto &objs_for_factor : ltm_factor.second) {
+          matching_factors[objs_for_factor].insert(ltm_factor.first);
+        }
+      }
     }
     // TODO add pom someday
   }
@@ -502,6 +516,23 @@ class ObjAndLowLevelFeaturePoseGraph
     return true;
   }
 
+  bool getObjectIdForObjObservationFactor(
+      const std::pair<vslam_types_refactor::FactorType,
+                      vslam_types_refactor::FeatureFactorId> &factor_info,
+      vslam_types_refactor::FeatureId &object_id) const {
+    if (factor_info.first != kObjectObservationFactorTypeId) {
+      LOG(WARNING) << "Unsupported object observation factor type "
+                   << factor_info.first;
+      return false;
+    }
+    if (object_observation_factors_.find(factor_info.second) ==
+        object_observation_factors_.end()) {
+      return false;
+    }
+    object_id = object_observation_factors_.at(factor_info.second).object_id_;
+    return true;
+  }
+
  protected:
   std::unordered_map<std::string,
                      std::pair<ObjectDim<double>, Covariance<double, 3>>>
@@ -539,9 +570,8 @@ class ObjAndLowLevelFeaturePoseGraph
                      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>
       object_only_factors_by_object_;
 
-  std::function<bool(
-      util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
-                                   vslam_types_refactor::FeatureFactorId>> &)>
+  std::function<bool(util::BoostHashMap<std::pair<FactorType, FeatureFactorId>,
+                                        std::unordered_set<ObjectId>> &)>
       long_term_map_factor_provider_;
 
   ObjAndLowLevelFeaturePoseGraph(const ObjAndLowLevelFeaturePoseGraph &other) =
@@ -564,20 +594,23 @@ class ObjectAndReprojectionFeaturePoseGraph
       const std::unordered_map<ObjectId,
                                std::pair<std::string, RawEllipsoid<double>>>
           &long_term_map_objects_with_semantic_class,
-      const std::function<bool(
-          util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
-                                       vslam_types_refactor::FeatureFactorId>>
-              &)> &long_term_map_factor_provider)
+      const std::function<
+          bool(util::BoostHashMap<std::pair<FactorType, FeatureFactorId>,
+                                  std::unordered_set<ObjectId>> &)>
+          &long_term_map_factor_provider)
       : ReprojectionLowLevelFeaturePoseGraph(camera_extrinsics_by_camera,
                                              camera_intrinsics_by_camera),
         LowLevelFeaturePoseGraph<ReprojectionErrorFactor>(
-            camera_extrinsics_by_camera, camera_intrinsics_by_camera),
+            camera_extrinsics_by_camera,
+            camera_intrinsics_by_camera,
+            kReprojectionErrorFactorTypeId),
         ObjAndLowLevelFeaturePoseGraph<ReprojectionErrorFactor>(
             mean_and_cov_by_semantic_class,
             camera_extrinsics_by_camera,
             camera_intrinsics_by_camera,
             long_term_map_objects_with_semantic_class,
-            long_term_map_factor_provider) {}
+            long_term_map_factor_provider,
+            kReprojectionErrorFactorTypeId) {}
   virtual ~ObjectAndReprojectionFeaturePoseGraph() = default;
 
   /**

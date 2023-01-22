@@ -108,6 +108,10 @@ class OfflineProblemRunner {
     optimization_scope_params.poses_prior_to_window_to_keep_constant_ =
         optimization_factors_enabled_params
             .poses_prior_to_window_to_keep_constant_;
+    optimization_scope_params.min_low_level_feature_observations_ =
+        optimization_factors_enabled_params.min_low_level_feature_observations_;
+    optimization_scope_params.min_object_observations_ =
+        optimization_factors_enabled_params.min_object_observations_;
 
     visualization_callback_(problem_data,
                             pose_graph,
