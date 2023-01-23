@@ -79,6 +79,9 @@ DEFINE_double(min_confidence, 0.2, "Minimum confidence");
 DEFINE_string(low_level_feats_dir,
               "",
               "Directory that contains low level features");
+DEFINE_string(vslam_debugger_directory, 
+              "/robodata/taijing/object-slam/vslam/debug/1668019589/", 
+              "Output root directory for debugger");
 
 std::string kCompressedImageSuffix = "compressed";
 
@@ -90,7 +93,8 @@ enum DebugTypeEnum {
   AFTER_OPTIM,
   ORBSLAM,
   OBSERVED,
-  ALL
+  ALL,
+  NONE
 };
 
 std::unordered_map<DebugTypeEnum, std::string> debugLabels = {
@@ -99,7 +103,8 @@ std::unordered_map<DebugTypeEnum, std::string> debugLabels = {
   {DebugTypeEnum::AFTER_OPTIM,  "after optimization"},
   {DebugTypeEnum::ORBSLAM,    "from ORBSLAM"},
   {DebugTypeEnum::OBSERVED,   "observations"},
-  {DebugTypeEnum::ALL,        "all"}
+  {DebugTypeEnum::ALL,        "all"},
+  {DebugTypeEnum::NONE,       ""}
 };
 
 void ToCSV(const std::string& filename, 
@@ -435,10 +440,12 @@ public:
     cv::imwrite(savepath, summaries);
   }
 
-  void getLowLevelFeaturesLatestImages(
+  std::unordered_map<vtr::CameraId, cv_bridge::CvImagePtr> getLowLevelFeaturesLatestImages(
       const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& feat_ids_and_features3d,
       const vtr::Pose3D<double>& pose,
-      const DebugTypeEnum& debug_type) {
+      const DebugTypeEnum& debug_type,
+      const bool save = true) {
+    std::unordered_map<vtr::CameraId, cv_bridge::CvImagePtr> ret;
 
     for (const auto& cam_id_and_observations : features2d_) {
       std::vector<double> residuals;
@@ -479,12 +486,16 @@ public:
         output_residuals_[cam_id][debug_type].push_back(residual);
       }
       PutImageText(debugLabels[debug_type], cv_ptr->image);
-      if (output_images_.find(cam_id) == output_images_.end()) {
-        output_images_[cam_id] 
-              = std::unordered_map<DebugTypeEnum, cv_bridge::CvImagePtr>();
+      if (save) {
+        if (output_images_.find(cam_id) == output_images_.end()) {
+          output_images_[cam_id] 
+                = std::unordered_map<DebugTypeEnum, cv_bridge::CvImagePtr>();
+        }
+        output_images_[cam_id][debug_type] = cv_ptr;
       }
-      output_images_[cam_id][debug_type] = cv_ptr;
+      ret[cam_id] = cv_ptr;
     }
+    return ret;
   }
 
 private:
@@ -700,6 +711,38 @@ public:
     }
   }
 
+  void debugOptimizationRunByFrameId(
+      const vtr::FrameId& start_frame_id,
+      const vtr::FrameId& end_frame_id,
+      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d,
+      const std::unordered_map<vtr::FrameId, vtr::Pose3D<double>>& poses,
+      const DebugTypeEnum& debug_type) {
+    // TODO Technically, we only need map instead of unordered_map
+    std::map<vtr::CameraId, 
+        std::unordered_map<vtr::FrameId, cv_bridge::CvImagePtr>> cam_ids_and_images;
+    for (vtr::FrameId frame_id = start_frame_id; frame_id <= end_frame_id; ++frame_id) {
+      std::unordered_map<vtr::CameraId, cv_bridge::CvImagePtr> cam_ids_and_visualizations 
+          = frame_ids_and_debuggers_[frame_id]
+          .getLowLevelFeaturesLatestImages(
+              features3d, poses.at(frame_id), debug_type, false);
+      for (const auto &cam_id_and_visualization : cam_ids_and_visualizations) {
+        const vtr::CameraId &cam_id = cam_id_and_visualization.first;
+        if (cam_ids_and_images.find(cam_id) == cam_ids_and_images.end()) {
+          cam_ids_and_images[cam_id] = std::unordered_map<vtr::FrameId, cv_bridge::CvImagePtr>();
+        }
+        cam_ids_and_images[cam_id][frame_id] = cam_id_and_visualization.second;
+      }
+    }
+    for (const auto &cam_id_and_images : cam_ids_and_images) {
+      const vtr::CameraId &cam_id = cam_id_and_images.first;
+      cv::Mat summary = SummarizeVisualization(cam_id_and_images.second, 5);
+      std::string optim_path = 
+            output_opt_window_directories_.at(cam_id) / 
+            (std::to_string(end_frame_id) + "_" + debugLabels.at(debug_type) + ".png");
+      cv::imwrite(optim_path, summary);
+    }
+  }
+
   void debugByFrameId(const vtr::FrameId& frame_id,
       const vtr::Pose3D<double>& pose,
       const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d,
@@ -748,7 +791,7 @@ private:
 };
 
 // TODO read from user specified input
-VSLAMDebugger debugger("/robodata/taijing/object-slam/vslam/debug/1668019589/", {1,2});
+VSLAMDebugger debugger(FLAGS_vslam_debugger_directory, {1,2});
 
 std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
 readCameraIntrinsicsByCameraFromFile(const std::string &file_name) {
@@ -1132,6 +1175,12 @@ void visualizationStub(
           feature_before_optim, 
           before_optim_trajectory_vec,
           DebugTypeEnum::BEFORE_OPTIM);
+      debugger.debugOptimizationRunByFrameId(
+        min_frame_optimized,
+        max_frame_optimized,
+        feature_before_optim,
+        optimized_trajectory,
+        DebugTypeEnum::BEFORE_OPTIM);
       break;
     }
     case vtr::AFTER_EACH_OPTIMIZATION: {
@@ -1294,6 +1343,12 @@ void visualizationStub(
           est_trajectory_vec,
           DebugTypeEnum::AFTER_OPTIM);
       debugger.logOutputsByFrameId(max_frame_optimized);
+      debugger.debugOptimizationRunByFrameId(
+        min_frame_optimized,
+        max_frame_optimized,
+        feature_ests,
+        optimized_trajectory,
+        DebugTypeEnum::AFTER_OPTIM);
 
       break;
     }

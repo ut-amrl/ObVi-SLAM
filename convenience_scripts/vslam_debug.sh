@@ -10,7 +10,7 @@ YOLO_DIR="/home/tiejean/projects/yolov5-ros/"
 yolo_weight="/robodata/taijing/object-slam/yolov5-models/outdoors-final-yolov5s-0.pt"
 
 stage="0"
-while getopts s:d:b:c:y:w flag
+while getopts s:d:b:c:y:w:n flag
 do
     case "${flag}" in
         s) stage=${OPTARG};;
@@ -19,6 +19,7 @@ do
         c) CALIB_DIR=${OPTARG};;
         y) YOLO_DIR=${OPTARG};;
         w) yolo_weight=${OPTARG};;
+        n) bagname=${OPTARG};;
     esac
 done
 
