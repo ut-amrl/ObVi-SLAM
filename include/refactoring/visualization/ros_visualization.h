@@ -1181,7 +1181,7 @@ class RosVisualization {
   }
 
  private:
-  const static uint32_t kEllipsoidMarkerPubQueueSize = 100;
+  const static uint32_t kEllipsoidMarkerPubQueueSize = 1000;
   const static uint32_t kRobotPoseMarkerPubQueueSize = 1000;
 
   const static uint32_t kCameraInfoQueueSize = 100;
