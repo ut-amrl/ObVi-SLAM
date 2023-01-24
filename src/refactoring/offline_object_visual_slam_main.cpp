@@ -533,6 +533,7 @@ int main(int argc, char **argv) {
   google::ParseCommandLineFlags(&argc, &argv, true);
 
   FLAGS_logtostderr = true;  // Don't log to disk - log to terminal
+  FLAGS_colorlogtostderr = true;
 
   std::string param_prefix = FLAGS_param_prefix;
   std::string node_prefix = FLAGS_param_prefix;

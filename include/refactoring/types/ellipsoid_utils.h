@@ -108,7 +108,7 @@ bool getCornerLocationsVector(
     Eigen::Matrix<T, 4, 1> &corner_results) {
   Eigen::Transform<T, 3, Eigen::Affine> robot_to_world_current =
       PoseArrayToAffine(&(robot_pose[3]), &(robot_pose[0]));
-//    LOG(INFO) << "Robot pose " << robot_to_world_current.matrix();
+  //    LOG(INFO) << "Robot pose " << robot_to_world_current.matrix();
 
   // Robot to world defines the robot's pose in the world frame
   // Cam to robot defines the camera pose in the robot's frame
@@ -120,11 +120,26 @@ bool getCornerLocationsVector(
   Eigen::Matrix<T, 4, 4> ellipsoid_dual_rep =
       createDualRepresentationForEllipsoid(ellipsoid);
 
+  Eigen::Matrix<T, 4, 4> ellipsoid_dual_rep_wrt_cam =
+      world_to_camera.matrix() * ellipsoid_dual_rep *
+      world_to_camera.matrix().transpose();
+  T q33 = ellipsoid_dual_rep_wrt_cam(2, 2);
+  T q34 = ellipsoid_dual_rep_wrt_cam(2, 3);
+  T q44 = ellipsoid_dual_rep_wrt_cam(3, 3);
+  T zplaneSqrt = pow((pow(q34, 2) - (q33 * q44)), 0.5);
+  T plus_tan_z_plane = (q34 + zplaneSqrt) / q44;
+  T min_tan_z_plane = (q34 - zplaneSqrt) / q44;
+  if ((plus_tan_z_plane < T(0)) && (min_tan_z_plane < T(0))) {
+    LOG(WARNING)
+        << "Ellipsoid fully behind camera plane. Not physically possible.";
+    // TODO should we sleep or exit here to make this error more evident?
+  }
+
   Eigen::Matrix<T, 3, 3> g_mat =
       intrinsics * world_to_camera_compact.matrix() * ellipsoid_dual_rep *
       world_to_camera_compact.matrix().transpose() * intrinsics.transpose();
-//  LOG(INFO) << "G mat ";
-//  LOG(INFO) << g_mat;
+  //  LOG(INFO) << "G mat ";
+  //  LOG(INFO) << g_mat;
   T g1_1 = g_mat(0, 0);
   T g1_3 = g_mat(0, 2);
   T g2_2 = g_mat(1, 1);
