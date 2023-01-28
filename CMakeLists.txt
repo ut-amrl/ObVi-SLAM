@@ -122,3 +122,6 @@ target_link_libraries(localization_rosbag_extraction_and_interpolation_for_bound
 
 ROSBUILD_ADD_EXECUTABLE(test_det_call src/testing/test_obj_det_service.cpp)
 target_link_libraries(test_det_call ut_vslam ${LIBS})
+
+ROSBUILD_ADD_EXECUTABLE(visualize_jacobian_problem_feats src/refactoring/visualize_jacobian_problem_feats.cpp)
+target_link_libraries(visualize_jacobian_problem_feats ut_vslam ${LIBS})

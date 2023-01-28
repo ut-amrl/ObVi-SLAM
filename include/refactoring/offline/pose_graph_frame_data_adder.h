@@ -8,6 +8,7 @@
 #include <refactoring/bounding_box_frontend/bounding_box_front_end.h>
 #include <refactoring/offline/offline_problem_data.h>
 #include <refactoring/optimization/object_pose_graph.h>
+#include <refactoring/types/vslam_types_math_util.h>
 
 namespace vslam_types_refactor {
 

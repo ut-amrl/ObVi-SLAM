@@ -164,6 +164,60 @@ static void read(const cv::FileNode &node,
   }
 }
 
+class SerializableVisualFeatureResults
+    : public FileStorageSerializable<VisualFeatureResults> {
+ public:
+  SerializableVisualFeatureResults()
+      : FileStorageSerializable<VisualFeatureResults>() {}
+  SerializableVisualFeatureResults(const VisualFeatureResults &data)
+      : FileStorageSerializable<VisualFeatureResults>(data) {}
+
+  virtual void write(cv::FileStorage &fs) const override {
+    fs << "{";
+    fs << kResultsMapLabel
+       << SerializableMap<FeatureId,
+                          SerializableFeatureId,
+                          Position3d<double>,
+                          SerializableEigenMat<double, 3, 1>>(
+              data_.visual_feature_positions_);
+    fs << "}";
+  }
+
+  virtual void read(const cv::FileNode &node) override {
+    SerializableMap<FeatureId,
+                    SerializableFeatureId,
+                    Position3d<double>,
+                    SerializableEigenMat<double, 3, 1>>
+        serializable_feat_results;
+    node[kResultsMapLabel] >> serializable_feat_results;
+    data_.visual_feature_positions_ = serializable_feat_results.getEntry();
+  }
+
+ protected:
+  using FileStorageSerializable<VisualFeatureResults>::data_;
+
+ private:
+  inline static const std::string kResultsMapLabel =
+      "visual_feature_results_map";
+};
+
+static void write(cv::FileStorage &fs,
+                  const std::string &,
+                  const SerializableVisualFeatureResults &data) {
+  data.write(fs);
+}
+
+static void read(const cv::FileNode &node,
+                 SerializableVisualFeatureResults &data,
+                 const SerializableVisualFeatureResults &default_data =
+                     SerializableVisualFeatureResults()) {
+  if (node.empty()) {
+    data = default_data;
+  } else {
+    data.read(node);
+  }
+}
+
 }  // namespace vslam_types_refactor
 
 #endif  // UT_VSLAM_OUTPUT_PROBLEM_DATA_FILE_STORAGE_IO_H

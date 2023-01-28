@@ -7,6 +7,7 @@
 
 #include <cv_bridge/cv_bridge.h>
 #include <pcl_ros/point_cloud.h>
+#include <refactoring/image_processing/debugging_image_utils.h>
 #include <refactoring/types/ellipsoid_utils.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Image.h>
@@ -875,7 +876,7 @@ class RosVisualization {
     }
 
     displayLinesFromEdges(near_edge_threshold, img_height_and_width, cv_ptr);
-    optionallyDisplayCornerTextOnImage(
+    optionallyDisplayLeftCornerTextOnImage(
         img_disp_text, img_height_and_width, cv_ptr);
 
     // Publish image and camera info
@@ -926,7 +927,7 @@ class RosVisualization {
                            bounding_box_corners_entry.second,
                            cv_ptr);
     }
-    optionallyDisplayCornerTextOnImage(
+    optionallyDisplayLeftCornerTextOnImage(
         img_disp_text, img_height_and_width, cv_ptr);
 
     // Publish image and camera info
@@ -967,25 +968,6 @@ class RosVisualization {
     PixelCoord<int> px2d(img_height_and_width.second - near_edge_threshold,
                          img_height_and_width.first);
     drawLineOnImage(px1d, px2d, line_color, cv_ptr);
-  }
-
-  void optionallyDisplayCornerTextOnImage(
-      const std::string &img_disp_text,
-      const std::pair<double, double> &img_height_and_width,
-      const cv_bridge::CvImagePtr &cv_ptr) {
-    if (!img_disp_text.empty()) {
-      std_msgs::ColorRGBA text_color;
-      text_color.a = text_color.r = text_color.g = text_color.b = 1;
-      cv::putText(cv_ptr->image,
-                  img_disp_text,
-                  cv::Point(kFrameNumLabelXOffset,
-                            img_height_and_width.first -
-                                kFrameNumLabelYOffsetFromBottom),
-                  cv::FONT_HERSHEY_SIMPLEX,
-                  kBoundingBoxLabelFontScale,
-                  convertColorMsgToOpenCvColor(text_color),
-                  kBoundingBoxLabelTextThickness);
-    }
   }
 
   void visualizeFeatureEstimates(
@@ -1068,21 +1050,23 @@ class RosVisualization {
     for (const auto &obs_pix : observed_pixels) {
       FeatureId feat_id = obs_pix.first;
       PixelCoord<double> observed_feat = obs_pix.second;
-      drawTinyCircleOnImage(
-          observed_feat, color_for_plot_type_[INITIAL], cv_ptr);
+      drawTinyCircleOnImage(observed_feat,
+                            brightenColor(color_for_plot_type_[INITIAL], 0.4),
+                            cv_ptr);
 
       if (projected_pixels.find(feat_id) == projected_pixels.end()) {
         continue;
       }
 
       PixelCoord<double> projected_feat = projected_pixels.at(feat_id);
-      drawTinyCircleOnImage(
-          projected_feat, color_for_plot_type_[ESTIMATED], cv_ptr);
+      drawTinyCircleOnImage(projected_feat,
+                            brightenColor(color_for_plot_type_[ESTIMATED], 0.4),
+                            cv_ptr);
       drawLineOnImage(
           observed_feat, projected_feat, residual_feature_color_, cv_ptr);
     }
 
-    optionallyDisplayCornerTextOnImage(
+    optionallyDisplayLeftCornerTextOnImage(
         img_disp_text, img_height_and_width, cv_ptr);
 
     LOG(INFO) << "Publishing image for frame " << camera_frame_id
@@ -1375,10 +1359,6 @@ class RosVisualization {
     return topic_prefix_ + prefixes_for_plot_type_.at(plot_type) + base_topic;
   }
 
-  cv::Scalar convertColorMsgToOpenCvColor(const std_msgs::ColorRGBA &color) {
-    return CV_RGB(color.r * 255, color.g * 255, color.b * 255);
-  }
-
   void drawLineOnImage(const PixelCoord<int> &px1,
                        const PixelCoord<int> &px2,
                        const std_msgs::ColorRGBA &color,
@@ -1397,27 +1377,6 @@ class RosVisualization {
                        cv_bridge::CvImagePtr &cv_ptr) {
     drawLineOnImage(
         (PixelCoord<int>)px1.cast<int>(), px2.cast<int>(), color, cv_ptr);
-  }
-
-  void drawTinyCircleOnImage(const PixelCoord<double> &px,
-                             const std_msgs::ColorRGBA &color,
-                             cv_bridge::CvImagePtr &cv_ptr) {
-    // TODO verify
-    int thickness = 2;
-    cv::circle(cv_ptr->image,
-               cv::Point(px.x(), px.y()),
-               kPixelMarkerCircleRad,
-               convertColorMsgToOpenCvColor(brightenColor(color, 0.4)),
-               thickness);
-  }
-
-  std_msgs::ColorRGBA brightenColor(const std_msgs::ColorRGBA &original,
-                                    const double &brighter_percent) {
-    std_msgs::ColorRGBA brighter = original;
-    brighter.r = 1.0 - (1.0 - original.r) * (1 - brighter_percent);
-    brighter.g = 1.0 - (1.0 - original.g) * (1 - brighter_percent);
-    brighter.b = 1.0 - (1.0 - original.b) * (1 - brighter_percent);
-    return brighter;
   }
 
   void drawRectanglesOnImage(

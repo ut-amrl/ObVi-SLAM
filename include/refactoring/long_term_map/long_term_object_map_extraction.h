@@ -20,7 +20,13 @@ namespace vslam_types_refactor {
 const std::string kSparseJacobianOutBaseFileName = "sparse_jacobian.csv";
 const std::string kSparseJacobianMatlabOutBaseFileName =
     "sparse_jacobian_matlab.csv";
+const std::string kSparseJacobianOrderedMatlabOutBaseFileName =
+    "ordered_sparse_jacobian_matlab.csv";
 const std::string kResidualInfoForJacobianFile = "jacobian_residual_info.json";
+const std::string kResidualInfoOrderedForJacobianFile =
+    "ordered_jacobian_residual_info.json";
+const std::string kSparseJacobianOrderedOutBaseFileName =
+    "ordered_sparse_jacobian.csv";
 
 bool runOptimizationForLtmExtraction(
     const std::function<bool(
@@ -287,8 +293,8 @@ void outputJacobianInfo(
   options.apply_loss_function = true;
   std::vector<ceres::ResidualBlockId> residual_block_ids;
   std::vector<GenericFactorInfo> generic_factor_infos;
-  std::vector<ParameterBlockInfo> parameter_block_infos;
-  std::vector<double *> parameter_blocks;
+  std::vector<ParameterBlockInfo> unordered_parameter_block_infos;
+  std::vector<double *> unordered_parameter_blocks;
   std::unordered_set<FrameId> added_frames;
   std::unordered_set<ObjectId> added_objects;
   std::unordered_set<FeatureId> added_features;
@@ -309,46 +315,93 @@ void outputJacobianInfo(
                                          new_parameter_blocks);
       generic_factor_infos.emplace_back(generic_factor_info);
       for (const ParameterBlockInfo &param_block : new_parameter_blocks) {
-        parameter_block_infos.emplace_back(param_block);
+        unordered_parameter_block_infos.emplace_back(param_block);
         if (param_block.frame_id_.has_value()) {
           added_frames.insert(param_block.frame_id_.value());
           double *robot_pose_ptr;
           pose_graph->getPosePointers(param_block.frame_id_.value(),
                                       &robot_pose_ptr);
-          parameter_blocks.emplace_back(robot_pose_ptr);
+          unordered_parameter_blocks.emplace_back(robot_pose_ptr);
         }
         if (param_block.feature_id_.has_value()) {
           added_features.insert(param_block.feature_id_.value());
           double *feature_ptr;
           pose_graph->getFeaturePointers(param_block.feature_id_.value(),
                                          &feature_ptr);
-          parameter_blocks.emplace_back(feature_ptr);
+          unordered_parameter_blocks.emplace_back(feature_ptr);
         }
         if (param_block.obj_id_.has_value()) {
           added_objects.insert(param_block.obj_id_.value());
           double *obj_ptr;
           pose_graph->getObjectParamPointers(param_block.obj_id_.value(),
                                              &obj_ptr);
-          parameter_blocks.emplace_back(obj_ptr);
+          unordered_parameter_blocks.emplace_back(obj_ptr);
         }
       }
     }
   }
 
-  options.parameter_blocks = parameter_blocks;
+  options.parameter_blocks = unordered_parameter_blocks;
   options.residual_blocks = residual_block_ids;
-  ceres::CRSMatrix sparse_jacobian;
+  ceres::CRSMatrix sparse_jacobian_unordered;
   problem_for_ltm.Evaluate(
-      options, nullptr, nullptr, nullptr, &sparse_jacobian);
+      options, nullptr, nullptr, nullptr, &sparse_jacobian_unordered);
+
+  std::vector<ParameterBlockInfo> ordered_parameter_block_infos;
+  std::vector<double *> ordered_parameter_blocks;
+
+  if (ordered_parameter_block_infos.size() != ordered_parameter_blocks.size()) {
+    LOG(ERROR) << "Dimension mismatch between ordered parameter blocks and "
+                  "ordered param block infos";
+  }
+
+  for (const FeatureId &feat_id : added_features) {
+    ParameterBlockInfo param_block;
+    param_block.feature_id_ = feat_id;
+    double *feature_ptr;
+    pose_graph->getFeaturePointers(param_block.feature_id_.value(),
+                                   &feature_ptr);
+    ordered_parameter_blocks.emplace_back(feature_ptr);
+    ordered_parameter_block_infos.emplace_back(param_block);
+  }
+  for (const FrameId &frame_id : added_frames) {
+    ParameterBlockInfo param_block;
+    param_block.frame_id_ = frame_id;
+    double *robot_pose_ptr;
+    pose_graph->getPosePointers(param_block.frame_id_.value(), &robot_pose_ptr);
+    ordered_parameter_blocks.emplace_back(robot_pose_ptr);
+    ordered_parameter_block_infos.emplace_back(param_block);
+  }
+  for (const ObjectId &obj_id : added_objects) {
+    ParameterBlockInfo param_block;
+    param_block.obj_id_ = obj_id;
+    double *obj_ptr;
+    pose_graph->getObjectParamPointers(param_block.obj_id_.value(), &obj_ptr);
+    ordered_parameter_blocks.emplace_back(obj_ptr);
+    ordered_parameter_block_infos.emplace_back(param_block);
+  }
+
+  options.parameter_blocks = ordered_parameter_blocks;
+  ceres::CRSMatrix sparse_jacobian_ordered;
+  problem_for_ltm.Evaluate(
+      options, nullptr, nullptr, nullptr, &sparse_jacobian_ordered);
 
   writeJacobianToFile(
-      sparse_jacobian,
+      sparse_jacobian_unordered,
       file_io::ensureDirectoryPathEndsWithSlash(jacobian_output_dir) +
           kSparseJacobianOutBaseFileName);
+  writeJacobianToFile(
+      sparse_jacobian_ordered,
+      file_io::ensureDirectoryPathEndsWithSlash(jacobian_output_dir) +
+          kSparseJacobianOrderedOutBaseFileName);
   writeJacobianMatlabFormatToFile(
-      sparse_jacobian,
+      sparse_jacobian_unordered,
       file_io::ensureDirectoryPathEndsWithSlash(jacobian_output_dir) +
           kSparseJacobianMatlabOutBaseFileName);
+  writeJacobianMatlabFormatToFile(
+      sparse_jacobian_ordered,
+      file_io::ensureDirectoryPathEndsWithSlash(jacobian_output_dir) +
+          kSparseJacobianOrderedMatlabOutBaseFileName);
 
   std::string jacobian_residual_file_name =
       file_io::ensureDirectoryPathEndsWithSlash(jacobian_output_dir) +
@@ -358,12 +411,27 @@ void outputJacobianInfo(
   jacobian_residual_info_out
       << "jacobian_param_block_info"
       << SerializableVector<ParameterBlockInfo, SerializableParameterBlockInfo>(
-          parameter_block_infos);
+             unordered_parameter_block_infos);
   jacobian_residual_info_out
       << "jacobian_residual_info"
       << SerializableVector<GenericFactorInfo, SerializableGenericFactorInfo>(
              generic_factor_infos);
   jacobian_residual_info_out.release();
+
+  std::string ordered_jacobian_residual_file_name =
+      file_io::ensureDirectoryPathEndsWithSlash(jacobian_output_dir) +
+      kResidualInfoOrderedForJacobianFile;
+  cv::FileStorage ordered_jacobian_residual_info_out(
+      ordered_jacobian_residual_file_name, cv::FileStorage::WRITE);
+  ordered_jacobian_residual_info_out
+      << "jacobian_param_block_info"
+      << SerializableVector<ParameterBlockInfo, SerializableParameterBlockInfo>(
+             ordered_parameter_block_infos);
+  ordered_jacobian_residual_info_out
+      << "jacobian_residual_info"
+      << SerializableVector<GenericFactorInfo, SerializableGenericFactorInfo>(
+             generic_factor_infos);
+  ordered_jacobian_residual_info_out.release();
 }
 
 /**
@@ -681,7 +749,8 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
     }
     double *frame_1_block;
     pose_graph_copy->getPosePointers(1, &frame_1_block);
-    covariance_blocks.emplace_back(std::make_pair(frame_1_block, frame_1_block));
+    covariance_blocks.emplace_back(
+        std::make_pair(frame_1_block, frame_1_block));
 
     bool covariance_compute_result =
         covariance_extractor.Compute(covariance_blocks, &problem_for_ltm);
