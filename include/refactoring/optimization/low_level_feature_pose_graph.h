@@ -233,13 +233,16 @@ class LowLevelFeaturePoseGraph {
 
     std::vector<FrameId> ordered_frame_ids = factor.getOrderedFrameIds();
 
+    std::pair<FactorType, FeatureFactorId> factor_id_pair =
+        std::make_pair(factor.getFactorType(), factor_id);
     for (const FrameId &frame_id : ordered_frame_ids) {
-      visual_feature_factors_by_frame_[frame_id].emplace_back(
-          std::make_pair(factor.getFactorType(), factor_id));
+      visual_feature_factors_by_frame_[frame_id].emplace_back(factor_id_pair);
     }
 
-    factors_[factor_id] = factor;
     FeatureId feature_id = factor.feature_id_;
+    visual_factors_by_feature_[feature_id].insert(factor_id_pair);
+
+    factors_[factor_id] = factor;
 
     FrameId smallest_frame_id = ordered_frame_ids.front();
     FrameId largest_frame_id = ordered_frame_ids.back();
@@ -271,8 +274,18 @@ class LowLevelFeaturePoseGraph {
 
   virtual void getVisualFeatureEstimates(
       std::unordered_map<FeatureId, Position3d<double>>
-  &visual_feature_estimates) const {
+          &visual_feature_estimates) const {}
 
+  bool getFactorsForFeature(
+      const FeatureId &feat_id,
+      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>> &factors) {
+    if (visual_factors_by_feature_.find(feat_id) ==
+        visual_factors_by_feature_.end()) {
+      return false;
+    }
+
+    factors = visual_factors_by_feature_.at(feat_id);
+    return true;
   }
 
  protected:
@@ -300,6 +313,10 @@ class LowLevelFeaturePoseGraph {
   std::unordered_map<FrameId,
                      std::vector<std::pair<FactorType, FeatureFactorId>>>
       visual_feature_factors_by_frame_;
+
+  std::unordered_map<FeatureId,
+                     util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>
+      visual_factors_by_feature_;
 
   std::unordered_map<FeatureFactorId, VisualFeatureFactorType> factors_;
 
@@ -342,6 +359,7 @@ class ReprojectionLowLevelFeaturePoseGraph
                   const Position3d<double> &feature_position) {
     // TODO should we check if a feature with this id already exists?
     feature_positions_[feature_id] = VisualFeatureNode(feature_position);
+    visual_factors_by_feature_[feature_id] = {};
   }
 
  protected:
