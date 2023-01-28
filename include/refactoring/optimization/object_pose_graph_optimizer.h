@@ -236,14 +236,15 @@ class ObjectPoseGraphOptimizer {
       std::function<bool(
           const std::pair<vslam_types_refactor::FactorType,
                           vslam_types_refactor::FeatureFactorId> &,
-          vslam_types_refactor::FeatureId &)> id_for_factor_retriever =
-          [&](const std::pair<vslam_types_refactor::FactorType,
-                              vslam_types_refactor::FeatureFactorId>
-                  &factor_info,
-              vslam_types_refactor::FeatureId &feature_id) {
-            return pose_graph->getFeatureIdForObservationFactor(factor_info,
-                                                                feature_id);
-          };
+          vslam_types_refactor::FeatureId &)>
+          id_for_factor_retriever =
+              [&](const std::pair<vslam_types_refactor::FactorType,
+                                  vslam_types_refactor::FeatureFactorId>
+                      &factor_info,
+                  vslam_types_refactor::FeatureId &feature_id) {
+                return pose_graph->getFeatureIdForObservationFactor(factor_info,
+                                                                    feature_id);
+              };
       extractObservationFactorsForEntityTypeToInclude(
           pose_graph,
           matching_visual_feature_factors,
@@ -275,14 +276,15 @@ class ObjectPoseGraphOptimizer {
       std::function<bool(
           const std::pair<vslam_types_refactor::FactorType,
                           vslam_types_refactor::FeatureFactorId> &,
-          vslam_types_refactor::ObjectId &)> id_for_factor_retriever =
-          [&](const std::pair<vslam_types_refactor::FactorType,
-                              vslam_types_refactor::FeatureFactorId>
-                  &factor_info,
-              vslam_types_refactor::FeatureId &object_id) {
-            return pose_graph->getObjectIdForObjObservationFactor(factor_info,
-                                                                  object_id);
-          };
+          vslam_types_refactor::ObjectId &)>
+          id_for_factor_retriever =
+              [&](const std::pair<vslam_types_refactor::FactorType,
+                                  vslam_types_refactor::FeatureFactorId>
+                      &factor_info,
+                  vslam_types_refactor::FeatureId &object_id) {
+                return pose_graph->getObjectIdForObjObservationFactor(
+                    factor_info, object_id);
+              };
       extractObservationFactorsForEntityTypeToInclude(
           pose_graph,
           matching_observation_factor_ids,
@@ -732,6 +734,7 @@ class ObjectPoseGraphOptimizer {
       const util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
                                          vslam_types_refactor::FeatureFactorId>>
           &excluded_feature_factor_types_and_ids = {}) {
+    size_t excluded_count = 0;
     for (const auto &matching_factor : matching_factors) {
       const vslam_types_refactor::FactorType &factor_type =
           matching_factor.first;
@@ -748,9 +751,11 @@ class ObjectPoseGraphOptimizer {
               << "You shouldn't exclude long-term map objects or shape priors "
               << "when building pose graph!";
         } else {
+          excluded_count++;
           continue;
         }
       }
+
       // This assumes all observations only affect one type of entity. If code
       // evolves, this could potentially change.
       IdType id;
@@ -760,6 +765,11 @@ class ObjectPoseGraphOptimizer {
         continue;
       }
       factors_to_include[id].insert(matching_factor);
+    }
+    if (!excluded_feature_factor_types_and_ids.empty()) {
+      LOG(INFO) << "Excluded " << excluded_count << " out of "
+                << excluded_feature_factor_types_and_ids.size()
+                << " to exclude";
     }
   }
 

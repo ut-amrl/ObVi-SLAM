@@ -1,9 +1,23 @@
 #!/bin/bash
 
 #rosbag_base_name=cobot_orbit_blue_chair_2022-03-16-15-40-13
-rosbag_base_name="1669743059"
+#rosbag_base_name="1669743059"
+#rosbag_base_name="1668019589"
+#rosbag_base_name=1669743339
+#rosbag_base_name=1669758673
+#rosbag_base_name=1669938112
+#rosbag_base_name=1669743629
+#rosbag_base_name=1669743856
+#rosbag_base_name=1669938357
+#rosbag_base_name=1669938651
+#rosbag_base_name=1669938899
+rosbag_base_name=1669939150
 
-ltm_opt_jacobian_info_directory="/home/amanda/rosbags/ellipsoid_slam/eer_bags/jacobian_debugging/1669743059/25_frames_visual_only_jacobian_info_v2"
+#version=""
+version="_vOnly"
+
+ltm_opt_jacobian_info_directory=/home/amanda/rosbags/ellipsoid_slam/eer_bags/jacobian_debugging/${rosbag_base_name}/full_frames_visual_only_jacobian_info_ellipsoids${version}/
+mkdir ltm_opt_jacobian_info_directory
 
 root_data_dir=/home/amanda/rosbags/ellipsoid_slam/eer_bags/
 calib_base_dir=${root_data_dir}zed_calib/

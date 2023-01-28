@@ -12,8 +12,11 @@
 #include <refactoring/optimization/object_pose_graph.h>
 #include <refactoring/optimization/object_pose_graph_optimizer.h>
 #include <refactoring/output_problem_data_extraction.h>
+#include <refactoring/types/vslam_types_math_util.h>
 
 namespace vslam_types_refactor {
+
+static const double kFarFeatureThreshold = 75;
 
 bool runOptimizationForLtmExtraction(
     const std::function<bool(
@@ -74,15 +77,93 @@ bool runOptimizationForLtmExtraction(
       ObjectAndReprojectionFeaturePoseGraph>
       optimizer(refresh_residual_checker, residual_creator);
 
-  residual_info = optimizer.buildPoseGraphOptimization(
+  optimizer.buildPoseGraphOptimization(
       ltm_optimization_scope_params, residual_params, pose_graph, problem);
 
   bool opt_success = optimizer.solveOptimization(problem, solver_params, {});
-
   if (!opt_success) {
     LOG(ERROR) << "Optimization failed during LTM extraction";
     return false;
   }
+
+  // Run the optimization again and effectively just remove the bad features
+  // TODO How does this affect covariance?
+  pose_graph_optimization::OptimizationSolverParams solver_params_copy =
+      solver_params;
+  solver_params_copy.max_num_iterations_ = 0;
+
+  util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
+      factors_for_bad_feats;
+  std::unordered_map<FeatureId, Position3d<double>> feature_estimates;
+  pose_graph->getVisualFeatureEstimates(feature_estimates);
+
+  std::unordered_map<FrameId, RawPose3d<double>> before_filter_estimates_raw;
+  pose_graph->getRobotPoseEstimates(before_filter_estimates_raw);
+  std::unordered_map<FrameId, Pose3D<double>> before_filter_estimates;
+  for (const auto &raw_est : before_filter_estimates_raw) {
+    before_filter_estimates[raw_est.first] = convertToPose3D(raw_est.second);
+  }
+
+  for (const auto &feat_est : feature_estimates) {
+    double min_dist_from_viewing_frame = std::numeric_limits<double>::max();
+
+    util::BoostHashSet<std::pair<FactorType, FeatureFactorId>> factors_for_feat;
+    pose_graph->getFactorsForFeature(feat_est.first, factors_for_feat);
+    for (const std::pair<FactorType, FeatureFactorId> &factor :
+         factors_for_feat) {
+      if (factor.first != kReprojectionErrorFactorTypeId) {
+        LOG(WARNING) << "Unexpected factor type for visual feature "
+                     << factor.first;
+        continue;
+      }
+      ReprojectionErrorFactor reprojection_factor;
+      if (!pose_graph->getVisualFactor(factor.second, reprojection_factor)) {
+        LOG(ERROR) << "Could not find visual factor with id " << factor.second;
+        continue;
+      }
+
+      if (before_filter_estimates.find(reprojection_factor.frame_id_) ==
+          before_filter_estimates.end()) {
+        LOG(ERROR) << "Could not find pose estimate for frame "
+                   << reprojection_factor.frame_id_;
+        continue;
+      }
+
+      Pose3D<double> relative_pose =
+          before_filter_estimates.at(reprojection_factor.frame_id_);
+      Pose3D<double> extrinsics;
+      if (!pose_graph->getExtrinsicsForCamera(reprojection_factor.camera_id_,
+                                              extrinsics)) {
+        LOG(WARNING) << "Could not find extrinsics for camera "
+                     << reprojection_factor.camera_id_
+                     << "; falling back to robot pose";
+      } else {
+        relative_pose = combinePoses(relative_pose, extrinsics);
+      }
+
+      min_dist_from_viewing_frame =
+          std::min((relative_pose.transl_ - feat_est.second).norm(),
+                   min_dist_from_viewing_frame);
+    }
+    if (min_dist_from_viewing_frame > kFarFeatureThreshold) {
+      factors_for_bad_feats.insert(factors_for_feat.begin(),
+                                   factors_for_feat.end());
+    }
+  }
+
+  residual_info =
+      optimizer.buildPoseGraphOptimization(ltm_optimization_scope_params,
+                                           residual_params,
+                                           pose_graph,
+                                           problem,
+                                           factors_for_bad_feats);
+  opt_success = optimizer.solveOptimization(problem, solver_params_copy, {});
+
+  if (!opt_success) {
+    LOG(ERROR) << "Second round optimization failed during LTM extraction";
+    return false;
+  }
+
   return true;
 }
 
