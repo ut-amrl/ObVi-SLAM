@@ -292,8 +292,6 @@ class ObjectPoseGraphOptimizer {
       for (const std::pair<vslam_types_refactor::FactorType,
                            vslam_types_refactor::FeatureFactorId>
                &obj_only_factor : matching_obj_only_factors) {
-        const vslam_types_refactor::FeatureFactorId &feature_factor_id 
-            = obj_only_factor.second;
         required_feature_factors[obj_only_factor.first].insert(
               obj_only_factor.second);
       }
@@ -319,8 +317,6 @@ class ObjectPoseGraphOptimizer {
       for (const std::pair<vslam_types_refactor::FactorType,
                            vslam_types_refactor::FeatureFactorId> &factor :
            matching_observation_factor_ids) {
-        const vslam_types_refactor::FeatureFactorId &feature_factor_id 
-            = factor.second;
         required_feature_factors[factor.first].insert(factor.second);
       }
     }
@@ -482,15 +478,15 @@ class ObjectPoseGraphOptimizer {
           features_to_remove.insert(last_opt);
         }
       }
-      setVariabilityForParamBlocks(features_to_include,
+      for (const auto &feature : features_to_include) {
+        next_last_optimized_features.insert(feature.first);
+      }
+      setVariabilityForParamBlocks(next_last_optimized_features,
                                    set_constant,
                                    kFeatureTypeStr,
                                    getParamBlockForFeature<PoseGraphType>,
                                    pose_graph,
                                    problem);
-      for (const auto &feature : features_to_include) {
-        next_last_optimized_features.insert(feature.first);
-      }
     } else {
       // Remove all visual feature param blocks
       features_to_remove = last_optimized_features_;
@@ -704,34 +700,6 @@ class ObjectPoseGraphOptimizer {
     for (const IdentifierType &param_identifier : param_identifiers) {
       double *param_ptr = NULL;
       if (param_block_retriever(param_identifier, pose_graph, &param_ptr)) {
-        if (set_constant) {
-          problem->SetParameterBlockConstant(param_ptr);
-        } else {
-          problem->SetParameterBlockVariable(param_ptr);
-        }
-      } else {
-        LOG(WARNING) << "No parameter block found for object with id "
-                     << identifier_type
-                     << "; not able to set variability in optimization problem";
-      }
-    }
-  }
-
-  template <typename IdentifierKeyType,
-            typename IdentifierValueType>
-  void setVariabilityForParamBlocks(
-      const std::unordered_map<IdentifierKeyType, IdentifierValueType> 
-            &param_identifiers,
-      const bool &set_constant,
-      const std::string &identifier_type,
-      const std::function<bool(const IdentifierKeyType &,
-                               const std::shared_ptr<PoseGraphType> &,
-                               double **)> &param_block_retriever,
-      const std::shared_ptr<PoseGraphType> &pose_graph,
-      ceres::Problem *problem) {
-    for (const auto &param_identifier : param_identifiers) {
-      double *param_ptr = NULL;
-      if (param_block_retriever(param_identifier.first, pose_graph, &param_ptr)) {
         if (set_constant) {
           problem->SetParameterBlockConstant(param_ptr);
         } else {
