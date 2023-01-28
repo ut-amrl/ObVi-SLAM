@@ -64,21 +64,7 @@ include_directories(src/shared)
 add_subdirectory(src/shared)
 include_directories(src)
 
-add_library(ut_vslam src/vslam_io.cpp
-        src/pairwise_2d_feature_cost_functor.cpp
-        src/reprojection_cost_functor.cpp
-        src/slam_backend_solver.cpp
-        src/pose_viewer.cpp
-        src/shape_prior_factor.cpp
-        src/bounding_box_factor.cpp
-        src/object_slam_backend_solver.cpp
-        src/vslam_type_conversion_util.cpp
-        src/vslam_types_math_util.cpp
-        src/vslam_noise_util.cpp
-        src/ellipsoid_utils.cpp
-        src/synthetic_problem/noise_addition_utils.cpp
-        src/synthetic_problem/synthetic_problem_generator.cpp
-        src/synthetic_problem/synthetic_problem_construction_utils.cpp
+add_library(ut_vslam
         src/refactoring/bounding_box_frontend/pending_object_estimator.cpp
         src/refactoring/factors/bounding_box_factor.cpp
         src/refactoring/factors/pairwise_2d_feature_cost_functor.cpp
@@ -90,18 +76,6 @@ add_library(ut_vslam src/vslam_io.cpp
         )
 
 target_compile_features(ut_vslam PRIVATE cxx_std_17)
-
-#ROSBUILD_ADD_EXECUTABLE(main src/main.cpp)
-#target_link_libraries(main ut_vslam ${LIBS})
-#
-#ROSBUILD_ADD_EXECUTABLE(structured_main src/structured_main.cpp)
-#target_link_libraries(structured_main ut_vslam ${LIBS})
-#
-ROSBUILD_ADD_EXECUTABLE(ellipsoid_estimator_main src/ellipsoid_estimator_main.cpp)
-target_link_libraries(ellipsoid_estimator_main ut_vslam ${LIBS})
-
-ROSBUILD_ADD_EXECUTABLE(ellipsoid_estimator_real_data_main src/ellipsoid_estimator_real_data_main.cpp)
-target_link_libraries(ellipsoid_estimator_real_data_main ut_vslam ${LIBS})
 
 ROSBUILD_ADD_EXECUTABLE(offline_object_visual_slam_main src/refactoring/offline_object_visual_slam_main.cpp)
 target_link_libraries(offline_object_visual_slam_main ut_vslam ${LIBS})
