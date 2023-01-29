@@ -88,13 +88,47 @@ def plot_pointclouds(args):
             exit(0)
 
 def plot_pointclouds_and_poses_by_frameid(args, frame_id):
+    cases = ["before_optim", "after_optim"]
+    colors_dict = {"before_optim": "orange", "after_optim": "royalblue"}
     pcl_directories, pose_directories = {}, {}
-    for key in debug_labels.keys():
+    for key in cases:
         pcl_directories[key]  = os.path.join(args.pcl_directory,  key)
         pose_directories[key] = os.path.join(args.pose_directory, key)
     filename = str(frame_id) + ".csv"
-    # pointclouds_df = pd.read_csv()
-    # poses_df = pd.read_csv()
+
+    plt.figure()
+    plotclouds_dict = {}
+    poses_dict = {}
+    for case in cases:
+        pcl_directory, pose_directory = pcl_directories[case], pose_directories[case]
+        pcl_filepath = os.path.join(pcl_directory, filename)
+        pose_filepath = os.path.join(pose_directory, filename)
+        pointclouds_df = pd.read_csv(pcl_filepath)
+        poses_df = pd.read_csv(pose_filepath)
+        kOutlierThresh = 1e2
+        pcl_inlier_mask = \
+            (np.abs(pointclouds_df["x"]) < kOutlierThresh) \
+          & (np.abs(pointclouds_df["y"]) < kOutlierThresh) \
+          & (np.abs(pointclouds_df["z"]) < kOutlierThresh)
+        plotclouds_dict[case] = pointclouds_df[pcl_inlier_mask]
+        poses_dict[case] = poses_df
+    for i, point_after_optim in plotclouds_dict["after_optim"].iterrows():
+        feat_id = point_after_optim["feature_id"]
+        point_after_optim  = plotclouds_dict["after_optim"][plotclouds_dict["after_optim"]["feature_id"]==feat_id]
+        point_before_optim = plotclouds_dict["before_optim"][plotclouds_dict["before_optim"]["feature_id"]==feat_id]
+        if point_after_optim.empty or point_before_optim.empty:
+            continue
+        plt.scatter(point_before_optim["x"], point_before_optim["y"], color=colors_dict["before_optim"], s=1)
+        plt.scatter(point_after_optim["x"],  point_after_optim["y"],  color=colors_dict["after_optim"], s=1)
+        plt.plot(np.array([point_before_optim["x"], point_after_optim["x"]], dtype=float), \
+                 np.array([point_before_optim["y"], point_after_optim["y"]], dtype=float), color="black", linewidth=0.5)
+    for case, poses_df in poses_dict.items():
+        plt.scatter(poses_df["x"].tolist()[-1], poses_df["y"].tolist()[-1], label=case, color=colors_dict[case], marker="*", s=200)
+        # plt.plot(poses_df["x"], poses_df["y"], label=case, color=colors_dict[case])
+    plt.axis("equal")
+    plt.tight_layout()
+    savepath = os.path.join(args.pcl_directory, str(frame_id) + ".png")
+    plt.savefig(savepath)
 
 if __name__ == '__main__':
     args = parser.parse_args()
@@ -102,4 +136,4 @@ if __name__ == '__main__':
     args.root_directory = os.path.join(args.root, args.bagname)
     args.pose_directory = os.path.join(args.root_directory, "poses")
     args.pcl_directory  = os.path.join(args.root_directory, "pointclouds")
-    plot_pointclouds_by_frameid(args, args.frame_id)
+    plot_pointclouds_and_poses_by_frameid(args, args.frame_id)
