@@ -337,28 +337,9 @@ class ObjectPoseGraphOptimizer {
           min_frame_id,
           optimization_scope.max_frame_id_,
           matching_observation_factor_ids);
-      for (const std::pair<vslam_types_refactor::FactorType,
-                           vslam_types_refactor::FeatureFactorId> &factor :
-           matching_observation_factor_ids) {
-        const vslam_types_refactor::FactorType &factor_type 
-            = factor.first;
-        const vslam_types_refactor::FeatureFactorId &feature_factor_id 
-            = factor.second;
-        if (excluded_feature_factor_types_and_ids.find(factor) 
-            == excluded_feature_factor_types_and_ids.end()) {
-          required_feature_factors[factor.first].insert(factor.second);
-          vslam_types_refactor::ObjectObservationFactor factor;
-          pose_graph->getObjectObservationFactor(feature_factor_id, factor);
-          const vslam_types_refactor::ObjectId &object_id = factor.object_id_;
-          if (objects_to_include.find(object_id) 
-              == objects_to_include.end()) {
-            objects_to_include[object_id] 
-                = util::BoostHashSet<std::pair<vslam_types_refactor::FactorType, 
-                                      vslam_types_refactor::FeatureFactorId>>();
-          }
-          objects_to_include[object_id].emplace(factor_type, feature_factor_id);
-        }
-      }
+      extractFactorsToInclude(pose_graph, 
+          matching_observation_factor_ids, 
+          objects_to_include);
     }
 
     if (use_feature_pose_factors) {
@@ -369,13 +350,17 @@ class ObjectPoseGraphOptimizer {
       } else {
         min_visual_feature_frame_id = optimization_scope.min_frame_id_;
       }
-      std::vector<std::pair<vslam_types_refactor::FactorType,
+      util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
                             vslam_types_refactor::FeatureFactorId>>
           matching_visual_feature_factors;
       pose_graph->getVisualFeatureFactorIdsBetweenFrameIdsInclusive(
           min_visual_feature_frame_id,
           optimization_scope.max_frame_id_,
           matching_visual_feature_factors);
+      extractFactorsToInclude(pose_graph,
+          matching_visual_feature_factors,
+          features_to_include,
+          excluded_feature_factor_types_and_ids);
       for (const std::pair<vslam_types_refactor::FactorType,
                            vslam_types_refactor::FeatureFactorId>
                &matching_factor : matching_visual_feature_factors) {
@@ -518,15 +503,15 @@ class ObjectPoseGraphOptimizer {
           features_to_remove.insert(last_opt);
         }
       }
-      setVariabilityForParamBlocks(features_to_include,
+      for (const auto &feature : features_to_include) {
+        next_last_optimized_features.insert(feature.first);
+      }
+      setVariabilityForParamBlocks(next_last_optimized_features,
                                    set_constant,
                                    kFeatureTypeStr,
                                    getParamBlockForFeature<PoseGraphType>,
                                    pose_graph,
                                    problem);
-      for (const auto &feature : features_to_include) {
-        next_last_optimized_features.insert(feature.first);
-      }
     } else {
       // Remove all visual feature param blocks
       features_to_remove = last_optimized_features_;
@@ -774,6 +759,59 @@ class ObjectPoseGraphOptimizer {
       ceres::ResidualBlockId &,
       CachedFactorInfo &)>
       residual_creator_;
+
+  template <typename IdType>
+  void extractFactorsToInclude(
+        std::shared_ptr<PoseGraphType> &pose_graph,
+        const util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
+                                    vslam_types_refactor::FeatureFactorId>>
+                                    &matching_factors, 
+        std::unordered_map<IdType, 
+        util::BoostHashSet<std::pair<vslam_types_refactor::FactorType, 
+                                     vslam_types_refactor::FeatureFactorId>>> 
+                            &factors_to_include,
+        const util::BoostHashSet<
+          std::pair<vslam_types_refactor::FactorType, 
+                    vslam_types_refactor::FeatureFactorId>>
+          &excluded_feature_factor_types_and_ids = {}) {
+    for (const auto& matching_factor : matching_factors) {
+      const vslam_types_refactor::FactorType &factor_type 
+            = matching_factor.first;
+      const vslam_types_refactor::FeatureFactorId &feature_factor_id 
+          = matching_factor.second;
+      // if we want to exclude this feature
+      if (excluded_feature_factor_types_and_ids.find(matching_factor) 
+            != excluded_feature_factor_types_and_ids.end()) {
+        if (matching_factor.first 
+                    == vslam_types_refactor::kLongTermMapFactorTypeId 
+              || matching_factor.first 
+                    == vslam_types_refactor::kShapeDimPriorFactorTypeId) {
+          LOG(ERROR) << "You shouldn't exclude long-term map objects or shape priors "
+              << "when building pose graph!";
+        } else { continue;  }
+      }
+      IdType id;
+      if (matching_factor.first == 
+              vslam_types_refactor::kReprojectionErrorFactorTypeId) {  
+        vslam_types_refactor::ReprojectionErrorFactor factor;
+        pose_graph->getVisualFactor(feature_factor_id, factor);
+        id = factor.feature_id_;
+      } else if (matching_factor.first 
+              == vslam_types_refactor::kObjectObservationFactorTypeId) {
+        vslam_types_refactor::ObjectObservationFactor factor;
+        pose_graph->getObjectObservationFactor(feature_factor_id, factor);
+        id = factor.object_id_;
+      } else {
+        LOG(FATAL) << "Undefined control path!";
+      }
+      if (factors_to_include.find(id) == factors_to_include.end()) {
+        factors_to_include[id]
+          = util::BoostHashSet<std::pair<vslam_types_refactor::FactorType, 
+                                      vslam_types_refactor::FeatureFactorId>>();
+      }
+      factors_to_include[id].emplace(factor_type, feature_factor_id);
+    }
+  }
 
   template <typename IdentifierType>
   void setVariabilityForParamBlocks(

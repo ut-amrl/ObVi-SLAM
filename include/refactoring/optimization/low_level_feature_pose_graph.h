@@ -182,14 +182,14 @@ class LowLevelFeaturePoseGraph {
   virtual void getVisualFeatureFactorIdsBetweenFrameIdsInclusive(
       const FrameId &min_frame_id,
       const FrameId &max_frame_id,
-      std::vector<std::pair<FactorType, FeatureFactorId>> &matching_factors) {
+      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>> &matching_factors) {
     for (const auto &frame_and_matching_factors :
          visual_feature_factors_by_frame_) {
       if ((frame_and_matching_factors.first >= min_frame_id) &&
           (frame_and_matching_factors.first <= max_frame_id)) {
-        matching_factors.insert(matching_factors.end(),
-                                frame_and_matching_factors.second.begin(),
-                                frame_and_matching_factors.second.end());
+        matching_factors.insert(
+            frame_and_matching_factors.second.begin(),
+            frame_and_matching_factors.second.end());
       }
     }
   }
