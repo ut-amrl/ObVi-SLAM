@@ -499,6 +499,13 @@ public:
     return ret;
   }
 
+  void getImages(std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr> 
+      &images) { images = images_; }
+
+  void getFeatures2d(std::unordered_map<vtr::CameraId,
+      std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>>
+          &features2d) { features2d = features2d_; }
+
 private:
   // Debug at each frame
   vtr::FrameId frame_id_;
@@ -694,24 +701,6 @@ public:
                              encoding_);
   }
 
-  void debugOptimizationWindow(const vtr::FrameId& min_frame_id, 
-      const vtr::FrameId& max_frame_id, 
-      const std::unordered_map<vtr::FrameId, vtr::Pose3D<double>>& poses,
-      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d,
-      const size_t& local_BA_window = 50) {
-    // update features associated with the latest (max) frame 
-    // frame_ids_and_debuggers_[frame_id] 
-    for (size_t frame_id = min_frame_id; frame_id <= max_frame_id; ++frame_id) {
-      const auto& pose = poses.at(frame_id);
-      if (frame_ids_and_debuggers_.find(frame_id) != frame_ids_and_debuggers_.end()) {
-        bool logged = frame_ids_and_debuggers_[frame_id]
-          .updateFeatures3dForDebuggingOptWindow(
-                pose, features3d, DebugTypeEnum::AFTER_OPTIM, local_BA_window);
-        if (logged) { frame_ids_and_debuggers_.erase(frame_id); }
-      }
-    }
-  }
-
   void debugOptimizationRunByFrameId(
       const vtr::FrameId& start_frame_id,
       const vtr::FrameId& end_frame_id,
@@ -742,6 +731,30 @@ public:
             (std::to_string(end_frame_id) + "_" + debugLabels.at(debug_type) + ".png");
       cv::imwrite(optim_path, summary);
     }
+  }
+
+  void debugFeatureFlowsByFrameId(const vtr::FrameId& end_frame_id,
+                                  const vtr::FrameId& n_frame = 10) {
+    vtr::FrameId start_frame_id 
+        = end_frame_id - n_frame < 1 ? 1 : end_frame_id - n_frame;
+    std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr> images;
+    frame_ids_and_debuggers_[end_frame_id].getImages(images);
+    std::unordered_map<vtr::CameraId,
+          std::unordered_map<vtr::FeatureId, std::vector<vtr::PixelCoord<double>>>> features2d_vecs;
+    for (vtr::FrameId frame_id = start_frame_id; frame_id <= end_frame_id; ++frame_id) {
+      std::unordered_map<vtr::CameraId,
+          std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>> features2d;
+      frame_ids_and_debuggers_[end_frame_id].getFeatures2d(features2d);
+      for (const auto &feature2d : features2d) {
+        const auto &cam_id = feature2d.first;
+        for (const auto &feat_id_and_pixel : feature2d.second) {
+          const auto &feat_id = feat_id_and_pixel.first;
+          const auto &obs_pixel = feat_id_and_pixel.second;
+          features2d_vecs[cam_id][feat_id].push_back(obs_pixel);
+        }
+      }
+    }
+
   }
 
   void debugByFrameId(const vtr::FrameId& frame_id,
@@ -786,6 +799,7 @@ private:
   std::unordered_map<DebugTypeEnum, fs::path> output_pose_directories_;
   fs::path output_summary_directory_;
   std::unordered_map<vtr::CameraId, fs::path> output_opt_window_directories_;
+  std::unordered_map<vtr::CameraId, fs::path> output_feature_flow_directories_;
 
   std::unordered_map<DebugTypeEnum, std_msgs::ColorRGBA> deubg_types_and_ros_colors_;
   unsigned int encoding_;
@@ -2145,7 +2159,7 @@ int main(int argc, char **argv) {
       input_problem_data, 
       optimization_factors_enabled_params, 
       output_results, 
-      vtr::OptimTypeEnum::SLIDING_WINDOW);
+      vtr::OptimTypeEnum::TWOPHASE_SLIDING_WINDOW);
 
   cv::FileStorage ltm_out_fs(FLAGS_long_term_map_output,
                              cv::FileStorage::WRITE);
