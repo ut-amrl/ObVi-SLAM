@@ -13,7 +13,9 @@ parser.add_argument('--bagname', default="1668019589")
 parser.add_argument('--frame_id', default=1, type=int)
 
 # assume more than 1 case
-debug_labels = {"init": "initalization", "est": "after optimization"}
+debug_labels = {"init": "initalization", 
+    "before_optim": "before optimization",
+    "after_optim": "after optimization"}
 
 def plot_poses(args):
     pose_directories = {}
@@ -84,6 +86,15 @@ def plot_pointclouds(args):
             print("point2_df: ", point2_df)
             plot_df.append(point1_df); plot_df.append(point2_df)
             exit(0)
+
+def plot_pointclouds_and_poses_by_frameid(args, frame_id):
+    pcl_directories, pose_directories = {}, {}
+    for key in debug_labels.keys():
+        pcl_directories[key]  = os.path.join(args.pcl_directory,  key)
+        pose_directories[key] = os.path.join(args.pose_directory, key)
+    filename = str(frame_id) + ".csv"
+    # pointclouds_df = pd.read_csv()
+    # poses_df = pd.read_csv()
 
 if __name__ == '__main__':
     args = parser.parse_args()

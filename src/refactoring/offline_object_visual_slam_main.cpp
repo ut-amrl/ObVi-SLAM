@@ -351,6 +351,7 @@ public:
       const DebugTypeEnum& debug_type) {
     getLowLevelFeaturesLatestImages(features3d, pose, debug_type);
     debugPoses(trajectory_vec, debug_type);
+    debugFeaturePointcloud(features3d, debug_type);
   }
 
   void debugFeaturePointcloud(
@@ -389,7 +390,7 @@ public:
     }
 
     if (!output_residuals_.empty()) {
-      
+      LogToCSV(output_pcl_directories_, output_pointclouds_, frame_id_);
     }
 
     if (!output_trajectories_.empty()) {
