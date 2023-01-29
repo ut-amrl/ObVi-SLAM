@@ -295,29 +295,9 @@ class ObjectPoseGraphOptimizer {
           matching_obj_only_factors);
       // TODO not sure if it's correct to add all of them to 
       // objects to include
-      for (const std::pair<vslam_types_refactor::FactorType,
-                           vslam_types_refactor::FeatureFactorId>
-               &obj_only_factor : matching_obj_only_factors) {
-        const vslam_types_refactor::FactorType &factor_type 
-            = obj_only_factor.first;
-        const vslam_types_refactor::FeatureFactorId &feature_factor_id 
-            = obj_only_factor.second;
-        if (excluded_feature_factor_types_and_ids.find(obj_only_factor) 
-            == excluded_feature_factor_types_and_ids.end()) {
-          required_feature_factors[obj_only_factor.first].insert(
-              obj_only_factor.second);
-          vslam_types_refactor::ObjectObservationFactor factor;
-          pose_graph->getObjectObservationFactor(feature_factor_id, factor);
-          const vslam_types_refactor::ObjectId &object_id = factor.object_id_;
-          if (objects_to_include.find(object_id) 
-              == objects_to_include.end()) {
-            objects_to_include[object_id] 
-                = util::BoostHashSet<std::pair<vslam_types_refactor::FactorType, 
-                                      vslam_types_refactor::FeatureFactorId>>();
-          }
-          objects_to_include[object_id].emplace(factor_type, feature_factor_id);
-        }
-      }
+      extractFactorsToInclude(pose_graph, 
+          matching_obj_only_factors, 
+          objects_to_include);
     }
 
     if (use_object_pose_factors) {
@@ -339,8 +319,7 @@ class ObjectPoseGraphOptimizer {
           matching_observation_factor_ids);
       extractFactorsToInclude(pose_graph, 
           matching_observation_factor_ids, 
-          objects_to_include,
-          required_feature_factors);
+          objects_to_include);
     }
 
     if (use_feature_pose_factors) {
@@ -361,9 +340,17 @@ class ObjectPoseGraphOptimizer {
       extractFactorsToInclude(pose_graph,
           matching_visual_feature_factors,
           features_to_include,
-          required_feature_factors,
           excluded_feature_factor_types_and_ids);
     }
+
+    applyMinObservationRequirementsToIncludedFactors(
+        kMinObjectObservations,
+        objects_to_include,
+        required_feature_factors);
+    applyMinObservationRequirementsToIncludedFactors(
+        kMinLowLevelFeatureObservations,
+        features_to_include,
+        required_feature_factors);
 
     for (const vslam_types_refactor::FactorType &type_to_exclude :
          optimization_scope.factor_types_to_exclude) {
@@ -712,6 +699,8 @@ class ObjectPoseGraphOptimizer {
 
  protected:
  private:
+  const size_t kMinObjectObservations = 1; // TODO dummy variable for now
+  const size_t kMinLowLevelFeatureObservations = 3;
   std::unordered_set<vslam_types_refactor::ObjectId> last_optimized_objects_;
   std::unordered_set<vslam_types_refactor::FeatureId> last_optimized_features_;
   std::unordered_set<vslam_types_refactor::FrameId> last_optimized_nodes_;
@@ -738,6 +727,37 @@ class ObjectPoseGraphOptimizer {
       residual_creator_;
 
   template <typename IdType>
+  void applyMinObservationRequirementsToIncludedFactors(
+      const size_t &min_obs_requirement,
+      std::unordered_map<IdType, 
+        util::BoostHashSet<std::pair<vslam_types_refactor::FactorType, 
+                                     vslam_types_refactor::FeatureFactorId>>> 
+                            &factors_to_include,
+      std::unordered_map<
+        vslam_types_refactor::FactorType,
+        std::unordered_set<vslam_types_refactor::FeatureFactorId>>
+            &required_feature_factors) {
+    std::unordered_map<IdType, 
+        util::BoostHashSet<std::pair<vslam_types_refactor::FactorType, 
+                                     vslam_types_refactor::FeatureFactorId>>> 
+        new_factors_to_include;
+    // TODO (Taijing) As this is an unordered_map, erase should be faster
+    for (const auto& factor_to_include : factors_to_include) {
+      if (factor_to_include.second.size() >= min_obs_requirement) {
+        new_factors_to_include[factor_to_include.first]
+            = factor_to_include.second;
+      }
+    }
+    for (const auto &factor_ids_and_factor_sets : new_factors_to_include) {
+      for (const auto &factor_type_and_factor_id : factor_ids_and_factor_sets.second) {
+        required_feature_factors[factor_type_and_factor_id.first]
+            .insert(factor_type_and_factor_id.second);
+      }
+    }
+    factors_to_include = new_factors_to_include;
+  }
+
+  template <typename IdType>
   void extractFactorsToInclude(
         std::shared_ptr<PoseGraphType> &pose_graph,
         const util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
@@ -747,9 +767,6 @@ class ObjectPoseGraphOptimizer {
         util::BoostHashSet<std::pair<vslam_types_refactor::FactorType, 
                                      vslam_types_refactor::FeatureFactorId>>> 
                             &factors_to_include,
-        std::unordered_map<vslam_types_refactor::FactorType,
-            std::unordered_set<vslam_types_refactor::FeatureFactorId>>
-                            &required_feature_factors,
         const util::BoostHashSet<
           std::pair<vslam_types_refactor::FactorType, 
                     vslam_types_refactor::FeatureFactorId>>
@@ -770,7 +787,6 @@ class ObjectPoseGraphOptimizer {
               << "when building pose graph!";
         } else { continue;  }
       }
-      required_feature_factors[matching_factor.first].insert(matching_factor.second);
       IdType id;
       if (matching_factor.first == 
               vslam_types_refactor::kReprojectionErrorFactorTypeId) {  

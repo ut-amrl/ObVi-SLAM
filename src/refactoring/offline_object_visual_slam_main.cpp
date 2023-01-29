@@ -2145,7 +2145,7 @@ int main(int argc, char **argv) {
       input_problem_data, 
       optimization_factors_enabled_params, 
       output_results, 
-      vtr::OptimTypeEnum::TWOPHASE_SLIDING_WINDOW);
+      vtr::OptimTypeEnum::SLIDING_WINDOW);
 
   cv::FileStorage ltm_out_fs(FLAGS_long_term_map_output,
                              cv::FileStorage::WRITE);
