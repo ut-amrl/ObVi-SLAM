@@ -291,8 +291,8 @@ class ObjectPoseGraphOptimizer {
           matching_obj_only_factors);
       extractFactorsToInclude(pose_graph, 
           matching_obj_only_factors, 
-          objects_to_include,
-          optimization_scope.factor_types_to_exclude);
+          optimization_scope.factor_types_to_exclude,
+          objects_to_include);
     }
 
     if (use_object_pose_factors) {
@@ -314,8 +314,8 @@ class ObjectPoseGraphOptimizer {
           matching_observation_factor_ids);
       extractFactorsToInclude(pose_graph, 
           matching_observation_factor_ids, 
-          objects_to_include,
-          optimization_scope.factor_types_to_exclude);
+          optimization_scope.factor_types_to_exclude,
+          objects_to_include);
     }
 
     if (use_feature_pose_factors) {
@@ -335,8 +335,8 @@ class ObjectPoseGraphOptimizer {
           matching_visual_feature_factors);
       extractFactorsToInclude(pose_graph,
           matching_visual_feature_factors,
-          features_to_include,
           optimization_scope.factor_types_to_exclude,
+          features_to_include,
           excluded_feature_factor_types_and_ids);
     }
 
@@ -685,34 +685,31 @@ class ObjectPoseGraphOptimizer {
         util::BoostHashSet<std::pair<vslam_types_refactor::FactorType, 
                                      vslam_types_refactor::FeatureFactorId>>> 
         new_factors_to_include;
-    // TODO (Taijing) As this is an unordered_map, erase should be faster
-    for (const auto& factor_to_include : factors_to_include) {
-      if (factor_to_include.second.size() >= min_obs_requirement) {
-        new_factors_to_include[factor_to_include.first]
-            = factor_to_include.second;
+    for (const auto &factor_to_include : factors_to_include) {
+      if (factor_to_include.second.size() < min_obs_requirement) {
+        new_factors_to_include.erase(factor_to_include.first);
       }
     }
-    for (const auto &factor_ids_and_factor_sets : new_factors_to_include) {
+    for (const auto &factor_ids_and_factor_sets : factors_to_include) {
       for (const auto &factor_type_and_factor_id : factor_ids_and_factor_sets.second) {
         required_feature_factors[factor_type_and_factor_id.first]
             .insert(factor_type_and_factor_id.second);
       }
     }
-    factors_to_include = new_factors_to_include;
   }
 
   template <typename IdType>
   void extractFactorsToInclude(
-        std::shared_ptr<PoseGraphType> &pose_graph,
+        const std::shared_ptr<PoseGraphType> &pose_graph,
         const util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
                                     vslam_types_refactor::FeatureFactorId>>
                                     &matching_factors, 
+        const std::unordered_set<vslam_types_refactor::FactorType>
+            &factor_types_to_exclude,
         std::unordered_map<IdType, 
         util::BoostHashSet<std::pair<vslam_types_refactor::FactorType, 
                                      vslam_types_refactor::FeatureFactorId>>> 
                             &factors_to_include,
-        const std::unordered_set<vslam_types_refactor::FactorType>
-            &factor_types_to_exclude,
         const util::BoostHashSet<
           std::pair<vslam_types_refactor::FactorType, 
                     vslam_types_refactor::FeatureFactorId>>
