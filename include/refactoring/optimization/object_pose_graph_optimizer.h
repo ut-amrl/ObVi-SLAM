@@ -51,6 +51,10 @@ struct OptimizationScopeParams {
   vslam_types_refactor::FrameId max_frame_id_;
   // TODO consider adding set of nodes to optimize -- for now, we'll just assume
   // that we have min_frame_id (held constant) and all poses above that
+
+  // TODO move them to appropriate places
+  size_t min_obj_observations_ = 1;
+  size_t min_visual_feature_observations_ = 3;
 };
 
 template <typename PoseGraphType>
@@ -340,12 +344,14 @@ class ObjectPoseGraphOptimizer {
           excluded_feature_factor_types_and_ids);
     }
 
+    const size_t kMinObjectObservations = 1; // TODO dummy variable for now
+    const size_t kMinLowLevelFeatureObservations = 3;
     applyMinObservationRequirementsToIncludedFactors(
-        kMinObjectObservations,
+        optimization_scope.min_obj_observations_,
         objects_to_include,
         required_feature_factors);
     applyMinObservationRequirementsToIncludedFactors(
-        kMinLowLevelFeatureObservations,
+        optimization_scope.min_visual_feature_observations_,
         features_to_include,
         required_feature_factors);
 
@@ -643,8 +649,6 @@ class ObjectPoseGraphOptimizer {
 
  protected:
  private:
-  const size_t kMinObjectObservations = 1; // TODO dummy variable for now
-  const size_t kMinLowLevelFeatureObservations = 3;
   std::unordered_set<vslam_types_refactor::ObjectId> last_optimized_objects_;
   std::unordered_set<vslam_types_refactor::FeatureId> last_optimized_features_;
   std::unordered_set<vslam_types_refactor::FrameId> last_optimized_nodes_;
