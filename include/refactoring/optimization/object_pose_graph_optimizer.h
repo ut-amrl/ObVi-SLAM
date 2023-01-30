@@ -739,20 +739,17 @@ class ObjectPoseGraphOptimizer {
         util::BoostHashSet<std::pair<vslam_types_refactor::FactorType, 
                                      vslam_types_refactor::FeatureFactorId>>> 
         new_factors_to_include;
-    // TODO (Taijing) As this is an unordered_map, erase should be faster
-    for (const auto& factor_to_include : factors_to_include) {
+    for (const auto &factor_to_include : factors_to_include) {
       if (factor_to_include.second.size() >= min_obs_requirement) {
-        new_factors_to_include[factor_to_include.first]
-            = factor_to_include.second;
+        new_factors_to_include.erase(factor_to_include.first);
       }
     }
-    for (const auto &factor_ids_and_factor_sets : new_factors_to_include) {
+    for (const auto &factor_ids_and_factor_sets : factors_to_include) {
       for (const auto &factor_type_and_factor_id : factor_ids_and_factor_sets.second) {
         required_feature_factors[factor_type_and_factor_id.first]
             .insert(factor_type_and_factor_id.second);
       }
     }
-    factors_to_include = new_factors_to_include;
   }
 
   template <typename IdType>

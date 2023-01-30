@@ -670,6 +670,13 @@ public:
       SetupOutputDirectory(output_feature_flow_directories_[cam_id]);
     }
 
+    fs::path output_imgdata_root_directory = root_directory_ / "imgdata";
+    SetupOutputDirectory(output_imgdata_root_directory.string());
+    for (const auto& cam_id : cam_ids) {
+      output_imgdata_directories_[cam_id] = output_imgdata_root_directory / std::to_string(cam_id);
+      SetupOutputDirectory(output_imgdata_directories_[cam_id]);
+    }
+
     float alpha = .8;
     std_msgs::ColorRGBA obs_color;
     std_msgs::ColorRGBA init_color;
@@ -786,6 +793,11 @@ public:
         = end_frame_id < (n_frame+1) ? 1 : end_frame_id - n_frame;
     std::unordered_map<vtr::CameraId, cv_bridge::CvImagePtr> images;
     frame_ids_and_debuggers_[end_frame_id].getImages(images);
+    for (const auto &cam_id_and_img : images) {
+      fs::path savepath 
+          = output_imgdata_directories_[cam_id_and_img.first] / (std::to_string(end_frame_id)+".png");
+      cv::imwrite(savepath, cam_id_and_img.second->image);
+    }
     std::unordered_map<vtr::CameraId,
           std::unordered_map<vtr::FeatureId, 
                              std::vector<vtr::PixelCoord<double>>>> features2d_vecs;
@@ -866,6 +878,7 @@ private:
   fs::path output_summary_directory_;
   std::unordered_map<vtr::CameraId, fs::path> output_opt_window_directories_;
   std::unordered_map<vtr::CameraId, fs::path> output_feature_flow_directories_;
+  std::unordered_map<vtr::CameraId, fs::path> output_imgdata_directories_;
 
   std::unordered_map<DebugTypeEnum, std_msgs::ColorRGBA> deubg_types_and_ros_colors_;
   unsigned int encoding_;
@@ -1879,7 +1892,7 @@ int main(int argc, char **argv) {
     // For now, we'll just optimize the whole trajectory (so return 0 so we
     // start the optimization with node 0
 //    return 0;
-        if ((max_frame % 20) == 0) {
+        if ((max_frame % 30) == 0) {
           return 0;
         }
         if (max_frame < 50) {
