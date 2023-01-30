@@ -297,7 +297,8 @@ class ObjectPoseGraphOptimizer {
       // objects to include
       extractFactorsToInclude(pose_graph, 
           matching_obj_only_factors, 
-          objects_to_include);
+          objects_to_include,
+          optimization_scope.factor_types_to_exclude);
     }
 
     if (use_object_pose_factors) {
@@ -319,7 +320,8 @@ class ObjectPoseGraphOptimizer {
           matching_observation_factor_ids);
       extractFactorsToInclude(pose_graph, 
           matching_observation_factor_ids, 
-          objects_to_include);
+          objects_to_include,
+          optimization_scope.factor_types_to_exclude);
     }
 
     if (use_feature_pose_factors) {
@@ -340,6 +342,7 @@ class ObjectPoseGraphOptimizer {
       extractFactorsToInclude(pose_graph,
           matching_visual_feature_factors,
           features_to_include,
+          optimization_scope.factor_types_to_exclude,
           excluded_feature_factor_types_and_ids);
     }
 
@@ -351,11 +354,6 @@ class ObjectPoseGraphOptimizer {
         kMinLowLevelFeatureObservations,
         features_to_include,
         required_feature_factors);
-
-    for (const vslam_types_refactor::FactorType &type_to_exclude :
-         optimization_scope.factor_types_to_exclude) {
-      required_feature_factors.erase(type_to_exclude);
-    }
 
     // Remove unused residual blocks from the problem
     removeUnnecessaryResidualBlocks(required_feature_factors, problem);
@@ -767,6 +765,8 @@ class ObjectPoseGraphOptimizer {
         util::BoostHashSet<std::pair<vslam_types_refactor::FactorType, 
                                      vslam_types_refactor::FeatureFactorId>>> 
                             &factors_to_include,
+        const std::unordered_set<vslam_types_refactor::FactorType>
+            &factor_types_to_exclude,
         const util::BoostHashSet<
           std::pair<vslam_types_refactor::FactorType, 
                     vslam_types_refactor::FeatureFactorId>>
@@ -777,24 +777,25 @@ class ObjectPoseGraphOptimizer {
       const vslam_types_refactor::FeatureFactorId &feature_factor_id 
           = matching_factor.second;
       // if we want to exclude this feature
-      if (excluded_feature_factor_types_and_ids.find(matching_factor) 
+      if (factor_types_to_exclude.find(factor_type) != factor_types_to_exclude.end() &&
+            excluded_feature_factor_types_and_ids.find(matching_factor) 
             != excluded_feature_factor_types_and_ids.end()) {
-        if (matching_factor.first 
+        if (factor_type 
                     == vslam_types_refactor::kLongTermMapFactorTypeId 
-              || matching_factor.first 
+              || factor_type 
                     == vslam_types_refactor::kShapeDimPriorFactorTypeId) {
           LOG(ERROR) << "You shouldn't exclude long-term map objects or shape priors "
               << "when building pose graph!";
-        } else { continue;  }
+        } else { continue; }
       }
       IdType id;
-      if (matching_factor.first == 
-              vslam_types_refactor::kReprojectionErrorFactorTypeId) {  
+      if (factor_type == 
+            vslam_types_refactor::kReprojectionErrorFactorTypeId) {  
         vslam_types_refactor::ReprojectionErrorFactor factor;
         pose_graph->getVisualFactor(feature_factor_id, factor);
         id = factor.feature_id_;
-      } else if (matching_factor.first 
-              == vslam_types_refactor::kObjectObservationFactorTypeId) {
+      } else if (factor_type == 
+            vslam_types_refactor::kObjectObservationFactorTypeId) {
         vslam_types_refactor::ObjectObservationFactor factor;
         pose_graph->getObjectObservationFactor(feature_factor_id, factor);
         id = factor.object_id_;
