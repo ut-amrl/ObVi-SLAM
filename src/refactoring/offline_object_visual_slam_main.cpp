@@ -499,8 +499,19 @@ public:
     return ret;
   }
 
-  void getImages(std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr> 
-      &images) { images = images_; }
+  void getImages(std::unordered_map<vtr::CameraId, cv_bridge::CvImagePtr> &images) { 
+    for (const auto &cam_id_and_img_msg : images_) {
+      cv_bridge::CvImagePtr cv_ptr;
+      try {
+        cv_ptr = cv_bridge::toCvCopy(cam_id_and_img_msg.second, 
+                                     vtr::kImageEncoding);
+      } catch (cv_bridge::Exception &e) {
+        LOG(ERROR) << "cv_bridge exception: " << e.what();
+        exit(1);
+      }
+      images[cam_id_and_img_msg.first] = cv_ptr;
+    }
+  }
 
   void getFeatures2d(std::unordered_map<vtr::CameraId,
       std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>>
@@ -647,6 +658,13 @@ public:
       SetupOutputDirectory(output_opt_window_directories_[cam_id]);
     }
 
+    fs::path output_feature_flow_root_directory = root_directory_ / "featureflow";
+    SetupOutputDirectory(output_feature_flow_root_directory.string());
+    for (const auto& cam_id : cam_ids) {
+      output_feature_flow_directories_[cam_id] = output_feature_flow_root_directory / std::to_string(cam_id);
+      SetupOutputDirectory(output_feature_flow_directories_[cam_id]);
+    }
+
     float alpha = .8;
     std_msgs::ColorRGBA obs_color;
     std_msgs::ColorRGBA init_color;
@@ -736,15 +754,16 @@ public:
   void debugFeatureFlowsByFrameId(const vtr::FrameId& end_frame_id,
                                   const vtr::FrameId& n_frame = 10) {
     vtr::FrameId start_frame_id 
-        = end_frame_id - n_frame < 1 ? 1 : end_frame_id - n_frame;
-    std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr> images;
+        = end_frame_id < (n_frame+1) ? 1 : end_frame_id - n_frame;
+    std::unordered_map<vtr::CameraId, cv_bridge::CvImagePtr> images;
     frame_ids_and_debuggers_[end_frame_id].getImages(images);
     std::unordered_map<vtr::CameraId,
-          std::unordered_map<vtr::FeatureId, std::vector<vtr::PixelCoord<double>>>> features2d_vecs;
+          std::unordered_map<vtr::FeatureId, 
+                             std::vector<vtr::PixelCoord<double>>>> features2d_vecs;
     for (vtr::FrameId frame_id = start_frame_id; frame_id <= end_frame_id; ++frame_id) {
       std::unordered_map<vtr::CameraId,
           std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>> features2d;
-      frame_ids_and_debuggers_[end_frame_id].getFeatures2d(features2d);
+      frame_ids_and_debuggers_[frame_id].getFeatures2d(features2d);
       for (const auto &feature2d : features2d) {
         const auto &cam_id = feature2d.first;
         for (const auto &feat_id_and_pixel : feature2d.second) {
@@ -754,7 +773,25 @@ public:
         }
       }
     }
-
+    for (const auto &cam_id_and_img : images) {
+      const auto &cam_id = cam_id_and_img.first;
+      const auto &image = cam_id_and_img.second->image;
+      for (const auto feat_id_and_flow : features2d_vecs.at(cam_id)) {
+        const auto &flow = feat_id_and_flow.second;
+        if (flow.size() <= 1) { continue; }
+        for (size_t i = 1; i < flow.size(); ++i) {
+          cv::line(image, 
+                   cv::Point((int)flow[i-1][0], (int)flow[i-1][1]), 
+                   cv::Point((int)flow[i][0],   (int)flow[i][1]), 
+                   cv::Scalar(0, 255, 0),
+                   1,
+                   cv::LINE_AA);
+        }
+      }
+      fs::path savepath = 
+          output_feature_flow_directories_[cam_id] / (std::to_string(end_frame_id)+".png");
+      cv::imwrite(savepath, image);
+    }
   }
 
   void debugByFrameId(const vtr::FrameId& frame_id,
@@ -1364,6 +1401,7 @@ void visualizationStub(
         feature_ests,
         optimized_trajectory,
         DebugTypeEnum::AFTER_OPTIM);
+      debugger.debugFeatureFlowsByFrameId(max_frame_optimized);
 
       break;
     }
