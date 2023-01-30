@@ -441,12 +441,15 @@ public:
     cv::imwrite(savepath, summaries);
   }
 
-  std::unordered_map<vtr::CameraId, cv_bridge::CvImagePtr> getLowLevelFeaturesLatestImages(
+  std::tuple<std::unordered_map<vtr::CameraId, cv_bridge::CvImagePtr>,
+             std::unordered_map<vtr::CameraId, std::vector<double>>> 
+  getLowLevelFeaturesLatestImages(
       const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& feat_ids_and_features3d,
       const vtr::Pose3D<double>& pose,
       const DebugTypeEnum& debug_type,
       const bool save = true) {
-    std::unordered_map<vtr::CameraId, cv_bridge::CvImagePtr> ret;
+    std::unordered_map<vtr::CameraId, cv_bridge::CvImagePtr> ret_images;
+    std::unordered_map<vtr::CameraId, std::vector<double>> ret_residuals;
 
     for (const auto& cam_id_and_observations : features2d_) {
       std::vector<double> residuals;
@@ -485,8 +488,10 @@ public:
             feature2d_obs, projected_pixels, deubg_types_and_ros_colors_[debug_type], cv_ptr);
         double residual = getResidual(feature2d_obs, projected_pixels);
         output_residuals_[cam_id][debug_type].push_back(residual);
+        ret_residuals[cam_id].push_back(residual);
       }
-      PutImageText(debugLabels[debug_type], cv_ptr->image);
+      PutImageText(debugLabels[debug_type] + " " + std::to_string(frame_id_), 
+                   cv_ptr->image);
       if (save) {
         if (output_images_.find(cam_id) == output_images_.end()) {
           output_images_[cam_id] 
@@ -494,9 +499,9 @@ public:
         }
         output_images_[cam_id][debug_type] = cv_ptr;
       }
-      ret[cam_id] = cv_ptr;
+      ret_images[cam_id] = cv_ptr;
     }
-    return ret;
+    return std::make_tuple(ret_images, ret_residuals);
   }
 
   void getImages(std::unordered_map<vtr::CameraId, cv_bridge::CvImagePtr> &images) { 
@@ -725,16 +730,40 @@ public:
       const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d,
       const std::unordered_map<vtr::FrameId, vtr::Pose3D<double>>& poses,
       const DebugTypeEnum& debug_type) {
+    
+    const double kConsecutiveTranslChangeTol = 1.5;
+    
+    std::vector<vtr::FrameId> frame_ids;
+    if (end_frame_id - start_frame_id <= 1) { return; }
+    for (vtr::FrameId frame_id = start_frame_id+1; frame_id <= end_frame_id; ++frame_id) {
+      if ((poses.at(frame_id).transl_-poses.at(frame_id-1).transl_).norm() 
+                > kConsecutiveTranslChangeTol) {
+        vtr::FrameId left_frame_id = 
+            frame_id < start_frame_id + 2 ? start_frame_id : frame_id - 2;
+        vtr::FrameId right_frame_id = 
+            frame_id > end_frame_id - 2 ? end_frame_id : frame_id + 2;
+        for (vtr::FrameId f_id = left_frame_id; f_id <= right_frame_id; ++f_id) {
+          frame_ids.push_back(f_id);
+        }
+      }
+    }
+    
     // TODO Technically, we only need map instead of unordered_map
     std::map<vtr::CameraId, 
         std::unordered_map<vtr::FrameId, cv_bridge::CvImagePtr>> cam_ids_and_images;
-    for (vtr::FrameId frame_id = start_frame_id; frame_id <= end_frame_id; ++frame_id) {
-      std::unordered_map<vtr::CameraId, cv_bridge::CvImagePtr> cam_ids_and_visualizations 
-          = frame_ids_and_debuggers_[frame_id]
+    for (const vtr::FrameId &frame_id : frame_ids) {
+      auto ret_images_and_residuals = frame_ids_and_debuggers_[frame_id]
           .getLowLevelFeaturesLatestImages(
               features3d, poses.at(frame_id), debug_type, false);
+      std::unordered_map<vtr::CameraId, cv_bridge::CvImagePtr> cam_ids_and_visualizations 
+          = std::get<0>(ret_images_and_residuals);
+      std::unordered_map<vtr::CameraId, std::vector<double>> cam_ids_and_residuals
+          = std::get<1>(ret_images_and_residuals);
+      // TODO filter by residual
       for (const auto &cam_id_and_visualization : cam_ids_and_visualizations) {
         const vtr::CameraId &cam_id = cam_id_and_visualization.first;
+        std::sort(cam_ids_and_residuals[cam_id].begin(), 
+                  cam_ids_and_residuals[cam_id].end());
         if (cam_ids_and_images.find(cam_id) == cam_ids_and_images.end()) {
           cam_ids_and_images[cam_id] = std::unordered_map<vtr::FrameId, cv_bridge::CvImagePtr>();
         }
