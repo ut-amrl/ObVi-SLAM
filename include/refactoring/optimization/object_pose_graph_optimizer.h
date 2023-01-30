@@ -740,7 +740,7 @@ class ObjectPoseGraphOptimizer {
                                      vslam_types_refactor::FeatureFactorId>>> 
         new_factors_to_include;
     for (const auto &factor_to_include : factors_to_include) {
-      if (factor_to_include.second.size() >= min_obs_requirement) {
+      if (factor_to_include.second.size() < min_obs_requirement) {
         new_factors_to_include.erase(factor_to_include.first);
       }
     }
