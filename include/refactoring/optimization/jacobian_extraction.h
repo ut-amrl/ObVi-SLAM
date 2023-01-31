@@ -204,10 +204,10 @@ void generateGenericFactorInfoForFactor(
 
 void outputJacobianInfo(
     const std::string &jacobian_output_dir,
-    const std::unordered_map<
-        vslam_types_refactor::FactorType,
-        std::unordered_map<vslam_types_refactor::FeatureFactorId,
-                           ceres::ResidualBlockId>> &residual_info,
+    const std::unordered_map<ceres::ResidualBlockId,
+                             std::pair<vslam_types_refactor::FactorType,
+                                       vslam_types_refactor::FeatureFactorId>>
+        &residual_info,
     const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
     const std::function<bool(const FactorType &,
                              const FeatureFactorId &,
@@ -227,45 +227,42 @@ void outputJacobianInfo(
   std::unordered_set<ObjectId> added_objects;
   std::unordered_set<FeatureId> added_features;
 
-  for (const auto &factor_type_and_factors : residual_info) {
-    for (const auto &factor_id_and_residual_block :
-         factor_type_and_factors.second) {
-      residual_block_ids.emplace_back(factor_id_and_residual_block.second);
-      GenericFactorInfo generic_factor_info;
-      std::vector<ParameterBlockInfo> new_parameter_blocks;
-      generateGenericFactorInfoForFactor(pose_graph,
-                                         factor_type_and_factors.first,
-                                         factor_id_and_residual_block.first,
-                                         long_term_map_obj_retriever,
-                                         added_frames,
-                                         added_objects,
-                                         added_features,
-                                         generic_factor_info,
-                                         new_parameter_blocks);
-      generic_factor_infos.emplace_back(generic_factor_info);
-      for (const ParameterBlockInfo &param_block : new_parameter_blocks) {
-        unordered_parameter_block_infos.emplace_back(param_block);
-        if (param_block.frame_id_.has_value()) {
-          added_frames.insert(param_block.frame_id_.value());
-          double *robot_pose_ptr;
-          pose_graph->getPosePointers(param_block.frame_id_.value(),
-                                      &robot_pose_ptr);
-          unordered_parameter_blocks.emplace_back(robot_pose_ptr);
-        }
-        if (param_block.feature_id_.has_value()) {
-          added_features.insert(param_block.feature_id_.value());
-          double *feature_ptr;
-          pose_graph->getFeaturePointers(param_block.feature_id_.value(),
-                                         &feature_ptr);
-          unordered_parameter_blocks.emplace_back(feature_ptr);
-        }
-        if (param_block.obj_id_.has_value()) {
-          added_objects.insert(param_block.obj_id_.value());
-          double *obj_ptr;
-          pose_graph->getObjectParamPointers(param_block.obj_id_.value(),
-                                             &obj_ptr);
-          unordered_parameter_blocks.emplace_back(obj_ptr);
-        }
+  for (const auto &residual_info_entry : residual_info) {
+    residual_block_ids.emplace_back(residual_info_entry.first);
+    GenericFactorInfo generic_factor_info;
+    std::vector<ParameterBlockInfo> new_parameter_blocks;
+    generateGenericFactorInfoForFactor(pose_graph,
+                                       residual_info_entry.second.first,
+                                       residual_info_entry.second.second,
+                                       long_term_map_obj_retriever,
+                                       added_frames,
+                                       added_objects,
+                                       added_features,
+                                       generic_factor_info,
+                                       new_parameter_blocks);
+    generic_factor_infos.emplace_back(generic_factor_info);
+    for (const ParameterBlockInfo &param_block : new_parameter_blocks) {
+      unordered_parameter_block_infos.emplace_back(param_block);
+      if (param_block.frame_id_.has_value()) {
+        added_frames.insert(param_block.frame_id_.value());
+        double *robot_pose_ptr;
+        pose_graph->getPosePointers(param_block.frame_id_.value(),
+                                    &robot_pose_ptr);
+        unordered_parameter_blocks.emplace_back(robot_pose_ptr);
+      }
+      if (param_block.feature_id_.has_value()) {
+        added_features.insert(param_block.feature_id_.value());
+        double *feature_ptr;
+        pose_graph->getFeaturePointers(param_block.feature_id_.value(),
+                                       &feature_ptr);
+        unordered_parameter_blocks.emplace_back(feature_ptr);
+      }
+      if (param_block.obj_id_.has_value()) {
+        added_objects.insert(param_block.obj_id_.value());
+        double *obj_ptr;
+        pose_graph->getObjectParamPointers(param_block.obj_id_.value(),
+                                           &obj_ptr);
+        unordered_parameter_blocks.emplace_back(obj_ptr);
       }
     }
   }

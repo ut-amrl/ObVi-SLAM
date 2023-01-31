@@ -34,9 +34,9 @@ bool runOptimizationForLtmExtraction(
         &optimization_factor_configuration,
     std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
     ceres::Problem *problem,
-    std::unordered_map<vslam_types_refactor::FactorType,
-                       std::unordered_map<vslam_types_refactor::FeatureFactorId,
-                                          ceres::ResidualBlockId>>
+    std::unordered_map<ceres::ResidualBlockId,
+                       std::pair<vslam_types_refactor::FactorType,
+                                 vslam_types_refactor::FeatureFactorId>>
         &residual_info) {
   std::pair<FrameId, FrameId> min_and_max_frame_id =
       pose_graph->getMinMaxFrameId();
@@ -250,9 +250,9 @@ class PairwiseCovarianceLongTermObjectMapExtractor {
     std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> pose_graph_copy =
         pose_graph->makeDeepCopy();
     ceres::Problem problem_for_ltm;
-    std::unordered_map<vslam_types_refactor::FactorType,
-                       std::unordered_map<vslam_types_refactor::FeatureFactorId,
-                                          ceres::ResidualBlockId>>
+    std::unordered_map<ceres::ResidualBlockId,
+                       std::pair<vslam_types_refactor::FactorType,
+                                 vslam_types_refactor::FeatureFactorId>>
         residual_info;
     runOptimizationForLtmExtraction(residual_creator_,
                                     ltm_residual_params_,
@@ -438,9 +438,9 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
     std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> pose_graph_copy =
         pose_graph->makeDeepCopy();
     ceres::Problem problem_for_ltm;
-    std::unordered_map<vslam_types_refactor::FactorType,
-                       std::unordered_map<vslam_types_refactor::FeatureFactorId,
-                                          ceres::ResidualBlockId>>
+    std::unordered_map<ceres::ResidualBlockId,
+                       std::pair<vslam_types_refactor::FactorType,
+                                 vslam_types_refactor::FeatureFactorId>>
         residual_info;
     runOptimizationForLtmExtraction(residual_creator_,
                                     ltm_residual_params_,
