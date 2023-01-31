@@ -11,6 +11,10 @@
 
 namespace vslam_types_refactor {
 
+using SerializableFrameId = SerializableUint64;
+using SerializableCameraId = SerializableUint64;
+
+
 template <typename NumType, int Rows, int Cols>
 class SerializableEigenMat
     : public FileStorageSerializable<Eigen::Matrix<NumType, Rows, Cols>> {
@@ -83,6 +87,8 @@ static void read(const cv::FileNode &node,
     data.read(node);
   }
 }
+
+using SerializablePixelCoord = SerializableEigenMat<double, 2, 1>;
 
 template <typename NumType>
 class SerializableEigenAngleAxis
@@ -179,6 +185,57 @@ static void read(const cv::FileNode &node,
                  SerializablePose3D<NumType> &data,
                  const SerializablePose3D<NumType> &default_data =
                      SerializablePose3D<NumType>()) {
+  if (node.empty()) {
+    data = default_data;
+  } else {
+    data.read(node);
+  }
+}
+
+template <typename NumType>
+class SerializablePose3DYawOnly : public FileStorageSerializable<Pose3DYawOnly<NumType>> {
+ public:
+  SerializablePose3DYawOnly() : FileStorageSerializable<Pose3DYawOnly<NumType>>() {}
+  SerializablePose3DYawOnly(const Pose3DYawOnly<NumType> &data)
+      : FileStorageSerializable<Pose3DYawOnly<NumType>>(data) {}
+
+  virtual void write(cv::FileStorage &fs) const override {
+    SerializableEigenMat<NumType, 3, 1> transl(data_.transl_);
+
+    fs << "{";
+    fs << kTranslationLabel << transl;
+    fs << kOrientationLabel << data_.yaw_;
+    fs << "}";
+  }
+
+  virtual void read(const cv::FileNode &node) override {
+    SerializableEigenMat<NumType, 3, 1> transl;
+    NumType rot;
+    node[kTranslationLabel] >> transl;
+    node[kOrientationLabel] >> rot;
+    data_ = Pose3DYawOnly(transl.getEntry(), rot);
+  }
+
+ protected:
+  using FileStorageSerializable<Pose3DYawOnly<NumType>>::data_;
+
+ private:
+  inline static const std::string kTranslationLabel = "transl";
+  inline static const std::string kOrientationLabel = "yaw";
+};
+
+template <typename NumType>
+static void write(cv::FileStorage &fs,
+                  const std::string &,
+                  const SerializablePose3DYawOnly<NumType> &data) {
+  data.write(fs);
+}
+
+template <typename NumType>
+static void read(const cv::FileNode &node,
+                 SerializablePose3DYawOnly<NumType> &data,
+                 const SerializablePose3DYawOnly<NumType> &default_data =
+                 SerializablePose3DYawOnly<NumType>()) {
   if (node.empty()) {
     data = default_data;
   } else {

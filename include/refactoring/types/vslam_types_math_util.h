@@ -45,8 +45,7 @@ Pose3D<NumType> getPose2RelativeToPose1(const Pose3D<NumType>& pose_1,
  * @return
  */
 template <typename NumType>
-Position3d<NumType>
-    getPositionRelativeToPose(
+Position3d<NumType> getPositionRelativeToPose(
     const Pose3D<NumType>& pose, const Position3d<NumType>& position) {
   Transform6Dof<NumType> pose_1_mat = convertToAffine(pose);
   return pose_1_mat.inverse() * position;
@@ -102,7 +101,7 @@ Position3d<NumType> getWorldFramePos(
     const CameraIntrinsicsMat<NumType>& intrinsics,
     const CameraExtrinsics<NumType>& extrinsics,
     const Pose3D<NumType>& robot_pose,
-    const NumType &depth) {
+    const NumType& depth) {
   Position3d<NumType> point_rel_cam =
       depth * intrinsics.inverse() * pixelToHomogeneous(image_feature);
   Pose3D<NumType> cam_pose_in_world = combinePoses(robot_pose, extrinsics);

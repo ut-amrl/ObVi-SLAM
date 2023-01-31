@@ -15,35 +15,47 @@ namespace vslam_types_refactor {
 
 class IndependentObjectMapFactor {
  public:
-  IndependentObjectMapFactor(const EllipsoidState<double> &ellipsoid_mean,
-                             const Covariance<double, 9> &covariance);
+  IndependentObjectMapFactor(
+      const EllipsoidState<double> &ellipsoid_mean,
+      const Covariance<double, kEllipsoidParamterizationSize> &covariance);
   template <typename T>
   bool operator()(const T *ellipsoid_ptr, T *residuals_ptr) const {
-    Eigen::Map<const Eigen::Matrix<T, 9, 1>> ellipsoid(ellipsoid_ptr);
+    Eigen::Map<const Eigen::Matrix<T, kEllipsoidParamterizationSize, 1>>
+        ellipsoid(ellipsoid_ptr);
 
-    Eigen::Matrix<T, 9, 1> ellipsoid_deviation = ellipsoid - ellipsoid_mean_.cast<T>();
-    Eigen::Map<Eigen::Matrix<T, 9, 1>> residuals(residuals_ptr);
+    Eigen::Matrix<T, kEllipsoidParamterizationSize, 1> ellipsoid_deviation =
+        ellipsoid - ellipsoid_mean_.cast<T>();
+    Eigen::Map<Eigen::Matrix<T, kEllipsoidParamterizationSize, 1>> residuals(
+        residuals_ptr);
 
-    residuals =
-        sqrt_inf_mat_.template cast<T>() * ellipsoid_deviation;
+    residuals = sqrt_inf_mat_.template cast<T>() * ellipsoid_deviation;
     return true;
   }
 
-  static ceres::AutoDiffCostFunction<IndependentObjectMapFactor, 9, 9> *
-  createIndependentObjectMapFactor(const EllipsoidState<double> &ellipsoid_mean,
-                                   const Covariance<double, 9> &covariance) {
+  static ceres::AutoDiffCostFunction<IndependentObjectMapFactor,
+                                     kEllipsoidParamterizationSize,
+                                     kEllipsoidParamterizationSize>
+      *createIndependentObjectMapFactor(
+          const EllipsoidState<double> &ellipsoid_mean,
+          const Covariance<double, kEllipsoidParamterizationSize> &covariance) {
     IndependentObjectMapFactor *factor =
         new IndependentObjectMapFactor(ellipsoid_mean, covariance);
-    return new ceres::AutoDiffCostFunction<IndependentObjectMapFactor, 9, 9>(
+    return new ceres::AutoDiffCostFunction<IndependentObjectMapFactor,
+                                           kEllipsoidParamterizationSize,
+                                           kEllipsoidParamterizationSize>(
         factor);
   }
 
  private:
+
   RawEllipsoid<double> ellipsoid_mean_;
 
-  Eigen::Matrix<double, 9, 9> sqrt_inf_mat_;
+  Eigen::Matrix<double,
+                kEllipsoidParamterizationSize,
+                kEllipsoidParamterizationSize>
+      sqrt_inf_mat_;
 };
 
 }  // namespace vslam_types_refactor
 
-#endif  // UT_VSLAM_PAIRWISE_OBJECT_MAP_FACTOR_H
+#endif  // UT_VSLAM_INDEPENDENT_OBJECT_MAP_FACTOR_H

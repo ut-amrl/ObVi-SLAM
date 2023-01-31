@@ -42,12 +42,13 @@ class BoundingBoxFactor {
    *
    * @tparam T                  Type that the cost functor is evaluating.
    * @param ellipsoid[in]       Estimate of the ellipsoid parameters. This is a
-   *                            9 entry array with the first 3 entries
+   *                            9 or 7 entry array with the first 3 entries
    *                            corresponding to the translation, the second 3
-   *                            entries containing the axis-angle representation
-   *                            (with angle given by the magnitude of the
-   *                            vector), and the final 3 entries corresponding
-   *                            to the dimensions of the ellipsoid.
+   *                            or 1 entries containing the axis-angle
+   *                            representation (with angle given by the
+   *                            magnitude of the vector) or just yaw, and the
+   *                            final 3 entries corresponding to the dimensions
+   *                            of the ellipsoid.
    * @param robot_pose[in]      Robot's pose in the world frame corresponding to
    *                            the location of where the feature was imaged.
    *                            This is a 6 entry array with the first 3 entries
@@ -67,41 +68,28 @@ class BoundingBoxFactor {
     // image (so we don't use it as a constraint). Could also try to do this
     // through the covariance (very wide covariance for sides we don't care
     // about)
+
     Eigen::Matrix<T, 4, 1> corner_results;
-    getCornerLocationsVector<T>(ellipsoid,
-                                robot_pose,
-                                robot_to_cam_tf_.cast<T>(),
-                                camera_intrinsics_mat_.cast<T>(),
-                                corner_results, false);
-    for (size_t i = 0; i < corner_results.rows(); i++) {
-      if (ceres::IsNaN(corner_results(i, 0))) {
-        LOG(WARNING) << "Corner results entry was NaN " << corner_results;
-        Eigen::Map<const Eigen::Matrix<T, 9, 1>> ellipsoid_data(ellipsoid);
-        Eigen::Map<const Eigen::Matrix<T, 6, 1>> robot_pose_data(robot_pose);
-        LOG(INFO) << "Ellipsoid " << ellipsoid_data;
-        LOG(INFO) << "Robot Pose " << robot_pose_data;
-        LOG(INFO) << "Robot inside ellipsoid? ";
+    bool valid_case =
         getCornerLocationsVector<T>(ellipsoid,
                                     robot_pose,
                                     robot_to_cam_tf_.cast<T>(),
                                     camera_intrinsics_mat_.cast<T>(),
-                                    corner_results,
-                                    true);
-//        exit(1);
-        residuals_ptr[0] = std::numeric_limits<T>::max();
-        residuals_ptr[1] = std::numeric_limits<T>::max();
-        residuals_ptr[2] = std::numeric_limits<T>::max();
-        residuals_ptr[3] = std::numeric_limits<T>::max();
-      }
+                                    corner_results);
+    if (!valid_case) {
+      residuals_ptr[0] = T(kInvalidEllipseError);
+      residuals_ptr[1] = T(kInvalidEllipseError);
+      residuals_ptr[2] = T(kInvalidEllipseError);
+      residuals_ptr[3] = T(kInvalidEllipseError);
+      return true;
     }
-    //    LOG(INFO) << "Corner results\n" << corner_results;
 
     Eigen::Matrix<T, 4, 1> deviation =
         corner_results - corner_detections_.template cast<T>();
-    //    LOG(INFO) << "Detection " << corner_detections_;
-    //    LOG(INFO) << "Deviation " << deviation;
-    //    LOG(INFO) << "Sqrt inf mat bounding box "
-    //              << sqrt_inf_mat_bounding_box_corners_;
+//        LOG(INFO) << "Detection " << corner_detections_;
+//        LOG(INFO) << "Deviation " << deviation;
+//        LOG(INFO) << "Sqrt inf mat bounding box "
+//                  << sqrt_inf_mat_bounding_box_corners_;
 
     Eigen::Map<Eigen::Matrix<T, 4, 1>> residuals(residuals_ptr);
     residuals =
@@ -122,7 +110,10 @@ class BoundingBoxFactor {
    *
    * @return Ceres cost function.
    */
-  static ceres::AutoDiffCostFunction<BoundingBoxFactor, 4, 9, 6> *
+  static ceres::AutoDiffCostFunction<BoundingBoxFactor,
+                                     4,
+                                     kEllipsoidParamterizationSize,
+                                     6> *
   createBoundingBoxFactor(
       const vslam_types_refactor::BbCorners<double> &object_detection,
       const vslam_types_refactor::CameraIntrinsicsMat<double>
@@ -134,10 +125,14 @@ class BoundingBoxFactor {
                                                       camera_extrinsics,
                                                       object_detection,
                                                       bounding_box_covariance);
-    return new ceres::AutoDiffCostFunction<BoundingBoxFactor, 4, 9, 6>(factor);
+    return new ceres::AutoDiffCostFunction<BoundingBoxFactor,
+                                           4,
+                                           kEllipsoidParamterizationSize,
+                                           6>(factor);
   }
 
  private:
+  const static constexpr double kInvalidEllipseError = 1e6;
   /**
    * Corner detections for the bounding box. The first value is the smallest x
    * value, the next is the largest x value, the third is the smallest y value

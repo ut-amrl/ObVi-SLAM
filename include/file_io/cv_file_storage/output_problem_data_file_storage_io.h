@@ -81,6 +81,89 @@ static void read(const cv::FileNode &node,
   }
 }
 
+class SerializableObjectDataAssociationResults
+    : public FileStorageSerializable<ObjectDataAssociationResults> {
+ public:
+  SerializableObjectDataAssociationResults()
+      : FileStorageSerializable<ObjectDataAssociationResults>() {}
+  SerializableObjectDataAssociationResults(
+      const ObjectDataAssociationResults &data)
+      : FileStorageSerializable<ObjectDataAssociationResults>(data) {}
+
+  virtual void write(cv::FileStorage &fs) const override {
+    fs << "{";
+    fs << kEllipsoidResultsLabel
+       << SerializableEllipsoidResults(data_.ellipsoid_pose_results_);
+    fs << kAssociatedBoundingBoxesLabel
+       << SerializableBoundingBoxesByFrameEntry(
+              data_.associated_bounding_boxes_);
+    fs << "}";
+  }
+
+  virtual void read(const cv::FileNode &node) override {
+    SerializableEllipsoidResults serializable_ellipsoid_results;
+    node[kEllipsoidResultsLabel] >> serializable_ellipsoid_results;
+    SerializableBoundingBoxesByFrameEntry serializable_bb_results;
+    node[kAssociatedBoundingBoxesLabel] >> serializable_bb_results;
+    data_.ellipsoid_pose_results_ = serializable_ellipsoid_results.getEntry();
+    data_.associated_bounding_boxes_ = serializable_bb_results.getEntry();
+  }
+
+ protected:
+  using FileStorageSerializable<ObjectDataAssociationResults>::data_;
+
+ private:
+  inline static const std::string kEllipsoidResultsLabel = "ellipsoid_results";
+  inline static const std::string kAssociatedBoundingBoxesLabel =
+      "associated_bounding_boxes";
+
+  using BoundingBoxEntry =
+      std::pair<BbCornerPair<double>, std::optional<double>>;
+  using SerializableBoundingBoxEntry =
+      SerializablePair<BbCornerPair<double>,
+                       SerializableBbCornerPair,
+                       std::optional<double>,
+                       SerializableOptional<double, SerializableDouble>>;
+  using ObjectBoundingBoxMapEntry =
+      std::unordered_map<ObjectId, BoundingBoxEntry>;
+  using SerializableObjectBoundingBoxMapEntry =
+      SerializableMap<ObjectId,
+                      SerializableObjectId,
+                      BoundingBoxEntry,
+                      SerializableBoundingBoxEntry>;
+  using BoundingBoxesByCameraEntry =
+      std::unordered_map<CameraId, ObjectBoundingBoxMapEntry>;
+  using SerializableBoundingBoxesByCameraEntry =
+      SerializableMap<CameraId,
+                      SerializableCameraId,
+                      ObjectBoundingBoxMapEntry,
+                      SerializableObjectBoundingBoxMapEntry>;
+  using BoundingBoxesByFrameEntry =
+      std::unordered_map<FrameId, BoundingBoxesByCameraEntry>;
+  using SerializableBoundingBoxesByFrameEntry =
+      SerializableMap<FrameId,
+                      SerializableFrameId,
+                      BoundingBoxesByCameraEntry,
+                      SerializableBoundingBoxesByCameraEntry>;
+};
+
+static void write(cv::FileStorage &fs,
+                  const std::string &,
+                  const SerializableObjectDataAssociationResults &data) {
+  data.write(fs);
+}
+
+static void read(const cv::FileNode &node,
+                 SerializableObjectDataAssociationResults &data,
+                 const SerializableObjectDataAssociationResults &default_data =
+                     SerializableObjectDataAssociationResults()) {
+  if (node.empty()) {
+    data = default_data;
+  } else {
+    data.read(node);
+  }
+}
+
 }  // namespace vslam_types_refactor
 
 #endif  // UT_VSLAM_OUTPUT_PROBLEM_DATA_FILE_STORAGE_IO_H

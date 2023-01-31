@@ -116,43 +116,45 @@ void addFrameDataAssociatedBoundingBox(
     const std::function<std::pair<bool, RawBoundingBoxContextInfo>(
         const FrameId &, const CameraId &, const ProblemDataType &)>
         &bb_context_retriever) {
-
-  Pose3D<double> curr_pose_init;
+  Pose3D<double> pose_at_frame_init_est;
   if (!input_problem_data.getRobotPoseEstimateForFrame(
-          frame_to_add, curr_pose_init)) {
-    LOG(ERROR) << "Could not find pose initialization for frame " << frame_to_add
+          frame_to_add, pose_at_frame_init_est)) {
+    // TODO should this find the closest frame to this node as a fallback
+    // instead of just failing?
+    LOG(ERROR) << "Could not find initial estimate for frame " << frame_to_add
                << "; not adding frame";
     exit(1);
     return;
   }
   LOG(INFO) << "Adding frame " << frame_to_add;
-
   if (frame_to_add == 0) {
-    pose_graph->addFrame(frame_to_add, curr_pose_init);
+    pose_graph->addFrame(frame_to_add, pose_at_frame_init_est);
   } else {
+    // Get difference between frame and previous and then use the latest pose
+    // estimate for the previous frame to update the estimate for the current
     Pose3D<double> prev_pose_init;
+
     if (!input_problem_data.getRobotPoseEstimateForFrame(frame_to_add - 1,
                                                          prev_pose_init)) {
+      // TODO should this find the closest frame to this node as a fallback
+      // instead of just failing?
       LOG(ERROR) << "Could not find initial estimate for frame "
                  << frame_to_add - 1 << "; not adjusting subsequent";
-      pose_graph->addFrame(frame_to_add, curr_pose_init);
+      pose_graph->addFrame(frame_to_add, pose_at_frame_init_est);
     } else {
-      Pose3D<double> prev_pose_est;
-      std::optional<RawPose3d<double>> prev_raw_pose_est =
-            pose_graph->getRobotPose(frame_to_add-1);
-      // Only correct pose if there exist initial current pose, 
-      // estimated current pose, and estimated previous pose
-      if (prev_raw_pose_est.has_value()) {
-        prev_pose_est = convertToPose3D(prev_raw_pose_est.value());
-        Pose3D<double> relative_pose = getPose2RelativeToPose1(
-            prev_pose_init, curr_pose_init);
-        Pose3D<double> curr_pose_corrected_init =
-            combinePoses(prev_pose_est, relative_pose);
-        pose_graph->addFrame(frame_to_add, curr_pose_corrected_init);
+      std::optional<RawPose3d<double>> revised_prev_pose_raw =
+          pose_graph->getRobotPose(frame_to_add - 1);
+      if (revised_prev_pose_raw.has_value()) {
+        // Add initial estimate for pose
+        Pose3D<double> relative_pose =
+            getPose2RelativeToPose1(prev_pose_init, pose_at_frame_init_est);
+        Pose3D<double> corrected_pose_at_frame = combinePoses(
+            convertToPose3D(revised_prev_pose_raw.value()), relative_pose);
+        pose_graph->addFrame(frame_to_add, corrected_pose_at_frame);
       } else {
         LOG(ERROR) << "Could not find revised estimate for frame "
                    << frame_to_add - 1 << "; not adjusting subsequent";
-        pose_graph->addFrame(frame_to_add, curr_pose_init);
+        pose_graph->addFrame(frame_to_add, pose_at_frame_init_est);
       }
     }
   }

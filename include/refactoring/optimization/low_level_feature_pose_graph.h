@@ -212,18 +212,6 @@ class LowLevelFeaturePoseGraph {
     return true;
   }
 
-  virtual bool getVisualFactor(
-      const std::vector<FeatureFactorId> &factor_ids,
-      std::vector<VisualFeatureFactorType> &visual_feature_factors) const {
-    for (const auto &factor_id : factor_ids) {
-      if (factors_.find(factor_id) == factors_.end()) {
-        return false;
-      }
-      visual_feature_factors.emplace_back(factors_.at(factor_id));
-    }
-    return true;
-  }
-
   virtual void addFrame(const FrameId &frame_id,
                         const Pose3D<double> &initial_pose_estimate) {
     if (frame_id < min_frame_id_) {

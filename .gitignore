@@ -3,6 +3,9 @@ bin/*
 lib/*
 build/*
 media/*
+<<<<<<< HEAD
 debug/*
+=======
+>>>>>>> RefactorBuildPoseGraphOptimizationForVSLAM
 .idea/*
 cmake-build-debug/*

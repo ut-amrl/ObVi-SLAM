@@ -15,8 +15,8 @@ namespace vslam_types_refactor {
 // structure that contains both
 template <typename FrontEndObjMapData>
 class AbsLongTermObjectMap {
- public:
 
+ public:
   /**
    * Set the ellipsoid results (contains ellipsoid state estimates).
    *
@@ -57,18 +57,23 @@ class IndependentEllipsoidsLongTermObjectMap
     : public AbsLongTermObjectMap<FrontEndObjMapData> {
  public:
   void setEllipsoidCovariances(
-      const std::unordered_map<ObjectId, Covariance<double, 9>>
+      const std::unordered_map<
+          ObjectId,
+          Covariance<double, kEllipsoidParamterizationSize>>
           &ellipsoid_covariances) {
     ellipsoid_covariances_ = ellipsoid_covariances;
   }
 
-  std::unordered_map<ObjectId, Covariance<double, 9>>
+  std::unordered_map<ObjectId,
+                     Covariance<double, kEllipsoidParamterizationSize>>
   getEllipsoidCovariances() const {
     return ellipsoid_covariances_;
   }
 
  private:
-  std::unordered_map<ObjectId, Covariance<double, 9>> ellipsoid_covariances_;
+  std::unordered_map<ObjectId,
+                     Covariance<double, kEllipsoidParamterizationSize>>
+      ellipsoid_covariances_;
 };
 
 template <typename FrontEndObjMapData>
@@ -86,12 +91,17 @@ class PairwiseCovarianceLongTermObjectMap
    */
   void setPairwiseEllipsoidCovariance(
       util::BoostHashMap<std::pair<ObjectId, ObjectId>,
-                         Eigen::Matrix<double, 9, 9>>
+                         Eigen::Matrix<double,
+                                       kEllipsoidParamterizationSize,
+                                       kEllipsoidParamterizationSize>>
           &pairwise_ellipsoid_covariances) {
     pairwise_ellipsoid_covariances_ = pairwise_ellipsoid_covariances;
   }
 
-  util::BoostHashMap<std::pair<ObjectId, ObjectId>, Eigen::Matrix<double, 9, 9>>
+  util::BoostHashMap<std::pair<ObjectId, ObjectId>,
+                     Eigen::Matrix<double,
+                                   kEllipsoidParamterizationSize,
+                                   kEllipsoidParamterizationSize>>
   getPairwiseEllipsoidCovariances() {
     return pairwise_ellipsoid_covariances_;
   }
@@ -101,7 +111,10 @@ class PairwiseCovarianceLongTermObjectMap
    * Pairwise ellipsoid covariances. The covariance will be stored with the pair
    * with the smaller of the two object ids first.
    */
-  util::BoostHashMap<std::pair<ObjectId, ObjectId>, Eigen::Matrix<double, 9, 9>>
+  util::BoostHashMap<std::pair<ObjectId, ObjectId>,
+                     Eigen::Matrix<double,
+                                   kEllipsoidParamterizationSize,
+                                   kEllipsoidParamterizationSize>>
       pairwise_ellipsoid_covariances_;
 };
 

@@ -23,7 +23,11 @@ struct EllipsoidEstimateNode {
   EllipsoidEstimateNode()
       : ellipsoid_(std::make_shared<RawEllipsoid<double>>()) {}
 
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+  EllipsoidEstimateNode(const RawPose3dYawOnly<double> &pose,
+#else
   EllipsoidEstimateNode(const RawPose3d<double> &pose,
+#endif
                         const ObjectDim<double> &dimensions)
       : EllipsoidEstimateNode() {
     updateEllipsoidParams(pose, dimensions);
@@ -33,10 +37,14 @@ struct EllipsoidEstimateNode {
       : ellipsoid_(std::make_shared<RawEllipsoid<double>>(raw_ellipsoid_data)) {
   }
 
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+  void updatePoseData(const RawPose3dYawOnly<double> &pose) {
+#else
   void updatePoseData(const RawPose3d<double> &pose) {
+#endif
     // TODO verify that this is changing the contents of the pointer
     //  (with a copy) and not the pointer
-    ellipsoid_->topRows(6) = pose;
+    ellipsoid_->topRows(kEllipsoidPoseParameterizationSize) = pose;
   }
 
   void updateDimensionData(const ObjectDim<double> &dim) {
@@ -45,29 +53,37 @@ struct EllipsoidEstimateNode {
     ellipsoid_->bottomRows(3) = dim;
   }
 
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+  void updateEllipsoidParams(const RawPose3dYawOnly<double> &pose,
+#else
   void updateEllipsoidParams(const RawPose3d<double> &pose,
+#endif
                              const ObjectDim<double> &dim) {
     updatePoseData(pose);
     updateDimensionData(dim);
   }
 
   void updateEllipsoidParams(const RawEllipsoid<double> &ellipsoid) {
-    ellipsoid_->topRows(9) = ellipsoid;
+    ellipsoid_->topRows(kEllipsoidParamterizationSize) = ellipsoid;
   }
 
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+  void updatePoseData(const RawPose3dYawOnlyPtr<double> &pose_ptr){
+#else
   void updatePoseData(const RawPose3dPtr<double> &pose_ptr) {
-    updatePoseData(*pose_ptr);
-  }
+#endif
+      updatePoseData(*pose_ptr);
+}
 
   void updateEllipsoidParams(const RawEllipsoidPtr<double> &ellipsoid_ptr) {
-    updateEllipsoidParams(*ellipsoid_ptr);
-  }
+  updateEllipsoidParams(*ellipsoid_ptr);
+}
 
-  EllipsoidEstimateNode makeDeepCopy() const {
-    RawEllipsoid<double> ellipsoid_copy(*ellipsoid_);
-    return EllipsoidEstimateNode(ellipsoid_copy);
-  }
-};
+EllipsoidEstimateNode makeDeepCopy() const {
+  RawEllipsoid<double> ellipsoid_copy(*ellipsoid_);
+  return EllipsoidEstimateNode(ellipsoid_copy);
+}
+};  // namespace vslam_types_refactor
 
 struct ObjectObservationFactor {
   FrameId frame_id_;
@@ -402,20 +418,6 @@ class ObjAndLowLevelFeaturePoseGraph
     return true;
   }
 
-  virtual bool getObjectObservationFactor(
-      const std::vector<FeatureFactorId> &factor_ids,
-      std::vector<ObjectObservationFactor> &obs_factors) const {
-    for (const auto &factor_id : factor_ids) {
-      if (object_observation_factors_.find(factor_id) ==
-          object_observation_factors_.end()) {
-        return false;
-      }
-      obs_factors.emplace_back(
-          object_observation_factors_.at(factor_id));
-    }
-    return true;
-  }
-
   virtual bool getShapeDimPriorFactor(
       const FeatureFactorId &factor_id,
       ShapeDimPriorFactor &shape_dim_factor) const {
@@ -424,20 +426,6 @@ class ObjAndLowLevelFeaturePoseGraph
       return false;
     }
     shape_dim_factor = shape_dim_prior_factors_.at(factor_id);
-    return true;
-  }
-
-  virtual bool getShapeDimPriorFactor(
-      const std::vector<FeatureFactorId> &factor_ids,
-      std::vector<ShapeDimPriorFactor> &shape_dim_factors) const {
-    for (const auto &factor_id : factor_ids) {
-      if (shape_dim_prior_factors_.find(factor_id) ==
-          shape_dim_prior_factors_.end()) {
-        return false;
-      }
-      shape_dim_factors.emplace_back(
-          shape_dim_prior_factors_.at(factor_id));
-    }
     return true;
   }
 
@@ -460,6 +448,13 @@ class ObjAndLowLevelFeaturePoseGraph
     return mean_and_cov_by_semantic_class_.at(semantic_class).first;
   }
 
+  virtual std::unordered_map<
+      std::string,
+      std::pair<ObjectDim<double>, Covariance<double, 3>>>
+  getMeanAndCovBySemanticClass() {
+    return mean_and_cov_by_semantic_class_;
+  }
+
   virtual std::unordered_set<ObjectId> getObjectsWithSemanticClass(
       const std::string &semantic_class) const {
     std::unordered_set<ObjectId> objs;
@@ -478,6 +473,33 @@ class ObjAndLowLevelFeaturePoseGraph
     }
     return convertToEllipsoidState(
         RawEllipsoid<double>(*(ellipsoid_estimates_.at(obj_id).ellipsoid_)));
+  }
+
+  bool getObservationFactorsForObjId(
+      const ObjectId &obj_id,
+      std::vector<ObjectObservationFactor> &observation_factors) {
+    if (observation_factors_by_object_.find(obj_id) ==
+        observation_factors_by_object_.end()) {
+      return false;
+    }
+
+    util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
+        observation_factor_infos_for_obj =
+            observation_factors_by_object_.at(obj_id);
+    for (const std::pair<FactorType, FeatureFactorId> &obs_factor_info :
+         observation_factor_infos_for_obj) {
+      ObjectObservationFactor obs_factor;
+      if (getObjectObservationFactor(obs_factor_info.second, obs_factor)) {
+        observation_factors.emplace_back(
+            object_observation_factors_.at(obs_factor_info.second));
+      } else {
+        LOG(WARNING) << "Found id " << obs_factor_info.second
+                     << " for object observation factor, but there was "
+                        "no matching factor";
+      }
+    }
+
+    return true;
   }
 
  protected:

@@ -9,11 +9,11 @@
 #include <file_io/cv_file_storage/vslam_basic_types_file_storage_io.h>
 #include <file_io/node_id_and_timestamp_io.h>
 #include <file_io/pose_3d_with_node_id_io.h>
-#include <file_io/file_io_utils.h>
-
 #include <gflags/gflags.h>
 #include <glog/logging.h>
+#include <refactoring/bounding_box_frontend/bounding_box_front_end_creation_utils.h>
 #include <refactoring/bounding_box_frontend/bounding_box_retriever.h>
+#include <refactoring/bounding_box_frontend/feature_based_bounding_box_front_end.h>
 #include <refactoring/bounding_box_frontend/roshan_bounding_box_front_end.h>
 #include <refactoring/image_processing/image_processing_utils.h>
 #include <refactoring/long_term_map/long_term_map_factor_creator.h>
@@ -38,7 +38,8 @@ namespace plt = matplotlibcpp;
 namespace vtr = vslam_types_refactor;
 
 typedef vtr::IndependentEllipsoidsLongTermObjectMap<
-    std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>
+    //    std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>
+    util::EmptyStruct>
     MainLtm;
 typedef std::shared_ptr<MainLtm> MainLtmPtr;
 typedef vtr::UnassociatedBoundingBoxOfflineProblemData<
@@ -82,6 +83,9 @@ DEFINE_string(low_level_feats_dir,
 DEFINE_string(vslam_debugger_directory, 
               "/robodata/taijing/object-slam/vslam/debug/1668019589/", 
               "Output root directory for debugger");
+DEFINE_string(bb_associations_out_file,
+              "",
+              "File to write ellipsoid results and associated bounding boxes to. Skipped if this param is not set");
 
 std::string kCompressedImageSuffix = "compressed";
 
@@ -1224,7 +1228,8 @@ void visualizationStub(
         &pose_graph,
     const vtr::FrameId &min_frame_optimized,
     const vtr::FrameId &max_frame_optimized,
-    const vtr::VisualizationTypeEnum &visualization_stage) {
+    const vtr::VisualizationTypeEnum &visualization_stage,
+    const double &near_edge_threshold) {
   switch (visualization_stage) {
     case vtr::BEFORE_ANY_OPTIMIZATION:
       vis_manager->publishTransformsForEachCamera(
@@ -1340,7 +1345,8 @@ void visualizationStub(
           images,
           *observed_corner_locations,
           {},
-          false);
+          false,
+          near_edge_threshold);
 
       vis_manager->publishDetectedBoundingBoxesWithUncertainty(
           max_frame_optimized,
@@ -1452,155 +1458,6 @@ void visualizationStub(
     default:
       break;
   }
-}
-
-bool initialize_features3d(
-      const pose_graph_optimization::ObjectVisualPoseGraphResidualParams
-          &residual_params,
-      const std::function<bool()> &continue_opt_checker,
-      const std::function<vtr::FrameId(const vtr::FrameId &)> &window_provider_func,
-      const std::function<
-          bool(const MainFactorInfo &, 
-               const MainPgPtr &, 
-               const util::EmptyStruct &)> &refresh_residual_checker,
-      const std::function<
-          bool(const MainFactorInfo &,
-               const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
-               const MainPgPtr &,
-               ceres::Problem *,
-               ceres::ResidualBlockId &,
-               util::EmptyStruct &)> &residual_creator,
-      const std::function<void(const MainProbData &, MainPgPtr &)>
-          &pose_graph_creator,
-      std::function<void(const MainProbData &, 
-                         const MainPgPtr &, 
-                         const vtr::FrameId &)> &frame_data_adder,
-      const std::function<
-          void(const MainProbData &,
-               const MainPgPtr &,
-               const pose_graph_optimizer::OptimizationFactorsEnabledParams &,
-               vtr::LongTermObjectMapAndResults<MainLtm> &)> &output_data_extractor,
-      const std::function<
-          std::vector<std::shared_ptr<ceres::IterationCallback>>(
-              const MainProbData &,
-              const MainPgPtr &,
-              const vtr::FrameId &,
-              const vtr::FrameId &)> &ceres_callback_creator,
-      const std::function<
-          void(const MainProbData &,
-               const MainPgPtr &,
-               const vtr::FrameId &,
-               const vtr::FrameId &,
-               const vtr::VisualizationTypeEnum &)> &visualization_callback,
-      const pose_graph_optimization::OptimizationSolverParams &solver_params,
-      MainProbData &input_problem_data) {
-
-  pose_graph_optimization::ObjectVisualPoseGraphResidualParams my_residual_params = residual_params;
-  my_residual_params.visual_residual_params_.reprojection_error_huber_loss_param_ = 1.0; // Tuning
-
-  std::function<bool()> my_continue_opt_checker = continue_opt_checker;
-
-  std::function<vtr::FrameId(const vtr::FrameId &)> my_window_provider_func =
-      [](const vtr::FrameId &max_frame) -> vtr::FrameId {
-    return 0;
-  };
-
-  std::function<bool(
-      const MainFactorInfo &, const MainPgPtr &, const util::EmptyStruct &)>
-      my_refresh_residual_checker = refresh_residual_checker;
-
-  std::function<bool(
-      const MainFactorInfo &,
-      const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
-      const MainPgPtr &,
-      ceres::Problem *,
-      ceres::ResidualBlockId &,
-      util::EmptyStruct &)>
-      my_residual_creator = residual_creator;
-  
-  std::function<void(const MainProbData &, MainPgPtr &)> my_pose_graph_creator = pose_graph_creator;
-
-  std::function<void(
-      const MainProbData &, const MainPgPtr &, const vtr::FrameId &)>
-      my_frame_data_adder = frame_data_adder;
-
-  std::function<void(
-      const MainProbData &,
-      const MainPgPtr &,
-      const pose_graph_optimizer::OptimizationFactorsEnabledParams &,
-      vtr::LongTermObjectMapAndResults<MainLtm> &)>
-      my_output_data_extractor = output_data_extractor;
-
-  std::function<std::vector<std::shared_ptr<ceres::IterationCallback>>(
-      const MainProbData &,
-      const MainPgPtr &,
-      const vtr::FrameId &,
-      const vtr::FrameId &)> my_ceres_callback_creator = ceres_callback_creator;
-
-  std::function<void(const MainProbData &,
-                     const MainPgPtr &,
-                     const vtr::FrameId &,
-                     const vtr::FrameId &,
-                     const vtr::VisualizationTypeEnum &)>
-      my_visualization_callback = visualization_callback;
-  
-  pose_graph_optimization::OptimizationSolverParams my_solver_params = solver_params;
-  my_solver_params.max_num_iterations_ = 5000;
-
-  vtr::OfflineProblemRunner<MainProbData,
-                            vtr::ReprojectionErrorFactor,
-                            vtr::LongTermObjectMapAndResults<MainLtm>,
-                            util::EmptyStruct,
-                            MainPg>
-      offline_problem_runner(my_residual_params,
-                             my_continue_opt_checker,
-                             my_window_provider_func,
-                             my_refresh_residual_checker,
-                             my_residual_creator,
-                             my_pose_graph_creator,
-                             my_frame_data_adder,
-                             my_output_data_extractor,
-                             my_ceres_callback_creator,
-                             my_visualization_callback,
-                             my_solver_params);
-
-  pose_graph_optimizer::OptimizationFactorsEnabledParams
-      optimization_factors_enabled_params;
-  optimization_factors_enabled_params.use_pom_ = false;
-  optimization_factors_enabled_params.include_visual_factors_ = true;
-  optimization_factors_enabled_params.fix_poses_ = true;
-  optimization_factors_enabled_params.fix_visual_features_ = false;
-  optimization_factors_enabled_params.fix_objects_ = false;
-  optimization_factors_enabled_params.poses_prior_to_window_to_keep_constant_ = 1;
-
-  vtr::LongTermObjectMapAndResults<MainLtm> output_results;
-  bool success = offline_problem_runner.runOptimization(
-      input_problem_data, optimization_factors_enabled_params, output_results, vtr::OptimTypeEnum::STATIC);
-  if (!success) { return false; }
-
-  std::unordered_map<vtr::FeatureId, vtr::StructuredVisionFeatureTrack> visual_features_init;
-  std::unordered_map<vtr::FeatureId, vtr::StructuredVisionFeatureTrack> visual_features_est;
-  visual_features_init = input_problem_data.getVisualFeatures();
-  for (const auto& feat_id_and_feature3d : output_results.visual_feature_results_.visual_feature_positions_) {
-    const auto& feat_id = feat_id_and_feature3d.first;
-    const auto& feature3d = feat_id_and_feature3d.second;
-    if (visual_features_init.find(feat_id) != visual_features_init.end()) {
-      visual_features_est[feat_id] = visual_features_init[feat_id];
-      visual_features_est[feat_id].feature_pos_ = feature3d;
-    }
-  }
-
-  // TODO add setters instead of copying everything!
-  input_problem_data = MainProbData(input_problem_data.getCameraIntrinsicsByCamera(),
-                                    input_problem_data.getCameraExtrinsicsByCamera(),
-                                    visual_features_est,
-                                    input_problem_data.getRobotPoseEstimates(),
-                                    input_problem_data.getObjDimMeanAndCovByClass(),
-                                    input_problem_data.getBoundingBoxes(),
-                                    input_problem_data.getLongTermObjectMap(),
-                                    input_problem_data.getImages());
-
-  return true;
 }
 
 int main(int argc, char **argv) {
@@ -1820,11 +1677,13 @@ int main(int argc, char **argv) {
   if (!FLAGS_long_term_map_input.empty()) {
     cv::FileStorage ltm_in_fs(FLAGS_long_term_map_input, cv::FileStorage::READ);
     vtr::SerializableIndependentEllipsoidsLongTermObjectMap<
-        std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>,
-        vtr::SerializableMap<vtr::ObjectId,
-                             vtr::SerializableObjectId,
-                             vtr::RoshanAggregateBbInfo,
-                             vtr::SerializableRoshanAggregateBbInfo>>
+        //        std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>,
+        //        vtr::SerializableMap<vtr::ObjectId,
+        //                             vtr::SerializableObjectId,
+        //                             vtr::RoshanAggregateBbInfo,
+        //                             vtr::SerializableRoshanAggregateBbInfo>>
+        util::EmptyStruct,
+        vtr::SerializableEmptyStruct>
         serializable_ltm;
     ltm_in_fs["long_term_map"] >> serializable_ltm;
     ltm_in_fs.release();
@@ -1878,10 +1737,51 @@ int main(int argc, char **argv) {
   // Connect up functions needed for the optimizer --------------------------
   std::shared_ptr<vtr::RosVisualization> vis_manager =
       std::make_shared<vtr::RosVisualization>(node_handle);
+  //    vtr::RawEllipsoid<double> ellipsoid;
+  //    ellipsoid << -0.164291, 0.41215, -0.0594742, 79.9495, 209.015, 248.223,
+  //        0.432929, 0.450756, 2.05777;
+  //    vtr::RawPose3d<double> robot_pose;
+  //    robot_pose << 0.135177, -0.000860353, 0.0109102, 0.00145096,
+  //    -0.000676748,
+  //        -0.00533544;
+  //    vtr::EllipsoidState<double> publishable_ellipsoid =
+  //        vtr::convertToEllipsoidState(ellipsoid);
+  //    vtr::Pose3D<double> publishable_robot_pose =
+  //    vtr::convertToPose3D(robot_pose);
+  //    vis_manager->visualizeEllipsoids({{1,std::make_pair("chair",
+  //    publishable_ellipsoid)}},
+  //                                     vtr::PlotType::INITIAL, false);
+  //    for (const auto &extrinsics_entry : camera_extrinsics_by_camera) {
+  //      LOG(INFO) << "Publishing transforms for camera " <<
+  //      extrinsics_entry.first; vis_manager->publishTransformsForEachCamera(
+  //          0, {{0, publishable_robot_pose}}, camera_extrinsics_by_camera,
+  //          "init_");
+  //      LOG(INFO) << "Publishing empty image for camera " <<
+  //      extrinsics_entry.first;
+  //      vis_manager->publishLatestImageWithReprojectionResiduals(
+  //          0,
+  //          extrinsics_entry.first,
+  //          camera_intrinsics_by_camera.at(extrinsics_entry.first),
+  //          vtr::PlotType::INITIAL,
+  //          {},
+  //          {},
+  //          std::nullopt,
+  //          img_heights_and_widths.at(extrinsics_entry.first),
+  //          true);
+  //      vis_manager->visualizeFrustum(publishable_robot_pose,
+  //                            camera_intrinsics_by_camera.at(extrinsics_entry.first),
+  //                            extrinsics_entry.second,
+  //                            img_heights_and_widths.at(extrinsics_entry.first),
+  //                            vtr::PlotType::INITIAL);
+  //      LOG(INFO) << "Done with camera " << extrinsics_entry.first;
+  //    }
+  //    ros::Duration(2).sleep();
+  //    exit(1);
 
   vtr::IndependentEllipsoidsLongTermObjectMapFactorCreator<
       util::EmptyStruct,
-      std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>
+      //      std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>
+      util::EmptyStruct>
       ltm_factor_creator(long_term_map);
 
   std::function<bool()> continue_opt_checker = []() { return ros::ok(); };
@@ -1988,62 +1888,16 @@ int main(int argc, char **argv) {
                                        const vtr::CameraId &camera_id) {
         // TODO replace with thought out function once we add in the visual
         // part
-        return 5;  // Probably need to do something more sophisticated here --
+        return 2;  // Probably need to do something more sophisticated here --
                    // ORB-SLAM has a more advanced thing that I haven't looked
                    // into
       };
-  std::function<std::pair<bool, std::optional<sensor_msgs::Image::ConstPtr>>(
-      const vtr::FrameId &, const vtr::CameraId &, const MainProbData &)>
-      bb_context_retriever = [](const vtr::FrameId &frame_id,
-                                const vtr::CameraId &camera_id,
-                                const MainProbData &problem_data) {
-        //            LOG(INFO) << "Getting image for frame " << frame_id
-        //                      << " and camera " << camera_id;
-        std::optional<sensor_msgs::Image::ConstPtr> image =
-            problem_data.getImageForFrameAndCamera(frame_id, camera_id);
-        return std::make_pair(image.has_value(), image);
-      };
 
-  std::function<vtr::Covariance<double, 4>(const vtr::RawBoundingBox &,
-                                           const vtr::FrameId &,
-                                           const vtr::CameraId &,
-                                           const vtr::RoshanImageSummaryInfo &)>
-      covariance_generator = [&](const vtr::RawBoundingBox &bb,
-                                 const vtr::FrameId &,
-                                 const vtr::CameraId &camera_id,
-                                 const vtr::RoshanImageSummaryInfo &) {
-        vtr::Covariance<double, 4> initial_covariance = bounding_box_covariance;
-        // TODO make sure getting covariance order right
-        if (bb.pixel_corner_locations_.first.x() < near_edge_threshold) {
-          initial_covariance(0, 0) = image_boundary_variance;
-        }
-        if (bb.pixel_corner_locations_.first.y() < near_edge_threshold) {
-          initial_covariance(2, 2) = image_boundary_variance;
-        }
-        if (img_heights_and_widths.find(camera_id) !=
-            img_heights_and_widths.end()) {
-          std::pair<double, double> img_height_and_width =
-              img_heights_and_widths.at(camera_id);
-          if (bb.pixel_corner_locations_.second.x() >
-              (img_height_and_width.second - near_edge_threshold)) {
-            initial_covariance(1, 1) = image_boundary_variance;
-          }
-          if (bb.pixel_corner_locations_.second.y() >
-                         (img_height_and_width.first - near_edge_threshold)) {
-            initial_covariance(3, 3) = image_boundary_variance;
-          }
-        }
-
-        // TODO consider checking if bb is close to image boundary and blowing
-        // up covariance if that is the case
-        return bounding_box_covariance;
-      };
-
-  std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>
-      long_term_map_front_end_data;
-  if (long_term_map != nullptr) {
-    long_term_map->getFrontEndObjMapData(long_term_map_front_end_data);
-  }
+  //  std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>
+  //      long_term_map_front_end_data;
+  //  if (long_term_map != nullptr) {
+  //    long_term_map->getFrontEndObjMapData(long_term_map_front_end_data);
+  //  }
   std::shared_ptr<std::unordered_map<
       vtr::FrameId,
       std::unordered_map<vtr::CameraId,
@@ -2058,24 +1912,79 @@ int main(int argc, char **argv) {
                   std::unordered_map<vtr::ObjectId,
                                      std::pair<vtr::BbCornerPair<double>,
                                                std::optional<double>>>>>>();
-  vtr::RoshanBbFrontEndCreator<vtr::ReprojectionErrorFactor>
-      roshan_associator_creator(roshan_associator_params,
-                                associated_observed_corner_locations,
-                                all_observed_corner_locations_with_uncertainty,
-                                covariance_generator,
-                                long_term_map_front_end_data);
+
+  vtr::BoundingBoxCovGenParams cov_gen_params;
+  //    std::function<std::pair<bool,
+  //    std::optional<sensor_msgs::Image::ConstPtr>>(
+  //        const vtr::FrameId &, const vtr::CameraId &, const MainProbData &)>
+  //        bb_context_retriever = [](const vtr::FrameId &frame_id,
+  //                                  const vtr::CameraId &camera_id,
+  //                                  const MainProbData &problem_data) {
+  //      //            LOG(INFO) << "Getting image for frame " << frame_id
+  //      //                      << " and camera " << camera_id;
+  //      std::optional<sensor_msgs::Image::ConstPtr> image =
+  //          problem_data.getImageForFrameAndCamera(frame_id, camera_id);
+  //      return std::make_pair(image.has_value(), image);
+  //    };
+  //    vtr::RoshanBbFrontEndCreator<vtr::ReprojectionErrorFactor>
+  //        roshan_associator_creator = vtr::generateRoshanBbCreator(
+  //            associated_observed_corner_locations,
+  //            all_observed_corner_locations_with_uncertainty,
+  //            img_heights_and_widths,
+  //            cov_gen_params,
+  //            long_term_map_front_end_data);
+  //    std::function<std::shared_ptr<vtr::AbstractBoundingBoxFrontEnd<
+  //        vtr::ReprojectionErrorFactor,
+  //        vtr::RoshanAggregateBbInfo,
+  //        std::optional<sensor_msgs::Image::ConstPtr>,
+  //        vtr::RoshanImageSummaryInfo,
+  //        vtr::RoshanBbInfo,
+  //        std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>(
+  //        const MainPgPtr &, const MainProbData &)>
+  //        bb_associator_retriever =
+  //        [&](const MainPgPtr &pg, const MainProbData &input_prob) {
+  //          return roshan_associator_creator.getDataAssociator(pg);
+  //        };
+  vtr::GeometricSimilarityScorerParams geometric_similiarity_scorer_params;
+//  geometric_similiarity_scorer_params.max_merge_distance_ = 2.5;
+  std::function<std::pair<bool, vtr::FeatureBasedContextInfo>(
+      const vtr::FrameId &, const vtr::CameraId &, const MainProbData &)>
+      bb_context_retriever = [&](const vtr::FrameId &frame_id,
+                                 const vtr::CameraId &camera_id,
+                                 const MainProbData &problem_data) {
+        vtr::FeatureBasedContextInfo context;
+        bool success = false;
+        if (low_level_features_map.find(frame_id) !=
+            low_level_features_map.end()) {
+          if (low_level_features_map.at(frame_id).find(camera_id) !=
+              low_level_features_map.at(frame_id).end()) {
+            context.observed_features_ =
+                low_level_features_map.at(frame_id).at(camera_id);
+            success = true;
+          }
+        }
+        return std::make_pair(success, context);
+      };
+  vtr::FeatureBasedBoundingBoxFrontEndCreator<vtr::ReprojectionErrorFactor>
+      feature_based_associator_creator = vtr::generateFeatureBasedBbCreator(
+          associated_observed_corner_locations,
+          all_observed_corner_locations_with_uncertainty,
+          img_heights_and_widths,
+          cov_gen_params,
+          geometric_similiarity_scorer_params);
   std::function<std::shared_ptr<vtr::AbstractBoundingBoxFrontEnd<
       vtr::ReprojectionErrorFactor,
-      vtr::RoshanAggregateBbInfo,
-      std::optional<sensor_msgs::Image::ConstPtr>,
-      vtr::RoshanImageSummaryInfo,
-      vtr::RoshanBbInfo,
-      std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>>(
-      const MainPgPtr &, const MainProbData &)>
+      vtr::FeatureBasedFrontEndObjAssociationInfo,
+      vtr::FeatureBasedContextInfo,
+      vtr::FeatureBasedContextInfo,
+      vtr::FeatureBasedSingleBbContextInfo,
+      util::EmptyStruct>>(const MainPgPtr &, const MainProbData &)>
       bb_associator_retriever =
           [&](const MainPgPtr &pg, const MainProbData &input_prob) {
-            return roshan_associator_creator.getDataAssociator(pg);
+            return feature_based_associator_creator.getDataAssociator(pg);
           };
+
+  vtr::YoloBoundingBoxQuerier bb_querier(node_handle);
   std::function<bool(
       const vtr::FrameId &,
       std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>> &)>
@@ -2083,9 +1992,20 @@ int main(int argc, char **argv) {
                          std::unordered_map<vtr::CameraId,
                                             std::vector<vtr::RawBoundingBox>>
                              &bounding_boxes_by_cam) {
-        return vtr::retrievePrecomputedBoundingBoxes(
+        return bb_querier.retrieveBoundingBoxes(
             frame_id_to_query_for, input_problem_data, bounding_boxes_by_cam);
       };
+  //  std::function<bool(
+  //      const vtr::FrameId &,
+  //      std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>
+  //      &)> bb_retriever = [&](const vtr::FrameId &frame_id_to_query_for,
+  //                         std::unordered_map<vtr::CameraId,
+  //                                            std::vector<vtr::RawBoundingBox>>
+  //                             &bounding_boxes_by_cam) {
+  //        return vtr::retrievePrecomputedBoundingBoxes(
+  //            frame_id_to_query_for, input_problem_data,
+  //            bounding_boxes_by_cam);
+  //      };
   std::function<void(
       const MainProbData &, const MainPgPtr &, const vtr::FrameId &)>
       frame_data_adder = [&](const MainProbData &problem_data,
@@ -2100,12 +2020,33 @@ int main(int argc, char **argv) {
                                                bb_context_retriever);
       };
 
+  //  std::function<void(
+  //      const vtr::UnassociatedBoundingBoxOfflineProblemData<
+  //          vtr::StructuredVisionFeatureTrack,
+  //          sensor_msgs::Image::ConstPtr> &,
+  //      const std::shared_ptr<const
+  //      MainPg> &, ceres::Problem *,
+  //      vtr::SpatialEstimateOnlyResults &)>
+  //      output_data_extractor =
+  //          [](const vtr::UnassociatedBoundingBoxOfflineProblemData<
+  //                 vtr::StructuredVisionFeatureTrack,
+  //                 sensor_msgs::Image::ConstPtr> &input_problem_data,
+  //             const std::shared_ptr<
+  //                 const MainPg>
+  //                 &pose_graph,
+  //             ceres::Problem *problem,
+  //             vtr::SpatialEstimateOnlyResults &output_problem_data) {
+  //            vtr::extractSpatialEstimateOnlyResults(pose_graph,
+  //                                                   output_problem_data);
+  //          };
+
   vtr::CovarianceExtractorParams ltm_covariance_params;
 
   // TODO maybe replace params with something that will yield more accurate
   // results
   vtr::IndependentEllipsoidsLongTermObjectMapExtractor<
-      std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>
+      //      std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>
+      util::EmptyStruct>
       ltm_extractor(ltm_covariance_params,
                     residual_creator,
                     residual_params,
@@ -2123,16 +2064,24 @@ int main(int argc, char **argv) {
                                           &optimization_factors_enabled_params,
                                   vtr::LongTermObjectMapAndResults<MainLtm>
                                       &output_problem_data) {
-        std::function<bool(
-            std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo> &)>
-            front_end_map_data_extractor =
-                [&](std::unordered_map<vtr::ObjectId,
-                                       vtr::RoshanAggregateBbInfo>
-                        &front_end_data) {
-                  roshan_associator_creator.getDataAssociator(pose_graph)
-                      ->getFrontEndObjMapData(front_end_data);
-                  return true;
-                };
+        //                    std::function<bool(
+        //                        std::unordered_map<vtr::ObjectId,
+        //                        vtr::RoshanAggregateBbInfo> &)>
+        //                        front_end_map_data_extractor =
+        //                            [&](std::unordered_map<vtr::ObjectId,
+        //                                                   vtr::RoshanAggregateBbInfo>
+        //                                    &front_end_data) {
+        //                              roshan_associator_creator.getDataAssociator(pose_graph)
+        //                                  ->getFrontEndObjMapData(front_end_data);
+        //                              return true;
+        //                            };
+        std::function<bool(util::EmptyStruct &)> front_end_map_data_extractor =
+            [&](util::EmptyStruct &front_end_data) {
+              feature_based_associator_creator.getDataAssociator(pose_graph)
+                  ->getFrontEndObjMapData(front_end_data);
+              return true;
+            };
+
         std::function<bool(
             const MainPgPtr &,
             const pose_graph_optimizer::OptimizationFactorsEnabledParams &,
@@ -2147,12 +2096,12 @@ int main(int argc, char **argv) {
                       ltm_optimization_factors_enabled_params,
                       front_end_map_data_extractor,
                       ltm_extractor_out);
-                };  // TODO!
-        vtr::extractLongTermObjectMapAndResults(
-            pose_graph,
-            optimization_factors_enabled_params,
-            long_term_object_map_extractor,
-            output_problem_data);
+                };
+                vtr::extractLongTermObjectMapAndResults(
+                    pose_graph,
+                    optimization_factors_enabled_params,
+                    long_term_object_map_extractor,
+                    output_problem_data);
       };
 
   std::function<std::vector<std::shared_ptr<ceres::IterationCallback>>(
@@ -2188,7 +2137,8 @@ int main(int argc, char **argv) {
                           superclass_ptr,
                           min_frame_id,
                           max_frame_id,
-                          visualization_type);
+                          visualization_type,
+                          cov_gen_params.near_edge_threshold_);
       };
   vtr::OfflineProblemRunner<MainProbData,
                             vtr::ReprojectionErrorFactor,
@@ -2246,13 +2196,49 @@ int main(int argc, char **argv) {
   ltm_out_fs
       << "long_term_map"
       << vtr::SerializableIndependentEllipsoidsLongTermObjectMap<
-             std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>,
-             vtr::SerializableMap<vtr::ObjectId,
-                                  vtr::SerializableObjectId,
-                                  vtr::RoshanAggregateBbInfo,
-                                  vtr::SerializableRoshanAggregateBbInfo>>(
-             output_results.long_term_map_);
+             //             std::unordered_map<vtr::ObjectId,
+             //             vtr::RoshanAggregateBbInfo>,
+             //             vtr::SerializableMap<vtr::ObjectId,
+             //                                  vtr::SerializableObjectId,
+             //                                  vtr::RoshanAggregateBbInfo,
+             //                                  vtr::SerializableRoshanAggregateBbInfo>>(
+             util::EmptyStruct,
+             vtr::SerializableEmptyStruct>(output_results.long_term_map_);
   ltm_out_fs.release();
+  //  LOG(INFO) << "Num ellipsoids "
+  //            << output_results.ellipsoid_results_.ellipsoids_.size();
+
+  if (!FLAGS_bb_associations_out_file.empty()) {
+
+    cv::FileStorage bb_associations_out(FLAGS_bb_associations_out_file,
+                               cv::FileStorage::WRITE);
+    vtr::ObjectDataAssociationResults data_assoc_results;
+    data_assoc_results.ellipsoid_pose_results_ = output_results.ellipsoid_results_;
+    data_assoc_results.associated_bounding_boxes_ = *associated_observed_corner_locations;
+    bb_associations_out << "bounding_box_associations" << vtr::SerializableObjectDataAssociationResults(data_assoc_results);
+    bb_associations_out.release();
+  }
+
+  // TODO save output results somewhere
+
+  //  vtr::EllipsoidState<double> ellipsoid(
+  //      vtr::Pose3D(Eigen::Vector3d(1, 2, 3),
+  //                  Eigen::AngleAxisd(0.2, Eigen::Vector3d(0, 0, 1))),
+  //      Eigen::Vector3d(4, 5, 6));
+  //
+  //  cv::FileStorage fs("test.json", cv::FileStorage::WRITE);
+  //  fs << "ellipsoid" << vtr::SerializableEllipsoidState<double>(ellipsoid);
+  //
+  //  cv::FileStorage fs2("test.json", cv::FileStorage::READ);
+  //  vtr::SerializableEllipsoidState<double> ellipsoid_state;
+  //  fs2["ellipsoid"] >> ellipsoid_state;
+  //  LOG(INFO) << "Read ellipsoid";
+  //  LOG(INFO) << "Transl " << ellipsoid_state.getEntry().pose_.transl_;
+  //  LOG(INFO) << "Orientation angle " <<
+  //  ellipsoid_state.getEntry().pose_.orientation_.angle(); LOG(INFO) <<
+  //  "Orientation axis" <<
+  //  ellipsoid_state.getEntry().pose_.orientation_.axis(); LOG(INFO) <<
+  //  "Dimensions " << ellipsoid_state.getEntry().dimensions_;
 
   return 0;
 }

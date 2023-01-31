@@ -5,6 +5,8 @@
 #ifndef UT_VSLAM_FILE_STORAGE_IO_UTILS_H
 #define UT_VSLAM_FILE_STORAGE_IO_UTILS_H
 
+#include <base_lib/basic_utils.h>
+
 #include <opencv2/core.hpp>
 
 namespace vslam_types_refactor {
@@ -128,11 +130,13 @@ class SerializablePair : public FileStorageSerializable<
     SerializableSecondEntryType serializable_second;
     node[kFirstEntryLabel] >> serializable_first;
     node[kSecondEntryLabel] >> serializable_second;
-    data_ = std::make_pair(serializable_first.getEntry(), serializable_second.getEntry());
+    data_ = std::make_pair(serializable_first.getEntry(),
+                           serializable_second.getEntry());
   }
 
  protected:
-  using FileStorageSerializable<std::pair<FirstEntryType, SecondEntryType>>::data_;
+  using FileStorageSerializable<
+      std::pair<FirstEntryType, SecondEntryType>>::data_;
 
  private:
   inline static const std::string kFirstEntryLabel = "first";
@@ -218,6 +222,175 @@ static void read(
     SerializableVector<EntryType, SerializableEntryType> &data,
     const SerializableVector<EntryType, SerializableEntryType> &default_data =
         SerializableVector<EntryType, SerializableEntryType>()) {
+  if (node.empty()) {
+    data = default_data;
+  } else {
+    data.read(node);
+  }
+}
+
+class SerializableEmptyStruct
+    : public FileStorageSerializable<util::EmptyStruct> {
+ public:
+  SerializableEmptyStruct() : FileStorageSerializable<util::EmptyStruct>() {}
+  SerializableEmptyStruct(const util::EmptyStruct &data)
+      : FileStorageSerializable<util::EmptyStruct>(data) {}
+
+  virtual void write(cv::FileStorage &fs) const override {
+    fs << "{";
+    fs << "}";
+  }
+
+  virtual void read(const cv::FileNode &node) override {
+    // TODO verify that read inherently does take care of the {} left on write
+  }
+};
+
+static void write(cv::FileStorage &fs,
+                  const std::string &,
+                  const SerializableEmptyStruct &data) {
+  data.write(fs);
+}
+
+static void read(
+    const cv::FileNode &node,
+    SerializableEmptyStruct &data,
+    const SerializableEmptyStruct &default_data = SerializableEmptyStruct()) {
+  if (node.empty()) {
+    data = default_data;
+  } else {
+    data.read(node);
+  }
+}
+
+template <typename EntryType, typename SerializableEntryType>
+class SerializableOptional
+    : public FileStorageSerializable<std::optional<EntryType>> {
+ public:
+  SerializableOptional() : FileStorageSerializable<std::optional<EntryType>>() {}
+  SerializableOptional(const std::optional<EntryType> &data)
+      : FileStorageSerializable<std::optional<EntryType>>(data) {}
+
+  virtual void write(cv::FileStorage &fs) const override {
+    fs << "{";
+    if(data_.has_value()) {
+      fs << kHasValueLabel << 1;
+      fs << kValueLabel << SerializableEntryType(data_.value());
+    } else {
+      fs << kHasValueLabel << 0;
+    }
+    fs << "}";
+  }
+
+  virtual void read(const cv::FileNode &node) override {
+    int hasValue = node[kHasValueLabel];
+    if (hasValue == 1) {
+      SerializableEntryType serializable_entry;
+      node[kValueLabel] >> serializable_entry;
+      data_ = serializable_entry.getEntry();
+    } else if (hasValue == 0) {
+      data_ = std::nullopt;
+    } else {
+      LOG(ERROR) << "Entry for " << kHasValueLabel << " should have either been 0 or 1 but was " << hasValue << ". Exiting";
+      exit(1);
+    }
+  }
+
+ protected:
+  using FileStorageSerializable<std::optional<EntryType>>::data_;
+ private:
+  inline static const std::string kHasValueLabel = "has_value";
+  inline static const std::string kValueLabel = "value";
+
+};
+
+template <typename EntryType, typename SerializableEntryType>
+static void write(
+    cv::FileStorage &fs,
+    const std::string &,
+    const SerializableOptional<EntryType, SerializableEntryType> &data) {
+  data.write(fs);
+}
+template <typename EntryType, typename SerializableEntryType>
+static void read(
+    const cv::FileNode &node,
+    SerializableOptional<EntryType, SerializableEntryType> &data,
+    const SerializableOptional<EntryType, SerializableEntryType> &default_data =
+    SerializableOptional<EntryType, SerializableEntryType>()) {
+  if (node.empty()) {
+    data = default_data;
+  } else {
+    data.read(node);
+  }
+}
+
+class SerializableUint64 : public FileStorageSerializable<uint64_t> {
+ public:
+  SerializableUint64() : FileStorageSerializable<uint64_t>() {}
+  SerializableUint64(const uint64_t &data)
+      : FileStorageSerializable<uint64_t>(data) {}
+
+  virtual void write(cv::FileStorage &fs) const override {
+    std::string obj_id_str = std::to_string(data_);
+    fs << obj_id_str;
+  }
+
+  virtual void read(const cv::FileNode &node) override {
+    std::string obj_id_str;
+    node >> obj_id_str;
+    std::istringstream obj_id_stream(obj_id_str);
+    obj_id_stream >> data_;
+  }
+
+ protected:
+  using FileStorageSerializable<uint64_t>::data_;
+};
+
+static void write(cv::FileStorage &fs,
+                  const std::string &,
+                  const SerializableUint64 &data) {
+  data.write(fs);
+}
+
+static void read(
+    const cv::FileNode &node,
+    SerializableUint64 &data,
+    const SerializableUint64 &default_data = SerializableUint64()) {
+  if (node.empty()) {
+    data = default_data;
+  } else {
+    data.read(node);
+  }
+}
+
+class SerializableDouble : public FileStorageSerializable<double> {
+ public:
+  SerializableDouble() : FileStorageSerializable<double>() {}
+  SerializableDouble(const double &data)
+      : FileStorageSerializable<double>(data) {}
+
+  virtual void write(cv::FileStorage &fs) const override {
+    fs << data_;
+  }
+
+  virtual void read(const cv::FileNode &node) override {
+    node >> data_;
+  }
+
+ protected:
+  using FileStorageSerializable<double>::data_;
+};
+
+static void write(cv::FileStorage &fs,
+                  const std::string &,
+                  const SerializableDouble &data) {
+  data.write(fs);
+}
+
+static void read(
+    const cv::FileNode &node,
+    SerializableDouble &data,
+    const SerializableDouble &default_data = SerializableDouble()) {
   if (node.empty()) {
     data = default_data;
   } else {

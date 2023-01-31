@@ -40,7 +40,7 @@ class YoloBoundingBoxQuerier {
   }
 
   template <typename InputProblemData>
-  bool retrievePrecomputedBoundingBoxes(
+  bool retrieveBoundingBoxes(
       const FrameId &frame_to_query_for,
       const InputProblemData &input_problem_data,
       std::unordered_map<CameraId, std::vector<RawBoundingBox>>
@@ -116,9 +116,8 @@ class YoloBoundingBoxQuerier {
  private:
   constexpr const static double kWaitForServiceMaxDuration = 10;
 
-  std::string service_name_;
-
   ros::NodeHandle node_handle_;
+  std::string service_name_;
   ros::ServiceClient bounding_box_client_;
 
   bool regenerateClient() {

@@ -298,13 +298,6 @@ class UnassociatedBoundingBoxOfflineProblemData
     return bounding_boxes_;
   }
 
-  virtual std::unordered_map<
-      FrameId, 
-      std::unordered_map<CameraId, ImageType>>
-  getImages() const {
-    return images_;
-  }
-
   virtual std::optional<ImageType> getImageForFrameAndCamera(
       const FrameId& frame, const CameraId& camera) const {
     if (images_.find(frame) != images_.end()) {

@@ -9,7 +9,6 @@
 #include <refactoring/types/vslam_math_util.h>
 
 namespace vslam_types_refactor {
-
 template <typename NumType>
 void convertPoseToArray(const Pose3D<NumType> &pose,
                         RawPose3d<NumType> &raw_pose) {
@@ -29,7 +28,32 @@ RawPose3d<NumType> convertPoseToArray(const Pose3D<NumType> &pose) {
 }
 
 template <typename NumType>
+void convertYawOnlyPoseToArray(const Pose3DYawOnly<NumType> &pose,
+                               RawPose3dYawOnly<NumType> &raw_pose) {
+  raw_pose[0] = pose.transl_.x();
+  raw_pose[1] = pose.transl_.y();
+  raw_pose[2] = pose.transl_.z();
+  raw_pose[3] = pose.yaw_;
+}
+
+template <typename NumType>
+RawPose3dYawOnly<NumType> convertYawOnlyPoseToArray(
+    const Pose3DYawOnly<NumType> &pose) {
+  RawPose3dYawOnly<NumType> raw_pose;
+  convertYawOnlyPoseToArray(pose, raw_pose);
+  return raw_pose;
+}
+
+template <typename NumType>
 void extractPosition(const RawPose3d<NumType> &raw_pose,
+                     Position3d<NumType> &position) {
+  position(0) = raw_pose[0];
+  position(1) = raw_pose[1];
+  position(2) = raw_pose[2];
+}
+
+template <typename NumType>
+void extractPosition(const RawPose3dYawOnly<NumType> &raw_pose,
                      Position3d<NumType> &position) {
   position(0) = raw_pose[0];
   position(1) = raw_pose[1];
@@ -39,9 +63,14 @@ void extractPosition(const RawPose3d<NumType> &raw_pose,
 template <typename NumType>
 Position3d<NumType> extractPosition(const RawPose3d<NumType> &raw_pose) {
   Position3d<NumType> position;
-  position(0) = raw_pose[0];
-  position(1) = raw_pose[1];
-  position(2) = raw_pose[2];
+  extractPosition(raw_pose, position);
+  return position;
+}
+
+template <typename NumType>
+Position3d<NumType> extractPosition(const RawPose3dYawOnly<NumType> &raw_pose) {
+  Position3d<NumType> position;
+  extractPosition(raw_pose, position);
   return position;
 }
 
@@ -70,6 +99,20 @@ template <typename NumType>
 Pose3D<NumType> convertToPose3D(const RawPose3d<NumType> &raw_pose) {
   Pose3D<NumType> pose;
   convertToPose3D(raw_pose, pose);
+  return pose;
+}
+
+template <typename NumType>
+void convertToYawOnlyPose3D(const RawPose3dYawOnly<NumType> &raw_pose,
+                     Pose3DYawOnly<NumType> &pose) {
+  extractPosition(raw_pose, pose.transl_);
+  pose.yaw_ = raw_pose(3);
+}
+
+template <typename NumType>
+Pose3DYawOnly<NumType> convertToYawOnlyPose3D(const RawPose3dYawOnly<NumType> &raw_pose) {
+  Pose3DYawOnly<NumType> pose;
+  convertToYawOnlyPose3D(raw_pose, pose);
   return pose;
 }
 

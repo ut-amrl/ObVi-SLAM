@@ -160,8 +160,8 @@ if __name__ == '__main__':
     if output_path == None:
         print("missing dataset_path or output_path")
         exit(1)
-    print("input_path",   input_path)
-    print("output_path",  output_path)
+    print("input_path", input_path)
+    print("output_path", output_path)
     print("dataset_path", dataset_path)
     filenames_dict = defaultdict(list)
     for filename in os.listdir(input_path):
@@ -181,7 +181,7 @@ if __name__ == '__main__':
         modified_frame_id = frame_id - minFrameId
         fps_list = []
         for filename in filenames:
-            fp = open(os.path.join(input_path, filename), "r")
+            fp = open(input_path + filename, "r")
             if fp.closed:
                 print("cannot open file " + input_path + filename)  # FIXME
             fps_list.append(fp)
