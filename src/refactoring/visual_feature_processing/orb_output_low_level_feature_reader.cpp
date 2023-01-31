@@ -43,6 +43,7 @@ bool OrbOutputLowLevelFeatureReader::loadData() {
       std::unordered_map<FrameId,
                          std::unordered_map<CameraId, PixelCoord<double>>>>
       feature_obs;
+  std::unordered_map<FeatureId, uint64_t> feature_observation_count;
   for (const auto &frame_data : single_frame_feature_observations) {
     FrameId frame = frame_data.first;
     for (const auto &feat_id_to_feat_obs : frame_data.second.features_) {
@@ -52,16 +53,23 @@ bool OrbOutputLowLevelFeatureReader::loadData() {
       // want to consider merging instead of setting equal to
       feature_obs[feat_id_to_feat_obs.first][frame] =
           feat_id_to_feat_obs.second;
+      feature_observation_count[feat_id_to_feat_obs.first] =
+          feature_observation_count[feat_id_to_feat_obs.first] + 1;
     }
   }
+  LOG(INFO) << "Num features before cleaning " << feature_obs.size();
+  for (const auto &feat_and_num_obs : feature_observation_count) {
+    if (feat_and_num_obs.second == 1) {
+      feature_obs.erase(feat_and_num_obs.first);
+    }
+  }
+  LOG(INFO) << "Num features after cleaning " << feature_obs.size();
 
   for (const auto &initial_feature_estimates :
        feature_file_contents.feature_initial_position_estimates_) {
     FeatureId feat_id = initial_feature_estimates.first;
     Position3d<double> initial_est_for_feat = initial_feature_estimates.second;
     if (feature_obs.find(feat_id) == feature_obs.end()) {
-//      LOG(WARNING) << "Found initial feature estimate for feature " << feat_id
-//                   << " but no observations; discarding";
       continue;
     }
     std::unordered_map<FrameId,
@@ -105,8 +113,6 @@ bool OrbOutputLowLevelFeatureReader::loadData() {
     }
 
     if (!has_obs) {
-//      LOG(WARNING) << "Found initial feature estimate for feature " << feat_id
-//                   << " but no observations; discarding";
       continue;
     }
 
