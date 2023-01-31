@@ -19,6 +19,7 @@ struct FeatureBasedFrontEndObjAssociationInfo {
       std::unordered_map<CameraId, std::unordered_set<FeatureId>>>
       observed_feats_;
   double max_confidence_;
+  bool ready_for_merge = false;
 };
 
 struct FeatureBasedSingleBbContextInfo {
@@ -215,7 +216,6 @@ class FeatureBasedBoundingBoxFrontEnd
           &association_info_to_merge_in,
       FeatureBasedFrontEndObjAssociationInfo &association_info_to_update)
       override {
-    LOG(INFO) << "Merging association info objects";
     association_info_to_update.max_confidence_ =
         std::max(association_info_to_update.max_confidence_,
                  association_info_to_merge_in.max_confidence_);
@@ -585,6 +585,27 @@ class FeatureBasedBoundingBoxFrontEnd
             association_info;
       }
     }
+    for (size_t pending_obj_id = 0;
+         pending_obj_id <
+         FeatureBasedBoundingBoxFrontEnd::uninitialized_object_info_.size();
+         pending_obj_id++) {
+      if (rough_initial_estimates.find(pending_obj_id) !=
+          rough_initial_estimates.end()) {
+        continue;
+      }
+      UninitializedEllispoidInfo<FeatureBasedFrontEndObjAssociationInfo>
+          uninitialized_obj_data = FeatureBasedBoundingBoxFrontEnd::
+              uninitialized_object_info_[pending_obj_id];
+      if (uninitialized_obj_data.appearance_info_.ready_for_merge) {
+        if (uninitialized_obj_data.appearance_info_.object_estimate_
+                .has_value()) {
+          rough_initial_estimates[pending_obj_id] =
+              uninitialized_obj_data.appearance_info_.object_estimate_.value();
+          uninitialized_obj_info_for_pending_objs[pending_obj_id] =
+              uninitialized_obj_data;
+        }
+      }
+    }
     std::unordered_map<ObjectId, EllipsoidState<double>>
         refined_initial_estimates = refineInitialEstimateForPendingObjects(
             rough_initial_estimates,
@@ -596,6 +617,17 @@ class FeatureBasedBoundingBoxFrontEnd
           [pending_obj_initial_est.first]
               .appearance_info_.object_estimate_ =
           pending_obj_initial_est.second;
+      UninitializedEllispoidInfo<FeatureBasedFrontEndObjAssociationInfo>
+          association_info = FeatureBasedBoundingBoxFrontEnd::
+              uninitialized_object_info_[pending_obj_initial_est.first];
+      FeatureBasedBoundingBoxFrontEnd::uninitialized_object_info_
+          [pending_obj_initial_est.first]
+              .appearance_info_.ready_for_merge =
+          (association_info.observation_factors_.size() >=
+           association_params_.min_observations_for_local_est_) &&
+          (association_info.appearance_info_.max_confidence_ >=
+           association_params_.required_min_conf_for_initialization) &&
+          (association_info.appearance_info_.object_estimate_.has_value());
     }
   }
 
@@ -606,27 +638,63 @@ class FeatureBasedBoundingBoxFrontEnd
       const std::string &semantic_class,
       const bool &already_init,
       vslam_types_refactor::EllipsoidState<double> &ellipsoid_est) override {
-    if (factors.empty()) {
-      return NOT_INITIALIZED;
-    }
-    if (association_params_.min_observations_for_local_est_ > factors.size()) {
-      return NOT_INITIALIZED;
-    }
-    if (association_params_.required_min_conf_for_initialization >
-        association_info.max_confidence_) {
+    if (!association_info.ready_for_merge) {
       return NOT_INITIALIZED;
     }
 
-    if (!association_info.object_estimate_.has_value()) {
-      LOG(WARNING) << "No initial value for otherwise possible new ellipsoid";
-      return NOT_INITIALIZED;
-    }
     ellipsoid_est = association_info.object_estimate_.value();
     if (factors.size() < association_params_.min_observations_) {
       return ENOUGH_VIEWS_FOR_MERGE;
     } else {
       return SUFFICIENT_VIEWS_FOR_NEW;
     }
+  }
+
+  virtual std::vector<ObjectId> mergeExistingPendingObjects() {
+    std::unordered_map<
+        ObjectId,
+        std::pair<ObjectInitializationStatus, EllipsoidState<double>>>
+        mergable_objects_and_ests;
+    for (ObjectId pending_obj_id = 0;
+         pending_obj_id <
+         FeatureBasedBoundingBoxFrontEnd::uninitialized_object_info_.size();
+         pending_obj_id++) {
+      UninitializedEllispoidInfo<FeatureBasedFrontEndObjAssociationInfo>
+          pending_obj = FeatureBasedBoundingBoxFrontEnd::
+              uninitialized_object_info_[pending_obj_id];
+
+      // See if there are enough views to merge or create
+      if (pending_obj.appearance_info_.ready_for_merge) {
+        // If enough views to merge or enough views for full object add to
+        // later processing list
+        mergable_objects_and_ests[pending_obj_id] = std::make_pair(
+            ENOUGH_VIEWS_FOR_MERGE,
+            pending_obj.appearance_info_.object_estimate_.value());
+      }
+    }
+    LOG(INFO) << mergable_objects_and_ests.size()
+              << " pending objects that have enough views for merge";
+
+    std::vector<std::pair<ObjectId, ObjectId>>
+        pending_and_initialized_objects_to_merge;
+    std::vector<std::pair<ObjectId, EllipsoidState<double>>>
+        pending_objects_to_add;
+    searchForObjectMerges(mergable_objects_and_ests,
+                          {},
+                          pending_and_initialized_objects_to_merge,
+                          pending_objects_to_add);
+    if (!pending_objects_to_add.empty()) {
+      LOG(WARNING) << "When searching through pending objects not modified "
+                      "that should be added, found objects that should be "
+                      "added. This probably shouldn't happen";
+    }
+    LOG(INFO) << "Merging " << pending_and_initialized_objects_to_merge.size()
+              << " pending objects";
+
+    std::vector<ObjectId> merged_indices =
+        FeatureBasedBoundingBoxFrontEnd::mergePending(
+            pending_and_initialized_objects_to_merge);
+    return merged_indices;
   }
 
   virtual void searchForObjectMerges(
@@ -696,6 +764,14 @@ class FeatureBasedBoundingBoxFrontEnd
       }
 
       // If existing object is already matched to, skip it
+      // TODO this doesn't actually work when we're searching through the
+      // existing objects, but we'd have to search through all of the bounding
+      // boxes to see if there are any that are in the same frame, which seems a
+      // bit expensive to verify here, so leaving it as is for now, and using
+      // the fact that each pending object will be revisited on each round, so
+      // it should eventually merge all in
+      // TODO -- could also put merge pending in a loop until there are none to
+      // merge.
       if (newly_matched_existing_objects.find(
               merge_pair_and_score.first.second) !=
           newly_matched_existing_objects.end()) {
