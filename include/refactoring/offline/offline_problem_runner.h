@@ -132,7 +132,11 @@ class OfflineProblemRunner {
       optimization_scope_params.min_frame_id_ = start_opt_with_frame;
       optimization_scope_params.max_frame_id_ = next_frame_id;
 
+      // Phase I
       LOG(INFO) << "Building optimization";
+      std::unordered_map<vslam_types_refactor::FactorType,
+          std::unordered_map<vslam_types_refactor::FeatureFactorId,
+              ceres::ResidualBlockId>> current_residual_block_info = 
       optimizer_.buildPoseGraphOptimization(
           optimization_scope_params, residual_params_, pose_graph, &problem);
 
@@ -145,19 +149,71 @@ class OfflineProblemRunner {
           ceres_callback_creator_(
               problem_data, pose_graph, start_opt_with_frame, next_frame_id);
       LOG(INFO) << "Solving optimization";
-      bool opt_success = optimizer_.solveOptimization(
-          &problem, solver_params_, ceres_callbacks);
+      std::unordered_map<ceres::ResidualBlockId, double> 
+              block_ids_and_residuals;
+      if (!optimizer_.solveOptimization(
+              &problem, solver_params_, ceres_callbacks, &block_ids_and_residuals)) {
+        // TODO do we want to quit or just silently let this iteration fail?
+        LOG(ERROR) << "Phase I Optimization failed at max frame id " 
+                   << next_frame_id;
+        return false;
+      }
+
+      // modify structure of current_residual_block_info for constant time lookup
+      std::unordered_map<ceres::ResidualBlockId,
+          std::pair<FactorType, FeatureFactorId>> block_ids_and_factor_sets;
+      for (const auto &factor_type_and_block_info : current_residual_block_info) {
+        const auto &factor_type = factor_type_and_block_info.first;
+        for (const auto &factor_id_and_block_id : factor_type_and_block_info.second) {
+          const auto &factor_id = factor_id_and_block_id.first;
+          const auto &block_id  = factor_id_and_block_id.second;
+          block_ids_and_factor_sets[block_id] 
+              = std::make_pair(factor_type, factor_id);
+        }
+      }
+
+      // use map sort block ids by their corresponding residuals
+      std::map<double, ceres::ResidualBlockId, std::greater<double>> 
+          ordered_residuals_and_block_ids;
+      for (const auto &block_id_and_residual : block_ids_and_residuals) {
+        ordered_residuals_and_block_ids
+            .insert({block_id_and_residual.second, 
+                     block_id_and_residual.first});
+      }
+      // build excluded_feature_factor_types_and_ids
+      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>> 
+          excluded_feature_factor_types_and_ids;
+      size_t n_outliers = (size_t)
+          (ordered_residuals_and_block_ids.size() * 
+            solver_params_.feature_outlier_percentage);
+      auto it = ordered_residuals_and_block_ids.begin();
+      for (size_t i = 0; i < n_outliers; ++i) {
+        const ceres::ResidualBlockId& block_id = it->second;
+        excluded_feature_factor_types_and_ids
+            .insert(block_ids_and_factor_sets.at(block_id));
+        ++it;
+      }
+
+      optimizer_.buildPoseGraphOptimization(
+              optimization_scope_params, 
+              residual_params_, 
+              pose_graph, 
+              &problem,
+              excluded_feature_factor_types_and_ids);
+      
+      if (!optimizer_.solveOptimization(
+              &problem, solver_params_, ceres_callbacks, nullptr)) {
+        // TODO do we want to quit or just silently let this iteration fail?
+        LOG(ERROR) << "Phase II Optimization failed at max frame id " 
+                   << next_frame_id;
+        return false;
+      }
 
       visualization_callback_(problem_data,
                               pose_graph,
                               start_opt_with_frame,
                               next_frame_id,
                               VisualizationTypeEnum::AFTER_EACH_OPTIMIZATION);
-      if (!opt_success) {
-        // TODO do we want to quit or just silently let this iteration fail?
-        LOG(ERROR) << "Optimization failed at max frame id " << next_frame_id;
-        return false;
-      }
     }
 
     visualization_callback_(problem_data,
