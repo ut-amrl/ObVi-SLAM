@@ -19,8 +19,8 @@ template <typename CachedInfo>
 class AbsLongTermMapFactorCreator {
  public:
   virtual bool getFactorsToInclude(
-      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>> &ltm_factors)
-      const = 0;
+      util::BoostHashMap<std::pair<FactorType, FeatureFactorId>,
+                         std::unordered_set<ObjectId>> &ltm_factors) const = 0;
 
   virtual bool createResidual(
       const std::pair<vslam_types_refactor::FactorType,
@@ -40,9 +40,10 @@ class AbsLongTermMapFactorCreator {
       ceres::ResidualBlockId &residual_id,
       CachedInfo &cached_info) const = 0;
 
-  virtual bool getObjectIdsForFactor(const FactorType &factor_type,
-                                    const FeatureFactorId &factor_id,
-                                    std::unordered_set<ObjectId> &object_ids) = 0;
+  virtual bool getObjectIdsForFactor(
+      const FactorType &factor_type,
+      const FeatureFactorId &factor_id,
+      std::unordered_set<ObjectId> &object_ids) = 0;
 };
 
 struct PairwiseCovarianceLongTermMapFactorData {
@@ -92,13 +93,15 @@ class PairwiseCovarianceLongTermObjectMapFactorCreator
   }
 
   virtual bool getFactorsToInclude(
-      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>> &ltm_factors)
+      util::BoostHashMap<std::pair<FactorType, FeatureFactorId>,
+                         std::unordered_set<ObjectId>> &ltm_factors)
       const override {
     for (const auto &factor_entry : factor_data_) {
       FactorType factor_type = factor_entry.first;
       for (const auto &feature_entry : factor_entry.second) {
         FeatureFactorId feature_id = feature_entry.first;
-        ltm_factors.insert(std::make_pair(factor_type, feature_id));
+        ltm_factors[std::make_pair(factor_type, feature_id)] = {
+            feature_entry.second.obj_1_, feature_entry.second.obj_2_};
       }
     }
     return true;
@@ -175,16 +178,16 @@ class PairwiseCovarianceLongTermObjectMapFactorCreator
     return true;
   }
 
-  virtual bool getObjectIdsForFactor(const FactorType &factor_type,
-                                    const FeatureFactorId &factor_id,
-                                    std::unordered_set<ObjectId> &object_ids) override {
+  virtual bool getObjectIdsForFactor(
+      const FactorType &factor_type,
+      const FeatureFactorId &factor_id,
+      std::unordered_set<ObjectId> &object_ids) override {
     if (factor_data_.find(factor_type) == factor_data_.end()) {
       LOG(ERROR) << "Could not find factor type " << factor_type
                  << " when creating residual.";
       return false;
     }
-    std::unordered_map<FeatureFactorId,
-        PairwiseCovarianceLongTermMapFactorData>
+    std::unordered_map<FeatureFactorId, PairwiseCovarianceLongTermMapFactorData>
         features_for_factor_type = factor_data_.at(factor_type);
     if (features_for_factor_type.find(factor_id) ==
         features_for_factor_type.end()) {
@@ -234,13 +237,15 @@ class IndependentEllipsoidsLongTermObjectMapFactorCreator
   }
 
   virtual bool getFactorsToInclude(
-      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>> &ltm_factors)
+      util::BoostHashMap<std::pair<FactorType, FeatureFactorId>,
+                         std::unordered_set<ObjectId>> &ltm_factors)
       const override {
     for (const auto &factor_entry : factor_data_) {
       FactorType factor_type = factor_entry.first;
       for (const auto &feature_entry : factor_entry.second) {
         FeatureFactorId feature_id = feature_entry.first;
-        ltm_factors.insert(std::make_pair(factor_type, feature_id));
+        ltm_factors[std::make_pair(factor_type, feature_id)] = {
+            feature_entry.second.obj_id_};
       }
     }
     return true;
@@ -305,9 +310,10 @@ class IndependentEllipsoidsLongTermObjectMapFactorCreator
     return true;
   }
 
-  virtual bool getObjectIdsForFactor(const FactorType &factor_type,
-                                    const FeatureFactorId &factor_id,
-                                    std::unordered_set<ObjectId> &object_ids) override {
+  virtual bool getObjectIdsForFactor(
+      const FactorType &factor_type,
+      const FeatureFactorId &factor_id,
+      std::unordered_set<ObjectId> &object_ids) override {
     if (factor_data_.find(factor_type) == factor_data_.end()) {
       LOG(ERROR) << "Could not find factor type " << factor_type
                  << " when creating residual.";
@@ -326,6 +332,7 @@ class IndependentEllipsoidsLongTermObjectMapFactorCreator
     IndependentEllipsoidsLongTermMapFactorData factor_entry =
         features_for_factor_type.at(factor_id);
     object_ids.insert(factor_entry.obj_id_);
+    return true;
   }
 
  private:

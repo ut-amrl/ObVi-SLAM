@@ -211,8 +211,9 @@ bool checkFactorRefresh(const MainFactorInfo &factor,
 
 void createPoseGraph(
     const MainProbData &input_problem_data,
-    const std::function<bool(util::BoostHashSet<MainFactorInfo> &)>
-        &long_term_map_factor_provider,
+    const std::function<bool(
+        util::BoostHashMap<MainFactorInfo, std::unordered_set<vtr::ObjectId>>
+            &)> &long_term_map_factor_provider,
     MainPgPtr &pose_graph) {
   std::unordered_map<vtr::ObjectId,
                      std::pair<std::string, vtr::RawEllipsoid<double>>>
@@ -976,9 +977,9 @@ int main(int argc, char **argv) {
                                        cached_info);
           };
 
-  std::function<bool(util::BoostHashSet<MainFactorInfo> &)>
+  std::function<bool(util::BoostHashMap<MainFactorInfo, std::unordered_set<vtr::ObjectId>> &)>
       long_term_map_factor_provider =
-          [&](util::BoostHashSet<MainFactorInfo> &factor_data) {
+          [&](util::BoostHashMap<MainFactorInfo, std::unordered_set<vtr::ObjectId>> &factor_data) {
             return ltm_factor_creator.getFactorsToInclude(factor_data);
           };
   std::function<void(const MainProbData &, MainPgPtr &)> pose_graph_creator =
@@ -1188,6 +1189,7 @@ int main(int argc, char **argv) {
           exit(1);
         }
         object_id = *obj_ids.begin();
+        return true;
       };
 
   vtr::IndependentEllipsoidsLongTermObjectMapExtractor<
