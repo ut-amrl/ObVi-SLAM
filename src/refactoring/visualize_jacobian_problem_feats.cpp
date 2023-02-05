@@ -103,6 +103,8 @@ int main(int argc, char **argv) {
                           vtr::SerializableGenericFactorInfo>
       serializable_factors;
 
+  LOG(INFO) << "Reading jacobian param/residual info from "
+            << FLAGS_jacobian_residual_info_file;
   cv::FileStorage jacobian_info_fs(FLAGS_jacobian_residual_info_file,
                                    cv::FileStorage::READ);
   jacobian_info_fs["jacobian_param_block_info"] >> serializable_param_info;
@@ -114,6 +116,8 @@ int main(int argc, char **argv) {
 
   std::vector<int> problem_columns;
 
+  LOG(INFO) << "Reading problem features from "
+            << FLAGS_problem_feats_matlab_file;
   std::ifstream file_obj(FLAGS_problem_feats_matlab_file);
   std::string line;
   while (std::getline(file_obj, line)) {
@@ -130,8 +134,12 @@ int main(int argc, char **argv) {
     vtr::ParameterBlockInfo param_block =
         parameter_block_infos[problem_feat_index];
     if (!param_block.feature_id_.has_value()) {
-      LOG(INFO) << "No feature id for the param block. Assumptions about param "
-                   "block ordering mustve been wrong";
+      LOG(INFO) << "Problem column (MATLAB): " << problem_column + 1;
+      LOG(INFO)
+          << "No feature id for the param block with problem feature index "
+          << problem_feat_index
+          << ". Assumptions about param "
+             "block ordering mustve been wrong";
       exit(1);
     }
     problem_features.insert(param_block.feature_id_.value());
@@ -154,9 +162,9 @@ int main(int argc, char **argv) {
     for (const auto &feat_obs_by_frame :
          feature_track.second.feature_track.feature_observations_) {
       vtr::FrameId frame_id = feat_obs_by_frame.first;
-      if (frame_id > 25) {
-        continue;
-      }
+      //      if (frame_id > 25) {
+      //        continue;
+      //      }
       for (const auto &feat_obs_for_cam :
            feat_obs_by_frame.second.pixel_by_camera_id) {
         vtr::CameraId cam_id = feat_obs_for_cam.first;
@@ -186,6 +194,8 @@ int main(int argc, char **argv) {
         vtr::FrameId,
         std::unordered_map<vtr::CameraId, vtr::PixelCoord<double>>>
         observations_for_feat = low_level_features_map[feat_id];
+    LOG(INFO) << "Feat " << feat_id << " observed in "
+              << low_level_features_map.size() << " frames";
 
     std::vector<cv::Mat> images_for_feat;
     for (vtr::FrameId frame = 0; frame <= max_frame_id; frame++) {
@@ -224,12 +234,16 @@ int main(int argc, char **argv) {
         images_for_feat.emplace_back(cv_ptr->image);
       }
     }
+    LOG(INFO) << "Writing images for feat " << feat_id << " to "
+              << FLAGS_images_out_dir;
     if (!images_for_feat.empty()) {
       cv::Mat image_mosaic = vtr::generateMosaic(images_for_feat, 4);
       cv::imwrite(
           file_io::ensureDirectoryPathEndsWithSlash(FLAGS_images_out_dir) +
               "feat_" + std::to_string(feat_id) + ".png",
           image_mosaic);
+    } else {
+      LOG(INFO) << "Images for feat was empty?";
     }
   }
 
@@ -251,7 +265,13 @@ int main(int argc, char **argv) {
       exit(1);
     }
 
-    for (const vtr::FeatureId &feat_id : problem_features) {
+    std::vector<vtr::FeatureId> sorted_ids;
+    for (const vtr::FeatureId &feat : problem_features) {
+      sorted_ids.push_back(feat);
+    }
+    std::sort(sorted_ids.begin(), sorted_ids.end());
+
+    for (const vtr::FeatureId &feat_id : sorted_ids) {
       if (visual_feature_positions.find(feat_id) ==
           visual_feature_positions.end()) {
         LOG(WARNING) << "No visual feature estimate found for " << feat_id;

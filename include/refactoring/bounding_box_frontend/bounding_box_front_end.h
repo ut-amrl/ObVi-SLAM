@@ -101,7 +101,6 @@ class AbstractBoundingBoxFrontEnd {
                             filtered_bounding_boxes,
                             bb_context,
                             refined_context);
-    LOG(INFO) << "Generating appearance infos";
 
     std::vector<SingleBbContextInfo> single_bb_appearance_infos;
     for (const RawBoundingBox &bb : filtered_bounding_boxes) {
@@ -110,7 +109,6 @@ class AbstractBoundingBoxFrontEnd {
               bb, frame_id, camera_id, refined_context));
     }
 
-    LOG(INFO) << "Generating assignments";
     // Get info from current box needed for association
     // Get associations
     std::vector<AssociatedObjectIdentifier> bounding_box_assignments;
@@ -120,8 +118,6 @@ class AbstractBoundingBoxFrontEnd {
                               refined_context,
                               single_bb_appearance_infos,
                               bounding_box_assignments);
-
-    LOG(INFO) << "Generating Update the association info";
 
     // Add bbs and update the association info with the context for this bb
     for (size_t bb_index = 0; bb_index < bounding_box_assignments.size();
@@ -189,9 +185,7 @@ class AbstractBoundingBoxFrontEnd {
       }
     }
 
-    LOG(INFO) << "Initialize estimates";
     setupInitialEstimateGeneration(bounding_box_assignments);
-    LOG(INFO) << "Done setting up initial estimate generation";
     // Initialize or refine estimates
     // For each object, add information and either initialize, delay
     // initialization (until we have more information, or refine estimate (if
@@ -255,36 +249,13 @@ class AbstractBoundingBoxFrontEnd {
                           pending_and_initialized_objects_to_merge,
                           pending_objects_to_add);
 
-    LOG(INFO) << "Merging/adding objects";
-    for (const std::pair<ObjectId, ObjectId> &merge_obj :
-         pending_and_initialized_objects_to_merge) {
-      ObjectId pending_obj_id = merge_obj.first;
-      ObjectId obj_to_merge_with_id = merge_obj.second;
-
-      LOG(INFO) << "Merging pending object into  " << obj_to_merge_with_id;
-      UninitializedEllispoidInfo<ObjectAssociationInfo> uninitialized_bb_info =
-          uninitialized_object_info_[pending_obj_id];
-
-      // Merge observed bounding boxes from the pending one with the existing
-      // object it should be merged with
-      for (const UninitializedObjectFactor &bb_factor :
-           uninitialized_bb_info.observation_factors_) {
-        addObservationForObject(bb_factor.frame_id_,
-                                bb_factor.camera_id_,
-                                obj_to_merge_with_id,
-                                bb_factor.bounding_box_corners_,
-                                bb_factor.bounding_box_corners_covariance_,
-                                bb_factor.detection_confidence_);
-      }
-      // Merge the association info for the objects
-      mergeObjectAssociationInfo(
-          uninitialized_bb_info.appearance_info_,
-          object_appearance_info_.at(obj_to_merge_with_id));
-      added_pending_object_indices.emplace_back(pending_obj_id);
-    }
+    std::vector<ObjectId> merged_indices =
+        mergePending(pending_and_initialized_objects_to_merge);
+    added_pending_object_indices.insert(added_pending_object_indices.end(),
+                                        merged_indices.begin(),
+                                        merged_indices.end());
     for (const std::pair<ObjectId, EllipsoidState<double>> &add_obj :
          pending_objects_to_add) {
-      LOG(INFO) << "Adding new object";
       ObjectId pending_obj_id = add_obj.first;
 
       UninitializedEllispoidInfo<ObjectAssociationInfo> uninitialized_bb_info =
@@ -310,7 +281,6 @@ class AbstractBoundingBoxFrontEnd {
       }
       added_pending_object_indices.emplace_back(pending_obj_id);
     }
-    LOG(INFO) << "Remove added objects from pending list";
     // Sort the objects that just have been added to the pose graph in
     // descending order and delete them from the uninitialized objects list
     // Descending order needed so the indices to delete don't change as
@@ -320,6 +290,17 @@ class AbstractBoundingBoxFrontEnd {
               std::greater<size_t>());
     for (const size_t &pending_init_object_index :
          added_pending_object_indices) {
+      uninitialized_object_info_.erase(uninitialized_object_info_.begin() +
+                                       pending_init_object_index);
+    }
+
+    std::vector<ObjectId> merged_existing_pending_object_indices =
+        mergeExistingPendingObjects();
+    std::sort(merged_existing_pending_object_indices.begin(),
+              merged_existing_pending_object_indices.end(),
+              std::greater<size_t>());
+    for (const size_t &pending_init_object_index :
+         merged_existing_pending_object_indices) {
       uninitialized_object_info_.erase(uninitialized_object_info_.begin() +
                                        pending_init_object_index);
     }
@@ -349,6 +330,40 @@ class AbstractBoundingBoxFrontEnd {
 
   std::unordered_map<vslam_types_refactor::ObjectId, ObjectAssociationInfo>
       object_appearance_info_;
+
+  virtual std::vector<ObjectId> mergePending(
+      const std::vector<std::pair<ObjectId, ObjectId>>
+          &pending_and_initialized_objects_to_merge) {
+    std::vector<ObjectId> merged_indices;
+    for (const std::pair<ObjectId, ObjectId> &merge_obj :
+         pending_and_initialized_objects_to_merge) {
+      ObjectId pending_obj_id = merge_obj.first;
+      ObjectId obj_to_merge_with_id = merge_obj.second;
+
+      UninitializedEllispoidInfo<ObjectAssociationInfo> uninitialized_bb_info =
+          uninitialized_object_info_[pending_obj_id];
+
+      // Merge observed bounding boxes from the pending one with the existing
+      // object it should be merged with
+      for (const UninitializedObjectFactor &bb_factor :
+           uninitialized_bb_info.observation_factors_) {
+        addObservationForObject(bb_factor.frame_id_,
+                                bb_factor.camera_id_,
+                                obj_to_merge_with_id,
+                                bb_factor.bounding_box_corners_,
+                                bb_factor.bounding_box_corners_covariance_,
+                                bb_factor.detection_confidence_);
+      }
+      // Merge the association info for the objects
+      mergeObjectAssociationInfo(
+          uninitialized_bb_info.appearance_info_,
+          object_appearance_info_.at(obj_to_merge_with_id));
+      merged_indices.emplace_back(pending_obj_id);
+    }
+    return merged_indices;
+  }
+
+  virtual std::vector<ObjectId> mergeExistingPendingObjects() = 0;
 
   virtual void updateAppearanceInfoWithObjectIdAssignmentAndInitialization(
       const ObjectId &obj_id,
@@ -532,12 +547,16 @@ class KnownAssociationsOptionalEllipsoidEstBoundingBoxFrontEnd
   }
 
  protected:
+  virtual std::vector<ObjectId> mergeExistingPendingObjects() override {
+    return {};
+  }
+
   virtual std::vector<RawBoundingBox> filterBoundingBoxes(
       const FrameId &frame_id,
       const CameraId &camera_id,
       const std::vector<RawBoundingBox> &original_bounding_boxes) override {
     return original_bounding_boxes;
-  };
+  }
 
   virtual void updateAppearanceInfoWithObjectIdAssignmentAndInitialization(
       const ObjectId &obj_id,
@@ -821,20 +840,17 @@ class AbstractUnknownDataAssociationBbFrontEnd
       RawBoundingBox bb = bounding_boxes[i];
       SingleBbContextInfo bb_context = indiv_bb_contexts[i];
 
-      LOG(INFO) << "Identifying candidates";
       // For each bounding box, identify candidates
       std::vector<std::pair<AssociatedObjectIdentifier, CandidateInfo>>
           candidates =
               identifyCandidateMatches(frame_id, camera_id, bb, bb_context);
 
-      LOG(INFO) << "Prune candidates";
       // For each bounding box, prune candidates using geometric checks
       candidates = pruneCandidateMatches(
           frame_id, camera_id, bb, candidates, bb_context);
 
       // For each bounding box, calculate data association scores for each
       // candidate
-      LOG(INFO) << "Calculate scores";
       for (const std::pair<AssociatedObjectIdentifier, CandidateInfo>
                &candidate : candidates) {
         double score =
@@ -849,7 +865,6 @@ class AbstractUnknownDataAssociationBbFrontEnd
       match_candidates_with_scores.emplace_back(candidates_with_scores_for_bb);
     }
 
-    LOG(INFO) << "Assign objects";
     // Assign bounding boxes to objects/uninitialized objects based on
     // scores/determine which need new bbs
     bounding_box_assignments =

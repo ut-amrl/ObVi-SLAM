@@ -14,7 +14,7 @@ namespace vslam_types_refactor {
 struct BoundingBoxCovGenParams {
   Covariance<double, 4> bounding_box_cov_ =
       createDiagCovFromStdDevs(Eigen::Vector4d(30, 30, 30, 30));
-  double near_edge_threshold_ = 25; // TODO tune
+  double near_edge_threshold_ = 25;                   // TODO tune
   double image_boundary_variance_ = pow(200.0, 2.0);  // TODO tune
 };
 
@@ -129,15 +129,18 @@ generateFeatureBasedBbCreator(
                            std::vector<std::pair<BbCornerPair<double>,
                                                  std::optional<double>>>>>>
         &all_observed_corner_locations_with_uncertainty,
+    const std::shared_ptr<std::vector<std::unordered_map<
+        FrameId,
+        std::unordered_map<CameraId, std::pair<BbCornerPair<double>, double>>>>>
+        &bounding_boxes_for_pending_object,
+    const std::shared_ptr<std::vector<
+        std::pair<std::string, std::optional<EllipsoidState<double>>>>>
+        &pending_objects,
     const std::unordered_map<CameraId, std::pair<double, double>>
         &img_heights_and_widths,
     const BoundingBoxCovGenParams &bb_cov_gen_params,
-    const GeometricSimilarityScorerParams &similarity_scorer_params) {
-  // Configurable params ------------------------------------------------------
-  FeatureBasedBbAssociationParams association_params;  // TODO populate
-  association_params.discard_candidate_after_num_frames_ = 40;
-  association_params.feature_validity_window_ = 20;
-
+    const GeometricSimilarityScorerParams &similarity_scorer_params,
+    const FeatureBasedBbAssociationParams &association_params) {
   std::function<bool(
       const EllipsoidState<double> &, const EllipsoidState<double> &, double &)>
       geometric_similarity_scorer =
@@ -165,7 +168,9 @@ generateFeatureBasedBbCreator(
           img_heights_and_widths, bb_cov_gen_params),
       geometric_similarity_scorer,
       all_observed_corner_locations_with_uncertainty,
-      associated_observed_corner_locations);
+      associated_observed_corner_locations,
+      bounding_boxes_for_pending_object,
+      pending_objects);
 }
 
 }  // namespace vslam_types_refactor

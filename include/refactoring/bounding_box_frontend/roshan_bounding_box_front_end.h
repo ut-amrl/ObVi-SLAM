@@ -123,6 +123,10 @@ class RoshanBbFrontEnd
   }
 
  protected:
+  virtual std::vector<ObjectId> mergeExistingPendingObjects() override {
+    return {};
+  }
+
   virtual void updateAppearanceInfoWithObjectIdAssignmentAndInitialization(
       const ObjectId &obj_id,
       const EllipsoidState<double> &est,
@@ -560,7 +564,8 @@ class RoshanBbFrontEndCreator {
                                                 const CameraId &,
                                                 const RoshanImageSummaryInfo &)>
           &covariance_generator,
-      const std::unordered_map<vslam_types_refactor::ObjectId, RoshanAggregateBbInfo>
+      const std::unordered_map<vslam_types_refactor::ObjectId,
+                               RoshanAggregateBbInfo>
           &long_term_map_front_end_data)
       : association_params_(association_params),
         covariance_generator_(covariance_generator),

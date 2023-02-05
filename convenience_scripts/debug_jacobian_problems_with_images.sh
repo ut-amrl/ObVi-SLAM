@@ -1,9 +1,15 @@
 #!/bin/bash
 
 #rosbag_base_name=cobot_orbit_blue_chair_2022-03-16-15-40-13
-rosbag_base_name="1669743059"
+#rosbag_base_name="1669743059"
+rosbag_base_name="1668019589"
+#version=""
+#version="_v2"
+version="_vOnly"
 
-ltm_opt_jacobian_info_directory="/home/amanda/rosbags/ellipsoid_slam/eer_bags/jacobian_debugging/1669743059/25_frames_visual_only_jacobian_info_v2/"
+ltm_opt_jacobian_info_directory=/home/amanda/rosbags/ellipsoid_slam/eer_bags/jacobian_debugging/${rosbag_base_name}/full_frames_visual_only_jacobian_info_ellipsoids${version}/
+#problem_feature_file_base_name=ProblemFeatureIndices_LT_1eNeg8.csv
+problem_feature_file_base_name=ProblemFeatureIndices_LT_1eNeg2.csv
 
 root_data_dir=/home/amanda/rosbags/ellipsoid_slam/eer_bags/
 #ut_vslam_in_base_dir=${root_data_dir}ut_vslam_in/
@@ -20,11 +26,11 @@ rosbag_file=${orig_data_dir}${rosbag_base_name}${bag_suffix}
 low_level_feats_dir=${ut_vslam_in_dir}
 
 jacobian_residual_info_file=${ltm_opt_jacobian_info_directory}ordered_jacobian_residual_info.json
-problem_feats_matlab_file=${ltm_opt_jacobian_info_directory}ProblemFeatureIndices_LT_1eNeg8.csv
+problem_feats_matlab_file=${ltm_opt_jacobian_info_directory}${problem_feature_file_base_name}
 jacobian_debugging_images_out_dir=${ltm_opt_jacobian_info_directory}debug_images/
 
 long_term_map_output_dir=${ut_vslam_out_base_dir}${rosbag_base_name}/
-visual_feature_results_file=${long_term_map_output_dir}visual_feature_results_used_in_matlab.json
+visual_feature_results_file=${ltm_opt_jacobian_info_directory}visual_feature_results.json
 
 
 make && ./bin/visualize_jacobian_problem_feats \

@@ -92,8 +92,8 @@ class OfflineProblemRunner {
     const InputProblemData &problem_data,
     ceres::Problem& problem,
     std::shared_ptr<PoseGraphType>& pose_graph,
-    std::unordered_map<ceres::ResidualBlockId, double> 
-        *block_ids_and_residuals_ptr) {
+    std::shared_ptr<std::unordered_map<ceres::ResidualBlockId, double>>
+        block_ids_and_residuals_ptr) {
       std::vector<std::shared_ptr<ceres::IterationCallback>> ceres_callbacks =
         ceres_callback_creator_(
             problem_data, pose_graph, start_frame_id, end_frame_id);
@@ -139,7 +139,11 @@ class OfflineProblemRunner {
     optimization_scope_params.poses_prior_to_window_to_keep_constant_ =
         optimization_factors_enabled_params
             .poses_prior_to_window_to_keep_constant_;
-    
+    optimization_scope_params.min_low_level_feature_observations_ =
+        optimization_factors_enabled_params.min_low_level_feature_observations_;
+    optimization_scope_params.min_object_observations_ =
+        optimization_factors_enabled_params.min_object_observations_;
+
     visualization_callback_(problem_data,
                             pose_graph,
                             0,
@@ -162,14 +166,14 @@ class OfflineProblemRunner {
           optimization_scope_params.min_frame_id_ = start_frame_id;
           optimization_scope_params.max_frame_id_ = end_frame_id;
           frame_data_adder_(problem_data, pose_graph, end_frame_id);
-          std::unordered_map<vslam_types_refactor::FactorType,
-              std::unordered_map<vslam_types_refactor::FeatureFactorId,
-                  ceres::ResidualBlockId>> current_residual_block_info = 
-              optimizer_.buildPoseGraphOptimization(
-                  optimization_scope_params, 
-                  residual_params_, 
-                  pose_graph, 
-                  &problem);
+          std::unordered_map<ceres::ResidualBlockId,
+                         std::pair<vslam_types_refactor::FactorType,
+                                   vslam_types_refactor::FeatureFactorId>>
+          current_residual_block_info =
+              optimizer_.buildPoseGraphOptimization(optimization_scope_params,
+                                                    residual_params_,
+                                                    pose_graph,
+                                                    &problem);
           visualization_callback_(problem_data,
                               pose_graph,
                               start_frame_id,
@@ -200,14 +204,14 @@ class OfflineProblemRunner {
             ++frame_id) {
           frame_data_adder_(problem_data, pose_graph, frame_id);
         }
-        std::unordered_map<vslam_types_refactor::FactorType,
-              std::unordered_map<vslam_types_refactor::FeatureFactorId,
-                  ceres::ResidualBlockId>> current_residual_block_info = 
-              optimizer_.buildPoseGraphOptimization(
-                  optimization_scope_params, 
-                  residual_params_, 
-                  pose_graph, 
-                  &problem);
+        std::unordered_map<ceres::ResidualBlockId,
+                         std::pair<vslam_types_refactor::FactorType,
+                                   vslam_types_refactor::FeatureFactorId>>
+          current_residual_block_info =
+              optimizer_.buildPoseGraphOptimization(optimization_scope_params,
+                                                    residual_params_,
+                                                    pose_graph,
+                                                    &problem);
         visualization_callback_(problem_data,
                               pose_graph,
                               start_frame_id,
@@ -244,66 +248,56 @@ class OfflineProblemRunner {
           frame_data_adder_(problem_data, pose_graph, end_frame_id);
 
           // Phase I
-          std::unordered_map<vslam_types_refactor::FactorType,
-              std::unordered_map<vslam_types_refactor::FeatureFactorId,
-                  ceres::ResidualBlockId>> current_residual_block_info = 
-              optimizer_.buildPoseGraphOptimization(
-                  optimization_scope_params, 
-                  residual_params_, 
-                  pose_graph, 
-                  &problem);
+          std::unordered_map<ceres::ResidualBlockId,
+                         std::pair<vslam_types_refactor::FactorType,
+                                   vslam_types_refactor::FeatureFactorId>>
+          current_residual_block_info =
+              optimizer_.buildPoseGraphOptimization(optimization_scope_params,
+                                                    residual_params_,
+                                                    pose_graph,
+                                                    &problem);
           visualization_callback_(problem_data,
                               pose_graph,
                               start_frame_id,
                               end_frame_id,
                               VisualizationTypeEnum::BEFORE_EACH_OPTIMIZATION);
-          std::unordered_map<ceres::ResidualBlockId, double> 
-              block_ids_and_residuals;
+          std::shared_ptr<std::unordered_map<ceres::ResidualBlockId, double>>
+            block_ids_and_residuals = std::make_shared<
+                std::unordered_map<ceres::ResidualBlockId, double>>();
           optim_success = runOptimizationHelper(
               start_frame_id,
               end_frame_id,
               problem_data,
               problem,
               pose_graph,
-              &block_ids_and_residuals);
+              block_ids_and_residuals);
           if (!optim_success) { return false; }
-
           // Phase II
-          // modify structure of current_residual_block_info for constant time lookup
-          std::unordered_map<ceres::ResidualBlockId,
-              std::pair<FactorType, FeatureFactorId>> block_ids_and_factor_sets;
-          for (const auto &factor_type_and_block_info : current_residual_block_info) {
-            const auto &factor_type = factor_type_and_block_info.first;
-            for (const auto &factor_id_and_block_id : factor_type_and_block_info.second) {
-              const auto &factor_id = factor_id_and_block_id.first;
-              const auto &block_id  = factor_id_and_block_id.second;
-              block_ids_and_factor_sets[block_id] 
-                  = std::make_pair(factor_type, factor_id);
-            }
-          }
-
           // use map sort block ids by their corresponding residuals
-          std::map<double, ceres::ResidualBlockId, std::greater<double>> 
+          std::map<double, ceres::ResidualBlockId, std::greater<double>>
               ordered_residuals_and_block_ids;
-          for (const auto &block_id_and_residual : block_ids_and_residuals) {
-            ordered_residuals_and_block_ids
-                .insert({block_id_and_residual.second, 
-                        block_id_and_residual.first});
+          for (const auto &block_id_and_residual : *block_ids_and_residuals) {
+            ordered_residuals_and_block_ids.insert(
+                {block_id_and_residual.second, block_id_and_residual.first});
           }
           // build excluded_feature_factor_types_and_ids
-          util::BoostHashSet<std::pair<FactorType, FeatureFactorId>> 
+          util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
               excluded_feature_factor_types_and_ids;
-          size_t n_outliers = (size_t)
-              (ordered_residuals_and_block_ids.size() * 
-                solver_params_.feature_outlier_percentage);
+          size_t n_outliers = (size_t)(ordered_residuals_and_block_ids.size() *
+                                      solver_params_.feature_outlier_percentage);
           auto it = ordered_residuals_and_block_ids.begin();
           for (size_t i = 0; i < n_outliers; ++i) {
-            const ceres::ResidualBlockId& block_id = it->second;
-            excluded_feature_factor_types_and_ids
-                .insert(block_ids_and_factor_sets.at(block_id));
+            const ceres::ResidualBlockId &block_id = it->second;
+            if ((current_residual_block_info.at(block_id).first !=
+                kLongTermMapFactorTypeId) &&
+                (current_residual_block_info.at(block_id).first !=
+                kShapeDimPriorFactorTypeId)) {
+              excluded_feature_factor_types_and_ids.insert(
+                  current_residual_block_info.at(block_id));
+            }
             ++it;
           }
-          
+
           optimizer_.buildPoseGraphOptimization(
               optimization_scope_params, 
               residual_params_, 

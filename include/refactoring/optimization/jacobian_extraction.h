@@ -204,10 +204,10 @@ void generateGenericFactorInfoForFactor(
 
 void outputJacobianInfo(
     const std::string &jacobian_output_dir,
-    const std::unordered_map<
-        vslam_types_refactor::FactorType,
-        std::unordered_map<vslam_types_refactor::FeatureFactorId,
-                           ceres::ResidualBlockId>> &residual_info,
+    const std::unordered_map<ceres::ResidualBlockId,
+                             std::pair<vslam_types_refactor::FactorType,
+                                       vslam_types_refactor::FeatureFactorId>>
+        &residual_info,
     const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
     const std::function<bool(const FactorType &,
                              const FeatureFactorId &,
@@ -215,52 +215,54 @@ void outputJacobianInfo(
     ceres::Problem &problem_for_ltm) {
   ceres::Problem::EvaluateOptions options;
   options.apply_loss_function = true;
+
   std::vector<ceres::ResidualBlockId> residual_block_ids;
   std::vector<GenericFactorInfo> generic_factor_infos;
   std::vector<ParameterBlockInfo> unordered_parameter_block_infos;
   std::vector<double *> unordered_parameter_blocks;
+
+  // Keep track of the added frames, objects, and features, so that they can be
+  // added in order
   std::unordered_set<FrameId> added_frames;
   std::unordered_set<ObjectId> added_objects;
   std::unordered_set<FeatureId> added_features;
-  for (const auto &factor_type_and_factors : residual_info) {
-    for (const auto &factor_id_and_residual_block :
-         factor_type_and_factors.second) {
-      residual_block_ids.emplace_back(factor_id_and_residual_block.second);
-      GenericFactorInfo generic_factor_info;
-      std::vector<ParameterBlockInfo> new_parameter_blocks;
-      generateGenericFactorInfoForFactor(pose_graph,
-                                         factor_type_and_factors.first,
-                                         factor_id_and_residual_block.first,
-                                         long_term_map_obj_retriever,
-                                         added_frames,
-                                         added_objects,
-                                         added_features,
-                                         generic_factor_info,
-                                         new_parameter_blocks);
-      generic_factor_infos.emplace_back(generic_factor_info);
-      for (const ParameterBlockInfo &param_block : new_parameter_blocks) {
-        unordered_parameter_block_infos.emplace_back(param_block);
-        if (param_block.frame_id_.has_value()) {
-          added_frames.insert(param_block.frame_id_.value());
-          double *robot_pose_ptr;
-          pose_graph->getPosePointers(param_block.frame_id_.value(),
-                                      &robot_pose_ptr);
-          unordered_parameter_blocks.emplace_back(robot_pose_ptr);
-        }
-        if (param_block.feature_id_.has_value()) {
-          added_features.insert(param_block.feature_id_.value());
-          double *feature_ptr;
-          pose_graph->getFeaturePointers(param_block.feature_id_.value(),
-                                         &feature_ptr);
-          unordered_parameter_blocks.emplace_back(feature_ptr);
-        }
-        if (param_block.obj_id_.has_value()) {
-          added_objects.insert(param_block.obj_id_.value());
-          double *obj_ptr;
-          pose_graph->getObjectParamPointers(param_block.obj_id_.value(),
-                                             &obj_ptr);
-          unordered_parameter_blocks.emplace_back(obj_ptr);
-        }
+
+  for (const auto &residual_info_entry : residual_info) {
+    residual_block_ids.emplace_back(residual_info_entry.first);
+    GenericFactorInfo generic_factor_info;
+    std::vector<ParameterBlockInfo> new_parameter_blocks;
+    generateGenericFactorInfoForFactor(pose_graph,
+                                       residual_info_entry.second.first,
+                                       residual_info_entry.second.second,
+                                       long_term_map_obj_retriever,
+                                       added_frames,
+                                       added_objects,
+                                       added_features,
+                                       generic_factor_info,
+                                       new_parameter_blocks);
+    generic_factor_infos.emplace_back(generic_factor_info);
+    for (const ParameterBlockInfo &param_block : new_parameter_blocks) {
+      unordered_parameter_block_infos.emplace_back(param_block);
+      if (param_block.frame_id_.has_value()) {
+        added_frames.insert(param_block.frame_id_.value());
+        double *robot_pose_ptr;
+        pose_graph->getPosePointers(param_block.frame_id_.value(),
+                                    &robot_pose_ptr);
+        unordered_parameter_blocks.emplace_back(robot_pose_ptr);
+      }
+      if (param_block.feature_id_.has_value()) {
+        added_features.insert(param_block.feature_id_.value());
+        double *feature_ptr;
+        pose_graph->getFeaturePointers(param_block.feature_id_.value(),
+                                       &feature_ptr);
+        unordered_parameter_blocks.emplace_back(feature_ptr);
+      }
+      if (param_block.obj_id_.has_value()) {
+        added_objects.insert(param_block.obj_id_.value());
+        double *obj_ptr;
+        pose_graph->getObjectParamPointers(param_block.obj_id_.value(),
+                                           &obj_ptr);
+        unordered_parameter_blocks.emplace_back(obj_ptr);
       }
     }
   }
@@ -279,7 +281,21 @@ void outputJacobianInfo(
                   "ordered param block infos";
   }
 
-  for (const FeatureId &feat_id : added_features) {
+  // Sort the entries to put them in order
+  std::vector<FeatureId> added_features_vec;
+  added_features_vec.insert(
+      added_features_vec.end(), added_features.begin(), added_features.end());
+  std::sort(added_features_vec.begin(), added_features_vec.end());
+  std::vector<FrameId> added_frames_vec;
+  added_frames_vec.insert(
+      added_frames_vec.end(), added_frames.begin(), added_frames.end());
+  std::sort(added_frames_vec.begin(), added_frames_vec.end());
+  std::vector<ObjectId> added_objects_vec;
+  added_objects_vec.insert(
+      added_objects_vec.end(), added_objects.begin(), added_objects.end());
+  std::sort(added_objects_vec.begin(), added_objects_vec.end());
+
+  for (const FeatureId &feat_id : added_features_vec) {
     ParameterBlockInfo param_block;
     param_block.feature_id_ = feat_id;
     double *feature_ptr;
@@ -288,7 +304,7 @@ void outputJacobianInfo(
     ordered_parameter_blocks.emplace_back(feature_ptr);
     ordered_parameter_block_infos.emplace_back(param_block);
   }
-  for (const FrameId &frame_id : added_frames) {
+  for (const FrameId &frame_id : added_frames_vec) {
     ParameterBlockInfo param_block;
     param_block.frame_id_ = frame_id;
     double *robot_pose_ptr;
@@ -296,7 +312,7 @@ void outputJacobianInfo(
     ordered_parameter_blocks.emplace_back(robot_pose_ptr);
     ordered_parameter_block_infos.emplace_back(param_block);
   }
-  for (const ObjectId &obj_id : added_objects) {
+  for (const ObjectId &obj_id : added_objects_vec) {
     ParameterBlockInfo param_block;
     param_block.obj_id_ = obj_id;
     double *obj_ptr;
