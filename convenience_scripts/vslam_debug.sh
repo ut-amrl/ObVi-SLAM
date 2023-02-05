@@ -1,6 +1,6 @@
 #!/bin/bash
 
-bagname="1668019589"
+bagname="1669743059"
 CALIB_DIR="/robodata/taijing/object-slam/calibration/husky_zed/"
 SLAM_DIR="/home/tiejean/projects/ut_semantic_vslam/"
 ORB_DIR="/home/tiejean/projects/ORB_SLAM2/"
@@ -55,7 +55,7 @@ if [[ "$stage" < "1" ]]; then # run ORB_SLAM2
     orb_pid=$!
     echo "launching ORB_SLAM2"
     sleep 8 # make sure orb slam finish loading the vocabulary file
-    # rosbag play --clock $bagfile -r .25 --duration=30
+    # rosbag play --clock $bagfile -r .25 --duration=60
     rosbag play --clock $bagfile -r .25
     sleep 1
     kill -9 $orb_pid
@@ -86,9 +86,9 @@ if [[ "$stage" < "3" ]]; then # running slam
     sleep 3
     
     make -j8
-    # ./bin/orb_trajectory_sparsifier -input_processed_data_path $VSLAM_IN_DIR --output_processed_data_path $VSLAM_IN_SPARSE_DIR
-    # echo "finish sparsifying!"
-    # sleep 10
+    ./bin/orb_trajectory_sparsifier -input_processed_data_path $VSLAM_IN_DIR --output_processed_data_path $VSLAM_IN_SPARSE_DIR
+    echo "finish sparsifying!"
+    sleep 10
 
     intrinsics_file=${CALIB_DIR}camera_matrix.txt
     extrinsics_file=${CALIB_DIR}extrinsics.txt

@@ -81,7 +81,7 @@ DEFINE_string(low_level_feats_dir,
               "",
               "Directory that contains low level features");
 DEFINE_string(vslam_debugger_directory, 
-              "/robodata/taijing/object-slam/vslam/debug/1668019589/", 
+              "/robodata/taijing/object-slam/vslam/debug/1669743059/", 
               "Output root directory for debugger");
 DEFINE_string(bb_associations_out_file,
               "",
