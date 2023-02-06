@@ -240,7 +240,7 @@ int main(int argc, char **argv) {
       cv::Mat image_mosaic = vtr::generateMosaic(images_for_feat, 4);
       cv::imwrite(
           file_io::ensureDirectoryPathEndsWithSlash(FLAGS_images_out_dir) +
-              "feat_" + std::to_string(feat_id) + ".png",
+              "feat_" + std::to_string(feat_id) + vtr::kPngExtension,
           image_mosaic);
     } else {
       LOG(INFO) << "Images for feat was empty?";

@@ -326,7 +326,7 @@ void publishLowLevelFeaturesLatestImages(
 
 void visualizationStub(
     const std::shared_ptr<vtr::RosVisualization> &vis_manager,
-    const vtr::SaveToFileVisualizer &save_to_file_visualizer,
+    vtr::SaveToFileVisualizer &save_to_file_visualizer,
     const std::unordered_map<vtr::CameraId, vtr::CameraExtrinsics<double>>
         &extrinsics,
     const std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
@@ -553,11 +553,13 @@ void visualizationStub(
       save_to_file_visualizer.boundingBoxFrontEndVisualization(
           images,
           bounding_boxes_for_pending_object,
+          num_obs_per_pending_obj,
           extrinsics,
           intrinsics,
           all_observed_corner_locations_with_uncertainty,
           observed_corner_locations,
           observed_features,
+          img_heights_and_widths,
           min_frame_optimized,
           max_frame_optimized);
 

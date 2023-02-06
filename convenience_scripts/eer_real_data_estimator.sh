@@ -1,9 +1,11 @@
 #!/bin/bash
 
 #rosbag_base_name=cobot_orbit_blue_chair_2022-03-16-15-40-13
-#rosbag_base_name="1669743059"
+rosbag_base_name="1669743059"
 #rosbag_base_name="1668019589"
-rosbag_base_name="1669743339"
+#rosbag_base_name="1669743339"
+
+ellipsoid_debug_version="v1"
 
 root_data_dir=/home/amanda/rosbags/ellipsoid_slam/eer_bags/
 calib_base_dir=${root_data_dir}zed_calib/
@@ -13,6 +15,12 @@ obj_det_base_dir=${root_data_dir}obj_det/
 ut_vslam_in_base_dir=${root_data_dir}ut_vslam_in_sparse/
 ut_vslam_out_base_dir=${root_data_dir}ut_vslam_out/
 orig_data_dir=${root_data_dir}/original_data/
+
+debug_base_dir=${root_data_dir}debugging/${rosbag_base_name}/
+mkdir -p ${debug_base_dir}
+ellipsoid_debug_dir=${debug_base_dir}ellipsoids/${ellipsoid_debug_version}/
+mkdir -p ${ellipsoid_debug_dir}
+rm ${ellipsoid_debug_dir}*.png
 
 bag_suffix=".bag"
 json_suffix=".json"
@@ -41,4 +49,5 @@ make && ./bin/offline_object_visual_slam_main --intrinsics_file ${intrinsics_fil
 --poses_by_node_id_file ${poses_by_node_id_file} --nodes_by_timestamp_file ${nodes_by_timestamp_file} \
 --rosbag_file ${rosbag_file} --long_term_map_output ${long_term_map_output_file} \
 --low_level_feats_dir ${low_level_feats_dir} \
+--debug_images_output_directory ${ellipsoid_debug_dir}
 

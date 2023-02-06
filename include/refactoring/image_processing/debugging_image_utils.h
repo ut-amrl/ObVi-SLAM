@@ -7,6 +7,7 @@
 
 #include <cv_bridge/cv_bridge.h>
 #include <std_msgs/ColorRGBA.h>
+#include <util/random.h>
 
 #include <opencv2/highgui.hpp>
 #include <string>
@@ -17,6 +18,13 @@ const static constexpr double kCornerTextFontSize = 1.5;
 const static int kCornerTextLeftLabelXOffset = 10;
 const static int kBottomCornerLabelYOffsetFromBottom = 10;
 const static int kCornerTextThickness = 2;
+
+const static constexpr double kDefaultBbTextSize = 0.75;
+const static int kDefaultBbTextThickness = 2;
+const static int kDefaultBbLineThickness = 2;
+const static int kBoundingBoxCornerYLabelOffset = 30;
+
+const static std::string kPngExtension = ".png";
 
 cv::Scalar convertColorMsgToOpenCvColor(const std_msgs::ColorRGBA &color) {
   return CV_RGB(color.r * 255, color.g * 255, color.b * 255);
@@ -39,6 +47,55 @@ void optionallyDisplayLeftCornerTextOnImage(
                 convertColorMsgToOpenCvColor(text_color),
                 kCornerTextThickness);
   }
+}
+
+void drawTextLeftAlign(const cv_bridge::CvImagePtr &cv_ptr,
+                       const std::string &img_disp_text,
+                       const cv::Point &anchor_point,
+                       const std::pair<double, double> &img_height_and_width,
+                       const std_msgs::ColorRGBA &text_color,
+                       const double &text_font_size,
+                       const int &text_thickness) {
+  cv::Point pos_checked_anchor_point = anchor_point;
+  int baseline = 0;
+  cv::Size text_size = cv::getTextSize(img_disp_text,
+                                       cv::FONT_HERSHEY_SIMPLEX,
+                                       text_font_size,
+                                       cv::LINE_8,
+                                       &baseline);
+  if ((anchor_point.x + text_size.width) > img_height_and_width.second) {
+    pos_checked_anchor_point.x = img_height_and_width.second - text_size.width;
+  }
+
+  cv::putText(cv_ptr->image,
+              img_disp_text,
+              pos_checked_anchor_point,
+              cv::FONT_HERSHEY_SIMPLEX,
+              text_font_size,
+              convertColorMsgToOpenCvColor(text_color),
+              text_thickness);
+}
+
+void drawTextRightAlign(const cv_bridge::CvImagePtr &cv_ptr,
+                        const std::string &img_disp_text,
+                        const cv::Point &anchor_point,
+                        const std::pair<double, double> &img_height_and_width,
+                        const std_msgs::ColorRGBA &text_color,
+                        const double &text_font_size,
+                        const int &text_thickness) {
+  int baseline = 0;
+  cv::Size text_size = cv::getTextSize(img_disp_text,
+                                       cv::FONT_HERSHEY_SIMPLEX,
+                                       text_font_size,
+                                       cv::LINE_8,
+                                       &baseline);
+  drawTextLeftAlign(cv_ptr,
+                    img_disp_text,
+                    cv::Point(anchor_point.x - text_size.width, anchor_point.y),
+                    img_height_and_width,
+                    text_color,
+                    text_font_size,
+                    text_thickness);
 }
 
 void optionallyDisplayRightCornerTextOnImage(
@@ -67,6 +124,73 @@ void optionallyDisplayRightCornerTextOnImage(
   }
 }
 
+void displayBoundingBoxOnImage(
+    const BbCornerPair<double> &bounding_box_corners,
+    const std::pair<double, double> &img_height_and_width,
+    const std_msgs::ColorRGBA &color,
+    const cv_bridge::CvImagePtr &cv_ptr,
+    const std::optional<std::string> &upper_left_corner_text,
+    const std::optional<std::string> &upper_right_corner_text,
+    const std::optional<std::string> &lower_left_corner_text,
+    const std::optional<std::string> &lower_right_corner_text,
+    const double &text_size = kDefaultBbTextSize,
+    const int &bb_line_thickness = kDefaultBbLineThickness,
+    const int &text_thickness = kDefaultBbTextThickness) {
+  cv::rectangle(
+      cv_ptr->image,
+      cv::Point(bounding_box_corners.first.x(), bounding_box_corners.first.y()),
+      cv::Point(bounding_box_corners.second.x(),
+                bounding_box_corners.second.y()),
+      convertColorMsgToOpenCvColor(color),
+      bb_line_thickness);
+
+  if (upper_left_corner_text.has_value()) {
+    drawTextLeftAlign(cv_ptr,
+                      upper_left_corner_text.value(),
+                      cv::Point(bounding_box_corners.first.x(),
+                                bounding_box_corners.first.y() +
+                                    kBoundingBoxCornerYLabelOffset),
+                      img_height_and_width,
+                      color,
+                      text_size,
+                      text_thickness);
+  }
+  if (upper_right_corner_text.has_value()) {
+    drawTextLeftAlign(cv_ptr,
+                      upper_right_corner_text.value(),
+                      cv::Point(bounding_box_corners.second.x(),
+                                bounding_box_corners.first.y() +
+                                    kBoundingBoxCornerYLabelOffset),
+                      img_height_and_width,
+                      color,
+                      text_size,
+                      text_thickness);
+  }
+
+  if (lower_left_corner_text.has_value()) {
+    drawTextLeftAlign(cv_ptr,
+                      lower_left_corner_text.value(),
+                      cv::Point(bounding_box_corners.first.x(),
+                                bounding_box_corners.second.y() +
+                                kBoundingBoxCornerYLabelOffset),
+                      img_height_and_width,
+                      color,
+                      text_size,
+                      text_thickness);
+  }
+  if (lower_right_corner_text.has_value()) {
+    drawTextLeftAlign(cv_ptr,
+                      lower_right_corner_text.value(),
+                      cv::Point(bounding_box_corners.second.x(),
+                                bounding_box_corners.second.y() +
+                                kBoundingBoxCornerYLabelOffset),
+                      img_height_and_width,
+                      color,
+                      text_size,
+                      text_thickness);
+  }
+}
+
 std_msgs::ColorRGBA brightenColor(const std_msgs::ColorRGBA &original,
                                   const double &brighter_percent) {
   std_msgs::ColorRGBA brighter = original;
@@ -87,6 +211,15 @@ void drawTinyCircleOnImage(const PixelCoord<double> &px,
              circle_rad,
              convertColorMsgToOpenCvColor(color),
              thickness);
+}
+
+std_msgs::ColorRGBA generateRandomColor(util_random::Random &rand_gen) {
+  std_msgs::ColorRGBA color;
+  color.a = 1.0;
+  color.r = (rand_gen.UniformRandom() + rand_gen.UniformRandom()) / 2;
+  color.g = rand_gen.UniformRandom();
+  color.b = rand_gen.UniformRandom();
+  return color;
 }
 
 // assume each visualization has the same size

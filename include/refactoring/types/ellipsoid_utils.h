@@ -194,6 +194,16 @@ inline bool pixelInBoundingBoxClosedSet(const BbCornerPair<double> &bb,
   return ((bb.first.x() <= pixel.x()) && (bb.first.y() <= pixel.y()) &&
           (bb.second.x() >= pixel.x()) && (bb.second.y() >= pixel.y()));
 }
+
+template <typename NumType>
+BbCornerPair<NumType> inflateBoundingBox(
+    const BbCornerPair<NumType> &original_bb, const NumType &inflation_size) {
+  return std::make_pair(
+      PixelCoord<double>(original_bb.first.x() - inflation_size,
+                         original_bb.first.y() - inflation_size),
+      PixelCoord<double>(original_bb.second.x() + inflation_size,
+                         original_bb.second.y() + inflation_size));
+}
 }  // namespace vslam_types_refactor
 
 #endif  // UT_VSLAM_REFACTORING_ELLIPSOID_UTILS_H
