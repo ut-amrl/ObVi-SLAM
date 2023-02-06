@@ -7,6 +7,7 @@
 
 #include <cv_bridge/cv_bridge.h>
 #include <std_msgs/ColorRGBA.h>
+#include <util/random.h>
 
 #include <opencv2/highgui.hpp>
 #include <string>
@@ -87,6 +88,15 @@ void drawTinyCircleOnImage(const PixelCoord<double> &px,
              circle_rad,
              convertColorMsgToOpenCvColor(color),
              thickness);
+}
+
+std_msgs::ColorRGBA generateRandomColor(util_random::Random &rand_gen) {
+  std_msgs::ColorRGBA color;
+  color.a = 1.0;
+  color.r = (rand_gen.UniformRandom() + rand_gen.UniformRandom()) / 2;
+  color.g = rand_gen.UniformRandom();
+  color.b = rand_gen.UniformRandom();
+  return color;
 }
 
 // assume each visualization has the same size
