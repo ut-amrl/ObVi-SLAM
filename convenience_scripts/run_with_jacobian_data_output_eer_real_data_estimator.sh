@@ -17,7 +17,7 @@ rosbag_base_name=1669939150
 version="_vOnly"
 
 ltm_opt_jacobian_info_directory=/home/amanda/rosbags/ellipsoid_slam/eer_bags/jacobian_debugging/${rosbag_base_name}/full_frames_visual_only_jacobian_info_ellipsoids${version}/
-mkdir ltm_opt_jacobian_info_directory
+mkdir ${ltm_opt_jacobian_info_directory}
 
 root_data_dir=/home/amanda/rosbags/ellipsoid_slam/eer_bags/
 calib_base_dir=${root_data_dir}zed_calib/
