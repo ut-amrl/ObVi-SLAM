@@ -55,8 +55,8 @@ if [[ "$stage" < "1" ]]; then # run ORB_SLAM2
     orb_pid=$!
     echo "launching ORB_SLAM2"
     sleep 8 # make sure orb slam finish loading the vocabulary file
-    # rosbag play --clock $bagfile -r .25 --duration=60
-    rosbag play --clock $bagfile -r .25
+    rosbag play --clock $bagfile -r .25 --duration=30
+    # rosbag play --clock $bagfile -r .25
     sleep 1
     kill -9 $orb_pid
     echo "finish running ORB_SLAM2!"
