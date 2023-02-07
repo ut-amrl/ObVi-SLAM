@@ -66,7 +66,8 @@ class OfflineProblemRunner {
                                const FrameId &,
                                const VisualizationTypeEnum &)>
           &visualization_callback,
-      const pose_graph_optimization::OptimizationSolverParams &solver_params)
+      const std::function<pose_graph_optimization::OptimizationSolverParams(
+          const FrameId &)> &solver_params_provider_func)
       : residual_params_(residual_params),
         continue_opt_checker_(continue_opt_checker),
         window_provider_func_(window_provider_func),
@@ -76,7 +77,7 @@ class OfflineProblemRunner {
         output_data_extractor_(output_data_extractor),
         ceres_callback_creator_(ceres_callback_creator),
         visualization_callback_(visualization_callback),
-        solver_params_(solver_params) {}
+        solver_params_provider_func_(solver_params_provider_func) {}
 
   bool runOptimization(
       const InputProblemData &problem_data,
@@ -135,6 +136,8 @@ class OfflineProblemRunner {
       FrameId start_opt_with_frame = window_provider_func_(next_frame_id);
       optimization_scope_params.min_frame_id_ = start_opt_with_frame;
       optimization_scope_params.max_frame_id_ = next_frame_id;
+      pose_graph_optimization::OptimizationSolverParams solver_params =
+          solver_params_provider_func_(next_frame_id);
 
       // Phase I
       LOG(INFO) << "Building optimization";
@@ -160,7 +163,7 @@ class OfflineProblemRunner {
           block_ids_and_residuals = std::make_shared<
               std::unordered_map<ceres::ResidualBlockId, double>>();
       if (!optimizer_.solveOptimization(&problem,
-                                        solver_params_,
+                                        solver_params,
                                         ceres_callbacks,
                                         block_ids_and_residuals)) {
         // TODO do we want to quit or just silently let this iteration fail?
@@ -180,7 +183,7 @@ class OfflineProblemRunner {
       util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
           excluded_feature_factor_types_and_ids;
       size_t n_outliers = (size_t)(ordered_residuals_and_block_ids.size() *
-                                   solver_params_.feature_outlier_percentage);
+                                   solver_params.feature_outlier_percentage);
       auto it = ordered_residuals_and_block_ids.begin();
       for (size_t i = 0; i < n_outliers; ++i) {
         const ceres::ResidualBlockId &block_id = it->second;
@@ -202,7 +205,7 @@ class OfflineProblemRunner {
           excluded_feature_factor_types_and_ids);
 
       if (!optimizer_.solveOptimization(
-              &problem, solver_params_, ceres_callbacks, nullptr)) {
+              &problem, solver_params, ceres_callbacks, nullptr)) {
         // TODO do we want to quit or just silently let this iteration fail?
         LOG(ERROR) << "Phase II Optimization failed at max frame id "
                    << next_frame_id;
@@ -264,7 +267,10 @@ class OfflineProblemRunner {
                      const FrameId &,
                      const VisualizationTypeEnum &)>
       visualization_callback_;
-  pose_graph_optimization::OptimizationSolverParams solver_params_;
+
+  std::function<pose_graph_optimization::OptimizationSolverParams(
+      const FrameId &)>
+      solver_params_provider_func_;
 };
 }  // namespace vslam_types_refactor
 

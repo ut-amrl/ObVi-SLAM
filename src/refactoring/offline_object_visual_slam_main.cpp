@@ -663,8 +663,16 @@ int main(int argc, char **argv) {
   shape_mean_and_std_devs_by_semantic_class[trashcan_class] =
       std::make_pair(trashcan_mean, trashcan_cov);
 
-  pose_graph_optimization::OptimizationSolverParams solver_params;  // TODO
-  solver_params.max_num_iterations_ = 200;
+  // TODO modify convergence thresholds
+  pose_graph_optimization::OptimizationSolverParams local_ba_solver_params;
+  local_ba_solver_params.max_num_iterations_ = 200;
+
+  pose_graph_optimization::OptimizationSolverParams global_ba_solver_params;
+  global_ba_solver_params.max_num_iterations_ = 250;
+
+  pose_graph_optimization::OptimizationSolverParams final_opt_solver_params;
+  final_opt_solver_params.max_num_iterations_ = 300;
+
   pose_graph_optimization::ObjectVisualPoseGraphResidualParams
       residual_params;  // TODO tune?
 
@@ -901,18 +909,38 @@ int main(int argc, char **argv) {
 
   std::function<bool()> continue_opt_checker = []() { return ros::ok(); };
 
+  vtr::FrameId max_frame_id = 0;
+  for (const auto &frame_and_pose : robot_poses) {
+    max_frame_id = std::max(max_frame_id, frame_and_pose.first);
+  }
+
+  vtr::FrameId global_ba_frequency = 20;
+  vtr::FrameId local_ba_window_size = 30;
   std::function<vtr::FrameId(const vtr::FrameId &)> window_provider_func =
-      [](const vtr::FrameId &max_frame) -> vtr::FrameId {
-    // For now, we'll just optimize the whole trajectory (so return 0 so we
-    // start the optimization with node 0
-    //    return 0;
-    if ((max_frame % 20) == 0) {
+      [&](const vtr::FrameId &max_frame_to_opt) -> vtr::FrameId {
+    // Optimize the full trajectory when we're on the last frame
+    if (max_frame_to_opt == max_frame_id) {
       return 0;
     }
-    if (max_frame < 30) {
+    if ((max_frame_to_opt % global_ba_frequency) == 0) {
       return 0;
     }
-    return max_frame - 30;
+    if (max_frame_to_opt < local_ba_window_size) {
+      return 0;
+    }
+    return max_frame_to_opt - local_ba_window_size;
+  };
+  std::function<pose_graph_optimization::OptimizationSolverParams(
+      const vtr::FrameId &)>
+      solver_params_provider_func = [&](const vtr::FrameId &max_frame_to_opt)
+      -> pose_graph_optimization::OptimizationSolverParams {
+    if (max_frame_to_opt == max_frame_id) {
+      return final_opt_solver_params;
+    } else if ((max_frame_to_opt % global_ba_frequency) == 0) {
+      return global_ba_solver_params;
+    } else {
+      return local_ba_solver_params;
+    }
   };
 
   std::function<bool(
@@ -979,9 +1007,12 @@ int main(int argc, char **argv) {
                                        cached_info);
           };
 
-  std::function<bool(util::BoostHashMap<MainFactorInfo, std::unordered_set<vtr::ObjectId>> &)>
+  std::function<bool(
+      util::BoostHashMap<MainFactorInfo, std::unordered_set<vtr::ObjectId>> &)>
       long_term_map_factor_provider =
-          [&](util::BoostHashMap<MainFactorInfo, std::unordered_set<vtr::ObjectId>> &factor_data) {
+          [&](util::BoostHashMap<MainFactorInfo,
+                                 std::unordered_set<vtr::ObjectId>>
+                  &factor_data) {
             return ltm_factor_creator.getFactorsToInclude(factor_data);
           };
   std::function<void(const MainProbData &, MainPgPtr &)> pose_graph_creator =
@@ -1201,7 +1232,7 @@ int main(int argc, char **argv) {
                     residual_creator,
                     long_term_map_obj_retriever,
                     residual_params,
-                    solver_params);
+                    final_opt_solver_params); // TODO is this the one we want?
 
   std::function<void(
       const MainProbData &,
@@ -1311,7 +1342,7 @@ int main(int argc, char **argv) {
                              output_data_extractor,
                              ceres_callback_creator,
                              visualization_callback,
-                             solver_params);
+                             solver_params_provider_func);
 
   pose_graph_optimizer::OptimizationFactorsEnabledParams
       optimization_factors_enabled_params;
