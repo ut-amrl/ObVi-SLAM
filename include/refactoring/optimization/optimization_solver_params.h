@@ -9,6 +9,10 @@ namespace pose_graph_optimization {
 struct OptimizationSolverParams {
   int max_num_iterations_ = 100;
   double feature_outlier_percentage = .1;
+  bool allow_non_monotonic_steps_ = false;
+  double function_tolerance_ = 1e-6; // Ceres default
+  double gradient_tolerance_ = 1e-10; // Ceres default
+  double parameter_tolerance_ = 1e-8; // Ceres default
   // TODO
 };
 
