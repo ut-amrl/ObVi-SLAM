@@ -596,11 +596,6 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-  if (FLAGS_bounding_boxes_by_node_id_file.empty()) {
-    LOG(ERROR) << "No bounding box file provided";
-    exit(1);
-  }
-
   if (FLAGS_poses_by_node_id_file.empty()) {
     LOG(ERROR) << "No robot poses file provided";
     exit(1);
@@ -712,8 +707,11 @@ int main(int argc, char **argv) {
   std::unordered_map<
       vtr::FrameId,
       std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>>
-      init_bounding_boxes =
-          readBoundingBoxesFromFile(FLAGS_bounding_boxes_by_node_id_file);
+      init_bounding_boxes;
+  if (!FLAGS_bounding_boxes_by_node_id_file.empty()) {
+    init_bounding_boxes =
+        readBoundingBoxesFromFile(FLAGS_bounding_boxes_by_node_id_file);
+  }
   std::unordered_map<
       vtr::FrameId,
       std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>>
@@ -1232,7 +1230,7 @@ int main(int argc, char **argv) {
                     residual_creator,
                     long_term_map_obj_retriever,
                     residual_params,
-                    final_opt_solver_params); // TODO is this the one we want?
+                    final_opt_solver_params);  // TODO is this the one we want?
 
   std::function<void(
       const MainProbData &,
