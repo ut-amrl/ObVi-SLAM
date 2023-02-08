@@ -23,6 +23,52 @@ class CmdLineArgConstants:
     outputJacobianDebugInfoBaseArgName = 'output_jacobian_debug'
     outputBbAssocInfoBaseArgName = 'output_bb_assoc'
 
+    configFileDirectoryHelp = \
+        "Directory where config files are stored"
+    trajectorySequenceFileDirectoryHelp = \
+        "Directory where sequences of trajectories to run together (i.e. build up a long term map) are stored"
+    orbSlamOutDirectoryHelp = \
+        "Root directory where orb slam output is stored. For each bag, there should be a directory with the base name " \
+        "title of the bag under this directory and the orbslam files will be stored under that subdirectory."
+    rosbagDirectoryHelp = "Root directory where rosbags are stored"
+    orbPostProcessBaseDirectoryHelp = \
+        "Base directory where orbslam post processing files will be stored. Under this directory, there should be a " \
+        "directory for each configuration (directory will have config file name) and beneath that, there will be a " \
+        "directory for each bag"
+    calibrationFileDirectoryHelp = \
+        "Directory containing the intrinsics and extrinsics files. In this directory, the intrinsics file is named " \
+        "'camera_matrix.txt' and the extrinsics file is named 'extrinsics.txt'"
+    resultsRootDirectoryHelp = \
+        "Directory that contains the results. Within this directory, there will be directories named 'ut_vslam_out'" \
+        " (which contains the main executable results), 'jacobian_debugging_out' (which will contain information for " \
+        "debugging jacobian rank deficiencies experienced in covariance extraction), 'ellipsoid_debugging_out' (which" \
+        " contains debug information/images for helping to tune/debug the ellipsoid front-end and estimation). Within " \
+        "each of these directories, there will be a directory corresponding to the sequence_base_name and within " \
+        "those directories will be a directory corresponding to the config base name. Within the sequence-config " \
+        "directory, there will be a directory for each trajectory in the sequence. For trajectories run in " \
+        "isolation, the lowest directory will be named the same as the rosbag name. For trajectories from a sequence," \
+        " they will be prefixed with the number of the trajectory in the sequence"
+
+    configFileBaseNameHelp = \
+        "Base name of the configuration file. The config file used will be a file under the config file directory " \
+        "with the suffix '.json' appended to it (this argument should not have the file extension)"
+    sequenceFileBaseNameHelp = \
+        "Base name of the file indicating the sequence of trajectories to run. This should be the base name of a " \
+        "json file (argument specified here should not have json suffix). The sequence file that this points to will" \
+        " contain a list of rosbag base names to execute in sequence as well as an identifier for the sequence"
+    rosbagBaseNameHelp = "Base name of the rosbag that these results are for. "
+    resultsForBagDirPrefixHelp = \
+        "Prefix to add to the rosbag name that should be used for storing results. If part of a sequence, this should " \
+        "be the number of the trajectory in the sequence (starting with 0) followed by an underscore"
+    longTermMapBagDirHelp = \
+        "If specified, this will be the directory (under the sequence then config directories) that will contain the" \
+        " long term map that should be used as input for this trajectory"
+
+    forceRunOrbSlamPostProcessHelp = "Force running the orb slam post processor even if there is data there"
+    outputEllipsoidDebugInfoHelp = "Output the ellipsoid debug data to file while running"
+    outputJacobianDebugInfoHelp = "Output the jacobian debug data to file while running"
+    outputBbAssocInfoHelp = "Output the bounding box associations at the end of the trajectory"
+
     @staticmethod
     def prefixWithDashDash(argName):
         return '--' + argName
@@ -283,7 +329,7 @@ def generateOfflineRunnerArgsFromExecutionConfigAndPreprocessOrbDataIfNecessary(
 
     longTermMapInputFile = None
     if (executionConfig.longTermMapBagDir is not None):
-        longTermMapFileDir = FileStructureUtils.getAndOptionallyCreateConfigSpecificResultsDirectory(
+        longTermMapFileDir = FileStructureUtils.getAndOptionallyCreateUtVslamOutDirectory(
             utVslamOutRootDir, executionConfig.sequenceFileBaseName, executionConfig.configFileBaseName,
             executionConfig.longTermMapBagDir, False)
         longTermMapInputFile = FileStructureUtils.ensureDirectoryEndsWithSlash(
@@ -344,7 +390,10 @@ def runTrajectoryFromOfflineArgs(offlineArgs):
     argsString += createCommandStrAddition(SingleTrajectoryExecutableParamConstants.boundingBoxesByNodeIdFile,
                                            offlineArgs.bounding_boxes_by_node_id_file)
 
-    os.system("./bin/offline_object_visual_slam_main " + argsString)
+    cmdToRun ="./bin/offline_object_visual_slam_main " + argsString
+    print("Running command: ")
+    print(cmdToRun)
+    os.system(cmdToRun)
 
 
 def runSingleTrajectory(executionConfig):
@@ -356,75 +405,46 @@ def singleTrajectoryArgParse():
     parser = argparse.ArgumentParser(description="Run single trajectory")
     parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.configFileDirectoryBaseArgName),
                         required=True,
-                        help="Directory where config files are stored")
-    # parser.add_argument(
-    #     CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.trajectorySequenceFileDirectoryBaseArgName),
-    #     required=True,
-    #     help="Directory where sequences of trajectories to run together (i.e. build up a long term map) are stored")
+                        help=CmdLineArgConstants.configFileDirectoryHelp)
     parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.orbSlamOutDirectoryBaseArgName),
                         required=True,
-                        help="Root directory where orb slam output is stored. For each bag, there should be a directory "
-                             "with the base name title of the bag under this directory and the orbslam files will be "
-                             "stored under that subdirectory.")
+                        help=CmdLineArgConstants.orbSlamOutDirectoryHelp)
     parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.rosbagDirectoryBaseArgName),
                         required=True,
-                        help="Root directory where rosbags are stored")
+                        help=CmdLineArgConstants.rosbagDirectoryHelp)
     parser.add_argument(
         CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.orbPostProcessBaseDirectoryBaseArgName),
         required=True,
-        help="Base directory where orbslam post processing files will be stored. Under this directory,"
-             " there should be a directory for each configuration (directory will have config file "
-             "name) and beneath that, there will be a directory for each bag")
+        help=CmdLineArgConstants.orbPostProcessBaseDirectoryHelp)
     parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.calibrationFileDirectoryBaseArgName),
                         required=True,
-                        help="Directory containing the intrinsics and extrinsics files. In this directory, the"
-                             " intrinsics file is named 'camera_matrix.txt' and the extrinsics file is named "
-                             "'extrinsics.txt'")
+                        help=CmdLineArgConstants.calibrationFileDirectoryHelp)
     parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.resultsRootDirectoryBaseArgName),
                         required=True,
-                        help="Directory that contains the results. Within this directory, there will be directories "
-                             "named 'ut_vslam_out' (which contains the main executable results), "
-                             "'jacobian_debugging_out' (which will contain information for debugging jacobian rank "
-                             "deficiencies experienced in covariance extraction), "
-                             "'ellipsoid_debugging_out' (which contains debug information/images for helping to "
-                             "tune/debug the ellipsoid front-end and estimation). Within each of these directories,"
-                             " there will be a directory corresponding to the sequence_base_name and within those "
-                             "directories will be a directory corresponding to the config base name. "
-                             "Within the sequence-config directory, there will be a directory for each trajectory "
-                             "in the sequence. For trajectories run in isolation, the lowest directory will be named "
-                             "the same as the rosbag name. For trajectories from a sequence, they will be prefixed "
-                             "with the number of the trajectory in the sequence")
+                        help=CmdLineArgConstants.resultsRootDirectoryHelp)
 
     parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.configFileBaseNameBaseArgName),
                         required=True,
-                        help="Base name of the configuration file. The config file used will be a file under the "
-                             "config file directory with the suffix '.json' appended to it (this argument should not "
-                             "have the file extension)")
+                        help=CmdLineArgConstants.configFileBaseNameHelp)
     parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.sequenceFileBaseNameBaseArgName),
                         required=True,
-                        help="Base name of the file indicating the sequence of trajectories to run. This should be "
-                             "the base name of a json file (argument specified here should not have json suffix). "
-                             "The sequence file that this points to will contain a list of rosbag base names to"
-                             " execute in sequence as well as an identifier for the sequence")
+                        help=CmdLineArgConstants.sequenceFileBaseNameHelp)
     parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.rosbagBaseNameBaseArgName),
                         required=True,
-                        help="Base name of the rosbag that these results are for. ")
+                        help=CmdLineArgConstants.rosbagBaseNameHelp)
     parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.resultsForBagDirPrefixBaseArgName),
                         required=False,
-                        help="Prefix to add to the rosbag name that should be used for storing results. If part of a"
-                             " sequence, this should be the number of the trajectory in the sequence followed by an "
-                             "underscore")
+                        help=CmdLineArgConstants.resultsForBagDirPrefixHelp)
     parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.longTermMapBagDirBaseArgName),
                         required=False,
-                        help="If specified, this will be the directory (under the sequence then config directories) "
-                             "that will contain the long term map that should be used as input for this trajectory")
+                        help=CmdLineArgConstants.longTermMapBagDirHelp)
 
     # Boolean arguments
     parser.add_argument(
         CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.forceRunOrbSlamPostProcessBaseArgName),
         default=False,
         action='store_true',
-        help="Force running the orb slam post processor even if there is data there")
+        help=CmdLineArgConstants.forceRunOrbSlamPostProcessHelp)
     parser.add_argument('--no-' + CmdLineArgConstants.forceRunOrbSlamPostProcessBaseArgName,
                         dest=CmdLineArgConstants.forceRunOrbSlamPostProcessBaseArgName, action='store_false',
                         help="Opposite of " + CmdLineArgConstants.forceRunOrbSlamPostProcessBaseArgName)
@@ -433,7 +453,7 @@ def singleTrajectoryArgParse():
         CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.outputEllipsoidDebugInfoBaseArgName),
         default=False,
         action='store_true',
-        help="Output the ellipsoid debug data to file while running")
+        help=CmdLineArgConstants.outputEllipsoidDebugInfoHelp)
     parser.add_argument('--no-' + CmdLineArgConstants.outputEllipsoidDebugInfoBaseArgName,
                         dest=CmdLineArgConstants.outputEllipsoidDebugInfoBaseArgName, action='store_false',
                         help="Opposite of " + CmdLineArgConstants.outputEllipsoidDebugInfoBaseArgName)
@@ -442,15 +462,14 @@ def singleTrajectoryArgParse():
         CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.outputJacobianDebugInfoBaseArgName),
         default=False,
         action='store_true',
-        help="Output the jacobian debug data to file while running")
+        help=CmdLineArgConstants.outputJacobianDebugInfoHelp)
     parser.add_argument('--no-' + CmdLineArgConstants.outputJacobianDebugInfoBaseArgName,
                         dest=CmdLineArgConstants.outputJacobianDebugInfoBaseArgName, action='store_false',
                         help="Opposite of " + CmdLineArgConstants.outputJacobianDebugInfoBaseArgName)
-
     parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.outputBbAssocInfoBaseArgName),
                         default=False,
                         action='store_true',
-                        help="Output the bounding box associations at the end of the trajectory")
+                        help=CmdLineArgConstants.outputBbAssocInfoHelp)
     parser.add_argument('--no-' + CmdLineArgConstants.outputBbAssocInfoBaseArgName,
                         dest=CmdLineArgConstants.outputBbAssocInfoBaseArgName, action='store_false',
                         help="Opposite of " + CmdLineArgConstants.outputBbAssocInfoBaseArgName)
