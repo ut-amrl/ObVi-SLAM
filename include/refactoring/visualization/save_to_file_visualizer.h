@@ -25,7 +25,7 @@ class SaveToFileVisualizer {
   SaveToFileVisualizer(const std::string &output_directory,
                        const SaveToFileVisualizerConfig &config)
       : output_directory_(
-            file_io::ensureDirectoryPathEndsWithSlash(output_directory)),
+            output_directory.empty() ? "" : file_io::ensureDirectoryPathEndsWithSlash(output_directory)),
         config_(config) {
     associated_bb_color_.a = 1;
     associated_bb_color_.r = 1;

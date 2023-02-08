@@ -89,6 +89,7 @@ DEFINE_string(debug_images_output_directory,
               "",
               "Directory to output debug images to. If not specified, no debug "
               "images saved");
+DEFINE_string(params_config_file, "", "config file containing tunable params");
 
 std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
 readCameraIntrinsicsByCameraFromFile(const std::string &file_name) {
@@ -855,7 +856,7 @@ int main(int argc, char **argv) {
 
   // Connect up functions needed for the optimizer --------------------------
   std::shared_ptr<vtr::RosVisualization> vis_manager =
-      std::make_shared<vtr::RosVisualization>(node_handle);
+      std::make_shared<vtr::RosVisualization>(node_handle, param_prefix, node_prefix);
   vtr::SaveToFileVisualizer save_to_file_visualizer(
       FLAGS_debug_images_output_directory, save_to_file_visualizer_config);
   //    vtr::RawEllipsoid<double> ellipsoid;
