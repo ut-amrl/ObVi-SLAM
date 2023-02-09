@@ -15,6 +15,7 @@ Panels:
         - /AllBbs21
         - /AllBbs21/Status1
         - /Marker1
+        - /Marker2
       Splitter Ratio: 0.5
     Tree Height: 151
   - Class: rviz/Selection
@@ -35,7 +36,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: InitFeats1
+    SyncSource: ""
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -58,7 +59,7 @@ Visualization Manager:
         Y: 0
         Z: 0
       Plane: XY
-      Plane Cell Count: 10
+      Plane Cell Count: 500
       Reference Frame: <Fixed Frame>
       Value: true
     - Class: rviz/TF
@@ -137,7 +138,7 @@ Visualization Manager:
       Marker Topic: /est_ellipsoids
       Name: EstEllipsoids
       Namespaces:
-        ut_vslam: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Camera
@@ -257,7 +258,7 @@ Visualization Manager:
       Marker Topic: /est_pose
       Name: EstPose
       Namespaces:
-        ut_vslam: true
+        {}
       Queue Size: 1000
       Value: true
     - Class: rviz/Marker
@@ -265,7 +266,7 @@ Visualization Manager:
       Marker Topic: /init_pose
       Name: InitPose
       Namespaces:
-        ut_vslam: true
+        {}
       Queue Size: 1000
       Value: true
     - Class: rviz/Camera
@@ -385,7 +386,15 @@ Visualization Manager:
       Marker Topic: /pending_ellipsoids
       Name: Marker
       Namespaces:
-        ut_vslam: true
+        {}
+      Queue Size: 1000
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /init_ellipsoids
+      Name: Marker
+      Namespaces:
+        {}
       Queue Size: 1000
       Value: true
   Enabled: true

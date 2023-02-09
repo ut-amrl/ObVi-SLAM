@@ -22,6 +22,7 @@ class CmdLineArgConstants:
     outputEllipsoidDebugInfoBaseArgName = 'output_ellipsoid_debug'
     outputJacobianDebugInfoBaseArgName = 'output_jacobian_debug'
     outputBbAssocInfoBaseArgName = 'output_bb_assoc'
+    runRvizBaseArgName = 'run_rviz'
 
     configFileDirectoryHelp = \
         "Directory where config files are stored"
@@ -68,6 +69,7 @@ class CmdLineArgConstants:
     outputEllipsoidDebugInfoHelp = "Output the ellipsoid debug data to file while running"
     outputJacobianDebugInfoHelp = "Output the jacobian debug data to file while running"
     outputBbAssocInfoHelp = "Output the bounding box associations at the end of the trajectory"
+    runRvizHelp = "Start the rviz visualization while optimizing a trajectory"
 
     @staticmethod
     def prefixWithDashDash(argName):
@@ -168,7 +170,7 @@ class SingleTrajectoryExecutionConfig:
                  orbPostProcessBaseDirectory, calibrationFileDirectory, resultsRootDirectory, configFileBaseName,
                  sequenceFileBaseName, rosbagBaseName, resultsForBagDirPrefix, longTermMapBagDir,
                  forceRunOrbSlamPostProcess=False, outputEllipsoidDebugInfo=True, outputJacobianDebugInfo=True,
-                 outputBbAssocInfo=True):
+                 outputBbAssocInfo=True, runRviz=False):
         self.configFileDirectory = configFileDirectory
         self.orbSlamOutDirectory = orbSlamOutDirectory
         self.rosbagDirectory = rosbagDirectory
@@ -184,6 +186,7 @@ class SingleTrajectoryExecutionConfig:
         self.outputEllipsoidDebugInfo = outputEllipsoidDebugInfo
         self.outputJacobianDebugInfo = outputJacobianDebugInfo
         self.outputBbAssocInfo = outputBbAssocInfo
+        self.runRviz = runRviz
 
 
 class OfflineRunnerArgs:
@@ -349,7 +352,7 @@ def generateOfflineRunnerArgsFromExecutionConfigAndPreprocessOrbDataIfNecessary(
                                     visual_feature_results_file=visualFeatureResultsFile,
                                     debug_images_output_directory=ellipsoidDebuggingDir,
                                     params_config_file=fullConfigFileName)
-    return offlineArgs
+    return (param_prefix, offlineArgs)
 
 
 def createCommandStrAddition(argumentName, argumentValue):
@@ -390,14 +393,24 @@ def runTrajectoryFromOfflineArgs(offlineArgs):
     argsString += createCommandStrAddition(SingleTrajectoryExecutableParamConstants.boundingBoxesByNodeIdFile,
                                            offlineArgs.bounding_boxes_by_node_id_file)
 
-    cmdToRun ="./bin/offline_object_visual_slam_main " + argsString
+    cmdToRun = "./bin/offline_object_visual_slam_main " + argsString
     print("Running command: ")
     print(cmdToRun)
     os.system(cmdToRun)
 
 
 def runSingleTrajectory(executionConfig):
-    offlineArgs = generateOfflineRunnerArgsFromExecutionConfigAndPreprocessOrbDataIfNecessary(executionConfig)
+    paramPrefix, offlineArgs = generateOfflineRunnerArgsFromExecutionConfigAndPreprocessOrbDataIfNecessary(
+        executionConfig)
+    if (executionConfig.runRviz):
+        topicsPrefix = ""
+        underscore_based_prefix = ""
+        if (len(paramPrefix) != 0):
+            topicsPrefix = "/" + paramPrefix + "/"
+            underscore_based_prefix = paramPrefix
+        rvizCmd = "roslaunch launch/ovslam_rviz.launch topics_prefix:=" + topicsPrefix + " underscore_based_prefix:="\
+                  + underscore_based_prefix + " &"
+        os.system(rvizCmd)
     runTrajectoryFromOfflineArgs(offlineArgs)
 
 
@@ -473,6 +486,14 @@ def singleTrajectoryArgParse():
     parser.add_argument('--no-' + CmdLineArgConstants.outputBbAssocInfoBaseArgName,
                         dest=CmdLineArgConstants.outputBbAssocInfoBaseArgName, action='store_false',
                         help="Opposite of " + CmdLineArgConstants.outputBbAssocInfoBaseArgName)
+
+    parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.runRvizBaseArgName),
+                        default=False,
+                        action='store_true',
+                        help=CmdLineArgConstants.runRvizHelp)
+    parser.add_argument('--no-' + CmdLineArgConstants.runRvizBaseArgName,
+                        dest=CmdLineArgConstants.runRvizBaseArgName, action='store_false',
+                        help="Opposite of " + CmdLineArgConstants.runRvizBaseArgName)
     args_dict = vars(parser.parse_args())
 
     return SingleTrajectoryExecutionConfig(
@@ -495,7 +516,8 @@ def singleTrajectoryArgParse():
             CmdLineArgConstants.outputEllipsoidDebugInfoBaseArgName],
         outputJacobianDebugInfo=args_dict[
             CmdLineArgConstants.outputJacobianDebugInfoBaseArgName],
-        outputBbAssocInfo=args_dict[CmdLineArgConstants.outputBbAssocInfoBaseArgName])
+        outputBbAssocInfo=args_dict[CmdLineArgConstants.outputBbAssocInfoBaseArgName],
+        runRviz=args_dict[CmdLineArgConstants.runRvizBaseArgName])
 
 
 if __name__ == "__main__":

@@ -15,7 +15,7 @@ class TrajectorySequenceExecutionConfig:
                  sequenceFilesDirectory, resultsRootDirectory, configFileBaseName,
                  sequenceFileBaseName,
                  forceRunOrbSlamPostProcess=False, outputEllipsoidDebugInfo=True, outputJacobianDebugInfo=True,
-                 outputBbAssocInfo=True):
+                 outputBbAssocInfo=True, runRviz=False):
         self.configFileDirectory = configFileDirectory
         self.orbSlamOutDirectory = orbSlamOutDirectory
         self.rosbagDirectory = rosbagDirectory
@@ -29,6 +29,7 @@ class TrajectorySequenceExecutionConfig:
         self.outputEllipsoidDebugInfo = outputEllipsoidDebugInfo
         self.outputJacobianDebugInfo = outputJacobianDebugInfo
         self.outputBbAssocInfo = outputBbAssocInfo
+        self.runRviz = runRviz
 
 
 def readTrajectorySequence(sequenceFilesDirectory, sequenceFileBaseName):
@@ -75,7 +76,8 @@ def runTrajectorySequence(sequenceExecutionConfig):
             forceRunOrbSlamPostProcess=sequenceExecutionConfig.forceRunOrbSlamPostProcess,
             outputEllipsoidDebugInfo=sequenceExecutionConfig.outputEllipsoidDebugInfo,
             outputJacobianDebugInfo=sequenceExecutionConfig.outputJacobianDebugInfo,
-            outputBbAssocInfo=sequenceExecutionConfig.outputBbAssocInfo)
+            outputBbAssocInfo=sequenceExecutionConfig.outputBbAssocInfo,
+            runRviz=sequenceExecutionConfig.runRviz)
         prevTrajectoryIdentifier = bagPrefix + bagName
         runSingleTrajectory(trajectoryExecutionConfig)
 
@@ -147,6 +149,13 @@ def trajectorySequenceArgParse():
     parser.add_argument('--no-' + CmdLineArgConstants.outputBbAssocInfoBaseArgName,
                         dest=CmdLineArgConstants.outputBbAssocInfoBaseArgName, action='store_false',
                         help="Opposite of " + CmdLineArgConstants.outputBbAssocInfoBaseArgName)
+    parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.runRvizBaseArgName),
+                        default=False,
+                        action='store_true',
+                        help=CmdLineArgConstants.runRvizHelp)
+    parser.add_argument('--no-' + CmdLineArgConstants.runRvizBaseArgName,
+                    dest=CmdLineArgConstants.runRvizBaseArgName, action='store_false',
+                    help="Opposite of " + CmdLineArgConstants.runRvizBaseArgName)
     args_dict = vars(parser.parse_args())
 
     return TrajectorySequenceExecutionConfig(
@@ -167,7 +176,8 @@ def trajectorySequenceArgParse():
             CmdLineArgConstants.outputEllipsoidDebugInfoBaseArgName],
         outputJacobianDebugInfo=args_dict[
             CmdLineArgConstants.outputJacobianDebugInfoBaseArgName],
-        outputBbAssocInfo=args_dict[CmdLineArgConstants.outputBbAssocInfoBaseArgName])
+        outputBbAssocInfo=args_dict[CmdLineArgConstants.outputBbAssocInfoBaseArgName],
+        runRviz=args_dict[CmdLineArgConstants.runRvizBaseArgName])
 
 
 if __name__ == "__main__":
