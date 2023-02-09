@@ -172,7 +172,7 @@ void displayBoundingBoxOnImage(
                       lower_left_corner_text.value(),
                       cv::Point(bounding_box_corners.first.x(),
                                 bounding_box_corners.second.y() +
-                                kBoundingBoxCornerYLabelOffset),
+                                    kBoundingBoxCornerYLabelOffset),
                       img_height_and_width,
                       color,
                       text_size,
@@ -183,7 +183,7 @@ void displayBoundingBoxOnImage(
                       lower_right_corner_text.value(),
                       cv::Point(bounding_box_corners.second.x(),
                                 bounding_box_corners.second.y() +
-                                kBoundingBoxCornerYLabelOffset),
+                                    kBoundingBoxCornerYLabelOffset),
                       img_height_and_width,
                       color,
                       text_size,
@@ -282,6 +282,17 @@ cv::Mat generateMosaic(
     indiv_visualizations.emplace_back(visualization);
   }
   return generateMosaic(indiv_visualizations, nimages_each_row);
+}
+
+cv::Mat scaleImage(const double &scaling_ratio, const cv::Mat &orig_img) {
+  cv::Mat resized;
+  cv::resize(orig_img,
+             resized,
+             cv::Size(),
+             scaling_ratio,
+             scaling_ratio,
+             cv::INTER_LANCZOS4);
+  return resized;
 }
 
 }  // namespace vslam_types_refactor

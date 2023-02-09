@@ -11,6 +11,8 @@
 
 namespace vslam_types_refactor {
 
+const static constexpr double kDownsampleRatio = 0.5;
+
 struct SaveToFileBbFrontEndVisualizerConfig {
   FrameId feature_validity_window_ = INT_MAX;
   double bounding_box_inflation_size_ = 0;
@@ -25,7 +27,9 @@ class SaveToFileVisualizer {
   SaveToFileVisualizer(const std::string &output_directory,
                        const SaveToFileVisualizerConfig &config)
       : output_directory_(
-            output_directory.empty() ? "" : file_io::ensureDirectoryPathEndsWithSlash(output_directory)),
+            output_directory.empty()
+                ? ""
+                : file_io::ensureDirectoryPathEndsWithSlash(output_directory)),
         config_(config) {
     associated_bb_color_.a = 1;
     associated_bb_color_.r = 1;
@@ -230,7 +234,8 @@ class SaveToFileVisualizer {
           drawTinyCircleOnImage(
               feat.second, colors_for_features_.at(feat.first), cv_ptr);
         }
-        indiv_visualizations.emplace_back(cv_ptr->image);
+        indiv_visualizations.emplace_back(
+            scaleImage(kDownsampleRatio, cv_ptr->image));
       }
     }
     cv::Mat mosaic = generateMosaic(indiv_visualizations, 4);
