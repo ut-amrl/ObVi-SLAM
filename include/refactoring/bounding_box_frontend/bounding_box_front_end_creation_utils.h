@@ -140,7 +140,9 @@ generateFeatureBasedBbCreator(
         &img_heights_and_widths,
     const BoundingBoxCovGenParams &bb_cov_gen_params,
     const GeometricSimilarityScorerParams &similarity_scorer_params,
-    const FeatureBasedBbAssociationParams &association_params) {
+    const FeatureBasedBbAssociationParams &association_params,
+    const std::unordered_map<ObjectId, util::EmptyStruct>
+        &long_term_map_front_end_data) {
   std::function<bool(
       const EllipsoidState<double> &, const EllipsoidState<double> &, double &)>
       geometric_similarity_scorer =
@@ -170,7 +172,8 @@ generateFeatureBasedBbCreator(
       all_observed_corner_locations_with_uncertainty,
       associated_observed_corner_locations,
       bounding_boxes_for_pending_object,
-      pending_objects);
+      pending_objects,
+      long_term_map_front_end_data);
 }
 
 }  // namespace vslam_types_refactor

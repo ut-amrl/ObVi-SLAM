@@ -11,13 +11,16 @@
 
 namespace vslam_types_refactor {
 
-template <typename ObjectAppearanceInfo, typename VisualFeatureFactorType>
+template <typename ObjectAppearanceInfo,
+          typename PendingObjInfo,
+          typename VisualFeatureFactorType>
 std::unordered_map<ObjectId, EllipsoidState<double>>
 refineInitialEstimateForPendingObjects(
     const std::unordered_map<ObjectId, EllipsoidState<double>>
         &rough_initial_estimates,
-    const std::unordered_map<ObjectId,
-                             UninitializedEllispoidInfo<ObjectAppearanceInfo>>
+    const std::unordered_map<
+        ObjectId,
+        UninitializedEllispoidInfo<ObjectAppearanceInfo, PendingObjInfo>>
         &uninitialized_obj_info,
     const std::shared_ptr<vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
         VisualFeatureFactorType>> &pose_graph,
@@ -94,7 +97,7 @@ refineInitialEstimateForPendingObjects(
   // TODO configure options
 
   options.max_num_iterations =
-//      estimator_params.solver_params_.max_num_iterations_;
+      //      estimator_params.solver_params_.max_num_iterations_;
       500;
   options.num_threads = 10;
   options.linear_solver_type = ceres::DENSE_SCHUR;
@@ -123,7 +126,8 @@ refineInitialEstimateForPendingObjects(
         &rough_initial_estimates,
     const std::unordered_map<
         ObjectId,
-        UninitializedEllispoidInfo<FeatureBasedFrontEndObjAssociationInfo>>
+        UninitializedEllispoidInfo<FeatureBasedFrontEndObjAssociationInfo,
+                                   FeatureBasedFrontEndPendingObjInfo>>
         &uninitialized_obj_info,
     const std::shared_ptr<vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
         ReprojectionErrorFactor>> &pose_graph,

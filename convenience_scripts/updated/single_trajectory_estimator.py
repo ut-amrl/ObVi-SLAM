@@ -94,6 +94,9 @@ class FileStructureConstants:
     visualFeatureResultsFileBaseName = "visual_feature_results.json"
     bbAssocResultsFileBaseName = "data_association_results.json"
 
+    ellipsoidResultsFileBaseName = "ellipsoid_results.json"
+    robotPoseResultsFileBaseName = "robot_pose_results.json"
+
     # File extensions
     jsonExtension = ".json"
     bagSuffix = ".bag"
@@ -115,6 +118,8 @@ class SingleTrajectoryExecutableParamConstants:
     debugImagesOutputDirectory = "debug_images_output_directory"
     paramsConfigFile = "params_config_file"
     boundingBoxesByNodeIdFile = "bounding_boxes_by_node_id_file"
+    ellipsoidsResultsFile = "ellipsoids_results_file"
+    robotPosesResultsFile = "robot_poses_results_file"
 
 
 class FileStructureUtils:
@@ -194,7 +199,8 @@ class OfflineRunnerArgs:
     def __init__(self, param_prefix, intrinsics_file, extrinsics_file, poses_by_node_id_file, nodes_by_timestamp_file,
                  rosbag_file, long_term_map_input, long_term_map_output, low_level_feats_dir, bb_associations_out_file,
                  ltm_opt_jacobian_info_directory, visual_feature_results_file, debug_images_output_directory,
-                 params_config_file, bounding_boxes_by_node_id_file=None):
+                 params_config_file, ellipsoids_results_file, robot_poses_results_file,
+                 bounding_boxes_by_node_id_file=None):
         self.param_prefix = param_prefix
         self.intrinsics_file = intrinsics_file
         self.extrinsics_file = extrinsics_file
@@ -209,6 +215,8 @@ class OfflineRunnerArgs:
         self.visual_feature_results_file = visual_feature_results_file
         self.debug_images_output_directory = debug_images_output_directory
         self.params_config_file = params_config_file
+        self.ellipsoids_results_file = ellipsoids_results_file
+        self.robot_poses_results_file = robot_poses_results_file
         self.bounding_boxes_by_node_id_file = bounding_boxes_by_node_id_file
 
 
@@ -329,6 +337,10 @@ def generateOfflineRunnerArgsFromExecutionConfigAndPreprocessOrbDataIfNecessary(
         utVslamResultsDir) + FileStructureConstants.longTermMapFileBaseName
     visualFeatureResultsFile = FileStructureUtils.ensureDirectoryEndsWithSlash(
         utVslamResultsDir) + FileStructureConstants.visualFeatureResultsFileBaseName
+    ellipsoidResultsFile = FileStructureUtils.ensureDirectoryEndsWithSlash(
+        utVslamResultsDir) + FileStructureConstants.ellipsoidResultsFileBaseName
+    robotPoseResultsFile = FileStructureUtils.ensureDirectoryEndsWithSlash(
+        utVslamResultsDir) + FileStructureConstants.robotPoseResultsFileBaseName
 
     longTermMapInputFile = None
     if (executionConfig.longTermMapBagDir is not None):
@@ -351,7 +363,9 @@ def generateOfflineRunnerArgsFromExecutionConfigAndPreprocessOrbDataIfNecessary(
                                     ltm_opt_jacobian_info_directory=jacobianDebuggingDir,
                                     visual_feature_results_file=visualFeatureResultsFile,
                                     debug_images_output_directory=ellipsoidDebuggingDir,
-                                    params_config_file=fullConfigFileName)
+                                    params_config_file=fullConfigFileName,
+                                    ellipsoids_results_file=ellipsoidResultsFile,
+                                    robot_poses_results_file=robotPoseResultsFile)
     return (param_prefix, offlineArgs)
 
 
@@ -392,6 +406,10 @@ def runTrajectoryFromOfflineArgs(offlineArgs):
                                            offlineArgs.params_config_file)
     argsString += createCommandStrAddition(SingleTrajectoryExecutableParamConstants.boundingBoxesByNodeIdFile,
                                            offlineArgs.bounding_boxes_by_node_id_file)
+    argsString += createCommandStrAddition(SingleTrajectoryExecutableParamConstants.ellipsoidsResultsFile,
+                                           offlineArgs.ellipsoids_results_file)
+    argsString += createCommandStrAddition(SingleTrajectoryExecutableParamConstants.robotPosesResultsFile,
+                                           offlineArgs.robot_poses_results_file)
 
     cmdToRun = "./bin/offline_object_visual_slam_main " + argsString
     print("Running command: ")
@@ -408,7 +426,7 @@ def runSingleTrajectory(executionConfig):
         if (len(paramPrefix) != 0):
             topicsPrefix = "/" + paramPrefix + "/"
             underscore_based_prefix = paramPrefix
-        rvizCmd = "roslaunch launch/ovslam_rviz.launch topics_prefix:=" + topicsPrefix + " underscore_based_prefix:="\
+        rvizCmd = "roslaunch launch/ovslam_rviz.launch topics_prefix:=" + topicsPrefix + " underscore_based_prefix:=" \
                   + underscore_based_prefix + " &"
         os.system(rvizCmd)
     runTrajectoryFromOfflineArgs(offlineArgs)

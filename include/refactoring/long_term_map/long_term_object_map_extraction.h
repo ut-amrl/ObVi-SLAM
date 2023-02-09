@@ -242,8 +242,8 @@ class PairwiseCovarianceLongTermObjectMapExtractor {
       const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
       const pose_graph_optimizer::OptimizationFactorsEnabledParams
           &optimization_factor_configuration,
-      const std::function<bool(FrontEndObjMapData &)>
-          front_end_map_data_extractor,
+      const std::function<bool(std::unordered_map<ObjectId, FrontEndObjMapData>
+                                   &)> front_end_map_data_extractor,
       const std::string &jacobian_output_dir,
       IndependentEllipsoidsLongTermObjectMap<FrontEndObjMapData>
           &long_term_obj_map) {
@@ -341,7 +341,7 @@ class PairwiseCovarianceLongTermObjectMapExtractor {
       }
     }
 
-    FrontEndObjMapData front_end_map_data;
+    std::unordered_map<ObjectId, FrontEndObjMapData> front_end_map_data;
     if (!front_end_map_data_extractor(front_end_map_data)) {
       LOG(ERROR) << "Could not extract the front end data required for the "
                     "long-term map";
@@ -430,8 +430,8 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
       const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
       const pose_graph_optimizer::OptimizationFactorsEnabledParams
           &optimization_factor_configuration,
-      const std::function<bool(FrontEndObjMapData &)>
-          front_end_map_data_extractor,
+      const std::function<bool(std::unordered_map<ObjectId, FrontEndObjMapData>
+                                   &)> front_end_map_data_extractor,
       const std::string &jacobian_output_dir,
       IndependentEllipsoidsLongTermObjectMap<FrontEndObjMapData>
           &long_term_obj_map) {
@@ -513,7 +513,7 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
     }
 
     LOG(INFO) << "Extracting front end map data";
-    FrontEndObjMapData front_end_map_data;
+    std::unordered_map<ObjectId, FrontEndObjMapData> front_end_map_data;
     if (!front_end_map_data_extractor(front_end_map_data)) {
       LOG(ERROR) << "Could not extract the front end data required for the "
                     "long-term map";

@@ -218,6 +218,69 @@ static void read(const cv::FileNode &node,
   }
 }
 
+class SerializableRobotPoseResults
+    : public FileStorageSerializable<RobotPoseResults> {
+ public:
+  SerializableRobotPoseResults()
+      : FileStorageSerializable<RobotPoseResults>() {}
+  SerializableRobotPoseResults(const RobotPoseResults &data)
+      : FileStorageSerializable<RobotPoseResults>(data) {}
+
+  virtual void write(cv::FileStorage &fs) const override {
+    fs << "{" << kResultsMapLabel << "[";
+    for (const auto &robot_pose_entry : data_.robot_poses_) {
+      SerializablePose3D<double> ser_robot_pose(robot_pose_entry.second);
+      fs << "{";
+      fs << kFrameIdLabel << SerializableFrameId(robot_pose_entry.first);
+      fs << kPoseLabel << ser_robot_pose;
+      fs << "}";
+    }
+    fs << "]";
+    fs << "}";
+  }
+
+  virtual void read(const cv::FileNode &node) override {
+    cv::FileNode results_map_data = node[kResultsMapLabel];
+    for (cv::FileNodeIterator it = results_map_data.begin();
+         it != results_map_data.end();
+         it++) {
+      cv::FileNode entry = *it;
+      SerializableFrameId frame_id;
+      entry[kFrameIdLabel] >> frame_id;
+
+      SerializablePose3D<double> ser_robot_pose;
+      entry[kPoseLabel] >> ser_robot_pose;
+
+      data_.robot_poses_[frame_id.getEntry()] = ser_robot_pose.getEntry();
+    }
+  }
+
+ protected:
+  using FileStorageSerializable<RobotPoseResults>::data_;
+
+ private:
+  inline static const std::string kResultsMapLabel = "robot_pose_results_map";
+  inline static const std::string kFrameIdLabel = "frame_id";
+  inline static const std::string kPoseLabel = "pose";
+};
+
+static void write(cv::FileStorage &fs,
+                  const std::string &,
+                  const SerializableRobotPoseResults &data) {
+  data.write(fs);
+}
+
+static void read(const cv::FileNode &node,
+                 SerializableRobotPoseResults &data,
+                 const SerializableRobotPoseResults &default_data =
+                     SerializableRobotPoseResults()) {
+  if (node.empty()) {
+    data = default_data;
+  } else {
+    data.read(node);
+  }
+}
+
 }  // namespace vslam_types_refactor
 
 #endif  // UT_VSLAM_OUTPUT_PROBLEM_DATA_FILE_STORAGE_IO_H

@@ -90,6 +90,8 @@ DEFINE_string(debug_images_output_directory,
               "Directory to output debug images to. If not specified, no debug "
               "images saved");
 DEFINE_string(params_config_file, "", "config file containing tunable params");
+DEFINE_string(ellipsoids_results_file, "", "File for ellipsoids results");
+DEFINE_string(robot_poses_results_file, "", "File for robot pose results");
 
 std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
 readCameraIntrinsicsByCameraFromFile(const std::string &file_name) {
@@ -796,10 +798,10 @@ int main(int argc, char **argv) {
     ltm_in_fs["long_term_map"] >> serializable_ltm;
     ltm_in_fs.release();
     MainLtm ltm_from_serializable = serializable_ltm.getEntry();
-    vtr::EllipsoidResults ellipsoid_results_ltm_v3;
-    ltm_from_serializable.getEllipsoidResults(ellipsoid_results_ltm_v3);
-    LOG(INFO) << "Second check results size "
-              << ellipsoid_results_ltm_v3.ellipsoids_.size();
+    vtr::EllipsoidResults ellipsoid_results_ltm;
+    ltm_from_serializable.getEllipsoidResults(ellipsoid_results_ltm);
+    LOG(INFO) << "Long term map size "
+              << ellipsoid_results_ltm.ellipsoids_.size();
     long_term_map = std::make_shared<MainLtm>(ltm_from_serializable);
   }
 
@@ -856,7 +858,8 @@ int main(int argc, char **argv) {
 
   // Connect up functions needed for the optimizer --------------------------
   std::shared_ptr<vtr::RosVisualization> vis_manager =
-      std::make_shared<vtr::RosVisualization>(node_handle, param_prefix, node_prefix);
+      std::make_shared<vtr::RosVisualization>(
+          node_handle, param_prefix, node_prefix);
   vtr::SaveToFileVisualizer save_to_file_visualizer(
       FLAGS_debug_images_output_directory, save_to_file_visualizer_config);
   //    vtr::RawEllipsoid<double> ellipsoid;
@@ -1038,9 +1041,11 @@ int main(int argc, char **argv) {
 
   //  std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>
   //      long_term_map_front_end_data;
-  //  if (long_term_map != nullptr) {
-  //    long_term_map->getFrontEndObjMapData(long_term_map_front_end_data);
-  //  }
+  std::unordered_map<vtr::ObjectId, util::EmptyStruct>
+      long_term_map_front_end_data;
+  if (long_term_map != nullptr) {
+    long_term_map->getFrontEndObjMapData(long_term_map_front_end_data);
+  }
   std::shared_ptr<std::unordered_map<
       vtr::FrameId,
       std::unordered_map<vtr::CameraId,
@@ -1133,10 +1138,12 @@ int main(int argc, char **argv) {
           img_heights_and_widths,
           cov_gen_params,
           geometric_similiarity_scorer_params,
-          association_params);
+          association_params,
+          long_term_map_front_end_data);
   std::function<std::shared_ptr<vtr::AbstractBoundingBoxFrontEnd<
       vtr::ReprojectionErrorFactor,
       vtr::FeatureBasedFrontEndObjAssociationInfo,
+      vtr::FeatureBasedFrontEndPendingObjInfo,
       vtr::FeatureBasedContextInfo,
       vtr::FeatureBasedContextInfo,
       vtr::FeatureBasedSingleBbContextInfo,
@@ -1238,53 +1245,57 @@ int main(int argc, char **argv) {
       const MainPgPtr &,
       const pose_graph_optimizer::OptimizationFactorsEnabledParams &,
       vtr::LongTermObjectMapAndResults<MainLtm> &)>
-      output_data_extractor = [&](const MainProbData &input_problem_data,
-                                  const MainPgPtr &pose_graph,
-                                  const pose_graph_optimizer::
-                                      OptimizationFactorsEnabledParams
-                                          &optimization_factors_enabled_params,
-                                  vtr::LongTermObjectMapAndResults<MainLtm>
-                                      &output_problem_data) {
-        //                    std::function<bool(
-        //                        std::unordered_map<vtr::ObjectId,
-        //                        vtr::RoshanAggregateBbInfo> &)>
-        //                        front_end_map_data_extractor =
-        //                            [&](std::unordered_map<vtr::ObjectId,
-        //                                                   vtr::RoshanAggregateBbInfo>
-        //                                    &front_end_data) {
-        //                              roshan_associator_creator.getDataAssociator(pose_graph)
-        //                                  ->getFrontEndObjMapData(front_end_data);
-        //                              return true;
-        //                            };
-        std::function<bool(util::EmptyStruct &)> front_end_map_data_extractor =
-            [&](util::EmptyStruct &front_end_data) {
-              feature_based_associator_creator.getDataAssociator(pose_graph)
-                  ->getFrontEndObjMapData(front_end_data);
-              return true;
-            };
+      output_data_extractor =
+          [&](const MainProbData &input_problem_data,
+              const MainPgPtr &pose_graph,
+              const pose_graph_optimizer::OptimizationFactorsEnabledParams
+                  &optimization_factors_enabled_params,
+              vtr::LongTermObjectMapAndResults<MainLtm> &output_problem_data) {
+            //                    std::function<bool(
+            //                        std::unordered_map<vtr::ObjectId,
+            //                        vtr::RoshanAggregateBbInfo> &)>
+            //                        front_end_map_data_extractor =
+            //                            [&](std::unordered_map<vtr::ObjectId,
+            //                                                   vtr::RoshanAggregateBbInfo>
+            //                                    &front_end_data) {
+            //                              roshan_associator_creator.getDataAssociator(pose_graph)
+            //                                  ->getFrontEndObjMapData(front_end_data);
+            //                              return true;
+            //                            };
+            std::function<bool(
+                std::unordered_map<vtr::ObjectId, util::EmptyStruct> &)>
+                front_end_map_data_extractor =
+                    [&](std::unordered_map<vtr::ObjectId, util::EmptyStruct>
+                            &front_end_data) {
+                      feature_based_associator_creator
+                          .getDataAssociator(pose_graph)
+                          ->getFrontEndObjMapData(front_end_data);
+                      return true;
+                    };
 
-        std::function<bool(
-            const MainPgPtr &,
-            const pose_graph_optimizer::OptimizationFactorsEnabledParams &,
-            MainLtm &)>
-            long_term_object_map_extractor =
-                [&](const MainPgPtr &ltm_pose_graph,
-                    const pose_graph_optimizer::OptimizationFactorsEnabledParams
-                        &ltm_optimization_factors_enabled_params,
-                    MainLtm &ltm_extractor_out) {
-                  return ltm_extractor.extractLongTermObjectMap(
-                      ltm_pose_graph,
-                      ltm_optimization_factors_enabled_params,
-                      front_end_map_data_extractor,
-                      FLAGS_ltm_opt_jacobian_info_directory,
-                      ltm_extractor_out);
-                };
-        vtr::extractLongTermObjectMapAndResults(
-            pose_graph,
-            optimization_factors_enabled_params,
-            long_term_object_map_extractor,
-            output_problem_data);
-      };
+            std::function<bool(
+                const MainPgPtr &,
+                const pose_graph_optimizer::OptimizationFactorsEnabledParams &,
+                MainLtm &)>
+                long_term_object_map_extractor =
+                    [&](const MainPgPtr &ltm_pose_graph,
+                        const pose_graph_optimizer::
+                            OptimizationFactorsEnabledParams
+                                &ltm_optimization_factors_enabled_params,
+                        MainLtm &ltm_extractor_out) {
+                      return ltm_extractor.extractLongTermObjectMap(
+                          ltm_pose_graph,
+                          ltm_optimization_factors_enabled_params,
+                          front_end_map_data_extractor,
+                          FLAGS_ltm_opt_jacobian_info_directory,
+                          ltm_extractor_out);
+                    };
+            vtr::extractLongTermObjectMapAndResults(
+                pose_graph,
+                optimization_factors_enabled_params,
+                long_term_object_map_extractor,
+                output_problem_data);
+          };
 
   std::function<std::vector<std::shared_ptr<ceres::IterationCallback>>(
       const MainProbData &,
@@ -1394,6 +1405,10 @@ int main(int argc, char **argv) {
   //  LOG(INFO) << "Num ellipsoids "
   //            << output_results.ellipsoid_results_.ellipsoids_.size();
 
+  // TODO fix long term map
+  // Output robot poses
+  // Output ellipsoids
+
   if (!FLAGS_bb_associations_out_file.empty()) {
     cv::FileStorage bb_associations_out(FLAGS_bb_associations_out_file,
                                         cv::FileStorage::WRITE);
@@ -1408,26 +1423,26 @@ int main(int argc, char **argv) {
     bb_associations_out.release();
   }
 
-  // TODO save output results somewhere
+  if (!FLAGS_ellipsoids_results_file.empty()) {
+    cv::FileStorage ellipsoids_results_out(FLAGS_ellipsoids_results_file,
+                                           cv::FileStorage::WRITE);
+    vtr::EllipsoidResults ellipsoid_results = output_results.ellipsoid_results_;
+    ellipsoids_results_out << "ellipsoids"
+                           << vtr::SerializableEllipsoidResults(
+                                  ellipsoid_results);
+    ellipsoids_results_out.release();
+  }
 
-  //  vtr::EllipsoidState<double> ellipsoid(
-  //      vtr::Pose3D(Eigen::Vector3d(1, 2, 3),
-  //                  Eigen::AngleAxisd(0.2, Eigen::Vector3d(0, 0, 1))),
-  //      Eigen::Vector3d(4, 5, 6));
-  //
-  //  cv::FileStorage fs("test.json", cv::FileStorage::WRITE);
-  //  fs << "ellipsoid" << vtr::SerializableEllipsoidState<double>(ellipsoid);
-  //
-  //  cv::FileStorage fs2("test.json", cv::FileStorage::READ);
-  //  vtr::SerializableEllipsoidState<double> ellipsoid_state;
-  //  fs2["ellipsoid"] >> ellipsoid_state;
-  //  LOG(INFO) << "Read ellipsoid";
-  //  LOG(INFO) << "Transl " << ellipsoid_state.getEntry().pose_.transl_;
-  //  LOG(INFO) << "Orientation angle " <<
-  //  ellipsoid_state.getEntry().pose_.orientation_.angle(); LOG(INFO) <<
-  //  "Orientation axis" <<
-  //  ellipsoid_state.getEntry().pose_.orientation_.axis(); LOG(INFO) <<
-  //  "Dimensions " << ellipsoid_state.getEntry().dimensions_;
+  if (!FLAGS_robot_poses_results_file.empty()) {
+    cv::FileStorage robot_poses_results_out(FLAGS_robot_poses_results_file,
+                                            cv::FileStorage::WRITE);
+    vtr::RobotPoseResults robot_pose_results =
+        output_results.robot_pose_results_;
+    robot_poses_results_out
+        << "robot_poses"
+        << vtr::SerializableRobotPoseResults(robot_pose_results);
+    robot_poses_results_out.release();
+  }
 
   return 0;
 }
