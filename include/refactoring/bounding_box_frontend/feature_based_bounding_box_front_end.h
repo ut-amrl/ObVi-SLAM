@@ -42,14 +42,18 @@ struct FeatureBasedBbCandidateMatchInfo {
 const int kNoBbDiscardingConst = INT_MIN;
 
 struct FeatureBasedBbAssociationParams {
-  double max_distance_for_associated_ellipsoids_;
+  // NOTE: If this structure is modified, increment the
+  // kCurrentConfigSchemaVersion number in FullOVSLAMConfig.h NOTE: If the
+  // default values here are modified, regenerate the FullOVSLAMConfig file
+  // using (TODO create executable for writing this) and be sure to update the
+  // config_version_id TODO do we actually need to regenerate if defaults
+  //  changed? it shouldn't ever use defaults if we're reading from config file
 
-  // TODO tune/override in calling function
   uint16_t min_observations_for_local_est_ = 3;
   uint16_t min_observations_ = 10;
   FrameId discard_candidate_after_num_frames_ = kNoBbDiscardingConst;
   double min_bb_confidence_ = 0.3;
-  double required_min_conf_for_initialization = 0;
+  double required_min_conf_for_initialization_ = 0;
   double min_overlapping_features_for_match_ =
       2;  // TODO should this be ratio or absolute quantity? Going with absolute
           // quantity for now
@@ -640,7 +644,7 @@ class FeatureBasedBoundingBoxFrontEnd
           (association_info.observation_factors_.size() >=
            association_params_.min_observations_for_local_est_) &&
           (association_info.pending_info_.max_confidence_ >=
-           association_params_.required_min_conf_for_initialization) &&
+           association_params_.required_min_conf_for_initialization_) &&
           (association_info.pending_info_.object_estimate_.has_value());
     }
   }

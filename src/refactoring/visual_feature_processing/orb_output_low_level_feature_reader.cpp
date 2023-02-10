@@ -46,6 +46,11 @@ bool OrbOutputLowLevelFeatureReader::loadData() {
   std::unordered_map<FeatureId, uint64_t> feature_observation_count;
   for (const auto &frame_data : single_frame_feature_observations) {
     FrameId frame = frame_data.first;
+    if (limit_traj_eval_params_.should_limit_trajectory_evaluation_) {
+      if (frame > limit_traj_eval_params_.max_frame_id_) {
+        continue;
+      }
+    }
     for (const auto &feat_id_to_feat_obs : frame_data.second.features_) {
       // Warning: This assumes that there's only one source of data for each
       // frame (will overwrite if somehow encounters data for a single frame in

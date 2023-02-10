@@ -429,6 +429,7 @@ def runSingleTrajectory(executionConfig):
         rvizCmd = "roslaunch launch/ovslam_rviz.launch topics_prefix:=" + topicsPrefix + " underscore_based_prefix:=" \
                   + underscore_based_prefix + " &"
         os.system(rvizCmd)
+    # TODO consider starting rosbag to record visualization topics
     runTrajectoryFromOfflineArgs(offlineArgs)
 
 

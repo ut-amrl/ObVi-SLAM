@@ -98,3 +98,6 @@ target_link_libraries(test_det_call ut_vslam ${LIBS})
 
 ROSBUILD_ADD_EXECUTABLE(visualize_jacobian_problem_feats src/refactoring/visualize_jacobian_problem_feats.cpp)
 target_link_libraries(visualize_jacobian_problem_feats ut_vslam ${LIBS})
+
+ROSBUILD_ADD_EXECUTABLE(write_configuration src/refactoring/configuration/write_configuration.cpp)
+target_link_libraries(write_configuration ut_vslam ${LIBS})

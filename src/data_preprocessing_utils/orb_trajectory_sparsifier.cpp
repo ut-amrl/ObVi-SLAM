@@ -2,12 +2,14 @@
 // Created by amanda on 12/9/22.
 //
 
+#include <file_io/cv_file_storage/config_file_file_storage_io.h>
 #include <file_io/features_ests_with_id_io.h>
 #include <file_io/file_access_utils.h>
 #include <file_io/node_id_and_timestamp_io.h>
 #include <file_io/pose_3d_with_node_id_io.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
+#include <refactoring/configuration/full_ov_slam_config.h>
 #include <refactoring/types/vslam_types_math_util.h>
 #include <ros/ros.h>
 
@@ -40,8 +42,6 @@ const std::string kPosesFolder = "poses/";
 const std::string kRobotPosesFile = "initial_robot_poses_by_node.txt";
 const std::string kNodesWithTimestampsFolder = "timestamps/";
 const std::string kNodesWithTimestampsFile = "node_ids_and_timestamps.txt";
-const double kMaxPoseIncThresholdTransl = 0.2;
-const double kMaxPoseIncThresholdRot = 0.1;  // TODO?
 }  // namespace
 
 void copyAndUpdateFeatureObsFileWithNewFrameNum(
@@ -102,7 +102,9 @@ void updateFeatureObsWithNewFrameId(
 }
 
 std::unordered_map<vtr::FrameId, vtr::FrameId> getSparsifiedFrames(
-    const std::vector<std::pair<vtr::FrameId, pose::Pose3d>> &poses) {
+    const std::vector<std::pair<vtr::FrameId, pose::Pose3d>> &poses,
+    const double &max_pose_inc_threshold_transl,
+    const double &max_pose_inc_threshold_rot) {
   std::unordered_map<vtr::FrameId, vtr::FrameId> old_frame_to_new_frame_mapping;
   old_frame_to_new_frame_mapping[poses.front().first] = 0;
   vtr::FrameId next_new_frame_id = 1;
@@ -113,9 +115,10 @@ std::unordered_map<vtr::FrameId, vtr::FrameId> getSparsifiedFrames(
     pose::Pose3d relative_since_last_pose = pose::getPoseOfObj1RelToObj2(
         next_candidate_pose.second, last_added_pose);
 
-    if ((relative_since_last_pose.first.norm() > kMaxPoseIncThresholdTransl) ||
+    if ((relative_since_last_pose.first.norm() >
+         max_pose_inc_threshold_transl) ||
         (Eigen::AngleAxisd(relative_since_last_pose.second).angle() >
-         kMaxPoseIncThresholdRot)) {
+         max_pose_inc_threshold_rot)) {
       old_frame_to_new_frame_mapping[next_candidate_pose.first] =
           next_new_frame_id;
       next_new_frame_id++;
@@ -141,6 +144,13 @@ int main(int argc, char **argv) {
     param_prefix = "/" + param_prefix + "/";
     node_prefix += "_";
   }
+  if (FLAGS_params_config_file.empty()) {
+    LOG(ERROR) << "Configuration file required ";
+    exit(1);
+  }
+
+  vtr::FullOVSLAMConfig config;
+  vtr::readConfiguration(FLAGS_params_config_file, config);
 
   LOG(INFO) << "Prefix: " << param_prefix;
 
@@ -175,7 +185,10 @@ int main(int argc, char **argv) {
   file_io::readPose3dsAndNodeIdFromFile(old_poses_file, input_poses_vector);
 
   std::unordered_map<vtr::FrameId, vtr::FrameId>
-      old_frame_to_new_frame_mapping = getSparsifiedFrames(input_poses_vector);
+      old_frame_to_new_frame_mapping = getSparsifiedFrames(
+          input_poses_vector,
+          config.sparsifier_params_.max_pose_inc_threshold_transl_,
+          config.sparsifier_params_.max_pose_inc_threshold_rot_);
 
   std::vector<std::pair<uint64_t, pose::Pose3d>> new_poses_vector;
   for (const std::pair<vtr::FrameId, pose::Pose3d> &old_frame_id_pose_pair :

@@ -12,6 +12,12 @@
 namespace vslam_types_refactor {
 
 struct BoundingBoxCovGenParams {
+  // NOTE: If this structure is modified, increment the
+  // kCurrentConfigSchemaVersion number in FullOVSLAMConfig.h NOTE: If the
+  // default values here are modified, regenerate the FullOVSLAMConfig file
+  // using (TODO create executable for writing this) and be sure to update the
+  // config_version_id TODO do we actually need to regenerate if defaults
+  //  changed? it shouldn't ever use defaults if we're reading from config file
   Covariance<double, 4> bounding_box_cov_ =
       createDiagCovFromStdDevs(Eigen::Vector4d(30, 30, 30, 30));
   double near_edge_threshold_ = 25;                   // TODO tune
@@ -19,6 +25,12 @@ struct BoundingBoxCovGenParams {
 };
 
 struct GeometricSimilarityScorerParams {
+  // NOTE: If this structure is modified, increment the
+  // kCurrentConfigSchemaVersion number in FullOVSLAMConfig.h NOTE: If the
+  // default values here are modified, regenerate the FullOVSLAMConfig file
+  // using (TODO create executable for writing this) and be sure to update the
+  // config_version_id TODO do we actually need to regenerate if defaults
+  //  changed? it shouldn't ever use defaults if we're reading from config file
   double max_merge_distance_ = 1.5;
 };
 

@@ -6,6 +6,7 @@
 #define UT_VSLAM_ORB_OUTPUT_LOW_LEVEL_FEATURE_READER_H
 
 #include <refactoring/visual_feature_processing/low_level_feature_reader.h>
+#include <refactoring/offline/limit_trajectory_evaluation_params.h>
 
 namespace vslam_types_refactor {
 
@@ -26,10 +27,12 @@ class OrbOutputLowLevelFeatureReader
  public:
   OrbOutputLowLevelFeatureReader(
       const std::string &orb_data_directory_name,
-      const std::vector<CameraId> &camera_precedence_order)
+      const std::vector<CameraId> &camera_precedence_order,
+      const LimitTrajectoryEvaluationParams &limit_traj_eval_params)
       : AbstractLowLevelFeatureReader<StructuredVisionFeatureTrack>(),
         orb_data_directory_name_(orb_data_directory_name),
         camera_precedence_order_(camera_precedence_order),
+        limit_traj_eval_params_(limit_traj_eval_params),
         loaded_(false) {}
 
   /**
@@ -61,6 +64,7 @@ class OrbOutputLowLevelFeatureReader
 
   std::string orb_data_directory_name_;
   std::vector<CameraId> camera_precedence_order_;
+  LimitTrajectoryEvaluationParams limit_traj_eval_params_;
 
   bool loaded_;
 
