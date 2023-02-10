@@ -6,6 +6,7 @@
 #define UT_VSLAM_FILE_STORAGE_IO_UTILS_H
 
 #include <base_lib/basic_utils.h>
+#include <glog/logging.h>
 
 #include <opencv2/core.hpp>
 
@@ -193,7 +194,7 @@ class SerializableVector
     for (size_t i = 0; i < data_.size(); i++) {
       EntryType vec_entry = data_[i];
       fs << "{";
-      fs << kIndexLabel << (int) i;
+      fs << kIndexLabel << (int)i;
       fs << kValueLabel << SerializableEntryType(vec_entry);
       fs << "}";
     }

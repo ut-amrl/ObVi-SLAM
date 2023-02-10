@@ -69,6 +69,8 @@ refineInitialEstimateForPendingObjects(
       added_poses.insert(obs.frame_id_);
       problem.AddResidualBlock(
           BoundingBoxFactor::createBoundingBoxFactor(
+              estimator_params.object_residual_params_
+                  .invalid_ellipsoid_error_val_,
               obs.bounding_box_corners_,
               intrinsics,
               extrinsics,
@@ -94,11 +96,17 @@ refineInitialEstimateForPendingObjects(
   }
 
   ceres::Solver::Options options;
-  // TODO configure options
-
   options.max_num_iterations =
-      //      estimator_params.solver_params_.max_num_iterations_;
-      500;
+      estimator_params.solver_params_.max_num_iterations_;
+  options.use_nonmonotonic_steps =
+      estimator_params.solver_params_.allow_non_monotonic_steps_;
+  options.function_tolerance =
+      estimator_params.solver_params_.function_tolerance_;
+  options.gradient_tolerance =
+      estimator_params.solver_params_.gradient_tolerance_;
+  options.parameter_tolerance =
+      estimator_params.solver_params_.parameter_tolerance_;
+
   options.num_threads = 10;
   options.linear_solver_type = ceres::DENSE_SCHUR;
 

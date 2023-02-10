@@ -153,8 +153,10 @@ int main(int argc, char **argv) {
           vtr::FrameId,
           std::unordered_map<vtr::CameraId, vtr::PixelCoord<double>>>>
       low_level_features_map;
-  vtr::OrbOutputLowLevelFeatureReader orb_feat_reader(FLAGS_low_level_feats_dir,
-                                                      {});
+  vtr::LimitTrajectoryEvaluationParams limit_traj_params;
+  limit_traj_params.should_limit_trajectory_evaluation_ = false;
+  vtr::OrbOutputLowLevelFeatureReader orb_feat_reader(
+      FLAGS_low_level_feats_dir, {}, limit_traj_params);
   vtr::FrameId max_frame_id = 0;
   orb_feat_reader.getLowLevelFeatures(visual_features);
   for (const auto &feature_track : visual_features) {

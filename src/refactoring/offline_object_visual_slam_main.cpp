@@ -3,6 +3,7 @@
 #include <file_io/bounding_box_by_node_id_io.h>
 #include <file_io/camera_extrinsics_with_id_io.h>
 #include <file_io/camera_intrinsics_with_id_io.h>
+#include <file_io/cv_file_storage/config_file_storage_io.h>
 #include <file_io/cv_file_storage/long_term_object_map_file_storage_io.h>
 #include <file_io/cv_file_storage/output_problem_data_file_storage_io.h>
 #include <file_io/cv_file_storage/roshan_bounding_box_front_end_file_storage_io.h>
@@ -15,6 +16,7 @@
 #include <refactoring/bounding_box_frontend/bounding_box_retriever.h>
 #include <refactoring/bounding_box_frontend/feature_based_bounding_box_front_end.h>
 #include <refactoring/bounding_box_frontend/roshan_bounding_box_front_end.h>
+#include <refactoring/configuration/full_ov_slam_config.h>
 #include <refactoring/image_processing/image_processing_utils.h>
 #include <refactoring/long_term_map/long_term_map_factor_creator.h>
 #include <refactoring/long_term_map/long_term_object_map_extraction.h>
@@ -621,82 +623,23 @@ int main(int argc, char **argv) {
   ros::init(argc, argv, node_prefix + "ellipsoid_estimator_real_data");
   ros::NodeHandle node_handle;
 
+  vtr::FullOVSLAMConfig config;
+  vtr::readConfiguration(FLAGS_params_config_file, config);
+
   // Hard-coded values -----------------------------------------------------
-  std::unordered_map<std::string,
-                     std::pair<vtr::ObjectDim<double>, vtr::ObjectDim<double>>>
-      shape_mean_and_std_devs_by_semantic_class;
-  Eigen::Vector3d chair_mean(0.62, 0.62, 0.975);
-  Eigen::Vector3d chair_std_dev(0.05, 0.05, 0.05);
-  std::string chair_class = "chair";
-  shape_mean_and_std_devs_by_semantic_class[chair_class] =
-      std::make_pair(chair_mean, chair_std_dev);
-
-  Eigen::Vector3d cone_mean(0.29, 0.29, 0.48);
-  Eigen::Vector3d cone_std_dev(0.001, 0.001, 0.01);
-  std::string cone_class = "roadblock";
-  shape_mean_and_std_devs_by_semantic_class[cone_class] =
-      std::make_pair(cone_mean, cone_std_dev);
-
-  Eigen::Vector3d tree_mean(.40, .40, 2);
-  Eigen::Vector3d tree_cov(0.2, 0.2, 3);
-  std::string tree_class = "treetrunk";
-  shape_mean_and_std_devs_by_semantic_class[tree_class] =
-      std::make_pair(tree_mean, tree_cov);
-
-  Eigen::Vector3d lamppost_mean(.3, .3, 4);
-  Eigen::Vector3d lamppost_cov(0.15, 0.15, 3);
-  std::string lamppost_class = "lamppost";
-  shape_mean_and_std_devs_by_semantic_class[lamppost_class] =
-      std::make_pair(lamppost_mean, lamppost_cov);
-
-  Eigen::Vector3d bench_mean(1, 2.5, 1.5);
-  Eigen::Vector3d bench_cov(1.5, 2, 1.5);
-  std::string bench_class = "bench";
-  shape_mean_and_std_devs_by_semantic_class[bench_class] =
-      std::make_pair(bench_mean, bench_cov);
-
-  Eigen::Vector3d trashcan_mean(1, 1, 1.5);
-  Eigen::Vector3d trashcan_cov(1, 1, 1.5);
-  std::string trashcan_class = "trashcan";
-  shape_mean_and_std_devs_by_semantic_class[trashcan_class] =
-      std::make_pair(trashcan_mean, trashcan_cov);
 
   // TODO modify convergence thresholds
-  pose_graph_optimization::OptimizationSolverParams local_ba_solver_params;
-  local_ba_solver_params.max_num_iterations_ = 200;
+  pose_graph_optimization::OptimizationSolverParams local_ba_solver_params =
+      config.local_ba_solver_params_;
 
-  pose_graph_optimization::OptimizationSolverParams global_ba_solver_params;
-  global_ba_solver_params.max_num_iterations_ = 250;
+  pose_graph_optimization::OptimizationSolverParams global_ba_solver_params =
+      config.global_ba_solver_params_;
 
-  pose_graph_optimization::OptimizationSolverParams final_opt_solver_params;
-  final_opt_solver_params.max_num_iterations_ = 300;
+  pose_graph_optimization::OptimizationSolverParams final_opt_solver_params =
+      config.final_ba_solver_params_;
 
-  pose_graph_optimization::ObjectVisualPoseGraphResidualParams
-      residual_params;  // TODO tune?
-
-  // TODO read this from file
-  //  std::unordered_map<std::string, vtr::CameraId> camera_topic_to_camera_id =
-  //  {
-  //      {"/camera/rgb/image_raw", 0}, {"/camera/rgb/image_raw/compressed",
-  //      0}};
-  std::unordered_map<std::string, vtr::CameraId> camera_topic_to_camera_id = {
-      {"/zed/zed_node/left/image_rect_color/compressed", 1},
-      {"/zed/zed_node/left/image_rect_color", 1},
-      {"/zed/zed_node/right/image_rect_color/compressed", 2},
-      {"/zed/zed_node/right/image_rect_color", 2}};
-
-  // Post-processing of the hard-coded values ---------------------------
-  std::unordered_map<
-      std::string,
-      std::pair<vtr::ObjectDim<double>, vtr::Covariance<double, 3>>>
-      mean_and_cov_by_semantic_class;
-  for (const auto &shape_mean_and_std_dev_for_class :
-       shape_mean_and_std_devs_by_semantic_class) {
-    mean_and_cov_by_semantic_class[shape_mean_and_std_dev_for_class.first] =
-        std::make_pair(shape_mean_and_std_dev_for_class.second.first,
-                       vtr::createDiagCovFromStdDevs(
-                           shape_mean_and_std_dev_for_class.second.second));
-  }
+  pose_graph_optimization::ObjectVisualPoseGraphResidualParams residual_params =
+      config.object_visual_pose_graph_residual_params_;
 
   // Read necessary data in from file -----------------------------------------
   std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
@@ -766,9 +709,10 @@ int main(int argc, char **argv) {
   std::unordered_map<
       vtr::FrameId,
       std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>>
-      images = image_utils::getImagesFromRosbag(FLAGS_rosbag_file,
-                                                FLAGS_nodes_by_timestamp_file,
-                                                camera_topic_to_camera_id);
+      images = image_utils::getImagesFromRosbag(
+          FLAGS_rosbag_file,
+          FLAGS_nodes_by_timestamp_file,
+          config.camera_info_.camera_topic_to_camera_id_);
 
   std::unordered_map<vtr::CameraId, std::pair<double, double>>
       img_heights_and_widths;
@@ -817,7 +761,7 @@ int main(int argc, char **argv) {
   if (!FLAGS_low_level_feats_dir.empty()) {
     LOG(INFO) << "Reading low level features";
     vtr::OrbOutputLowLevelFeatureReader orb_feat_reader(
-        FLAGS_low_level_feats_dir, {});
+        FLAGS_low_level_feats_dir, {}, config.limit_traj_eval_params_);
     orb_feat_reader.getLowLevelFeatures(visual_features);
     for (const auto &feature_track : visual_features) {
       vtr::FeatureId feat_id = feature_track.first;
@@ -835,26 +779,25 @@ int main(int argc, char **argv) {
     }
   }
 
-  MainProbData input_problem_data(camera_intrinsics_by_camera,
-                                  camera_extrinsics_by_camera,
-                                  visual_features,
-                                  robot_poses,
-                                  mean_and_cov_by_semantic_class,
-                                  bounding_boxes,
-                                  long_term_map,
-                                  images);
-
-  // Configurable params ------------------------------------------------------
-  vtr::FeatureBasedBbAssociationParams association_params;  // TODO populate
-  association_params.discard_candidate_after_num_frames_ = 40;
-  association_params.feature_validity_window_ = 20;
+  MainProbData input_problem_data(
+      camera_intrinsics_by_camera,
+      camera_extrinsics_by_camera,
+      visual_features,
+      robot_poses,
+      config.shape_dimension_priors_.mean_and_cov_by_semantic_class_,
+      bounding_boxes,
+      long_term_map,
+      images);
 
   vtr::SaveToFileVisualizerConfig save_to_file_visualizer_config;
   save_to_file_visualizer_config.bb_assoc_visualizer_config_
       .bounding_box_inflation_size_ =
-      association_params.bounding_box_inflation_size_;
+      config.bounding_box_front_end_params_.feature_based_bb_association_params_
+          .bounding_box_inflation_size_;
   save_to_file_visualizer_config.bb_assoc_visualizer_config_
-      .feature_validity_window_ = association_params.feature_validity_window_;
+      .feature_validity_window_ =
+      config.bounding_box_front_end_params_.feature_based_bb_association_params_
+          .feature_validity_window_;
 
   // Connect up functions needed for the optimizer --------------------------
   std::shared_ptr<vtr::RosVisualization> vis_manager =
@@ -916,21 +859,22 @@ int main(int argc, char **argv) {
     max_frame_id = std::max(max_frame_id, frame_and_pose.first);
   }
 
-  vtr::FrameId global_ba_frequency = 20;
-  vtr::FrameId local_ba_window_size = 30;
   std::function<vtr::FrameId(const vtr::FrameId &)> window_provider_func =
       [&](const vtr::FrameId &max_frame_to_opt) -> vtr::FrameId {
     // Optimize the full trajectory when we're on the last frame
     if (max_frame_to_opt == max_frame_id) {
       return 0;
     }
-    if ((max_frame_to_opt % global_ba_frequency) == 0) {
+    if ((max_frame_to_opt %
+         config.sliding_window_params_.global_ba_frequency_) == 0) {
       return 0;
     }
-    if (max_frame_to_opt < local_ba_window_size) {
+    if (max_frame_to_opt <
+        config.sliding_window_params_.local_ba_window_size_) {
       return 0;
     }
-    return max_frame_to_opt - local_ba_window_size;
+    return max_frame_to_opt -
+           config.sliding_window_params_.local_ba_window_size_;
   };
   std::function<pose_graph_optimization::OptimizationSolverParams(
       const vtr::FrameId &)>
@@ -938,7 +882,8 @@ int main(int argc, char **argv) {
       -> pose_graph_optimization::OptimizationSolverParams {
     if (max_frame_to_opt == max_frame_id) {
       return final_opt_solver_params;
-    } else if ((max_frame_to_opt % global_ba_frequency) == 0) {
+    } else if ((max_frame_to_opt %
+                config.sliding_window_params_.global_ba_frequency_) == 0) {
       return global_ba_solver_params;
     } else {
       return local_ba_solver_params;
@@ -1022,21 +967,22 @@ int main(int argc, char **argv) {
                 std::placeholders::_1,
                 long_term_map_factor_provider,
                 std::placeholders::_2);
+
+  // TODO set the parallax requirements from the config values here
   std::function<double(const MainProbData &,
                        const MainPgPtr &,
                        const vtr::FrameId &,
                        const vtr::FeatureId &,
                        const vtr::CameraId &)>
-      reprojection_error_provider = [](const MainProbData &input_problem,
-                                       const MainPgPtr &pose_graph,
-                                       const vtr::FrameId &frame_id,
-                                       const vtr::FeatureId &feature_id,
-                                       const vtr::CameraId &camera_id) {
-        // TODO replace with thought out function once we add in the visual
-        // part
-        return 2;  // Probably need to do something more sophisticated here --
-                   // ORB-SLAM has a more advanced thing that I haven't looked
-                   // into
+      reprojection_error_provider = [&](const MainProbData &input_problem,
+                                        const MainPgPtr &pose_graph,
+                                        const vtr::FrameId &frame_id,
+                                        const vtr::FeatureId &feature_id,
+                                        const vtr::CameraId &camera_id) {
+        // Probably need to do something more sophisticated here --
+        // ORB-SLAM has a more advanced thing that I haven't looked
+        // into
+        return config.visual_feature_params_.reprojection_error_std_dev_;
       };
 
   //  std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>
@@ -1077,7 +1023,6 @@ int main(int argc, char **argv) {
           std::vector<std::pair<std::string,
                                 std::optional<vtr::EllipsoidState<double>>>>>();
 
-  vtr::BoundingBoxCovGenParams cov_gen_params;
   //    std::function<std::pair<bool,
   //    std::optional<sensor_msgs::Image::ConstPtr>>(
   //        const vtr::FrameId &, const vtr::CameraId &, const MainProbData &)>
@@ -1109,8 +1054,6 @@ int main(int argc, char **argv) {
   //        [&](const MainPgPtr &pg, const MainProbData &input_prob) {
   //          return roshan_associator_creator.getDataAssociator(pg);
   //        };
-  vtr::GeometricSimilarityScorerParams geometric_similiarity_scorer_params;
-  geometric_similiarity_scorer_params.max_merge_distance_ = 4;
   std::function<std::pair<bool, vtr::FeatureBasedContextInfo>(
       const vtr::FrameId &, const vtr::CameraId &, const MainProbData &)>
       bb_context_retriever = [&](const vtr::FrameId &frame_id,
@@ -1136,9 +1079,11 @@ int main(int argc, char **argv) {
           bounding_boxes_for_pending_object,
           pending_objects,
           img_heights_and_widths,
-          cov_gen_params,
-          geometric_similiarity_scorer_params,
-          association_params,
+          config.bounding_box_covariance_generator_params_,
+          config.bounding_box_front_end_params_
+              .geometric_similarity_scorer_params_,
+          config.bounding_box_front_end_params_
+              .feature_based_bb_association_params_,
           long_term_map_front_end_data);
   std::function<std::shared_ptr<vtr::AbstractBoundingBoxFrontEnd<
       vtr::ReprojectionErrorFactor,
@@ -1237,8 +1182,9 @@ int main(int argc, char **argv) {
       ltm_extractor(ltm_covariance_params,
                     residual_creator,
                     long_term_map_obj_retriever,
-                    residual_params,
-                    final_opt_solver_params);  // TODO is this the one we want?
+                    config.ltm_tunable_params_,
+                    config.ltm_solver_residual_params_,
+                    config.ltm_solver_params_);
 
   std::function<void(
       const MainProbData &,
@@ -1317,25 +1263,28 @@ int main(int argc, char **argv) {
         std::shared_ptr<
             vtr::ObjAndLowLevelFeaturePoseGraph<vtr::ReprojectionErrorFactor>>
             superclass_ptr = pose_graph;
-        visualizationStub(vis_manager,
-                          save_to_file_visualizer,
-                          camera_extrinsics_by_camera,
-                          camera_intrinsics_by_camera,
-                          img_heights_and_widths,
-                          images,
-                          all_observed_corner_locations_with_uncertainty,
-                          associated_observed_corner_locations,
-                          bounding_boxes_for_pending_object,
-                          pending_objects,
-                          low_level_features_map,
-                          initial_feat_positions,
-                          input_problem_data,
-                          superclass_ptr,
-                          min_frame_id,
-                          max_frame_id,
-                          visualization_type,
-                          cov_gen_params.near_edge_threshold_,
-                          association_params.min_observations_);
+        visualizationStub(
+            vis_manager,
+            save_to_file_visualizer,
+            camera_extrinsics_by_camera,
+            camera_intrinsics_by_camera,
+            img_heights_and_widths,
+            images,
+            all_observed_corner_locations_with_uncertainty,
+            associated_observed_corner_locations,
+            bounding_boxes_for_pending_object,
+            pending_objects,
+            low_level_features_map,
+            initial_feat_positions,
+            input_problem_data,
+            superclass_ptr,
+            min_frame_id,
+            max_frame_id,
+            visualization_type,
+            config.bounding_box_covariance_generator_params_
+                .near_edge_threshold_,
+            config.bounding_box_front_end_params_
+                .feature_based_bb_association_params_.min_observations_);
       };
   vtr::OfflineProblemRunner<MainProbData,
                             vtr::ReprojectionErrorFactor,
@@ -1343,6 +1292,7 @@ int main(int argc, char **argv) {
                             util::EmptyStruct,
                             MainPg>
       offline_problem_runner(residual_params,
+                             config.limit_traj_eval_params_,
                              continue_opt_checker,
                              window_provider_func,
                              refresh_residual_checker,
@@ -1354,22 +1304,12 @@ int main(int argc, char **argv) {
                              visualization_callback,
                              solver_params_provider_func);
 
-  pose_graph_optimizer::OptimizationFactorsEnabledParams
-      optimization_factors_enabled_params;
-  optimization_factors_enabled_params.use_pom_ = false;
-  optimization_factors_enabled_params.include_visual_factors_ = true;
-  //  optimization_factors_enabled_params.fix_poses_ = true;
-  optimization_factors_enabled_params.fix_poses_ = false;
-  optimization_factors_enabled_params.fix_visual_features_ = false;
-  optimization_factors_enabled_params.fix_objects_ = false;
-  optimization_factors_enabled_params.poses_prior_to_window_to_keep_constant_ =
-      5;
-  // TODO should we also optimize the poses?
-
   //  vtr::SpatialEstimateOnlyResults output_results;
   vtr::LongTermObjectMapAndResults<MainLtm> output_results;
   offline_problem_runner.runOptimization(
-      input_problem_data, optimization_factors_enabled_params, output_results);
+      input_problem_data,
+      config.optimization_factors_enabled_params_,
+      output_results);
 
   if (!FLAGS_visual_feature_results_file.empty()) {
     cv::FileStorage visual_feature_fs(FLAGS_visual_feature_results_file,
