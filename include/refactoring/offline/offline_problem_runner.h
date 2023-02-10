@@ -56,6 +56,7 @@ class OfflineProblemRunner {
           &pose_graph_creator,
       const std::function<void(const InputProblemData &,
                                const std::shared_ptr<PoseGraphType> &,
+                               const FrameId &,
                                const FrameId &)> &frame_data_adder,
       const std::function<
           void(const InputProblemData &,
@@ -118,7 +119,7 @@ class OfflineProblemRunner {
     ceres::Problem problem;
     std::shared_ptr<PoseGraphType> pose_graph;
     pose_graph_creator_(problem_data, pose_graph);
-    frame_data_adder_(problem_data, pose_graph, 0);
+    frame_data_adder_(problem_data, pose_graph, 0, 0);
     FrameId max_frame_id = problem_data.getMaxFrameId();
 
     pose_graph_optimizer::OptimizationScopeParams optimization_scope_params;
@@ -165,7 +166,7 @@ class OfflineProblemRunner {
           FrameId end_frame_id = next_frame_id;
           optimization_scope_params.min_frame_id_ = start_frame_id;
           optimization_scope_params.max_frame_id_ = end_frame_id;
-          frame_data_adder_(problem_data, pose_graph, end_frame_id);
+          frame_data_adder_(problem_data, pose_graph, start_frame_id, end_frame_id);
           std::unordered_map<ceres::ResidualBlockId,
                          std::pair<vslam_types_refactor::FactorType,
                                    vslam_types_refactor::FeatureFactorId>>
@@ -202,7 +203,7 @@ class OfflineProblemRunner {
         optimization_scope_params.max_frame_id_ = end_frame_id;
         for (FrameId frame_id = start_frame_id; frame_id <= end_frame_id; 
             ++frame_id) {
-          frame_data_adder_(problem_data, pose_graph, frame_id);
+          frame_data_adder_(problem_data, pose_graph, start_frame_id, frame_id);
         }
         std::unordered_map<ceres::ResidualBlockId,
                          std::pair<vslam_types_refactor::FactorType,
@@ -245,7 +246,7 @@ class OfflineProblemRunner {
           FrameId end_frame_id = next_frame_id;
           optimization_scope_params.min_frame_id_ = start_frame_id;
           optimization_scope_params.max_frame_id_ = end_frame_id;
-          frame_data_adder_(problem_data, pose_graph, end_frame_id);
+          frame_data_adder_(problem_data, pose_graph, start_frame_id, end_frame_id);
 
           // Phase I
           std::unordered_map<ceres::ResidualBlockId,
@@ -352,6 +353,7 @@ class OfflineProblemRunner {
 
   std::function<void(const InputProblemData &,
                      const std::shared_ptr<PoseGraphType> &,
+                     const FrameId &,
                      const FrameId &)>
       frame_data_adder_;
   std::function<void(

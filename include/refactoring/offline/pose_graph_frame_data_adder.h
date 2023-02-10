@@ -84,6 +84,7 @@ void addVisualFeatureFactorsForFrame(
   }
 }
 
+// TODO delete reprojection_error_provider from function arguments
 // TODO maybe make generic to both types of object pose graphs
 template <typename ObjectAssociationInfo,
           typename RawBoundingBoxContextInfo,
@@ -94,6 +95,7 @@ template <typename ObjectAssociationInfo,
 void addFrameDataAssociatedBoundingBox(
     const ProblemDataType &input_problem_data,
     const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
+    const FrameId &min_frame_id,
     const FrameId &frame_to_add,
     const std::function<
         double(const ProblemDataType &,
@@ -101,6 +103,11 @@ void addFrameDataAssociatedBoundingBox(
                const FrameId &,
                const FeatureId &,
                const CameraId &)> &reprojection_error_provider,
+    const std::function<
+        void(const ProblemDataType &,
+             const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &,
+             const FrameId &,
+             const FrameId &)> &visual_feature_frame_data_adder,
     const std::function<
         bool(const FrameId &,
              std::unordered_map<CameraId, std::vector<RawBoundingBox>> &)>
@@ -162,10 +169,14 @@ void addFrameDataAssociatedBoundingBox(
 
   // Get visual feature factors and the visual features that appear first in
   // this frame
-  addVisualFeatureFactorsForFrame(input_problem_data,
-                                  pose_graph,
-                                  frame_to_add,
-                                  reprojection_error_provider);
+  // addVisualFeatureFactorsForFrame(input_problem_data,
+  //                                 pose_graph,
+  //                                 frame_to_add,
+  //                                 reprojection_error_provider);
+  visual_feature_frame_data_adder(input_problem_data, 
+                                  pose_graph, 
+                                  min_frame_id, 
+                                  frame_to_add);
 
   // Add bounding box observations
   std::unordered_map<CameraId, std::vector<RawBoundingBox>>
