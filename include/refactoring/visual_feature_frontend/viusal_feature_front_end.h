@@ -170,10 +170,10 @@ public:
         // LOG(INFO) << "handling pending factors";
         if (!is_feature_added_to_pose_graph) {
           const auto &visual_feature_cache = pending_feature_factors_.at(feature_id);
-          // if (checkMinParallaxRequirements(min_frame_id, 
-          //                                  max_frame_id, 
-          //                                  visual_feature_cache,
-          //                                  curr_robot_pose)) {
+          if (checkMinParallaxRequirements(min_frame_id, 
+                                           max_frame_id, 
+                                           visual_feature_cache,
+                                           curr_robot_pose)) {
             pose_graph->addFeature(feature_id,
                                   visual_feature_cache.initial_position_);
             for (const auto &frame_id_and_factors: 
@@ -184,7 +184,7 @@ public:
             }
             pending_feature_factors_.erase(feature_id);
             added_feature_ids_.insert(feature_id);
-          // }
+          }
           // LOG(INFO) << "end inner loop";
         }
       }
