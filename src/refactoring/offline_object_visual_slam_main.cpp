@@ -11,7 +11,6 @@
 #include <file_io/pose_3d_with_node_id_io.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
-#include <refactoring/visual_feature_frontend/viusal_feature_front_end.h>
 #include <refactoring/bounding_box_frontend/bounding_box_front_end_creation_utils.h>
 #include <refactoring/bounding_box_frontend/bounding_box_retriever.h>
 #include <refactoring/bounding_box_frontend/feature_based_bounding_box_front_end.h>
@@ -25,6 +24,7 @@
 #include <refactoring/optimization/residual_creator.h>
 #include <refactoring/output_problem_data.h>
 #include <refactoring/output_problem_data_extraction.h>
+#include <refactoring/visual_feature_frontend/viusal_feature_front_end.h>
 #include <refactoring/visual_feature_processing/orb_output_low_level_feature_reader.h>
 #include <refactoring/visualization/ros_visualization.h>
 #include <refactoring/visualization/save_to_file_visualizer.h>
@@ -32,9 +32,9 @@
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
 #include <sensor_msgs/Image.h>
-#include <filesystem>
-
 #include <visualization/matplotlibcpp.h>
+
+#include <filesystem>
 namespace plt = matplotlibcpp;
 
 namespace vtr = vslam_types_refactor;
@@ -82,8 +82,8 @@ DEFINE_double(min_confidence, 0.2, "Minimum confidence");
 DEFINE_string(low_level_feats_dir,
               "",
               "Directory that contains low level features");
-DEFINE_string(vslam_debugger_directory, 
-              "/robodata/taijing/object-slam/vslam/debug/1669743059/", 
+DEFINE_string(vslam_debugger_directory,
+              "/robodata/taijing/object-slam/vslam/debug/1668019589/",
               "Output root directory for debugger");
 DEFINE_string(bb_associations_out_file,
               "",
@@ -111,197 +111,215 @@ enum DebugTypeEnum {
 };
 
 std::unordered_map<DebugTypeEnum, std::string> debugLabels = {
-  {DebugTypeEnum::INITIALIZED, "initialization"},
-  {DebugTypeEnum::BEFORE_OPTIM, "before optimization"},
-  {DebugTypeEnum::AFTER_OPTIM,  "after optimization"},
-  {DebugTypeEnum::ORBSLAM,    "from ORBSLAM"},
-  {DebugTypeEnum::OBSERVED,   "observations"},
-  {DebugTypeEnum::ALL,        "all"},
-  {DebugTypeEnum::NONE,       ""}
-};
+    {DebugTypeEnum::INITIALIZED, "initialization"},
+    {DebugTypeEnum::BEFORE_OPTIM, "before optimization"},
+    {DebugTypeEnum::AFTER_OPTIM, "after optimization"},
+    {DebugTypeEnum::ORBSLAM, "from ORBSLAM"},
+    {DebugTypeEnum::OBSERVED, "observations"},
+    {DebugTypeEnum::ALL, "all"},
+    {DebugTypeEnum::NONE, ""}};
 
-void ToCSV(const std::string& filename, 
-    const std::vector<vtr::Pose3D<double>>& trajectory,
-    const std::string& delimiter = ",") {
+void ToCSV(const std::string &filename,
+           const std::vector<vtr::Pose3D<double>> &trajectory,
+           const std::string &delimiter = ",") {
   std::ofstream ofile;
   ofile.open(filename, std::ios::trunc);
   if (!ofile.is_open()) {
-      LOG(ERROR) << "failed to open " << filename;
+    LOG(ERROR) << "failed to open " << filename;
   }
-  ofile << "x" << delimiter << "y" << delimiter << "z" << delimiter 
-        << "qx" << delimiter << "qy" << delimiter 
-        << "qz"  << delimiter << "qw" << std::endl;
-  for (const auto& pose : trajectory) {
-    ofile << pose.transl_.x() << delimiter 
-          << pose.transl_.y() << delimiter
+  ofile << "x" << delimiter << "y" << delimiter << "z" << delimiter << "qx"
+        << delimiter << "qy" << delimiter << "qz" << delimiter << "qw"
+        << std::endl;
+  for (const auto &pose : trajectory) {
+    ofile << pose.transl_.x() << delimiter << pose.transl_.y() << delimiter
           << pose.transl_.z() << delimiter;
     Eigen::Quaterniond quat(pose.orientation_);
-    ofile << quat.x() << delimiter 
-          << quat.y() << delimiter
-          << quat.z() << delimiter
-          << quat.w() << std::endl;
+    ofile << quat.x() << delimiter << quat.y() << delimiter << quat.z()
+          << delimiter << quat.w() << std::endl;
   }
   ofile.close();
 }
 
-void ToCSV(const std::string& filename,
-    const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features,
-    const std::string& delimiter = ",") {
+void ToCSV(
+    const std::string &filename,
+    const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>> &features,
+    const std::string &delimiter = ",") {
   std::ofstream ofile;
   ofile.open(filename, std::ios::trunc);
   if (!ofile.is_open()) {
-      LOG(ERROR) << "failed to open " << filename;
+    LOG(ERROR) << "failed to open " << filename;
   }
-  ofile << "feature_id" << delimiter << "x" << delimiter 
-        << "y" << delimiter << "z" << std::endl;
-  for (const auto& feature : features) {
-    ofile << feature.first << delimiter
-          << feature.second[0] << delimiter 
-          << feature.second[1] << delimiter
-          << feature.second[2] << std::endl;;
+  ofile << "feature_id" << delimiter << "x" << delimiter << "y" << delimiter
+        << "z" << std::endl;
+  for (const auto &feature : features) {
+    ofile << feature.first << delimiter << feature.second[0] << delimiter
+          << feature.second[1] << delimiter << feature.second[2] << std::endl;
+    ;
   }
   ofile.close();
 }
 
 template <typename datatype>
 void LogToCSV(
-    const std::unordered_map<DebugTypeEnum, fs::path>& save_directories,
-    const std::unordered_map<DebugTypeEnum, datatype>& types_and_datas,
-    const vtr::FrameId& frame_id) {
-  for (const auto& type_and_data : types_and_datas) {
-    const auto& type = type_and_data.first;
-    const auto& data = type_and_data.second;
-    fs::path savepath = save_directories.at(type) / (std::to_string(frame_id)+".csv");
+    const std::unordered_map<DebugTypeEnum, fs::path> &save_directories,
+    const std::unordered_map<DebugTypeEnum, datatype> &types_and_datas,
+    const vtr::FrameId &frame_id) {
+  for (const auto &type_and_data : types_and_datas) {
+    const auto &type = type_and_data.first;
+    const auto &data = type_and_data.second;
+    fs::path savepath =
+        save_directories.at(type) / (std::to_string(frame_id) + ".csv");
     ToCSV(savepath, data);
   }
 }
 
-void PutImageText(const std::string& text, cv::Mat image) {
-  cv::putText(image, 
-              text, 
-              cv::Point(10, 50), 
-              cv::FONT_HERSHEY_SIMPLEX, 
-              1.0, // font scale
-              CV_RGB(255, 255, 255), 
-              2.0); // line thickness
+void PutImageText(const std::string &text, cv::Mat image) {
+  cv::putText(image,
+              text,
+              cv::Point(10, 50),
+              cv::FONT_HERSHEY_SIMPLEX,
+              1.0,  // font scale
+              CV_RGB(255, 255, 255),
+              2.0);  // line thickness
 }
 
 // assume each visualization has the same size
 template <typename IdType>
 cv::Mat SummarizeVisualization(
-    const std::unordered_map<IdType, cv::Mat> &ids_and_visualizations, 
+    const std::unordered_map<IdType, cv::Mat> &ids_and_visualizations,
     const int &nimages_each_row = -1) {
-  
-  if (ids_and_visualizations.empty()) { 
+  if (ids_and_visualizations.empty()) {
     LOG(FATAL) << "Doesn't support this control path! "
-               << "Please check ids_and_visualizations is non-empty before calling SummarizeVisualization()";
+               << "Please check ids_and_visualizations is non-empty before "
+                  "calling SummarizeVisualization()";
   }
   std::vector<IdType> ids;
-  for (const auto& id_and_visualization : ids_and_visualizations) {
+  for (const auto &id_and_visualization : ids_and_visualizations) {
     ids.push_back(id_and_visualization.first);
   }
   std::sort(ids.begin(), ids.end());
 
   size_t summary_height, summary_width;
-  const size_t& height = ids_and_visualizations.begin()->second.rows;
-  const size_t& width = ids_and_visualizations.begin()->second.cols;
-  const size_t& nvisualization = ids_and_visualizations.size();
-  const size_t& nimages_per_row = (nimages_each_row == -1) ? nvisualization : (size_t) nimages_each_row;
-  const size_t& nimages_per_col = (nvisualization % nimages_per_row == 0) ? 
-      nvisualization / nimages_per_row : nvisualization / nimages_per_row + 1;
+  const size_t &height = ids_and_visualizations.begin()->second.rows;
+  const size_t &width = ids_and_visualizations.begin()->second.cols;
+  const size_t &nvisualization = ids_and_visualizations.size();
+  const size_t &nimages_per_row =
+      (nimages_each_row == -1) ? nvisualization : (size_t)nimages_each_row;
+  const size_t &nimages_per_col = (nvisualization % nimages_per_row == 0)
+                                      ? nvisualization / nimages_per_row
+                                      : nvisualization / nimages_per_row + 1;
   summary_height = nimages_per_col * height;
-  summary_width  = nimages_per_row * width;
+  summary_width = nimages_per_row * width;
   cv::Mat summary = cv::Mat::zeros(summary_height, summary_width, CV_8UC3);
   std::vector<std::pair<int, int>> coordinates;
   for (size_t i = 0; i < nvisualization; ++i) {
-      coordinates.emplace_back( (i/nimages_per_row)*height, (i%nimages_per_row)*width );
+    coordinates.emplace_back((i / nimages_per_row) * height,
+                             (i % nimages_per_row) * width);
   }
 
   for (size_t i = 0; i < ids.size(); ++i) {
-    const auto& id = ids[i];
-    const cv::Mat& visualization = ids_and_visualizations.at(id);
-    const int& row = coordinates[i].first;
-    const int& col = coordinates[i].second;
-    visualization.copyTo(summary(cv::Range(row, row+height), cv::Range(col, col+width)));
+    const auto &id = ids[i];
+    const cv::Mat &visualization = ids_and_visualizations.at(id);
+    const int &row = coordinates[i].first;
+    const int &col = coordinates[i].second;
+    visualization.copyTo(
+        summary(cv::Range(row, row + height), cv::Range(col, col + width)));
   }
   return summary;
 }
 
 template <typename IdType>
 cv::Mat SummarizeVisualization(
-    const std::unordered_map<IdType, cv_bridge::CvImagePtr> &ids_and_visualizations, 
+    const std::unordered_map<IdType, cv_bridge::CvImagePtr>
+        &ids_and_visualizations,
     const int &nimages_each_row = -1) {
   std::unordered_map<IdType, cv::Mat> new_ids_and_visualizations;
-  for (const auto& id_and_visualization : ids_and_visualizations) {
-    const IdType& id = id_and_visualization.first;
-    const cv_bridge::CvImagePtr& imgptr = id_and_visualization.second;
+  for (const auto &id_and_visualization : ids_and_visualizations) {
+    const IdType &id = id_and_visualization.first;
+    const cv_bridge::CvImagePtr &imgptr = id_and_visualization.second;
     new_ids_and_visualizations[id] = imgptr->image;
   }
-  cv::Mat ret = SummarizeVisualization(new_ids_and_visualizations, nimages_each_row);
+  cv::Mat ret =
+      SummarizeVisualization(new_ids_and_visualizations, nimages_each_row);
   return ret;
 }
 
-void SetupOutputDirectory(const std::string& output_dir) {
+void SetupOutputDirectory(const std::string &output_dir) {
   if (!fs::is_directory(output_dir) || !fs::exists(output_dir)) {
     if (!fs::create_directory(output_dir)) {
       LOG(FATAL) << "failed to create directory " << output_dir;
     }
   }
-  for (const auto& entry : fs::directory_iterator(output_dir)) {
-      fs::remove_all(entry.path());
+  for (const auto &entry : fs::directory_iterator(output_dir)) {
+    fs::remove_all(entry.path());
   }
 }
 
 class VSLAMFrameDebugger {
-public:
+ public:
   VSLAMFrameDebugger() {}
 
-  VSLAMFrameDebugger(const vtr::FrameId& frame_id,
-      const std::unordered_map<vtr::CameraId, vtr::CameraExtrinsics<double>>& extrinsics,
-      const std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>& intrinsics,
-      const std::unordered_map<vtr::CameraId, std::pair<double, double>>& img_heights_and_widths,
-      const std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>& images,
-      const std::unordered_map<vtr::CameraId,
-          std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>>& features2d,
-      const std::unordered_map<vtr::CameraId, fs::path>& output_image_directories,
-      const std::unordered_map<vtr::CameraId, fs::path>& output_residual_directories,
-      const std::unordered_map<DebugTypeEnum, fs::path>& output_pcl_directories,
-      const fs::path& output_pose_root_directory,
-      const std::unordered_map<DebugTypeEnum, fs::path>& output_pose_directories,
-      const fs::path& output_summary_directory,
-      const std::unordered_map<vtr::CameraId, fs::path>& output_opt_window_directories_,
-      const std::unordered_map<DebugTypeEnum, std_msgs::ColorRGBA>& deubg_types_and_ros_colors,
-      const unsigned int& encoding) 
-        : frame_id_(frame_id), 
-          extrinsics_(extrinsics),
-          intrinsics_(intrinsics),
-          img_heights_and_widths_(img_heights_and_widths),
-          images_(images),
-          features2d_(features2d),
-          output_image_directories_(output_image_directories),
-          output_residual_directories_(output_residual_directories),
-          output_pcl_directories_(output_pcl_directories),
-          output_pose_root_directory_(output_pose_root_directory),
-          output_pose_directories_(output_pose_directories),
-          output_summary_directory_(output_summary_directory),
-          output_opt_window_directories_(output_opt_window_directories_),
-          deubg_types_and_ros_colors_(deubg_types_and_ros_colors),
-          encoding_(encoding) {}
-  
+  VSLAMFrameDebugger(
+      const vtr::FrameId &frame_id,
+      const std::unordered_map<vtr::CameraId, vtr::CameraExtrinsics<double>>
+          &extrinsics,
+      const std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
+          &intrinsics,
+      const std::unordered_map<vtr::CameraId, std::pair<double, double>>
+          &img_heights_and_widths,
+      const std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>
+          &images,
+      const std::unordered_map<
+          vtr::CameraId,
+          std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>>
+          &features2d,
+      const std::unordered_map<vtr::CameraId, fs::path>
+          &output_image_directories,
+      const std::unordered_map<vtr::CameraId, fs::path>
+          &output_residual_directories,
+      const std::unordered_map<DebugTypeEnum, fs::path> &output_pcl_directories,
+      const fs::path &output_pose_root_directory,
+      const std::unordered_map<DebugTypeEnum, fs::path>
+          &output_pose_directories,
+      const fs::path &output_summary_directory,
+      const std::unordered_map<vtr::CameraId, fs::path>
+          &output_opt_window_directories_,
+      const std::unordered_map<DebugTypeEnum, std_msgs::ColorRGBA>
+          &deubg_types_and_ros_colors,
+      const unsigned int &encoding)
+      : frame_id_(frame_id),
+        extrinsics_(extrinsics),
+        intrinsics_(intrinsics),
+        img_heights_and_widths_(img_heights_and_widths),
+        images_(images),
+        features2d_(features2d),
+        output_image_directories_(output_image_directories),
+        output_residual_directories_(output_residual_directories),
+        output_pcl_directories_(output_pcl_directories),
+        output_pose_root_directory_(output_pose_root_directory),
+        output_pose_directories_(output_pose_directories),
+        output_summary_directory_(output_summary_directory),
+        output_opt_window_directories_(output_opt_window_directories_),
+        deubg_types_and_ros_colors_(deubg_types_and_ros_colors),
+        encoding_(encoding) {}
+
   bool updateFeatures3dForDebuggingOptWindow(
-      const vtr::Pose3D<double>& pose,
-      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d,
-      const DebugTypeEnum& debug_type,
-      const size_t& local_BA_window) {
-    
-    std::unordered_map<vtr::CameraId, cv_bridge::CvImagePtr> cam_ids_and_visualizations;
+      const vtr::Pose3D<double> &pose,
+      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>
+          &features3d,
+      const DebugTypeEnum &debug_type,
+      const size_t &local_BA_window) {
+    std::unordered_map<vtr::CameraId, cv_bridge::CvImagePtr>
+        cam_ids_and_visualizations;
 
-    for (const auto& cam_id_and_feature2d : features2d_) {
-      const vtr::CameraId& cam_id = cam_id_and_feature2d.first;
-      const vtr::CameraExtrinsics<double>& extrinsics_for_cam = extrinsics_.at(cam_id);
-      const vtr::CameraIntrinsicsMat<double>& intrinsics_for_cam = intrinsics_.at(cam_id);
+    for (const auto &cam_id_and_feature2d : features2d_) {
+      const vtr::CameraId &cam_id = cam_id_and_feature2d.first;
+      const vtr::CameraExtrinsics<double> &extrinsics_for_cam =
+          extrinsics_.at(cam_id);
+      const vtr::CameraIntrinsicsMat<double> &intrinsics_for_cam =
+          intrinsics_.at(cam_id);
 
-      const sensor_msgs::Image::ConstPtr& img_for_cam = images_.at(cam_id);
+      const sensor_msgs::Image::ConstPtr &img_for_cam = images_.at(cam_id);
       cv_bridge::CvImagePtr cv_ptr;
       try {
         cv_ptr = cv_bridge::toCvCopy(img_for_cam, vtr::kImageEncoding);
@@ -310,70 +328,82 @@ public:
         exit(1);
       }
 
-      for (const auto& feat_id_and_feature : cam_id_and_feature2d.second) {
-        const auto& feat_id = feat_id_and_feature.first;
-        const auto& observed_feat = feat_id_and_feature.second;
-        if (features3d.find(feat_id) == features3d.end()) { continue; }
+      for (const auto &feat_id_and_feature : cam_id_and_feature2d.second) {
+        const auto &feat_id = feat_id_and_feature.first;
+        const auto &observed_feat = feat_id_and_feature.second;
+        if (features3d.find(feat_id) == features3d.end()) {
+          continue;
+        }
         vtr::Position3d<double> feature3d = features3d.at(feat_id);
-        vtr::PixelCoord<double> projected_pixel = 
-          vtr::getProjectedPixelCoord(feature3d,
-                                      pose,
-                                      extrinsics_for_cam,
-                                      intrinsics_for_cam);
+        vtr::PixelCoord<double> projected_pixel = vtr::getProjectedPixelCoord(
+            feature3d, pose, extrinsics_for_cam, intrinsics_for_cam);
 
         vtr::RosVisualization::drawTinyCircleOnImage(
-            observed_feat, deubg_types_and_ros_colors_[DebugTypeEnum::OBSERVED], cv_ptr);
+            observed_feat,
+            deubg_types_and_ros_colors_[DebugTypeEnum::OBSERVED],
+            cv_ptr);
         vtr::RosVisualization::drawTinyCircleOnImage(
             projected_pixel, deubg_types_and_ros_colors_[debug_type], cv_ptr);
         vtr::RosVisualization::drawLineOnImage(
-            observed_feat, projected_pixel, deubg_types_and_ros_colors_[debug_type], cv_ptr);
+            observed_feat,
+            projected_pixel,
+            deubg_types_and_ros_colors_[debug_type],
+            cv_ptr);
       }
       cam_ids_and_visualizations[cam_id] = cv_ptr;
     }
-    for (const auto& cam_id_and_visualization : cam_ids_and_visualizations) {
-      const vtr::CameraId& cam_id = cam_id_and_visualization.first;
-      const auto& visualization = cam_id_and_visualization.second;
+    for (const auto &cam_id_and_visualization : cam_ids_and_visualizations) {
+      const vtr::CameraId &cam_id = cam_id_and_visualization.first;
+      const auto &visualization = cam_id_and_visualization.second;
       output_images_within_opt_window_[cam_id].push_back(visualization);
     }
 
-    if (output_images_within_opt_window_.empty() 
-            || output_images_within_opt_window_.begin()->second.size() < local_BA_window) { return false; }
+    if (output_images_within_opt_window_.empty() ||
+        output_images_within_opt_window_.begin()->second.size() <
+            local_BA_window) {
+      return false;
+    }
     std::unordered_map<vtr::CameraId, cv::Mat> cam_ids_and_summaries;
-    for (const auto& cam_id_and_visualizations : output_images_within_opt_window_) {
-      const vtr::CameraId& cam_id = cam_id_and_visualizations.first;
-      const auto& visualizations = cam_id_and_visualizations.second;
-        std::unordered_map<size_t, cv_bridge::CvImagePtr> opt_ids_and_visualizations;
+    for (const auto &cam_id_and_visualizations :
+         output_images_within_opt_window_) {
+      const vtr::CameraId &cam_id = cam_id_and_visualizations.first;
+      const auto &visualizations = cam_id_and_visualizations.second;
+      std::unordered_map<size_t, cv_bridge::CvImagePtr>
+          opt_ids_and_visualizations;
       for (size_t i = 0; i < visualizations.size(); ++i) {
         opt_ids_and_visualizations[i] = visualizations[i];
       }
-      cam_ids_and_summaries[cam_id] = SummarizeVisualization(opt_ids_and_visualizations, 5);
+      cam_ids_and_summaries[cam_id] =
+          SummarizeVisualization(opt_ids_and_visualizations, 5);
     }
-    for (const auto& cam_id_and_summary : cam_ids_and_summaries) {
-      const auto& cam_id = cam_id_and_summary.first;
-      const auto& summary = cam_id_and_summary.second;
-      fs::path savepath 
-          = output_opt_window_directories_[cam_id] / (std::to_string(frame_id_)+".png");
+    for (const auto &cam_id_and_summary : cam_ids_and_summaries) {
+      const auto &cam_id = cam_id_and_summary.first;
+      const auto &summary = cam_id_and_summary.second;
+      fs::path savepath = output_opt_window_directories_[cam_id] /
+                          (std::to_string(frame_id_) + ".png");
       cv::imwrite(savepath, summary);
     }
     return true;
   }
 
-  void debug(const vtr::Pose3D<double>& pose,
-      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d,
-      const std::vector<vtr::Pose3D<double>>& trajectory_vec,
-      const DebugTypeEnum& debug_type) {
+  void debug(const vtr::Pose3D<double> &pose,
+             const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>
+                 &features3d,
+             const std::vector<vtr::Pose3D<double>> &trajectory_vec,
+             const DebugTypeEnum &debug_type) {
     getLowLevelFeaturesLatestImages(features3d, pose, debug_type);
     debugPoses(trajectory_vec, debug_type);
     debugFeaturePointcloud(features3d, debug_type);
   }
 
   void debugFeaturePointcloud(
-      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d,
-      const DebugTypeEnum& debug_type) {
+      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>
+          &features3d,
+      const DebugTypeEnum &debug_type) {
     std::unordered_map<vtr::FeatureId, vtr::Position3d<double>> new_features3d;
-    for (const auto& cam_id_and_observations : features2d_) {
-      for (const auto& feat_id_and_feature : cam_id_and_observations.second) {
-        const auto& feat_id = feat_id_and_feature.first;
+    for (const auto &cam_id_and_observations : features2d_) {
+      for (const auto &feat_id_and_feature : cam_id_and_observations.second) {
+        const auto &feat_id = feat_id_and_feature.first;
         if (features3d.find(feat_id) != features3d.end()) {
           new_features3d[feat_id] = features3d.at(feat_id);
         }
@@ -382,22 +412,23 @@ public:
     output_pointclouds_[debug_type] = new_features3d;
   }
 
-  void debugPoses(
-      const std::vector<vtr::Pose3D<double>>& trajectory_vec,
-      const DebugTypeEnum& debug_type) {
+  void debugPoses(const std::vector<vtr::Pose3D<double>> &trajectory_vec,
+                  const DebugTypeEnum &debug_type) {
     output_trajectories_[debug_type] = trajectory_vec;
   }
 
   void logOutputs() {
     if (!output_images_.empty()) {
-      for (const auto& cam_id_and_output_images : output_images_) {
-        const auto& cam_id = cam_id_and_output_images.first;
-        const auto& output_images = cam_id_and_output_images.second;
-        if ( output_images.empty() ) { return; }
+      for (const auto &cam_id_and_output_images : output_images_) {
+        const auto &cam_id = cam_id_and_output_images.first;
+        const auto &output_images = cam_id_and_output_images.second;
+        if (output_images.empty()) {
+          return;
+        }
         const int nimage_per_row = 2;
         cv::Mat summary = SummarizeVisualization(output_images, nimage_per_row);
-        std::string image_path = 
-            output_image_directories_.at(cam_id) / (std::to_string(frame_id_) + ".png");
+        std::string image_path = output_image_directories_.at(cam_id) /
+                                 (std::to_string(frame_id_) + ".png");
         cv::imwrite(image_path, summary);
       }
     }
@@ -410,7 +441,7 @@ public:
       LogToCSV(output_pose_directories_, output_trajectories_, frame_id_);
       plotTrajectory2D();
     }
-    
+
     if (output_pointclouds_.empty()) {
       LogToCSV(output_pcl_directories_, output_pointclouds_, frame_id_);
     }
@@ -419,56 +450,66 @@ public:
   // TODO fix hardcoding
   void summarizeByFrameId() {
     std::unordered_map<vtr::CameraId, cv::Mat> cam_ids_and_visualizations;
-    for (const auto& cam_id_and_output_directory : output_image_directories_) {
-      const auto& cam_id = cam_id_and_output_directory.first;
-      const auto& reprojection_path 
-          = output_image_directories_.at(cam_id) / (std::to_string(frame_id_) + ".png");
-      const auto& residual_path     
-          = output_residual_directories_.at(cam_id) / (std::to_string(frame_id_) + ".png");
-      const auto& trajectory_path   
-          = output_pose_root_directory_ / (std::to_string(frame_id_) + ".png");
+    for (const auto &cam_id_and_output_directory : output_image_directories_) {
+      const auto &cam_id = cam_id_and_output_directory.first;
+      const auto &reprojection_path = output_image_directories_.at(cam_id) /
+                                      (std::to_string(frame_id_) + ".png");
+      const auto &residual_path = output_residual_directories_.at(cam_id) /
+                                  (std::to_string(frame_id_) + ".png");
+      const auto &trajectory_path =
+          output_pose_root_directory_ / (std::to_string(frame_id_) + ".png");
       cv::Mat reprojection = cv::imread(reprojection_path);
       cv::Mat residual = cv::imread(residual_path);
       cv::Mat trajectory = cv::imread(trajectory_path);
-      if (reprojection.data == NULL || residual.data == NULL || trajectory.data == NULL) {
+      if (reprojection.data == NULL || residual.data == NULL ||
+          trajectory.data == NULL) {
         LOG(FATAL) << "failed to read image data!";
       }
-      if (reprojection.cols != 2 * residual.cols || residual.cols != trajectory.cols) {
+      if (reprojection.cols != 2 * residual.cols ||
+          residual.cols != trajectory.cols) {
         // TODO use more informative error message
         LOG(FATAL) << "Doesn't support these image sizes";
       }
       size_t summary_height, summary_width;
       summary_height = reprojection.rows + residual.rows;
-      summary_width  = reprojection.cols;
+      summary_width = reprojection.cols;
       cv::Mat summary = cv::Mat::zeros(summary_height, summary_width, CV_8UC3);
-      reprojection.copyTo(summary(cv::Range(0, reprojection.rows), cv::Range(0, reprojection.cols)));
-      residual.copyTo(summary(cv::Range(reprojection.rows, summary_height), cv::Range(0, residual.cols)));
-      trajectory.copyTo(summary(cv::Range(reprojection.rows, summary_height), cv::Range(residual.cols, summary_width)));
+      reprojection.copyTo(summary(cv::Range(0, reprojection.rows),
+                                  cv::Range(0, reprojection.cols)));
+      residual.copyTo(summary(cv::Range(reprojection.rows, summary_height),
+                              cv::Range(0, residual.cols)));
+      trajectory.copyTo(summary(cv::Range(reprojection.rows, summary_height),
+                                cv::Range(residual.cols, summary_width)));
       cam_ids_and_visualizations[cam_id] = summary;
     }
 
-    if (cam_ids_and_visualizations.empty()) { return; }
+    if (cam_ids_and_visualizations.empty()) {
+      return;
+    }
     cv::Mat summaries = SummarizeVisualization(cam_ids_and_visualizations);
-    fs::path savepath = 
-      output_summary_directory_ / (std::to_string(frame_id_) + ".png");
+    fs::path savepath =
+        output_summary_directory_ / (std::to_string(frame_id_) + ".png");
     cv::imwrite(savepath, summaries);
   }
 
   std::tuple<std::unordered_map<vtr::CameraId, cv_bridge::CvImagePtr>,
-             std::unordered_map<vtr::CameraId, std::vector<double>>> 
+             std::unordered_map<vtr::CameraId, std::vector<double>>>
   getLowLevelFeaturesLatestImages(
-      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& feat_ids_and_features3d,
-      const vtr::Pose3D<double>& pose,
-      const DebugTypeEnum& debug_type,
+      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>
+          &feat_ids_and_features3d,
+      const vtr::Pose3D<double> &pose,
+      const DebugTypeEnum &debug_type,
       const bool save = true) {
     std::unordered_map<vtr::CameraId, cv_bridge::CvImagePtr> ret_images;
     std::unordered_map<vtr::CameraId, std::vector<double>> ret_residuals;
 
-    for (const auto& cam_id_and_observations : features2d_) {
+    for (const auto &cam_id_and_observations : features2d_) {
       std::vector<double> residuals;
-      const vtr::CameraId& cam_id = cam_id_and_observations.first;
-      const vtr::CameraExtrinsics<double>& extrinsics_for_cam = extrinsics_.at(cam_id);
-      const vtr::CameraIntrinsicsMat<double>& intrinsics_for_cam = intrinsics_.at(cam_id);
+      const vtr::CameraId &cam_id = cam_id_and_observations.first;
+      const vtr::CameraExtrinsics<double> &extrinsics_for_cam =
+          extrinsics_.at(cam_id);
+      const vtr::CameraIntrinsicsMat<double> &intrinsics_for_cam =
+          intrinsics_.at(cam_id);
       std::optional<sensor_msgs::Image::ConstPtr> img_for_cam = std::nullopt;
       if (images_.find(cam_id) != images_.end()) {
         img_for_cam = images_.at(cam_id);
@@ -477,38 +518,46 @@ public:
       cv_bridge::CvImagePtr cv_ptr;
       if (img_for_cam.has_value()) {
         try {
-          cv_ptr = cv_bridge::toCvCopy(img_for_cam.value(), vtr::kImageEncoding);
+          cv_ptr =
+              cv_bridge::toCvCopy(img_for_cam.value(), vtr::kImageEncoding);
         } catch (cv_bridge::Exception &e) {
           LOG(ERROR) << "cv_bridge exception: " << e.what();
           exit(1);
         }
       }
       for (const auto &feat_id_and_feature2d : cam_id_and_observations.second) {
-        const auto& feat_id = feat_id_and_feature2d.first;
-        const auto& feature2d_obs = feat_id_and_feature2d.second;
+        const auto &feat_id = feat_id_and_feature2d.first;
+        const auto &feature2d_obs = feat_id_and_feature2d.second;
         if (feat_ids_and_features3d.find(feat_id) ==
-          feat_ids_and_features3d.end()) { continue; }
-        vtr::PixelCoord<double> projected_pixels = 
-        vtr::getProjectedPixelCoord(feat_ids_and_features3d.at(feat_id),
-                                    pose,
-                                    extrinsics_for_cam,
-                                    intrinsics_for_cam);
+            feat_ids_and_features3d.end()) {
+          continue;
+        }
+        vtr::PixelCoord<double> projected_pixels =
+            vtr::getProjectedPixelCoord(feat_ids_and_features3d.at(feat_id),
+                                        pose,
+                                        extrinsics_for_cam,
+                                        intrinsics_for_cam);
         vtr::RosVisualization::drawTinyCircleOnImage(
-            feature2d_obs, deubg_types_and_ros_colors_[DebugTypeEnum::OBSERVED], cv_ptr);
+            feature2d_obs,
+            deubg_types_and_ros_colors_[DebugTypeEnum::OBSERVED],
+            cv_ptr);
         vtr::RosVisualization::drawTinyCircleOnImage(
             projected_pixels, deubg_types_and_ros_colors_[debug_type], cv_ptr);
         vtr::RosVisualization::drawLineOnImage(
-            feature2d_obs, projected_pixels, deubg_types_and_ros_colors_[debug_type], cv_ptr);
+            feature2d_obs,
+            projected_pixels,
+            deubg_types_and_ros_colors_[debug_type],
+            cv_ptr);
         double residual = getResidual(feature2d_obs, projected_pixels);
         output_residuals_[cam_id][debug_type].push_back(residual);
         ret_residuals[cam_id].push_back(residual);
       }
-      PutImageText(debugLabels[debug_type] + " " + std::to_string(frame_id_), 
+      PutImageText(debugLabels[debug_type] + " " + std::to_string(frame_id_),
                    cv_ptr->image);
       if (save) {
         if (output_images_.find(cam_id) == output_images_.end()) {
-          output_images_[cam_id] 
-                = std::unordered_map<DebugTypeEnum, cv_bridge::CvImagePtr>();
+          output_images_[cam_id] =
+              std::unordered_map<DebugTypeEnum, cv_bridge::CvImagePtr>();
         }
         output_images_[cam_id][debug_type] = cv_ptr;
       }
@@ -517,12 +566,13 @@ public:
     return std::make_tuple(ret_images, ret_residuals);
   }
 
-  void getImages(std::unordered_map<vtr::CameraId, cv_bridge::CvImagePtr> &images) { 
+  void getImages(
+      std::unordered_map<vtr::CameraId, cv_bridge::CvImagePtr> &images) {
     for (const auto &cam_id_and_img_msg : images_) {
       cv_bridge::CvImagePtr cv_ptr;
       try {
-        cv_ptr = cv_bridge::toCvCopy(cam_id_and_img_msg.second, 
-                                     vtr::kImageEncoding);
+        cv_ptr =
+            cv_bridge::toCvCopy(cam_id_and_img_msg.second, vtr::kImageEncoding);
       } catch (cv_bridge::Exception &e) {
         LOG(ERROR) << "cv_bridge exception: " << e.what();
         exit(1);
@@ -531,28 +581,40 @@ public:
     }
   }
 
-  void getFeatures2d(std::unordered_map<vtr::CameraId,
-      std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>>
-          &features2d) { features2d = features2d_; }
+  void getFeatures2d(
+      std::unordered_map<
+          vtr::CameraId,
+          std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>>
+          &features2d) {
+    features2d = features2d_;
+  }
 
-private:
+ private:
   // Debug at each frame
   vtr::FrameId frame_id_;
   std::unordered_map<vtr::CameraId, vtr::CameraExtrinsics<double>> extrinsics_;
-  std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>> intrinsics_;
-  std::unordered_map<vtr::CameraId, std::pair<double, double>> img_heights_and_widths_;
+  std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
+      intrinsics_;
+  std::unordered_map<vtr::CameraId, std::pair<double, double>>
+      img_heights_and_widths_;
   std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr> images_;
-  std::unordered_map<vtr::CameraId,
-      std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>> features2d_;
+  std::unordered_map<
+      vtr::CameraId,
+      std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>>
+      features2d_;
 
-  std::unordered_map<vtr::CameraId, 
-      std::unordered_map<DebugTypeEnum, cv_bridge::CvImagePtr>> output_images_;
-  std::unordered_map<vtr::CameraId, 
-      std::unordered_map<DebugTypeEnum, std::vector<double>>> output_residuals_;
-  std::unordered_map<DebugTypeEnum, 
-      std::vector<vtr::Pose3D<double>>> output_trajectories_;
-  std::unordered_map<DebugTypeEnum, 
-      std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>> output_pointclouds_;
+  std::unordered_map<vtr::CameraId,
+                     std::unordered_map<DebugTypeEnum, cv_bridge::CvImagePtr>>
+      output_images_;
+  std::unordered_map<vtr::CameraId,
+                     std::unordered_map<DebugTypeEnum, std::vector<double>>>
+      output_residuals_;
+  std::unordered_map<DebugTypeEnum, std::vector<vtr::Pose3D<double>>>
+      output_trajectories_;
+  std::unordered_map<
+      DebugTypeEnum,
+      std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>>
+      output_pointclouds_;
 
   fs::path root_directory_;
   std::unordered_map<vtr::CameraId, fs::path> output_image_directories_;
@@ -564,35 +626,38 @@ private:
   std::unordered_map<vtr::CameraId, fs::path> output_opt_window_directories_;
 
   // Debug Optimization Window; Duplicate stored values for fast look-ups
-  std::unordered_map<vtr::CameraId, std::vector<cv_bridge::CvImagePtr>> output_images_within_opt_window_;
-  
-  std::unordered_map<DebugTypeEnum, std_msgs::ColorRGBA> deubg_types_and_ros_colors_;
+  std::unordered_map<vtr::CameraId, std::vector<cv_bridge::CvImagePtr>>
+      output_images_within_opt_window_;
+
+  std::unordered_map<DebugTypeEnum, std_msgs::ColorRGBA>
+      deubg_types_and_ros_colors_;
   unsigned int encoding_;
 
-  double getResidual(const vtr::PixelCoord<double>& pixel1, 
-      const vtr::PixelCoord<double>& pixel2) {
-    return (pixel1-pixel2).norm();
+  double getResidual(const vtr::PixelCoord<double> &pixel1,
+                     const vtr::PixelCoord<double> &pixel2) {
+    return (pixel1 - pixel2).norm();
   }
 
   void plotTrajectory2D() {
-    fs::path savepath 
-      = output_pose_root_directory_ / (std::to_string(frame_id_)+".png");
+    fs::path savepath =
+        output_pose_root_directory_ / (std::to_string(frame_id_) + ".png");
     std::unordered_map<DebugTypeEnum, std::vector<double>> types_and_xs;
     std::unordered_map<DebugTypeEnum, std::vector<double>> types_and_ys;
-    for (const auto& type_and_traj : output_trajectories_) {
-      const auto& type = type_and_traj.first;
-      for (const auto& pose : type_and_traj.second) {
+    for (const auto &type_and_traj : output_trajectories_) {
+      const auto &type = type_and_traj.first;
+      for (const auto &pose : type_and_traj.second) {
         types_and_xs[type].push_back(pose.transl_.x());
         types_and_ys[type].push_back(pose.transl_.y());
       }
     }
     plt::figure();
     // TODO right now only assume all images have the same size
-    plt::figure_size(img_heights_and_widths_.at(1).second, img_heights_and_widths_.at(1).first);
-    for (const auto& type_and_traj : output_trajectories_) {
-      const auto& type = type_and_traj.first;
-      const auto& xs = types_and_xs.at(type);
-      const auto& ys = types_and_ys.at(type);
+    plt::figure_size(img_heights_and_widths_.at(1).second,
+                     img_heights_and_widths_.at(1).first);
+    for (const auto &type_and_traj : output_trajectories_) {
+      const auto &type = type_and_traj.first;
+      const auto &xs = types_and_xs.at(type);
+      const auto &ys = types_and_ys.at(type);
       plt::named_plot(debugLabels[type], xs, ys);
     }
     plt::legend();
@@ -603,90 +668,110 @@ private:
   void plotResidualsHistogram() {
     long bins = 15;
     double alpha = 0.5;
-    for (const auto& cam_id_and_output_directory : output_residual_directories_) {
-      const auto& cam_id = cam_id_and_output_directory.first;
-      const auto& output_residual_directory = cam_id_and_output_directory.second;
-      fs::path savepath 
-          = output_residual_directory / (std::to_string(frame_id_)+".png");
-      const auto& output_residuals = output_residuals_.at(cam_id);
+    for (const auto &cam_id_and_output_directory :
+         output_residual_directories_) {
+      const auto &cam_id = cam_id_and_output_directory.first;
+      const auto &output_residual_directory =
+          cam_id_and_output_directory.second;
+      fs::path savepath =
+          output_residual_directory / (std::to_string(frame_id_) + ".png");
+      const auto &output_residuals = output_residuals_.at(cam_id);
       plt::figure();
-      plt::figure_size(img_heights_and_widths_.at(1).second, img_heights_and_widths_.at(1).first);
+      plt::figure_size(img_heights_and_widths_.at(1).second,
+                       img_heights_and_widths_.at(1).first);
       // TODO fix this configurations;
-      std::unordered_map<DebugTypeEnum, std::string> colors 
-          = {{DebugTypeEnum::INITIALIZED, "y"},
-             {DebugTypeEnum::BEFORE_OPTIM, "r"},
-             {DebugTypeEnum::AFTER_OPTIM, "b"}};
-      for (const auto& type_and_residuals : output_residuals) {
-        const auto& type = type_and_residuals.first;
-        plt::named_hist(debugLabels.at(type), output_residuals.at(type), bins, colors.at(type), alpha);
+      std::unordered_map<DebugTypeEnum, std::string> colors = {
+          {DebugTypeEnum::INITIALIZED, "y"},
+          {DebugTypeEnum::BEFORE_OPTIM, "r"},
+          {DebugTypeEnum::AFTER_OPTIM, "b"}};
+      for (const auto &type_and_residuals : output_residuals) {
+        const auto &type = type_and_residuals.first;
+        plt::named_hist(debugLabels.at(type),
+                        output_residuals.at(type),
+                        bins,
+                        colors.at(type),
+                        alpha);
       }
       plt::legend();
-      plt::title("Reprojection Residual Histogram at Frame " + std::to_string(frame_id_));
+      plt::title("Reprojection Residual Histogram at Frame " +
+                 std::to_string(frame_id_));
       plt::save(savepath.string());
     }
   }
-
 };
 
 class VSLAMDebugger {
-public:
-  VSLAMDebugger(const std::string& root_directory,
-                const std::vector<vtr::CameraId>& cam_ids) :
-                root_directory_(root_directory) {
+ public:
+  VSLAMDebugger(const std::string &root_directory,
+                const std::vector<vtr::CameraId> &cam_ids)
+      : root_directory_(root_directory) {
     SetupOutputDirectory(root_directory_.string());
-    
+
     fs::path output_image_directory = root_directory_ / "images";
     SetupOutputDirectory(output_image_directory.string());
-    for (const auto& cam_id : cam_ids) {
-      output_image_directories_[cam_id] = output_image_directory / std::to_string(cam_id);
+    for (const auto &cam_id : cam_ids) {
+      output_image_directories_[cam_id] =
+          output_image_directory / std::to_string(cam_id);
       SetupOutputDirectory(output_image_directories_[cam_id]);
     }
     fs::path output_residual_directory = root_directory_ / "residuals";
     SetupOutputDirectory(output_residual_directory);
-    for (const auto& cam_id : cam_ids) {
-      output_residual_directories_[cam_id] = output_residual_directory / std::to_string(cam_id);
+    for (const auto &cam_id : cam_ids) {
+      output_residual_directories_[cam_id] =
+          output_residual_directory / std::to_string(cam_id);
       SetupOutputDirectory(output_residual_directories_[cam_id]);
     }
 
     fs::path output_pcl_root_directory = root_directory_ / "pointclouds";
     SetupOutputDirectory(output_pcl_root_directory.string());
-    output_pcl_directories_[DebugTypeEnum::INITIALIZED] = output_pcl_root_directory   / "init";
-    output_pcl_directories_[DebugTypeEnum::BEFORE_OPTIM]  = output_pcl_root_directory / "before_optim";
-    output_pcl_directories_[DebugTypeEnum::AFTER_OPTIM]  = output_pcl_root_directory / "after_optim";
-    for (const auto& output_pcl_directory : output_pcl_directories_) {
+    output_pcl_directories_[DebugTypeEnum::INITIALIZED] =
+        output_pcl_root_directory / "init";
+    output_pcl_directories_[DebugTypeEnum::BEFORE_OPTIM] =
+        output_pcl_root_directory / "before_optim";
+    output_pcl_directories_[DebugTypeEnum::AFTER_OPTIM] =
+        output_pcl_root_directory / "after_optim";
+    for (const auto &output_pcl_directory : output_pcl_directories_) {
       SetupOutputDirectory(output_pcl_directory.second.string());
     }
 
     output_pose_root_directory_ = root_directory_ / "poses";
     SetupOutputDirectory(output_pose_root_directory_.string());
-    output_pose_directories_[DebugTypeEnum::INITIALIZED] = output_pose_root_directory_ / "init";
-    output_pose_directories_[DebugTypeEnum::BEFORE_OPTIM]  = output_pose_root_directory_ / "before_optim";
-    output_pose_directories_[DebugTypeEnum::AFTER_OPTIM]  = output_pose_root_directory_ / "after_optim";
-    for (const auto& output_pose_directory : output_pose_directories_) {
+    output_pose_directories_[DebugTypeEnum::INITIALIZED] =
+        output_pose_root_directory_ / "init";
+    output_pose_directories_[DebugTypeEnum::BEFORE_OPTIM] =
+        output_pose_root_directory_ / "before_optim";
+    output_pose_directories_[DebugTypeEnum::AFTER_OPTIM] =
+        output_pose_root_directory_ / "after_optim";
+    for (const auto &output_pose_directory : output_pose_directories_) {
       SetupOutputDirectory(output_pose_directory.second.string());
     }
 
     output_summary_directory_ = root_directory_ / "summaries";
     SetupOutputDirectory(output_summary_directory_);
 
-    fs::path output_opt_window_root_directory = root_directory_ / "optimizations";
+    fs::path output_opt_window_root_directory =
+        root_directory_ / "optimizations";
     SetupOutputDirectory(output_opt_window_root_directory.string());
-    for (const auto& cam_id : cam_ids) {
-      output_opt_window_directories_[cam_id] = output_opt_window_root_directory / std::to_string(cam_id);
+    for (const auto &cam_id : cam_ids) {
+      output_opt_window_directories_[cam_id] =
+          output_opt_window_root_directory / std::to_string(cam_id);
       SetupOutputDirectory(output_opt_window_directories_[cam_id]);
     }
 
-    fs::path output_feature_flow_root_directory = root_directory_ / "featureflow";
+    fs::path output_feature_flow_root_directory =
+        root_directory_ / "featureflow";
     SetupOutputDirectory(output_feature_flow_root_directory.string());
-    for (const auto& cam_id : cam_ids) {
-      output_feature_flow_directories_[cam_id] = output_feature_flow_root_directory / std::to_string(cam_id);
+    for (const auto &cam_id : cam_ids) {
+      output_feature_flow_directories_[cam_id] =
+          output_feature_flow_root_directory / std::to_string(cam_id);
       SetupOutputDirectory(output_feature_flow_directories_[cam_id]);
     }
 
     fs::path output_imgdata_root_directory = root_directory_ / "imgdata";
     SetupOutputDirectory(output_imgdata_root_directory.string());
-    for (const auto& cam_id : cam_ids) {
-      output_imgdata_directories_[cam_id] = output_imgdata_root_directory / std::to_string(cam_id);
+    for (const auto &cam_id : cam_ids) {
+      output_imgdata_directories_[cam_id] =
+          output_imgdata_root_directory / std::to_string(cam_id);
       SetupOutputDirectory(output_imgdata_directories_[cam_id]);
     }
 
@@ -695,17 +780,19 @@ public:
     std_msgs::ColorRGBA init_color;
     std_msgs::ColorRGBA before_optim_color;
     std_msgs::ColorRGBA after_optim_color;
-    obs_color.a = init_color.a = before_optim_color.a = after_optim_color.a = alpha;
+    obs_color.a = init_color.a = before_optim_color.a = after_optim_color.a =
+        alpha;
 
-    obs_color.g = 1;  // green
-    init_color.r = 1; // yellow
+    obs_color.g = 1;   // green
+    init_color.r = 1;  // yellow
     init_color.g = 1;
-    before_optim_color.r = 1; // red
-    after_optim_color.b = 1; // blue
-    
+    before_optim_color.r = 1;  // red
+    after_optim_color.b = 1;   // blue
+
     deubg_types_and_ros_colors_[DebugTypeEnum::OBSERVED] = obs_color;
     deubg_types_and_ros_colors_[DebugTypeEnum::INITIALIZED] = init_color;
-    deubg_types_and_ros_colors_[DebugTypeEnum::BEFORE_OPTIM] = before_optim_color;
+    deubg_types_and_ros_colors_[DebugTypeEnum::BEFORE_OPTIM] =
+        before_optim_color;
     deubg_types_and_ros_colors_[DebugTypeEnum::AFTER_OPTIM] = after_optim_color;
 
     if (vtr::kImageEncoding == sensor_msgs::image_encodings::MONO8) {
@@ -718,74 +805,86 @@ public:
     }
   }
 
-  void setupFrameDebuggerByFrameId(const vtr::FrameId& frame_id, 
-      const std::unordered_map<vtr::CameraId, vtr::CameraExtrinsics<double>>& extrinsics,
-      const std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>& intrinsics,
-      const std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>& images,
-      const std::unordered_map<vtr::CameraId, std::pair<double, double>>& img_heights_and_widths,
-      const std::unordered_map<vtr::CameraId,
-          std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>>& features2d) {
-
-    frame_ids_and_debuggers_[frame_id] 
-        = VSLAMFrameDebugger(frame_id, 
-                             extrinsics,
-                             intrinsics,
-                             img_heights_and_widths,
-                             images,
-                             features2d,
-                             output_image_directories_, 
-                             output_residual_directories_,
-                             output_pcl_directories_,
-                             output_pose_root_directory_, 
-                             output_pose_directories_, 
-                             output_summary_directory_,
-                             output_opt_window_directories_,
-                             deubg_types_and_ros_colors_,
-                             encoding_);
+  void setupFrameDebuggerByFrameId(
+      const vtr::FrameId &frame_id,
+      const std::unordered_map<vtr::CameraId, vtr::CameraExtrinsics<double>>
+          &extrinsics,
+      const std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
+          &intrinsics,
+      const std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>
+          &images,
+      const std::unordered_map<vtr::CameraId, std::pair<double, double>>
+          &img_heights_and_widths,
+      const std::unordered_map<
+          vtr::CameraId,
+          std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>>
+          &features2d) {
+    frame_ids_and_debuggers_[frame_id] =
+        VSLAMFrameDebugger(frame_id,
+                           extrinsics,
+                           intrinsics,
+                           img_heights_and_widths,
+                           images,
+                           features2d,
+                           output_image_directories_,
+                           output_residual_directories_,
+                           output_pcl_directories_,
+                           output_pose_root_directory_,
+                           output_pose_directories_,
+                           output_summary_directory_,
+                           output_opt_window_directories_,
+                           deubg_types_and_ros_colors_,
+                           encoding_);
   }
 
   void debugOptimizationRunByFrameId(
-      const vtr::FrameId& start_frame_id,
-      const vtr::FrameId& end_frame_id,
-      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d,
-      const std::unordered_map<vtr::FrameId, vtr::Pose3D<double>>& poses,
-      const DebugTypeEnum& debug_type) {
-    
+      const vtr::FrameId &start_frame_id,
+      const vtr::FrameId &end_frame_id,
+      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>
+          &features3d,
+      const std::unordered_map<vtr::FrameId, vtr::Pose3D<double>> &poses,
+      const DebugTypeEnum &debug_type) {
     const double kConsecutiveTranslChangeTol = 1.5;
-    
+
     std::vector<vtr::FrameId> frame_ids;
-    if (end_frame_id - start_frame_id <= 1) { return; }
-    for (vtr::FrameId frame_id = start_frame_id+1; frame_id <= end_frame_id; ++frame_id) {
-      if ((poses.at(frame_id).transl_-poses.at(frame_id-1).transl_).norm() 
-                > kConsecutiveTranslChangeTol) {
-        vtr::FrameId left_frame_id = 
+    if (end_frame_id - start_frame_id <= 1) {
+      return;
+    }
+    for (vtr::FrameId frame_id = start_frame_id + 1; frame_id <= end_frame_id;
+         ++frame_id) {
+      if ((poses.at(frame_id).transl_ - poses.at(frame_id - 1).transl_).norm() >
+          kConsecutiveTranslChangeTol) {
+        vtr::FrameId left_frame_id =
             frame_id < start_frame_id + 2 ? start_frame_id : frame_id - 2;
-        vtr::FrameId right_frame_id = 
+        vtr::FrameId right_frame_id =
             frame_id > end_frame_id - 2 ? end_frame_id : frame_id + 2;
-        for (vtr::FrameId f_id = left_frame_id; f_id <= right_frame_id; ++f_id) {
+        for (vtr::FrameId f_id = left_frame_id; f_id <= right_frame_id;
+             ++f_id) {
           frame_ids.push_back(f_id);
         }
       }
     }
-    
+
     // TODO Technically, we only need map instead of unordered_map
-    std::map<vtr::CameraId, 
-        std::unordered_map<vtr::FrameId, cv_bridge::CvImagePtr>> cam_ids_and_images;
+    std::map<vtr::CameraId,
+             std::unordered_map<vtr::FrameId, cv_bridge::CvImagePtr>>
+        cam_ids_and_images;
     for (const vtr::FrameId &frame_id : frame_ids) {
-      auto ret_images_and_residuals = frame_ids_and_debuggers_[frame_id]
-          .getLowLevelFeaturesLatestImages(
+      auto ret_images_and_residuals =
+          frame_ids_and_debuggers_[frame_id].getLowLevelFeaturesLatestImages(
               features3d, poses.at(frame_id), debug_type, false);
-      std::unordered_map<vtr::CameraId, cv_bridge::CvImagePtr> cam_ids_and_visualizations 
-          = std::get<0>(ret_images_and_residuals);
-      std::unordered_map<vtr::CameraId, std::vector<double>> cam_ids_and_residuals
-          = std::get<1>(ret_images_and_residuals);
+      std::unordered_map<vtr::CameraId, cv_bridge::CvImagePtr>
+          cam_ids_and_visualizations = std::get<0>(ret_images_and_residuals);
+      std::unordered_map<vtr::CameraId, std::vector<double>>
+          cam_ids_and_residuals = std::get<1>(ret_images_and_residuals);
       // TODO filter by residual
       for (const auto &cam_id_and_visualization : cam_ids_and_visualizations) {
         const vtr::CameraId &cam_id = cam_id_and_visualization.first;
-        std::sort(cam_ids_and_residuals[cam_id].begin(), 
+        std::sort(cam_ids_and_residuals[cam_id].begin(),
                   cam_ids_and_residuals[cam_id].end());
         if (cam_ids_and_images.find(cam_id) == cam_ids_and_images.end()) {
-          cam_ids_and_images[cam_id] = std::unordered_map<vtr::FrameId, cv_bridge::CvImagePtr>();
+          cam_ids_and_images[cam_id] =
+              std::unordered_map<vtr::FrameId, cv_bridge::CvImagePtr>();
         }
         cam_ids_and_images[cam_id][frame_id] = cam_id_and_visualization.second;
       }
@@ -793,30 +892,34 @@ public:
     for (const auto &cam_id_and_images : cam_ids_and_images) {
       const vtr::CameraId &cam_id = cam_id_and_images.first;
       cv::Mat summary = SummarizeVisualization(cam_id_and_images.second, 5);
-      std::string optim_path = 
-            output_opt_window_directories_.at(cam_id) / 
-            (std::to_string(end_frame_id) + "_" + debugLabels.at(debug_type) + ".png");
+      std::string optim_path = output_opt_window_directories_.at(cam_id) /
+                               (std::to_string(end_frame_id) + "_" +
+                                debugLabels.at(debug_type) + ".png");
       cv::imwrite(optim_path, summary);
     }
   }
 
-  void debugFeatureFlowsByFrameId(const vtr::FrameId& end_frame_id,
-                                  const vtr::FrameId& n_frame = 10) {
-    vtr::FrameId start_frame_id 
-        = end_frame_id < (n_frame+1) ? 1 : end_frame_id - n_frame;
+  void debugFeatureFlowsByFrameId(const vtr::FrameId &end_frame_id,
+                                  const vtr::FrameId &n_frame = 10) {
+    vtr::FrameId start_frame_id =
+        end_frame_id < (n_frame + 1) ? 1 : end_frame_id - n_frame;
     std::unordered_map<vtr::CameraId, cv_bridge::CvImagePtr> images;
     frame_ids_and_debuggers_[end_frame_id].getImages(images);
     for (const auto &cam_id_and_img : images) {
-      fs::path savepath 
-          = output_imgdata_directories_[cam_id_and_img.first] / (std::to_string(end_frame_id)+".png");
+      fs::path savepath = output_imgdata_directories_[cam_id_and_img.first] /
+                          (std::to_string(end_frame_id) + ".png");
       cv::imwrite(savepath, cam_id_and_img.second->image);
     }
     std::unordered_map<vtr::CameraId,
-          std::unordered_map<vtr::FeatureId, 
-                             std::vector<vtr::PixelCoord<double>>>> features2d_vecs;
-    for (vtr::FrameId frame_id = start_frame_id; frame_id <= end_frame_id; ++frame_id) {
-      std::unordered_map<vtr::CameraId,
-          std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>> features2d;
+                       std::unordered_map<vtr::FeatureId,
+                                          std::vector<vtr::PixelCoord<double>>>>
+        features2d_vecs;
+    for (vtr::FrameId frame_id = start_frame_id; frame_id <= end_frame_id;
+         ++frame_id) {
+      std::unordered_map<
+          vtr::CameraId,
+          std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>>
+          features2d;
       frame_ids_and_debuggers_[frame_id].getFeatures2d(features2d);
       for (const auto &feature2d : features2d) {
         const auto &cam_id = feature2d.first;
@@ -832,54 +935,61 @@ public:
       const auto &image = cam_id_and_img.second->image;
       for (const auto feat_id_and_flow : features2d_vecs.at(cam_id)) {
         const auto &flow = feat_id_and_flow.second;
-        if (flow.size() <= 1) { continue; }
+        if (flow.size() <= 1) {
+          continue;
+        }
         for (size_t i = 1; i < flow.size(); ++i) {
-          cv::line(image, 
-                   cv::Point((int)flow[i-1][0], (int)flow[i-1][1]), 
-                   cv::Point((int)flow[i][0],   (int)flow[i][1]), 
+          cv::line(image,
+                   cv::Point((int)flow[i - 1][0], (int)flow[i - 1][1]),
+                   cv::Point((int)flow[i][0], (int)flow[i][1]),
                    cv::Scalar(0, 255, 0),
                    1,
                    cv::LINE_AA);
         }
       }
-      fs::path savepath = 
-          output_feature_flow_directories_[cam_id] / (std::to_string(end_frame_id)+".png");
+      fs::path savepath = output_feature_flow_directories_[cam_id] /
+                          (std::to_string(end_frame_id) + ".png");
       cv::imwrite(savepath, image);
     }
   }
 
-  void debugByFrameId(const vtr::FrameId& frame_id,
-      const vtr::Pose3D<double>& pose,
-      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>& features3d,
-      const std::vector<vtr::Pose3D<double>>& trajectory_vec,
-      const DebugTypeEnum& debug_type) {
-    if (frame_ids_and_debuggers_.find(frame_id) == frame_ids_and_debuggers_.end()) {
-      LOG(INFO) << "Please call setupFrameDebuggerByFrameId before calling debugByFrameId";
+  void debugByFrameId(
+      const vtr::FrameId &frame_id,
+      const vtr::Pose3D<double> &pose,
+      const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>
+          &features3d,
+      const std::vector<vtr::Pose3D<double>> &trajectory_vec,
+      const DebugTypeEnum &debug_type) {
+    if (frame_ids_and_debuggers_.find(frame_id) ==
+        frame_ids_and_debuggers_.end()) {
+      LOG(INFO) << "Please call setupFrameDebuggerByFrameId before calling "
+                   "debugByFrameId";
       exit(1);
     }
     frame_ids_and_debuggers_[frame_id].debug(
-        pose,
-        features3d, 
-        trajectory_vec,
-        debug_type);
+        pose, features3d, trajectory_vec, debug_type);
   }
 
-  void logOutputsByFrameId(const vtr::FrameId& frame_id) {
-    if (frame_ids_and_debuggers_.find(frame_id) == frame_ids_and_debuggers_.end()) {
-      LOG(INFO) << "Please call setupFrameDebuggerByFrameId before calling debugByFrameId";
+  void logOutputsByFrameId(const vtr::FrameId &frame_id) {
+    if (frame_ids_and_debuggers_.find(frame_id) ==
+        frame_ids_and_debuggers_.end()) {
+      LOG(INFO) << "Please call setupFrameDebuggerByFrameId before calling "
+                   "debugByFrameId";
       exit(1);
     }
     frame_ids_and_debuggers_[frame_id].logOutputs();
   }
 
-private:
+ private:
   std::unordered_map<vtr::FrameId, VSLAMFrameDebugger> frame_ids_and_debuggers_;
 
   fs::path root_directory_;
-  std::unordered_map<vtr::CameraId, 
-      std::unordered_map<DebugTypeEnum, cv_bridge::CvImagePtr>> output_images_;
-  std::unordered_map<vtr::CameraId, 
-      std::unordered_map<DebugTypeEnum, std::vector<double>>> output_residuals_;
+  std::unordered_map<vtr::CameraId,
+                     std::unordered_map<DebugTypeEnum, cv_bridge::CvImagePtr>>
+      output_images_;
+  std::unordered_map<vtr::CameraId,
+                     std::unordered_map<DebugTypeEnum, std::vector<double>>>
+      output_residuals_;
   std::vector<vtr::Pose3D<double>> init_trajectory_;
   std::vector<vtr::Pose3D<double>> est_trajectory_;
 
@@ -893,12 +1003,13 @@ private:
   std::unordered_map<vtr::CameraId, fs::path> output_feature_flow_directories_;
   std::unordered_map<vtr::CameraId, fs::path> output_imgdata_directories_;
 
-  std::unordered_map<DebugTypeEnum, std_msgs::ColorRGBA> deubg_types_and_ros_colors_;
+  std::unordered_map<DebugTypeEnum, std_msgs::ColorRGBA>
+      deubg_types_and_ros_colors_;
   unsigned int encoding_;
 };
 
 // TODO read from user specified input
-VSLAMDebugger debugger(FLAGS_vslam_debugger_directory, {1,2});
+VSLAMDebugger debugger(FLAGS_vslam_debugger_directory, {1, 2});
 
 std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
 readCameraIntrinsicsByCameraFromFile(const std::string &file_name) {
@@ -1198,9 +1309,9 @@ void visualizationStub(
     case vtr::BEFORE_EACH_OPTIMIZATION: {
       debugger.setupFrameDebuggerByFrameId(
           max_frame_optimized,
-          extrinsics, 
-          intrinsics, 
-          images.at(max_frame_optimized), 
+          extrinsics,
+          intrinsics,
+          images.at(max_frame_optimized),
           img_heights_and_widths,
           observed_features.at(max_frame_optimized));
 
@@ -1213,29 +1324,30 @@ void visualizationStub(
         optimized_trajectory[frame_raw_pose.first] =
             vtr::convertToPose3D(frame_raw_pose.second);
       }
-      const vtr::Pose3D<double>& pose = optimized_trajectory.at(max_frame_optimized);
-      
-      std::unordered_map<vtr::FeatureId, vtr::Position3d<double>> feature_before_optim;
+      const vtr::Pose3D<double> &pose =
+          optimized_trajectory.at(max_frame_optimized);
+
+      std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>
+          feature_before_optim;
       pose_graph->getVisualFeatureEstimates(feature_before_optim);
 
       std::vector<vtr::Pose3D<double>> before_optim_trajectory_vec;
       for (vtr::FrameId frame_id = 0; frame_id <= max_frame_optimized;
            frame_id++) {
-        before_optim_trajectory_vec.emplace_back(optimized_trajectory.at(frame_id));
+        before_optim_trajectory_vec.emplace_back(
+            optimized_trajectory.at(frame_id));
       }
 
-      debugger.debugByFrameId(
-          max_frame_optimized, 
-          pose, 
-          feature_before_optim, 
-          before_optim_trajectory_vec,
-          DebugTypeEnum::BEFORE_OPTIM);
-      debugger.debugOptimizationRunByFrameId(
-        min_frame_optimized,
-        max_frame_optimized,
-        feature_before_optim,
-        optimized_trajectory,
-        DebugTypeEnum::BEFORE_OPTIM);
+      debugger.debugByFrameId(max_frame_optimized,
+                              pose,
+                              feature_before_optim,
+                              before_optim_trajectory_vec,
+                              DebugTypeEnum::BEFORE_OPTIM);
+      debugger.debugOptimizationRunByFrameId(min_frame_optimized,
+                                             max_frame_optimized,
+                                             feature_before_optim,
+                                             optimized_trajectory,
+                                             DebugTypeEnum::BEFORE_OPTIM);
       break;
     }
     case vtr::AFTER_EACH_OPTIMIZATION: {
@@ -1400,26 +1512,24 @@ void visualizationStub(
           initial_feat_positions,
           observed_feats_for_frame,
           vtr::PlotType::INITIAL);
-      
+
       debugger.debugByFrameId(
-          max_frame_optimized, 
+          max_frame_optimized,
           input_problem_data.getRobotPoseEstimates().at(max_frame_optimized),
-          initial_feat_positions, 
+          initial_feat_positions,
           init_trajectory_vec,
           DebugTypeEnum::INITIALIZED);
-      debugger.debugByFrameId(
-          max_frame_optimized, 
-          optimized_trajectory.at(max_frame_optimized), 
-          feature_ests, 
-          est_trajectory_vec,
-          DebugTypeEnum::AFTER_OPTIM);
+      debugger.debugByFrameId(max_frame_optimized,
+                              optimized_trajectory.at(max_frame_optimized),
+                              feature_ests,
+                              est_trajectory_vec,
+                              DebugTypeEnum::AFTER_OPTIM);
       debugger.logOutputsByFrameId(max_frame_optimized);
-      debugger.debugOptimizationRunByFrameId(
-        min_frame_optimized,
-        max_frame_optimized,
-        feature_ests,
-        optimized_trajectory,
-        DebugTypeEnum::AFTER_OPTIM);
+      debugger.debugOptimizationRunByFrameId(min_frame_optimized,
+                                             max_frame_optimized,
+                                             feature_ests,
+                                             optimized_trajectory,
+                                             DebugTypeEnum::AFTER_OPTIM);
       debugger.debugFeatureFlowsByFrameId(max_frame_optimized);
 
       save_to_file_visualizer.boundingBoxFrontEndVisualization(
@@ -1529,10 +1639,10 @@ int main(int argc, char **argv) {
       std::make_pair(trashcan_mean, trashcan_cov);
 
   pose_graph_optimization::OptimizationSolverParams solver_params;  // TODO
-  solver_params.max_num_iterations_ = 500; // Tuning
-  pose_graph_optimization::ObjectVisualPoseGraphResidualParams
-      residual_params;
-  residual_params.visual_residual_params_.reprojection_error_huber_loss_param_ = .1; // Tuning
+  solver_params.max_num_iterations_ = 500;                          // Tuning
+  pose_graph_optimization::ObjectVisualPoseGraphResidualParams residual_params;
+  residual_params.visual_residual_params_.reprojection_error_huber_loss_param_ =
+      .1;  // Tuning
 
   vtr::RoshanBbAssociationParams roshan_associator_params;  // TODO tune these
   roshan_associator_params.saturation_histogram_bins_ = 50;
@@ -1788,14 +1898,14 @@ int main(int argc, char **argv) {
       [](const vtr::FrameId &max_frame) -> vtr::FrameId {
     // For now, we'll just optimize the whole trajectory (so return 0 so we
     // start the optimization with node 0
-//    return 0;
-        if ((max_frame % 30) == 0) {
-          return 0;
-        }
-        if (max_frame < 50) {
-          return 0;
-        }
-        return max_frame - 50;
+    //    return 0;
+    if ((max_frame % 30) == 0) {
+      return 0;
+    }
+    if (max_frame < 50) {
+      return 0;
+    }
+    return max_frame - 50;
   };
 
   std::function<bool(
@@ -1862,9 +1972,12 @@ int main(int argc, char **argv) {
                                        cached_info);
           };
 
-  std::function<bool(util::BoostHashMap<MainFactorInfo, std::unordered_set<vtr::ObjectId>> &)>
+  std::function<bool(
+      util::BoostHashMap<MainFactorInfo, std::unordered_set<vtr::ObjectId>> &)>
       long_term_map_factor_provider =
-          [&](util::BoostHashMap<MainFactorInfo, std::unordered_set<vtr::ObjectId>> &factor_data) {
+          [&](util::BoostHashMap<MainFactorInfo,
+                                 std::unordered_set<vtr::ObjectId>>
+                  &factor_data) {
             return ltm_factor_creator.getFactorsToInclude(factor_data);
           };
   std::function<void(const MainProbData &, MainPgPtr &)> pose_graph_creator =
@@ -1894,14 +2007,14 @@ int main(int argc, char **argv) {
   double min_visual_feature_parallax_robot_transl_requirement = 0.1;
   double min_visual_feature_parallax_robot_orient_requirement = 0.05;
   vtr::VisualFeatureFrontend visual_feature_fronted(
-      reprojection_error_provider, 
-      min_visual_feature_parallax_pixel_requirement, 
+      reprojection_error_provider,
+      min_visual_feature_parallax_pixel_requirement,
       min_visual_feature_parallax_robot_transl_requirement,
       min_visual_feature_parallax_robot_orient_requirement);
   std::function<void(const MainProbData &,
-                       const MainPgPtr &,
-                       const vtr::FrameId &,
-                       const vtr::FrameId &)>
+                     const MainPgPtr &,
+                     const vtr::FrameId &,
+                     const vtr::FrameId &)>
       visual_feature_frame_data_adder = [&](const MainProbData &input_problem,
                                             const MainPgPtr &pose_graph,
                                             const vtr::FrameId &min_frame_id,
@@ -2042,8 +2155,10 @@ int main(int argc, char **argv) {
   //            frame_id_to_query_for, input_problem_data,
   //            bounding_boxes_by_cam);
   //      };
-  std::function<void(
-      const MainProbData &, const MainPgPtr &, const vtr::FrameId &, const vtr::FrameId &)>
+  std::function<void(const MainProbData &,
+                     const MainPgPtr &,
+                     const vtr::FrameId &,
+                     const vtr::FrameId &)>
       frame_data_adder = [&](const MainProbData &problem_data,
                              const MainPgPtr &pose_graph,
                              const vtr::FrameId &min_frame_id,
@@ -2224,11 +2339,12 @@ int main(int argc, char **argv) {
       optimization_factors_enabled_params;
   optimization_factors_enabled_params.use_pom_ = false;
   optimization_factors_enabled_params.include_visual_factors_ = true;
-//    optimization_factors_enabled_params.fix_poses_ = true;
+  //    optimization_factors_enabled_params.fix_poses_ = true;
   optimization_factors_enabled_params.fix_poses_ = false;
   optimization_factors_enabled_params.fix_visual_features_ = false;
   optimization_factors_enabled_params.fix_objects_ = false;
-  optimization_factors_enabled_params.poses_prior_to_window_to_keep_constant_ = 1; // Tuning
+  optimization_factors_enabled_params.poses_prior_to_window_to_keep_constant_ =
+      1;  // Tuning
   // TODO should we also optimize the poses?
 
   //  vtr::SpatialEstimateOnlyResults output_results;
@@ -2243,15 +2359,15 @@ int main(int argc, char **argv) {
   //                            output_data_extractor,
   //                            ceres_callback_creator,
   //                            visualization_callback,
-  //                            solver_params, 
+  //                            solver_params,
   //                            input_problem_data) ) {
   //   LOG(ERROR) << "Failed to initalize feature positions";
   //   exit(1);
   // }
   offline_problem_runner.runOptimization(
-      input_problem_data, 
-      optimization_factors_enabled_params, 
-      output_results, 
+      input_problem_data,
+      optimization_factors_enabled_params,
+      output_results,
       vtr::OptimTypeEnum::TWOPHASE_SLIDING_WINDOW);
 
   if (!FLAGS_visual_feature_results_file.empty()) {

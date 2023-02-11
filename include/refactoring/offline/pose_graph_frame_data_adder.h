@@ -173,10 +173,8 @@ void addFrameDataAssociatedBoundingBox(
   //                                 pose_graph,
   //                                 frame_to_add,
   //                                 reprojection_error_provider);
-  visual_feature_frame_data_adder(input_problem_data, 
-                                  pose_graph, 
-                                  min_frame_id, 
-                                  frame_to_add);
+  visual_feature_frame_data_adder(
+      input_problem_data, pose_graph, min_frame_id, frame_to_add);
 
   // Add bounding box observations
   std::unordered_map<CameraId, std::vector<RawBoundingBox>>

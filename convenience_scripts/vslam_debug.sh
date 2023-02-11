@@ -1,6 +1,6 @@
 #!/bin/bash
 
-bagname="1669743059"
+bagname="1668019589"
 CALIB_DIR="/robodata/taijing/object-slam/calibration/husky_zed/"
 SLAM_DIR="/home/tiejean/projects/ut_semantic_vslam/"
 ORB_DIR="/home/tiejean/projects/ORB_SLAM2/"
