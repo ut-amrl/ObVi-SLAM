@@ -11,6 +11,7 @@
 #include <file_io/pose_3d_with_node_id_io.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
+#include <refactoring/visual_feature_frontend/visual_feature_front_end.h>
 #include <refactoring/bounding_box_frontend/bounding_box_front_end_creation_utils.h>
 #include <refactoring/bounding_box_frontend/bounding_box_retriever.h>
 #include <refactoring/bounding_box_frontend/feature_based_bounding_box_front_end.h>
@@ -1038,6 +1039,25 @@ int main(int argc, char **argv) {
                    // ORB-SLAM has a more advanced thing that I haven't looked
                    // into
       };
+  double min_visual_feature_parallax_pixel_requirement = 5.0;
+  double min_visual_feature_parallax_robot_transl_requirement = 0.1;
+  double min_visual_feature_parallax_robot_orient_requirement = 0.05;
+  vtr::VisualFeatureFrontend visual_feature_fronted(
+      reprojection_error_provider, 
+      min_visual_feature_parallax_pixel_requirement, 
+      min_visual_feature_parallax_robot_transl_requirement,
+      min_visual_feature_parallax_robot_orient_requirement);
+  std::function<void(const MainProbData &,
+                       const MainPgPtr &,
+                       const vtr::FrameId &,
+                       const vtr::FrameId &)>
+      visual_feature_frame_data_adder = [&](const MainProbData &input_problem,
+                                            const MainPgPtr &pose_graph,
+                                            const vtr::FrameId &min_frame_id,
+                                            const vtr::FrameId &max_frame_id) {
+        visual_feature_fronted.addVisualFeatureObservations(
+            input_problem_data, pose_graph, min_frame_id, max_frame_id);
+  };
 
   //  std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>
   //      long_term_map_front_end_data;
@@ -1176,14 +1196,17 @@ int main(int argc, char **argv) {
   //            bounding_boxes_by_cam);
   //      };
   std::function<void(
-      const MainProbData &, const MainPgPtr &, const vtr::FrameId &)>
+      const MainProbData &, const MainPgPtr &, const vtr::FrameId &, const vtr::FrameId &)>
       frame_data_adder = [&](const MainProbData &problem_data,
                              const MainPgPtr &pose_graph,
+                             const vtr::FrameId &min_frame_id,
                              const vtr::FrameId &frame_to_add) {
         vtr::addFrameDataAssociatedBoundingBox(problem_data,
                                                pose_graph,
+                                               min_frame_id,
                                                frame_to_add,
                                                reprojection_error_provider,
+                                               visual_feature_frame_data_adder,
                                                bb_retriever,
                                                bb_associator_retriever,
                                                bb_context_retriever);
