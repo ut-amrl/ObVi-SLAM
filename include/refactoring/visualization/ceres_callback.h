@@ -95,6 +95,7 @@ class CeresCallbackLogger {
     const FrameId nframe_window = 20;
     plt::figure();
     plt::figure_size(640, 360);
+    std::vector<std::pair<FrameId, FrameId>> start_frame_ids_and_end_frame_ids;
     for (const auto &frame_id1_and_frame_id2 : frame_id1s_and_frame_id2s) {
       const FrameId &frame_id1 = frame_id1_and_frame_id2.first;
       const FrameId &frame_id2 = frame_id1_and_frame_id2.second;
@@ -107,6 +108,41 @@ class CeresCallbackLogger {
       end_frame_id = frame_id2 + nframe_window > max_frame_id
                          ? max_frame_id
                          : frame_id2 + nframe_window;
+      start_frame_ids_and_end_frame_ids.emplace_back(frame_id1, frame_id2);
+    }
+    std::sort(start_frame_ids_and_end_frame_ids.begin(),
+              start_frame_ids_and_end_frame_ids.end());
+    if (start_frame_ids_and_end_frame_ids.size() <= 1) {
+      return;
+    }
+    std::vector<std::pair<FrameId, FrameId>>
+        merged_start_frame_ids_and_end_frame_ids;
+    std::pair<FrameId, FrameId> merged_start_frame_id_and_end_frame_id =
+        start_frame_ids_and_end_frame_ids[0];
+    for (size_t i = 1; i < start_frame_ids_and_end_frame_ids.size(); ++i) {
+      // if there's overlapping between two consecutive frame id pairs
+      if (merged_start_frame_id_and_end_frame_id.second >=
+          start_frame_ids_and_end_frame_ids[i].first) {
+        FrameId end_frame_id =
+            merged_start_frame_id_and_end_frame_id.second >
+                    start_frame_ids_and_end_frame_ids[i].second
+                ? merged_start_frame_id_and_end_frame_id.second
+                : start_frame_ids_and_end_frame_ids[i].second;
+        merged_start_frame_id_and_end_frame_id = std::make_pair(
+            merged_start_frame_id_and_end_frame_id.first, end_frame_id);
+      } else {
+        merged_start_frame_ids_and_end_frame_ids.push_back(
+            merged_start_frame_id_and_end_frame_id);
+        merged_start_frame_id_and_end_frame_id =
+            start_frame_ids_and_end_frame_ids[i];
+      }
+    }
+    merged_start_frame_ids_and_end_frame_ids.push_back(
+        merged_start_frame_id_and_end_frame_id);
+    for (const auto &start_frame_id_and_end_frame_id :
+         merged_start_frame_ids_and_end_frame_ids) {
+      const FrameId &start_frame_id = start_frame_id_and_end_frame_id.first;
+      const FrameId &end_frame_id = start_frame_id_and_end_frame_id.second;
       std::vector<double> xs, ys;
       for (FrameId frame_id = start_frame_id; frame_id <= end_frame_id;
            ++frame_id) {
@@ -114,6 +150,10 @@ class CeresCallbackLogger {
         ys.push_back(frame_ids_and_poses.at(frame_id).transl_.y());
       }
       plt::plot(xs, ys);
+    }
+    for (const auto &frame_id1_and_frame_id2 : frame_id1s_and_frame_id2s) {
+      const FrameId &frame_id1 = frame_id1_and_frame_id2.first;
+      const FrameId &frame_id2 = frame_id1_and_frame_id2.second;
       plt::scatter(std::vector({frame_ids_and_poses.at(frame_id1).transl_.x(),
                                 frame_ids_and_poses.at(frame_id2).transl_.x()}),
                    std::vector({frame_ids_and_poses.at(frame_id1).transl_.y(),
