@@ -260,11 +260,11 @@ class OfflineProblemRunner {
 
           pose_graph_optimization::OptimizationSolverParams solver_params =
               solver_params_;
-          if (next_frame_id > 50 && next_frame_id % 30 == 0) {
-            solver_params.max_num_iterations_ = 0;
-            LOG(WARNING) << "Global BA - setting max iteration num to 0! "
-                         << "next_frame_id: " << next_frame_id;
-          }
+          //   if (next_frame_id > 50 && next_frame_id % 30 == 0) {
+          //     solver_params.max_num_iterations_ = 0;
+          //     LOG(WARNING) << "Global BA - setting max iteration num to 0! "
+          //                  << "next_frame_id: " << next_frame_id;
+          //   }
 
           // Phase I
           std::unordered_map<ceres::ResidualBlockId,

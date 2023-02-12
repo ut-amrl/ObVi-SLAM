@@ -40,6 +40,16 @@ struct VisualFeatureCachedInfo {
     }
     return frame_ids;
   }
+
+  std::unordered_map<CameraId, PixelCoord<double>> getCamIdsAndPixelsByFrame(
+      const FrameId &frame_id) const {
+    std::unordered_map<CameraId, PixelCoord<double>> cam_ids_and_pixels;
+    for (const auto &factor :
+         frame_ids_and_reprojection_err_factors_.at(frame_id)) {
+      cam_ids_and_pixels[factor.camera_id_] = factor.feature_pos_;
+    }
+    return cam_ids_and_pixels;
+  }
 };
 
 // TODO support general pose graph
@@ -53,9 +63,9 @@ class VisualFeatureFrontend {
                  const FrameId &,
                  const FeatureId &,
                  const CameraId &)> &reprojection_error_provider,
-      double min_visual_feature_parallax_pixel_requirement,
-      double min_visual_feature_parallax_robot_transl_requirement,
-      double min_visual_feature_parallax_robot_orient_requirement)
+      const double min_visual_feature_parallax_pixel_requirement,
+      const double min_visual_feature_parallax_robot_transl_requirement,
+      const double min_visual_feature_parallax_robot_orient_requirement)
       : reprojection_error_provider_(reprojection_error_provider),
         min_visual_feature_parallax_pixel_requirement_(
             min_visual_feature_parallax_pixel_requirement),
@@ -110,36 +120,38 @@ class VisualFeatureFrontend {
         // handle initial feature 3d position and current robot pose
         Position3d<double> initial_position;
         std::optional<Pose3D<double>> curr_robot_pose;
-        Pose3D<double> init_pose_est;
-        std::optional<RawPose3d<double>> curr_pose_est_raw =
-            pose_graph->getRobotPose(max_frame_id);
-        if ((!input_problem_data.getRobotPoseEstimateForFrame(max_frame_id,
-                                                              init_pose_est)) ||
-            (!curr_pose_est_raw.has_value())) {
-          LOG(WARNING) << "Could not find initial or current pose  estimate "
-                          "for robot for frame "
-                       << max_frame_id
-                       << ", not adjusting initial feature position";
-          if (is_first_time_feature_observation) {
-            initial_position = feat_id_to_track.second.feature_pos_;
+        if (!is_feature_added_to_pose_graph) {
+          Pose3D<double> init_pose_est;
+          std::optional<RawPose3d<double>> curr_pose_est_raw =
+              pose_graph->getRobotPose(max_frame_id);
+          if ((!input_problem_data.getRobotPoseEstimateForFrame(
+                  max_frame_id, init_pose_est)) ||
+              (!curr_pose_est_raw.has_value())) {
+            LOG(WARNING) << "Could not find initial or current pose  estimate "
+                            "for robot for frame "
+                         << max_frame_id
+                         << ", not adjusting initial feature position";
+            if (is_first_time_feature_observation) {
+              initial_position = feat_id_to_track.second.feature_pos_;
+            } else {
+              curr_robot_pose = std::nullopt;
+            }
           } else {
-            curr_robot_pose = std::nullopt;
-          }
-        } else {
-          Position3d<double> relative_initial_position =
-              getPositionRelativeToPose(init_pose_est,
-                                        feat_id_to_track.second.feature_pos_);
-          Pose3D<double> curr_pose_est =
-              convertToPose3D(curr_pose_est_raw.value());
-          Position3d<double> adjusted_initial_position =
-              combinePoseAndPosition(curr_pose_est, relative_initial_position);
-          if (is_first_time_feature_observation) {
-            initial_position = adjusted_initial_position;
-          } else {
-            curr_robot_pose = std::optional<Pose3D<double>>{curr_pose_est};
+            Position3d<double> relative_initial_position =
+                getPositionRelativeToPose(init_pose_est,
+                                          feat_id_to_track.second.feature_pos_);
+            Pose3D<double> curr_pose_est =
+                convertToPose3D(curr_pose_est_raw.value());
+            Position3d<double> adjusted_initial_position =
+                combinePoseAndPosition(curr_pose_est,
+                                       relative_initial_position);
+            if (is_first_time_feature_observation) {
+              initial_position = adjusted_initial_position;
+            } else {
+              curr_robot_pose = std::optional<Pose3D<double>>{curr_pose_est};
+            }
           }
         }
-        // LOG(INFO) << "found robot pose";
 
         std::vector<ReprojectionErrorFactor> reprojection_error_factors;
         for (const auto &obs_by_camera : feature.pixel_by_camera_id) {
@@ -225,51 +237,46 @@ class VisualFeatureFrontend {
       return false;
     }
 
-    FrameId first_frame_id = frame_ids[0];
-    std::optional<Pose3D<double>> init_robot_pose;
-    std::unordered_map<CameraId, PixelCoord<double>> init_cam_ids_and_pixels;
-
-    init_robot_pose =
-        visualFeatureCachedInfo.frame_ids_and_poses_.at(first_frame_id);
-    for (const auto &factor :
-         visualFeatureCachedInfo.frame_ids_and_reprojection_err_factors_.at(
-             first_frame_id)) {
-      init_cam_ids_and_pixels[factor.camera_id_] = factor.feature_pos_;
-    }
-
-    for (size_t i = 1; i < frame_ids.size(); ++i) {
-      FrameId curr_frame_id = frame_ids[i];
-      std::optional<Pose3D<double>> curr_robot_pose =
-          visualFeatureCachedInfo.frame_ids_and_poses_.at(curr_frame_id);
-      if (init_robot_pose.has_value() && curr_robot_pose.has_value()) {
-        Pose3D<double> relative_pose = getPose2RelativeToPose1(
-            init_robot_pose.value(), curr_robot_pose.value());
-        if (relative_pose.transl_.norm() <
-            min_visual_feature_parallax_robot_transl_requirement_) {
-          return false;
+    for (size_t i = 0; i < frame_ids.size() - 1; ++i) {
+      FrameId frame_id1 = frame_ids[i];
+      std::optional<Pose3D<double>> robot_pose1 =
+          visualFeatureCachedInfo.frame_ids_and_poses_.at(frame_id1);
+      std::unordered_map<CameraId, PixelCoord<double>> cam_ids_and_pixels1 =
+          visualFeatureCachedInfo.getCamIdsAndPixelsByFrame(frame_id1);
+      for (size_t j = i + 1; j < frame_ids.size(); ++j) {
+        FrameId frame_id2 = frame_ids[j];
+        std::optional<Pose3D<double>> robot_pose2 =
+            visualFeatureCachedInfo.frame_ids_and_poses_.at(frame_id2);
+        std::optional<Pose3D<double>> relative_pose;
+        if (robot_pose1.has_value() && robot_pose2.has_value()) {
+          relative_pose = std::optional<Pose3D<double>>(getPose2RelativeToPose1(
+              robot_pose1.value(), robot_pose2.value()));
         }
-        if (relative_pose.orientation_.angle() <
-            min_visual_feature_parallax_robot_orient_requirement_) {
-          return false;
-        }
-        std::vector<double> pixel_displacements;
-        for (const auto &init_cam_id_and_pixel : init_cam_ids_and_pixels) {
-          const PixelCoord<double> &init_pixel = init_cam_id_and_pixel.second;
-          for (const auto &factor :
-               visualFeatureCachedInfo.frame_ids_and_reprojection_err_factors_
-                   .at(curr_frame_id)) {
-            pixel_displacements.push_back(
-                (factor.feature_pos_ - init_cam_id_and_pixel.second).norm());
+        std::unordered_map<CameraId, PixelCoord<double>> cam_ids_and_pixels2 =
+            visualFeatureCachedInfo.getCamIdsAndPixelsByFrame(frame_id2);
+        for (const auto cam_id_and_pixel1 : cam_ids_and_pixels1) {
+          const PixelCoord<double> &pixel1 = cam_id_and_pixel1.second;
+          for (const auto cam_id_and_pixel2 : cam_ids_and_pixels2) {
+            const PixelCoord<double> &pixel2 = cam_id_and_pixel2.second;
+            double pixel_displacement = (pixel1 - pixel2).norm();
+            if (pixel_displacement >=
+                min_visual_feature_parallax_pixel_requirement_) {
+              if (relative_pose.has_value()) {
+                if ((relative_pose.value().transl_.norm() >=
+                     min_visual_feature_parallax_robot_transl_requirement_) &&
+                    (relative_pose.value().orientation_.angle() >=
+                     min_visual_feature_parallax_robot_orient_requirement_)) {
+                  return true;
+                }
+              } else {
+                return true;
+              }
+            }
           }
-        }
-        std::sort(pixel_displacements.begin(), pixel_displacements.end());
-        if (pixel_displacements.front() <
-            min_visual_feature_parallax_pixel_requirement_) {
-          return false;
         }
       }
     }
-    return true;
+    return false;
   }
 };
 
