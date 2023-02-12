@@ -24,8 +24,9 @@
 #include <refactoring/optimization/residual_creator.h>
 #include <refactoring/output_problem_data.h>
 #include <refactoring/output_problem_data_extraction.h>
-#include <refactoring/visual_feature_frontend/viusal_feature_front_end.h>
+#include <refactoring/visual_feature_frontend/visual_feature_front_end.h>
 #include <refactoring/visual_feature_processing/orb_output_low_level_feature_reader.h>
+#include <refactoring/visualization/ceres_callback.h>
 #include <refactoring/visualization/ros_visualization.h>
 #include <refactoring/visualization/save_to_file_visualizer.h>
 #include <ros/ros.h>
@@ -2283,7 +2284,21 @@ int main(int argc, char **argv) {
       const MainPgPtr &,
       const vtr::FrameId &,
       const vtr::FrameId &)>
-      ceres_callback_creator = dummyCeresCallbackCreator;
+      ceres_callback_creator = [&](const MainProbData &input_problem_data,
+                                   const MainPgPtr &pose_graph,
+                                   const vtr::FrameId &min_frame_optimized,
+                                   const vtr::FrameId &max_frame_optimized) {
+        std::vector<std::shared_ptr<ceres::IterationCallback>> ceres_callbacks;
+        std::shared_ptr<ceres::IterationCallback> callback =
+            std::make_shared<vtr::CeresCallback<MainProbData>>(
+                input_problem_data,
+                pose_graph,
+                min_frame_optimized,
+                max_frame_optimized,
+                vis_manager);
+        ceres_callbacks.emplace_back(callback);
+        return ceres_callbacks;
+      };
   std::function<void(const MainProbData &,
                      const MainPgPtr &,
                      const vtr::FrameId &,

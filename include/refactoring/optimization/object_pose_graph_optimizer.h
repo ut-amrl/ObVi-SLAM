@@ -29,7 +29,7 @@ struct OptimizationFactorsEnabledParams {
   uint32_t poses_prior_to_window_to_keep_constant_ = 1;
 
   uint32_t min_object_observations_ = 1;
-  uint32_t min_low_level_feature_observations_ = 3;
+  uint32_t min_low_level_feature_observations_ = 5;
 };
 
 struct OptimizationScopeParams {
@@ -44,7 +44,7 @@ struct OptimizationScopeParams {
       1;  // Should be min of 1, default to 1
 
   uint32_t min_object_observations_ = 1;
-  uint32_t min_low_level_feature_observations_ = 3;
+  uint32_t min_low_level_feature_observations_ = 5;
 
   // This will only filter out factors. A factor could still be excluded even if
   // not in this list if one of the other flags excludes it (ex.
@@ -260,9 +260,8 @@ class ObjectPoseGraphOptimizer {
       applyMinObservationRequirementsToIncludedFactors(
           optimization_scope.min_low_level_feature_observations_,
           features_to_include);
-      addIncludedFactorsToRequiredFactors(
-          features_to_include, 
-          required_feature_factors);
+      addIncludedFactorsToRequiredFactors(features_to_include,
+                                          required_feature_factors);
     }
 
     if (use_object_param_blocks) {
@@ -300,11 +299,9 @@ class ObjectPoseGraphOptimizer {
           objects_to_include,
           excluded_feature_factor_types_and_ids);
       applyMinObservationRequirementsToIncludedFactors(
-          optimization_scope.min_object_observations_,
-          objects_to_include);
-      addIncludedFactorsToRequiredFactors(
-          objects_to_include, 
-          required_feature_factors);
+          optimization_scope.min_object_observations_, objects_to_include);
+      addIncludedFactorsToRequiredFactors(objects_to_include,
+                                          required_feature_factors);
     }
 
     if (use_object_only_factors) {
@@ -671,7 +668,8 @@ class ObjectPoseGraphOptimizer {
       ceres::Problem *problem,
       const pose_graph_optimization::OptimizationSolverParams &solver_params,
       const std::vector<std::shared_ptr<ceres::IterationCallback>> callbacks,
-      std::unordered_map<ceres::ResidualBlockId, double>* block_ids_and_residuals_ptr) {
+      std::unordered_map<ceres::ResidualBlockId, double>
+          *block_ids_and_residuals_ptr) {
     CHECK(problem != NULL);
     ceres::Solver::Options options;
     for (const std::shared_ptr<ceres::IterationCallback> &callback_smart_ptr :
@@ -696,8 +694,8 @@ class ObjectPoseGraphOptimizer {
       std::vector<double> residuals;
       problem->Evaluate(eval_options, nullptr, &residuals, nullptr, nullptr);
       for (size_t i = 0; i < residual_block_ids.size(); ++i) {
-        const ceres::ResidualBlockId& block_id = residual_block_ids[i];
-        const double& residual = residuals[i];
+        const ceres::ResidualBlockId &block_id = residual_block_ids[i];
+        const double &residual = residuals[i];
         block_ids_and_residuals_ptr->insert({block_id, residual});
       }
     }
