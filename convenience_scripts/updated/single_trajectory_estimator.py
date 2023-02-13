@@ -493,8 +493,6 @@ def recordVisualizationRosbag(topicsPrefix, executionConfig):
     cmdArgs.append((topicsPrefix + "/est_/latest/cam_2_feats/camera_info"))
     cmdArgs.append((topicsPrefix + "/init_/latest/cam_1_feats/camera_info"))
     cmdArgs.append((topicsPrefix + "/init_/latest/cam_2_feats/camera_info"))
-    cmdArgs.append("/tf")
-    cmdArgs.append("/tf_static")
     processReturn = subprocess.Popen(cmdArgs, preexec_fn=os.setsid)
     return processReturn
 
