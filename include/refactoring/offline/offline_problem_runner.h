@@ -179,45 +179,46 @@ class OfflineProblemRunner {
                    << next_frame_id;
         return false;
       }
-
-      // use map sort block ids by their corresponding residuals
-      std::map<double, ceres::ResidualBlockId, std::greater<double>>
-          ordered_residuals_and_block_ids;
-      for (const auto &block_id_and_residual : *block_ids_and_residuals) {
-        ordered_residuals_and_block_ids.insert(
-            {block_id_and_residual.second, block_id_and_residual.first});
-      }
-      // build excluded_feature_factor_types_and_ids
-      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
-          excluded_feature_factor_types_and_ids;
-      size_t n_outliers = (size_t)(ordered_residuals_and_block_ids.size() *
-                                   solver_params.feature_outlier_percentage);
-      auto it = ordered_residuals_and_block_ids.begin();
-      for (size_t i = 0; i < n_outliers; ++i) {
-        const ceres::ResidualBlockId &block_id = it->second;
-        if ((current_residual_block_info.at(block_id).first !=
-             kLongTermMapFactorTypeId) &&
-            (current_residual_block_info.at(block_id).first !=
-             kShapeDimPriorFactorTypeId)) {
-          excluded_feature_factor_types_and_ids.insert(
-              current_residual_block_info.at(block_id));
+      if (solver_params.feature_outlier_percentage > 0) {
+        // use map sort block ids by their corresponding residuals
+        std::map<double, ceres::ResidualBlockId, std::greater<double>>
+            ordered_residuals_and_block_ids;
+        for (const auto &block_id_and_residual : *block_ids_and_residuals) {
+          ordered_residuals_and_block_ids.insert(
+              {block_id_and_residual.second, block_id_and_residual.first});
         }
-        ++it;
-      }
+        // build excluded_feature_factor_types_and_ids
+        util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
+            excluded_feature_factor_types_and_ids;
+        size_t n_outliers = (size_t)(ordered_residuals_and_block_ids.size() *
+                                     solver_params.feature_outlier_percentage);
+        auto it = ordered_residuals_and_block_ids.begin();
+        for (size_t i = 0; i < n_outliers; ++i) {
+          const ceres::ResidualBlockId &block_id = it->second;
+          if ((current_residual_block_info.at(block_id).first !=
+               kLongTermMapFactorTypeId) &&
+              (current_residual_block_info.at(block_id).first !=
+               kShapeDimPriorFactorTypeId)) {
+            excluded_feature_factor_types_and_ids.insert(
+                current_residual_block_info.at(block_id));
+          }
+          ++it;
+        }
 
-      optimizer_.buildPoseGraphOptimization(
-          optimization_scope_params,
-          residual_params_,
-          pose_graph,
-          &problem,
-          excluded_feature_factor_types_and_ids);
+        optimizer_.buildPoseGraphOptimization(
+            optimization_scope_params,
+            residual_params_,
+            pose_graph,
+            &problem,
+            excluded_feature_factor_types_and_ids);
 
-      if (!optimizer_.solveOptimization(
-              &problem, solver_params, ceres_callbacks, nullptr)) {
-        // TODO do we want to quit or just silently let this iteration fail?
-        LOG(ERROR) << "Phase II Optimization failed at max frame id "
-                   << next_frame_id;
-        return false;
+        if (!optimizer_.solveOptimization(
+                &problem, solver_params, ceres_callbacks, nullptr)) {
+          // TODO do we want to quit or just silently let this iteration fail?
+          LOG(ERROR) << "Phase II Optimization failed at max frame id "
+                     << next_frame_id;
+          return false;
+        }
       }
 
       visualization_callback_(problem_data,
