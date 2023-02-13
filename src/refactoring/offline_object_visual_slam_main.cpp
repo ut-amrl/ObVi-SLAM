@@ -620,7 +620,7 @@ int main(int argc, char **argv) {
   }
   LOG(INFO) << "Prefix: " << param_prefix;
 
-  ros::init(argc, argv, node_prefix + "ellipsoid_estimator_real_data");
+  ros::init(argc, argv, "a_" + node_prefix + "ellipsoid_estimator_real_data");
   ros::NodeHandle node_handle;
 
   vtr::FullOVSLAMConfig config;
