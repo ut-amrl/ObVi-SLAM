@@ -225,6 +225,8 @@ int main(int argc, char **argv) {
   optimization_factors_enabled_params.fix_objects_ = false;
   optimization_factors_enabled_params.poses_prior_to_window_to_keep_constant_ =
       5;
+  optimization_factors_enabled_params.min_low_level_feature_observations_ = 3;
+  optimization_factors_enabled_params.min_object_observations_ = 1;
 
   configuration.optimization_factors_enabled_params_ =
       optimization_factors_enabled_params;
