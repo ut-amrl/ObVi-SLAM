@@ -26,6 +26,7 @@ class CmdLineArgConstants:
     outputBbAssocInfoBaseArgName = 'output_bb_assoc'
     runRvizBaseArgName = 'run_rviz'
     recordVisualizationRosbagBaseArgName = 'record_viz_rosbag'
+    logToFileBaseArgName = 'log_to_file'
 
     configFileDirectoryHelp = \
         "Directory where config files are stored"
@@ -73,7 +74,8 @@ class CmdLineArgConstants:
     outputJacobianDebugInfoHelp = "Output the jacobian debug data to file while running"
     outputBbAssocInfoHelp = "Output the bounding box associations at the end of the trajectory"
     runRvizHelp = "Start the rviz visualization while optimizing a trajectory"
-    recordVisualizationRosbagHelp = "Record a rosbag containing the debug visualization messages";
+    recordVisualizationRosbagHelp = "Record a rosbag containing the debug visualization messages"
+    logToFileHelp = "True if the process should log to file, false if only to standard error"
 
     @staticmethod
     def prefixWithDashDash(argName):
@@ -94,6 +96,7 @@ class FileStructureConstants:
     ellipsoidDebuggingRootDirBaseName = "ellipsoid_debugging_out"
     utVslamOutRootDirBaseName = "ut_vslam_out"
     visualizationRosbagRootDirBaseName = "visualization_rosbags"
+    logsRootDirBaseName = "logs"
 
     longTermMapFileBaseName = "long_term_map.json"
     visualFeatureResultsFileBaseName = "visual_feature_results.json"
@@ -125,6 +128,7 @@ class SingleTrajectoryExecutableParamConstants:
     boundingBoxesByNodeIdFile = "bounding_boxes_by_node_id_file"
     ellipsoidsResultsFile = "ellipsoids_results_file"
     robotPosesResultsFile = "robot_poses_results_file"
+    logsDirectory = "logs_directory"
 
 
 class FileStructureUtils:
@@ -179,6 +183,13 @@ class FileStructureUtils:
             resultsBaseDir, FileStructureConstants.visualizationRosbagRootDirBaseName, sequenceBaseName, configBaseName,
             dirForBagResults, create)
 
+    @staticmethod
+    def getAndOptionallyCreateLogsDirectory(resultsBaseDir, sequenceBaseName, configBaseName, dirForBagResults,
+                                            create=True):
+        return FileStructureUtils.getAndOptionallyCreateConfigSpecificResultsDirectory(
+            resultsBaseDir, FileStructureConstants.logsRootDirBaseName, sequenceBaseName, configBaseName,
+            dirForBagResults, create)
+
 
 class SingleTrajectoryExecutionConfig:
 
@@ -187,7 +198,7 @@ class SingleTrajectoryExecutionConfig:
                  orbPostProcessBaseDirectory, calibrationFileDirectory, resultsRootDirectory, configFileBaseName,
                  sequenceFileBaseName, rosbagBaseName, resultsForBagDirPrefix, longTermMapBagDir,
                  forceRunOrbSlamPostProcess=False, outputEllipsoidDebugInfo=True, outputJacobianDebugInfo=True,
-                 outputBbAssocInfo=True, runRviz=False, recordVisualizationRosbag=False):
+                 outputBbAssocInfo=True, runRviz=False, recordVisualizationRosbag=False, logToFile=False):
         self.configFileDirectory = configFileDirectory
         self.orbSlamOutDirectory = orbSlamOutDirectory
         self.rosbagDirectory = rosbagDirectory
@@ -205,6 +216,7 @@ class SingleTrajectoryExecutionConfig:
         self.outputBbAssocInfo = outputBbAssocInfo
         self.runRviz = runRviz
         self.recordVisualizationRosbag = recordVisualizationRosbag
+        self.logToFile = logToFile
 
 
 class OfflineRunnerArgs:
@@ -212,7 +224,7 @@ class OfflineRunnerArgs:
     def __init__(self, param_prefix, intrinsics_file, extrinsics_file, poses_by_node_id_file, nodes_by_timestamp_file,
                  rosbag_file, long_term_map_input, long_term_map_output, low_level_feats_dir, bb_associations_out_file,
                  ltm_opt_jacobian_info_directory, visual_feature_results_file, debug_images_output_directory,
-                 params_config_file, ellipsoids_results_file, robot_poses_results_file,
+                 params_config_file, ellipsoids_results_file, robot_poses_results_file, logs_directory,
                  bounding_boxes_by_node_id_file=None):
         self.param_prefix = param_prefix
         self.intrinsics_file = intrinsics_file
@@ -230,6 +242,7 @@ class OfflineRunnerArgs:
         self.params_config_file = params_config_file
         self.ellipsoids_results_file = ellipsoids_results_file
         self.robot_poses_results_file = robot_poses_results_file
+        self.logs_directory = logs_directory
         self.bounding_boxes_by_node_id_file = bounding_boxes_by_node_id_file
 
 
@@ -346,6 +359,14 @@ def generateOfflineRunnerArgsFromExecutionConfigAndPreprocessOrbDataIfNecessary(
         bbAssociationsFile = FileStructureUtils.ensureDirectoryEndsWithSlash(
             utVslamResultsDir) + FileStructureConstants.bbAssocResultsFileBaseName
 
+    fileLogDir = None
+    if (executionConfig.logToFile):
+        fileLogDir = FileStructureUtils.getAndOptionallyCreateLogsDirectory(
+            utVslamOutRootDir,
+            executionConfig.sequenceFileBaseName,
+            executionConfig.configFileBaseName,
+            bag_results_dir_name)
+
     longTermMapOutputFile = FileStructureUtils.ensureDirectoryEndsWithSlash(
         utVslamResultsDir) + FileStructureConstants.longTermMapFileBaseName
     visualFeatureResultsFile = FileStructureUtils.ensureDirectoryEndsWithSlash(
@@ -378,7 +399,8 @@ def generateOfflineRunnerArgsFromExecutionConfigAndPreprocessOrbDataIfNecessary(
                                     debug_images_output_directory=ellipsoidDebuggingDir,
                                     params_config_file=fullConfigFileName,
                                     ellipsoids_results_file=ellipsoidResultsFile,
-                                    robot_poses_results_file=robotPoseResultsFile)
+                                    robot_poses_results_file=robotPoseResultsFile,
+                                    logs_directory=fileLogDir)
     return (param_prefix, offlineArgs)
 
 
@@ -423,6 +445,8 @@ def runTrajectoryFromOfflineArgs(offlineArgs):
                                            offlineArgs.ellipsoids_results_file)
     argsString += createCommandStrAddition(SingleTrajectoryExecutableParamConstants.robotPosesResultsFile,
                                            offlineArgs.robot_poses_results_file)
+    argsString += createCommandStrAddition(SingleTrajectoryExecutableParamConstants.logsDirectory,
+                                           offlineArgs.logs_directory)
 
     cmdToRun = "./bin/offline_object_visual_slam_main " + argsString
     print("Running command: ")
@@ -469,6 +493,8 @@ def recordVisualizationRosbag(topicsPrefix, executionConfig):
     cmdArgs.append((topicsPrefix + "/est_/latest/cam_2_feats/camera_info"))
     cmdArgs.append((topicsPrefix + "/init_/latest/cam_1_feats/camera_info"))
     cmdArgs.append((topicsPrefix + "/init_/latest/cam_2_feats/camera_info"))
+    cmdArgs.append("/tf")
+    cmdArgs.append("/tf_static")
     processReturn = subprocess.Popen(cmdArgs, preexec_fn=os.setsid)
     return processReturn
 
@@ -583,6 +609,14 @@ def singleTrajectoryArgParse():
     parser.add_argument('--no-' + CmdLineArgConstants.recordVisualizationRosbagBaseArgName,
                         dest=CmdLineArgConstants.recordVisualizationRosbagBaseArgName, action='store_false',
                         help="Opposite of " + CmdLineArgConstants.recordVisualizationRosbagBaseArgName)
+    parser.add_argument(
+        CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.logToFileBaseArgName),
+        default=False,
+        action='store_true',
+        help=CmdLineArgConstants.logToFileHelp)
+    parser.add_argument('--no-' + CmdLineArgConstants.logToFileBaseArgName,
+                        dest=CmdLineArgConstants.logToFileBaseArgName, action='store_false',
+                        help="Opposite of " + CmdLineArgConstants.logToFileBaseArgName)
     args_dict = vars(parser.parse_args())
 
     return SingleTrajectoryExecutionConfig(
@@ -607,7 +641,8 @@ def singleTrajectoryArgParse():
             CmdLineArgConstants.outputJacobianDebugInfoBaseArgName],
         outputBbAssocInfo=args_dict[CmdLineArgConstants.outputBbAssocInfoBaseArgName],
         runRviz=args_dict[CmdLineArgConstants.runRvizBaseArgName],
-        recordVisualizationRosbag=args_dict[CmdLineArgConstants.recordVisualizationRosbagBaseArgName])
+        recordVisualizationRosbag=args_dict[CmdLineArgConstants.recordVisualizationRosbagBaseArgName],
+        logToFile=args_dict[CmdLineArgConstants.logToFileBaseArgName])
 
 
 if __name__ == "__main__":

@@ -112,7 +112,7 @@ refineInitialEstimateForPendingObjects(
 
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
-  std::cout << summary.FullReport() << '\n';
+  LOG(INFO) << summary.FullReport();
 
   if ((summary.termination_type == ceres::TerminationType::FAILURE) ||
       (summary.termination_type == ceres::TerminationType::USER_FAILURE)) {

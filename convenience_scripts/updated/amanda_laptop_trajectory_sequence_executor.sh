@@ -11,6 +11,8 @@ trajectory_sequence_file_directory=/home/amanda/workspaces/ut_vslam/sequences/
 
 sequence_file_base_name="3059_9589"
 config_file_base_name="1"
+#config_file_base_name="test_higher_obj_obs_for_opt"
+#config_file_base_name="1_first_25"
 
 python3 convenience_scripts/updated/ltm_trajectory_sequence_executor.py \
     --config_file_directory ${config_file_directory} \
@@ -22,4 +24,4 @@ python3 convenience_scripts/updated/ltm_trajectory_sequence_executor.py \
     --results_root_directory ${results_root_directory} \
     --config_file_base_name ${config_file_base_name} \
     --sequence_file_base_name ${sequence_file_base_name} \
-    --output_ellipsoid_debug --output_jacobian_debug --output_bb_assoc --run_rviz --record_viz_rosbag
+    --output_ellipsoid_debug --output_jacobian_debug --output_bb_assoc --run_rviz --record_viz_rosbag --log_to_file

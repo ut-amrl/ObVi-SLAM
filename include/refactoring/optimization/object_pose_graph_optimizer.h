@@ -596,7 +596,7 @@ class ObjectPoseGraphOptimizer {
 
     ceres::Solver::Summary summary;
     ceres::Solve(options, problem, &summary);
-    std::cout << summary.FullReport() << '\n';
+    LOG(INFO) << summary.FullReport();
 
     if (block_ids_and_residuals_ptr != nullptr) {
       std::vector<ceres::ResidualBlockId> residual_block_ids;

@@ -94,6 +94,9 @@ DEFINE_string(debug_images_output_directory,
 DEFINE_string(params_config_file, "", "config file containing tunable params");
 DEFINE_string(ellipsoids_results_file, "", "File for ellipsoids results");
 DEFINE_string(robot_poses_results_file, "", "File for robot pose results");
+DEFINE_string(logs_directory,
+              "",
+              "If specified, where logs are written (in addition to stderr)");
 
 std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
 readCameraIntrinsicsByCameraFromFile(const std::string &file_name) {
@@ -581,7 +584,12 @@ int main(int argc, char **argv) {
   google::InitGoogleLogging(argv[0]);
   google::ParseCommandLineFlags(&argc, &argv, true);
 
-  FLAGS_logtostderr = true;  // Don't log to disk - log to terminal
+  if (FLAGS_logs_directory.empty()) {
+    FLAGS_logtostderr = true;  // Don't log to disk - log to terminal
+  } else {
+    FLAGS_alsologtostderr = true;
+    FLAGS_log_dir = FLAGS_logs_directory;
+  }
   FLAGS_colorlogtostderr = true;
 
   std::string param_prefix = FLAGS_param_prefix;
@@ -1319,13 +1327,15 @@ int main(int argc, char **argv) {
                       << vtr::SerializableVisualFeatureResults(
                              output_results.visual_feature_results_);
     visual_feature_fs.release();
-    for (const auto &feat_and_pos :
-         output_results.visual_feature_results_.visual_feature_positions_) {
-      if (feat_and_pos.second.norm() > 10000) {
-        LOG(WARNING) << "High norm for feature " << feat_and_pos.first << ": "
-                     << feat_and_pos.second.norm();
-      }
-    }
+    //    for (const auto &feat_and_pos :
+    //         output_results.visual_feature_results_.visual_feature_positions_)
+    //         {
+    //      if (feat_and_pos.second.norm() > 10000) {
+    //        LOG(WARNING) << "High norm for feature " << feat_and_pos.first <<
+    //        ": "
+    //                     << feat_and_pos.second.norm();
+    //      }
+    //    }
   }
 
   cv::FileStorage ltm_out_fs(FLAGS_long_term_map_output,
