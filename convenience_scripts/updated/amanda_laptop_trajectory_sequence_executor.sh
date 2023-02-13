@@ -22,4 +22,4 @@ python3 convenience_scripts/updated/ltm_trajectory_sequence_executor.py \
     --results_root_directory ${results_root_directory} \
     --config_file_base_name ${config_file_base_name} \
     --sequence_file_base_name ${sequence_file_base_name} \
-    --output_ellipsoid_debug --output_jacobian_debug --output_bb_assoc --run_rviz
+    --output_ellipsoid_debug --output_jacobian_debug --output_bb_assoc --run_rviz --record_viz_rosbag

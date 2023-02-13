@@ -1,6 +1,8 @@
 import os
-
+import subprocess
+import signal
 import argparse
+import time
 
 
 class CmdLineArgConstants:
@@ -23,6 +25,7 @@ class CmdLineArgConstants:
     outputJacobianDebugInfoBaseArgName = 'output_jacobian_debug'
     outputBbAssocInfoBaseArgName = 'output_bb_assoc'
     runRvizBaseArgName = 'run_rviz'
+    recordVisualizationRosbagBaseArgName = 'record_viz_rosbag'
 
     configFileDirectoryHelp = \
         "Directory where config files are stored"
@@ -70,6 +73,7 @@ class CmdLineArgConstants:
     outputJacobianDebugInfoHelp = "Output the jacobian debug data to file while running"
     outputBbAssocInfoHelp = "Output the bounding box associations at the end of the trajectory"
     runRvizHelp = "Start the rviz visualization while optimizing a trajectory"
+    recordVisualizationRosbagHelp = "Record a rosbag containing the debug visualization messages";
 
     @staticmethod
     def prefixWithDashDash(argName):
@@ -89,6 +93,7 @@ class FileStructureConstants:
     jacobianDebuggingRootDirBaseName = "jacobian_debugging_out"
     ellipsoidDebuggingRootDirBaseName = "ellipsoid_debugging_out"
     utVslamOutRootDirBaseName = "ut_vslam_out"
+    visualizationRosbagRootDirBaseName = "visualization_rosbags"
 
     longTermMapFileBaseName = "long_term_map.json"
     visualFeatureResultsFileBaseName = "visual_feature_results.json"
@@ -167,6 +172,13 @@ class FileStructureUtils:
             resultsBaseDir, FileStructureConstants.ellipsoidDebuggingRootDirBaseName, sequenceBaseName, configBaseName,
             dirForBagResults, create)
 
+    @staticmethod
+    def getAndOptionallyCreateVisualizationRosbagDirectory(resultsBaseDir, sequenceBaseName, configBaseName,
+                                                           dirForBagResults, create=True):
+        return FileStructureUtils.getAndOptionallyCreateConfigSpecificResultsDirectory(
+            resultsBaseDir, FileStructureConstants.visualizationRosbagRootDirBaseName, sequenceBaseName, configBaseName,
+            dirForBagResults, create)
+
 
 class SingleTrajectoryExecutionConfig:
 
@@ -175,7 +187,7 @@ class SingleTrajectoryExecutionConfig:
                  orbPostProcessBaseDirectory, calibrationFileDirectory, resultsRootDirectory, configFileBaseName,
                  sequenceFileBaseName, rosbagBaseName, resultsForBagDirPrefix, longTermMapBagDir,
                  forceRunOrbSlamPostProcess=False, outputEllipsoidDebugInfo=True, outputJacobianDebugInfo=True,
-                 outputBbAssocInfo=True, runRviz=False):
+                 outputBbAssocInfo=True, runRviz=False, recordVisualizationRosbag=False):
         self.configFileDirectory = configFileDirectory
         self.orbSlamOutDirectory = orbSlamOutDirectory
         self.rosbagDirectory = rosbagDirectory
@@ -192,6 +204,7 @@ class SingleTrajectoryExecutionConfig:
         self.outputJacobianDebugInfo = outputJacobianDebugInfo
         self.outputBbAssocInfo = outputBbAssocInfo
         self.runRviz = runRviz
+        self.recordVisualizationRosbag = recordVisualizationRosbag
 
 
 class OfflineRunnerArgs:
@@ -417,20 +430,68 @@ def runTrajectoryFromOfflineArgs(offlineArgs):
     os.system(cmdToRun)
 
 
+def recordVisualizationRosbag(topicsPrefix, executionConfig):
+    print("Starting recording")
+    utVslamOutRootDir = FileStructureUtils.ensureDirectoryEndsWithSlash(executionConfig.resultsRootDirectory)
+    bag_results_dir_name = executionConfig.resultsForBagDirPrefix + executionConfig.rosbagBaseName
+    rosbagRecordDir = FileStructureUtils.getAndOptionallyCreateVisualizationRosbagDirectory(
+        utVslamOutRootDir, executionConfig.sequenceFileBaseName, executionConfig.configFileBaseName,
+        bag_results_dir_name)
+    bagName = FileStructureUtils.ensureDirectoryEndsWithSlash(rosbagRecordDir) + "visualization_topics.bag";
+    topicsStr = " "
+    cmdArgs = []
+    cmdArgs.append("rosbag")
+    cmdArgs.append("record")
+    cmdArgs.append("-O")
+    cmdArgs.append(bagName)
+    cmdArgs.append((topicsPrefix + "/est_ellipsoids"))
+    cmdArgs.append((topicsPrefix + "/est_/feature_cloud"))
+    cmdArgs.append((topicsPrefix + "/init_/feature_cloud"))
+    cmdArgs.append((topicsPrefix + "/est_pose"))
+    cmdArgs.append((topicsPrefix + "/init_pose"))
+    cmdArgs.append((topicsPrefix + "/pending_ellipsoids"))
+    cmdArgs.append((topicsPrefix + "/init_ellipsoids"))
+
+    cmdArgs.append((topicsPrefix + "/est_/latest/cam_1_bb/image_raw"))
+    cmdArgs.append((topicsPrefix + "/est_/latest/cam_2_bb/image_raw"))
+    cmdArgs.append((topicsPrefix + "/all_observed_bbs/latest/cam_1_bb/image_raw"))
+    cmdArgs.append((topicsPrefix + "/all_observed_bbs/latest/cam_2_bb/image_raw"))
+    cmdArgs.append((topicsPrefix + "/est_/latest/cam_1_feats/image_raw"))
+    cmdArgs.append((topicsPrefix + "/est_/latest/cam_2_feats/image_raw"))
+    cmdArgs.append((topicsPrefix + "/init_/latest/cam_1_feats/image_raw"))
+    cmdArgs.append((topicsPrefix + "/init_/latest/cam_2_feats/image_raw"))
+
+    cmdArgs.append((topicsPrefix + "/est_/latest/cam_1_bb/camera_info"))
+    cmdArgs.append((topicsPrefix + "/est_/latest/cam_2_bb/camera_info"))
+    cmdArgs.append((topicsPrefix + "/all_observed_bbs/latest/cam_1_bb/camera_info"))
+    cmdArgs.append((topicsPrefix + "/all_observed_bbs/latest/cam_2_bb/camera_info"))
+    cmdArgs.append((topicsPrefix + "/est_/latest/cam_1_feats/camera_info"))
+    cmdArgs.append((topicsPrefix + "/est_/latest/cam_2_feats/camera_info"))
+    cmdArgs.append((topicsPrefix + "/init_/latest/cam_1_feats/camera_info"))
+    cmdArgs.append((topicsPrefix + "/init_/latest/cam_2_feats/camera_info"))
+    processReturn = subprocess.Popen(cmdArgs, preexec_fn=os.setsid)
+    return processReturn
+
+
 def runSingleTrajectory(executionConfig):
     paramPrefix, offlineArgs = generateOfflineRunnerArgsFromExecutionConfigAndPreprocessOrbDataIfNecessary(
         executionConfig)
+    topicsPrefix = ""
+    underscore_based_prefix = ""
+    if (len(paramPrefix) != 0):
+        topicsPrefix = "/" + paramPrefix + "/"
+        underscore_based_prefix = paramPrefix
     if (executionConfig.runRviz):
-        topicsPrefix = ""
-        underscore_based_prefix = ""
-        if (len(paramPrefix) != 0):
-            topicsPrefix = "/" + paramPrefix + "/"
-            underscore_based_prefix = paramPrefix
         rvizCmd = "roslaunch launch/ovslam_rviz.launch topics_prefix:=" + topicsPrefix + " underscore_based_prefix:=" \
                   + underscore_based_prefix + " &"
         os.system(rvizCmd)
-    # TODO consider starting rosbag to record visualization topics
+    processReturn = None
+    if (executionConfig.recordVisualizationRosbag):
+        processReturn = recordVisualizationRosbag(topicsPrefix, executionConfig)
     runTrajectoryFromOfflineArgs(offlineArgs)
+
+    if (executionConfig.recordVisualizationRosbag):
+        os.killpg(os.getpgid(processReturn.pid), signal.SIGTERM)
 
 
 def singleTrajectoryArgParse():
@@ -513,6 +574,15 @@ def singleTrajectoryArgParse():
     parser.add_argument('--no-' + CmdLineArgConstants.runRvizBaseArgName,
                         dest=CmdLineArgConstants.runRvizBaseArgName, action='store_false',
                         help="Opposite of " + CmdLineArgConstants.runRvizBaseArgName)
+
+    parser.add_argument(
+        CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.recordVisualizationRosbagBaseArgName),
+        default=False,
+        action='store_true',
+        help=CmdLineArgConstants.recordVisualizationRosbagHelp)
+    parser.add_argument('--no-' + CmdLineArgConstants.recordVisualizationRosbagBaseArgName,
+                        dest=CmdLineArgConstants.recordVisualizationRosbagBaseArgName, action='store_false',
+                        help="Opposite of " + CmdLineArgConstants.recordVisualizationRosbagBaseArgName)
     args_dict = vars(parser.parse_args())
 
     return SingleTrajectoryExecutionConfig(
@@ -536,7 +606,8 @@ def singleTrajectoryArgParse():
         outputJacobianDebugInfo=args_dict[
             CmdLineArgConstants.outputJacobianDebugInfoBaseArgName],
         outputBbAssocInfo=args_dict[CmdLineArgConstants.outputBbAssocInfoBaseArgName],
-        runRviz=args_dict[CmdLineArgConstants.runRvizBaseArgName])
+        runRviz=args_dict[CmdLineArgConstants.runRvizBaseArgName],
+        recordVisualizationRosbag=args_dict[CmdLineArgConstants.recordVisualizationRosbagBaseArgName])
 
 
 if __name__ == "__main__":
