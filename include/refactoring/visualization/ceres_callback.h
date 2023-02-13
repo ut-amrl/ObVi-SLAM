@@ -87,11 +87,14 @@ class CeresCallbackLogger {
     }
   }
 
-  void plotTrajectory2D(
-      const std::string &filepath,
-      const std::map<FrameId, Pose3D<double>> &frame_ids_and_poses,
-      const std::vector<std::pair<FrameId, FrameId>>
-          &frame_id1s_and_frame_id2s) {
+  cv::Mat get
+
+      void
+      plotTrajectory2D(
+          const std::string &filepath,
+          const std::map<FrameId, Pose3D<double>> &frame_ids_and_poses,
+          const std::vector<std::pair<FrameId, FrameId>>
+              &frame_id1s_and_frame_id2s) {
     const FrameId nframe_window = 20;
     plt::figure();
     plt::figure_size(640, 360);
@@ -108,7 +111,8 @@ class CeresCallbackLogger {
       end_frame_id = frame_id2 + nframe_window > max_frame_id
                          ? max_frame_id
                          : frame_id2 + nframe_window;
-      start_frame_ids_and_end_frame_ids.emplace_back(frame_id1, frame_id2);
+      start_frame_ids_and_end_frame_ids.emplace_back(start_frame_id,
+                                                     end_frame_id);
     }
     std::sort(start_frame_ids_and_end_frame_ids.begin(),
               start_frame_ids_and_end_frame_ids.end());
