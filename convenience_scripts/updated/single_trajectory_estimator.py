@@ -148,8 +148,8 @@ class FileStructureUtils:
     def getAndOptionallyCreateConfigSpecificResultsDirectory(resultsBaseDir, resultsTypeVariantName, sequenceBaseName,
                                                              configBaseName, dirForBagResults, create):
         directoryName = FileStructureUtils.ensureDirectoryEndsWithSlash(
-            resultsBaseDir) + resultsTypeVariantName + "/" + sequenceBaseName + "/" + \
-                        configBaseName + "/" + dirForBagResults + "/"
+            resultsBaseDir) + sequenceBaseName + "/" + \
+                        configBaseName + "/" + dirForBagResults + "/" + resultsTypeVariantName + "/"
         if (create):
             FileStructureUtils.makeDirectory(directoryName)
         # TODO Should we force remove old data
