@@ -187,7 +187,8 @@ int main(int argc, char **argv) {
 
   configuration.ltm_tunable_params_.far_feature_threshold_ = 75;
   configuration.ltm_solver_params_ =
-      final_opt_solver_params;  // TODO is this the one we want?
+      base_solver_params;  // TODO is this the one we want?
+  configuration.ltm_solver_params_.max_num_iterations_ = 300;
 
   pose_graph_optimization::ObjectVisualPoseGraphResidualParams residual_params;
   residual_params.object_residual_params_.object_observation_huber_loss_param_ =
