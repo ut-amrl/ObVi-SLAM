@@ -9,3 +9,4 @@ debug/*
 >>>>>>> RefactorBuildPoseGraphOptimizationForVSLAM
 .idea/*
 cmake-build-debug/*
+*__pycache__/

@@ -6,6 +6,7 @@
 #define UT_VSLAM_OFFLINE_PROBLEM_RUNNER_H
 
 #include <ceres/problem.h>
+#include <refactoring/offline/limit_trajectory_evaluation_params.h>
 #include <refactoring/optimization/object_pose_graph.h>
 #include <refactoring/optimization/object_pose_graph_optimizer.h>
 
@@ -36,6 +37,7 @@ class OfflineProblemRunner {
   OfflineProblemRunner(
       const pose_graph_optimization::ObjectVisualPoseGraphResidualParams
           &residual_params,
+      const LimitTrajectoryEvaluationParams &limit_trajectory_eval_params,
       const std::function<bool()> &continue_opt_checker,
       const std::function<FrameId(const FrameId &)> &window_provider_func,
       const std::function<
@@ -75,8 +77,10 @@ class OfflineProblemRunner {
                                const FrameId &,
                                const VisualizationTypeEnum &)>
           &visualization_callback,
-      const pose_graph_optimization::OptimizationSolverParams &solver_params)
+      const std::function<pose_graph_optimization::OptimizationSolverParams(
+          const FrameId &)> &solver_params_provider_func)
       : residual_params_(residual_params),
+        limit_trajectory_eval_params_(limit_trajectory_eval_params),
         continue_opt_checker_(continue_opt_checker),
         window_provider_func_(window_provider_func),
         optimizer_(refresh_residual_checker, residual_creator),
@@ -85,7 +89,7 @@ class OfflineProblemRunner {
         output_data_extractor_(output_data_extractor),
         ceres_callback_creator_(ceres_callback_creator),
         visualization_callback_(visualization_callback),
-        solver_params_(solver_params) {}
+        solver_params_provider_func_(solver_params_provider_func) {}
 
   bool runOptimizationHelper(
       const FrameId start_frame_id,
@@ -121,6 +125,11 @@ class OfflineProblemRunner {
     pose_graph_creator_(problem_data, pose_graph);
     frame_data_adder_(problem_data, pose_graph, 0, 0);
     FrameId max_frame_id = problem_data.getMaxFrameId();
+
+    if (limit_trajectory_eval_params_.should_limit_trajectory_evaluation_) {
+      max_frame_id =
+          std::min(limit_trajectory_eval_params_.max_frame_id_, max_frame_id);
+    }
 
     pose_graph_optimizer::OptimizationScopeParams optimization_scope_params;
     optimization_scope_params.fix_poses_ =
@@ -164,6 +173,8 @@ class OfflineProblemRunner {
           }
           FrameId start_frame_id = window_provider_func_(next_frame_id);
           FrameId end_frame_id = next_frame_id;
+          pose_graph_optimization::OptimizationSolverParams solver_params =
+              solver_params_provider_func_(next_frame_id);
           optimization_scope_params.min_frame_id_ = start_frame_id;
           optimization_scope_params.max_frame_id_ = end_frame_id;
           frame_data_adder_(
@@ -189,7 +200,7 @@ class OfflineProblemRunner {
                                                 problem,
                                                 pose_graph,
                                                 nullptr,
-                                                solver_params_);
+                                                solver_params);
           if (!optim_success) {
             return optim_success;
           }
@@ -205,6 +216,8 @@ class OfflineProblemRunner {
       case OptimTypeEnum::STATIC: {
         FrameId start_frame_id = window_provider_func_(max_frame_id);
         FrameId end_frame_id = max_frame_id;
+        pose_graph_optimization::OptimizationSolverParams solver_params =
+            solver_params_provider_func_(end_frame_id);
         optimization_scope_params.min_frame_id_ = start_frame_id;
         optimization_scope_params.max_frame_id_ = end_frame_id;
         for (FrameId frame_id = start_frame_id; frame_id <= end_frame_id;
@@ -231,7 +244,7 @@ class OfflineProblemRunner {
                                               problem,
                                               pose_graph,
                                               nullptr,
-                                              solver_params_);
+                                              solver_params);
         if (!optim_success) {
           return false;
         }
@@ -253,13 +266,13 @@ class OfflineProblemRunner {
           }
           FrameId start_frame_id = window_provider_func_(next_frame_id);
           FrameId end_frame_id = next_frame_id;
+          pose_graph_optimization::OptimizationSolverParams solver_params =
+              solver_params_provider_func_(next_frame_id);
           optimization_scope_params.min_frame_id_ = start_frame_id;
           optimization_scope_params.max_frame_id_ = end_frame_id;
           frame_data_adder_(
               problem_data, pose_graph, start_frame_id, end_frame_id);
 
-          pose_graph_optimization::OptimizationSolverParams solver_params =
-              solver_params_;
           //   if (next_frame_id > 50 && next_frame_id % 30 == 0) {
           //     solver_params.max_num_iterations_ = 0;
           //     LOG(WARNING) << "Global BA - setting max iteration num to 0! "
@@ -308,7 +321,7 @@ class OfflineProblemRunner {
               excluded_feature_factor_types_and_ids;
           size_t n_outliers =
               (size_t)(ordered_residuals_and_block_ids.size() *
-                       solver_params_.feature_outlier_percentage_);
+                       solver_params.feature_outlier_percentage_);
           auto it = ordered_residuals_and_block_ids.begin();
           for (size_t i = 0; i < n_outliers; ++i) {
             const ceres::ResidualBlockId &block_id = it->second;
@@ -368,6 +381,8 @@ class OfflineProblemRunner {
  private:
   pose_graph_optimization::ObjectVisualPoseGraphResidualParams residual_params_;
 
+  LimitTrajectoryEvaluationParams limit_trajectory_eval_params_;
+
   std::function<bool()> continue_opt_checker_;
   std::function<FrameId(const FrameId &)> window_provider_func_;
   pose_graph_optimizer::ObjectPoseGraphOptimizer<VisualFeatureFactorType,
@@ -402,7 +417,10 @@ class OfflineProblemRunner {
                      const FrameId &,
                      const VisualizationTypeEnum &)>
       visualization_callback_;
-  pose_graph_optimization::OptimizationSolverParams solver_params_;
+
+  std::function<pose_graph_optimization::OptimizationSolverParams(
+      const FrameId &)>
+      solver_params_provider_func_;
 };
 }  // namespace vslam_types_refactor
 

@@ -11,13 +11,16 @@
 
 namespace vslam_types_refactor {
 
-template <typename ObjectAppearanceInfo, typename VisualFeatureFactorType>
+template <typename ObjectAppearanceInfo,
+          typename PendingObjInfo,
+          typename VisualFeatureFactorType>
 std::unordered_map<ObjectId, EllipsoidState<double>>
 refineInitialEstimateForPendingObjects(
     const std::unordered_map<ObjectId, EllipsoidState<double>>
         &rough_initial_estimates,
-    const std::unordered_map<ObjectId,
-                             UninitializedEllispoidInfo<ObjectAppearanceInfo>>
+    const std::unordered_map<
+        ObjectId,
+        UninitializedEllispoidInfo<ObjectAppearanceInfo, PendingObjInfo>>
         &uninitialized_obj_info,
     const std::shared_ptr<vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
         VisualFeatureFactorType>> &pose_graph,
@@ -66,6 +69,8 @@ refineInitialEstimateForPendingObjects(
       added_poses.insert(obs.frame_id_);
       problem.AddResidualBlock(
           BoundingBoxFactor::createBoundingBoxFactor(
+              estimator_params.object_residual_params_
+                  .invalid_ellipsoid_error_val_,
               obs.bounding_box_corners_,
               intrinsics,
               extrinsics,
@@ -91,17 +96,23 @@ refineInitialEstimateForPendingObjects(
   }
 
   ceres::Solver::Options options;
-  // TODO configure options
-
   options.max_num_iterations =
-//      estimator_params.solver_params_.max_num_iterations_;
-      500;
+      estimator_params.solver_params_.max_num_iterations_;
+  options.use_nonmonotonic_steps =
+      estimator_params.solver_params_.allow_non_monotonic_steps_;
+  options.function_tolerance =
+      estimator_params.solver_params_.function_tolerance_;
+  options.gradient_tolerance =
+      estimator_params.solver_params_.gradient_tolerance_;
+  options.parameter_tolerance =
+      estimator_params.solver_params_.parameter_tolerance_;
+
   options.num_threads = 10;
   options.linear_solver_type = ceres::DENSE_SCHUR;
 
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
-  std::cout << summary.FullReport() << '\n';
+  LOG(INFO) << summary.FullReport();
 
   if ((summary.termination_type == ceres::TerminationType::FAILURE) ||
       (summary.termination_type == ceres::TerminationType::USER_FAILURE)) {
@@ -123,7 +134,8 @@ refineInitialEstimateForPendingObjects(
         &rough_initial_estimates,
     const std::unordered_map<
         ObjectId,
-        UninitializedEllispoidInfo<FeatureBasedFrontEndObjAssociationInfo>>
+        UninitializedEllispoidInfo<FeatureBasedFrontEndObjAssociationInfo,
+                                   FeatureBasedFrontEndPendingObjInfo>>
         &uninitialized_obj_info,
     const std::shared_ptr<vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
         ReprojectionErrorFactor>> &pose_graph,

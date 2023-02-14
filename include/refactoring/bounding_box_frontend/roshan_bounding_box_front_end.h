@@ -52,6 +52,13 @@ class RoshanBbFrontEnd
     : public AbstractUnknownDataAssociationBbFrontEnd<
           VisualFeatureFactorType,
           RoshanAggregateBbInfo,
+          util::EmptyStruct,  // TODO at some point, it might be worth
+                              // separating the RoshanAggregateBbInfo into the
+                              // stuff only needed for pending objects and the
+                              // stuff needed for existing objects, but we're
+                              // not really using that functionality now, so
+                              // don't want to spend time making changes that
+                              // would take time to do right
           std::optional<sensor_msgs::Image::ConstPtr>,
           RoshanImageSummaryInfo,
           RoshanBbInfo,
@@ -81,13 +88,11 @@ class RoshanBbFrontEnd
           std::unordered_map<CameraId,
                              std::vector<std::pair<BbCornerPair<double>,
                                                    std::optional<double>>>>>>
-          &all_filtered_corner_locations,
-      const std::unordered_map<vslam_types_refactor::ObjectId,
-                               RoshanAggregateBbInfo>
-          &long_term_map_front_end_data)
+          &all_filtered_corner_locations)
       : AbstractUnknownDataAssociationBbFrontEnd<
             VisualFeatureFactorType,
             RoshanAggregateBbInfo,
+            util::EmptyStruct,
             std::optional<sensor_msgs::Image::ConstPtr>,
             RoshanImageSummaryInfo,
             RoshanBbInfo,
@@ -96,33 +101,21 @@ class RoshanBbFrontEnd
         association_params_(association_params),
         covariance_generator_(covariance_generator),
         observed_corner_locations_(observed_corner_locations),
-        all_filtered_corner_locations_(all_filtered_corner_locations) {
-    AbstractBoundingBoxFrontEnd<
-        VisualFeatureFactorType,
-        RoshanAggregateBbInfo,
-        std::optional<sensor_msgs::Image::ConstPtr>,
-        RoshanImageSummaryInfo,
-        RoshanBbInfo,
-        std::unordered_map<vslam_types_refactor::ObjectId,
-                           RoshanAggregateBbInfo>>::object_appearance_info_ =
-        long_term_map_front_end_data;
-  }
-
-  virtual bool getFrontEndObjMapData(
-      std::unordered_map<vslam_types_refactor::ObjectId, RoshanAggregateBbInfo>
-          &map_data) override {
-    map_data = AbstractBoundingBoxFrontEnd<
-        VisualFeatureFactorType,
-        RoshanAggregateBbInfo,
-        std::optional<sensor_msgs::Image::ConstPtr>,
-        RoshanImageSummaryInfo,
-        RoshanBbInfo,
-        std::unordered_map<vslam_types_refactor::ObjectId,
-                           RoshanAggregateBbInfo>>::object_appearance_info_;
-    return true;
-  }
+        all_filtered_corner_locations_(all_filtered_corner_locations) {}
 
  protected:
+  virtual RoshanAggregateBbInfo objAssocInfoFromMapData(
+      const ObjectId &obj_id,
+      const RoshanAggregateBbInfo &front_end_data_for_obj) override {
+    return front_end_data_for_obj;
+  }
+
+  virtual RoshanAggregateBbInfo mapDataFromObjAssociationInfo(
+      const ObjectId &obj_id,
+      const RoshanAggregateBbInfo &obj_association_info) override {
+    return obj_association_info;
+  }
+
   virtual std::vector<ObjectId> mergeExistingPendingObjects() override {
     return {};
   }
@@ -199,7 +192,7 @@ class RoshanBbFrontEnd
     return bb_info;
   }
 
-  virtual UninitializedEllispoidInfo<RoshanAggregateBbInfo>
+  virtual UninitializedEllispoidInfo<RoshanAggregateBbInfo, util::EmptyStruct>
   createObjectInfoFromSingleBb(
       const std::string &semantic_class,
       const FrameId &frame_id,
@@ -207,7 +200,8 @@ class RoshanBbFrontEnd
       const UninitializedObjectFactor &uninitialized_factor,
       const RoshanImageSummaryInfo &refined_context,
       const RoshanBbInfo &single_bb_context_info) override {
-    UninitializedEllispoidInfo<RoshanAggregateBbInfo> uninitalized_info;
+    UninitializedEllispoidInfo<RoshanAggregateBbInfo, util::EmptyStruct>
+        uninitalized_info;
     uninitalized_info.semantic_class_ = semantic_class;
     uninitalized_info.observation_factors_.emplace_back(uninitialized_factor);
     uninitalized_info.appearance_info_.infos_for_observed_bbs_.emplace_back(
@@ -225,7 +219,8 @@ class RoshanBbFrontEnd
       const CameraId &camera_id,
       const RoshanImageSummaryInfo &refined_bb_context_info,
       const RoshanBbInfo &single_bb_context_info,
-      RoshanAggregateBbInfo &association_info_to_update) override {
+      RoshanAggregateBbInfo &association_info_to_update,
+      util::EmptyStruct *pending_obj_info = nullptr) override {
     association_info_to_update.infos_for_observed_bbs_.emplace_back(
         single_bb_context_info);
     association_info_to_update.max_confidence_ =
@@ -266,8 +261,9 @@ class RoshanBbFrontEnd
          uninitialized_obj_idx <
          RoshanBbFrontEnd::uninitialized_object_info_.size();
          uninitialized_obj_idx++) {
-      UninitializedEllispoidInfo<RoshanAggregateBbInfo> uninitialized_obj =
-          RoshanBbFrontEnd::uninitialized_object_info_[uninitialized_obj_idx];
+      UninitializedEllispoidInfo<RoshanAggregateBbInfo, util::EmptyStruct>
+          uninitialized_obj = RoshanBbFrontEnd::uninitialized_object_info_
+              [uninitialized_obj_idx];
       if (uninitialized_obj.semantic_class_ == bounding_box.semantic_class_) {
         AssociatedObjectIdentifier assoc_obj;
         assoc_obj.initialized_ellipsoid_ = false;
@@ -321,9 +317,10 @@ class RoshanBbFrontEnd
                          candidate_ellispoid_state_opt.value().pose_.transl_)
                             .norm();
       } else {
-        UninitializedEllispoidInfo<RoshanAggregateBbInfo> uninitialized_obj =
-            RoshanBbFrontEnd::uninitialized_object_info_[candidate.first
-                                                             .object_id_];
+        UninitializedEllispoidInfo<RoshanAggregateBbInfo, util::EmptyStruct>
+            uninitialized_obj =
+                RoshanBbFrontEnd::uninitialized_object_info_[candidate.first
+                                                                 .object_id_];
         for (const RoshanBbInfo &single_bb_info :
              uninitialized_obj.appearance_info_.infos_for_observed_bbs_) {
           double obs_centroid_dist =
@@ -412,7 +409,8 @@ class RoshanBbFrontEnd
       const vslam_types_refactor::FrameId &frame_id,
       const vslam_types_refactor::CameraId &camera_id) override {
     if (association_params_.discard_candidate_after_num_frames_ > 0) {
-      std::vector<UninitializedEllispoidInfo<RoshanAggregateBbInfo>>
+      std::vector<
+          UninitializedEllispoidInfo<RoshanAggregateBbInfo, util::EmptyStruct>>
           uninitialized_object_info_to_keep;
       removeStalePendingObjects(
           RoshanBbFrontEnd::uninitialized_object_info_,
@@ -432,23 +430,23 @@ class RoshanBbFrontEnd
 
   virtual ObjectInitializationStatus tryInitializeEllipsoid(
       const RoshanImageSummaryInfo &refined_bb_context,
-      const RoshanAggregateBbInfo &association_info,
-      const std::vector<UninitializedObjectFactor> &factors,
-      const std::string &semantic_class,
-      const bool &already_init,
+      const UninitializedEllispoidInfo<RoshanAggregateBbInfo, util::EmptyStruct>
+          &uninitialized_bb_info,
       vslam_types_refactor::EllipsoidState<double> &ellipsoid_est) override {
-    if (factors.empty()) {
+    if (uninitialized_bb_info.observation_factors_.empty()) {
       return NOT_INITIALIZED;
     }
-    if (association_params_.min_observations_ > factors.size()) {
+    if (association_params_.min_observations_ >
+        uninitialized_bb_info.observation_factors_.size()) {
       return NOT_INITIALIZED;
     }
     if (association_params_.required_min_conf_for_initialization >
-        association_info.max_confidence_) {
+        uninitialized_bb_info.appearance_info_.max_confidence_) {
       return NOT_INITIALIZED;
     }
 
-    RoshanBbInfo single_info = association_info.infos_for_observed_bbs_.back();
+    RoshanBbInfo single_info =
+        uninitialized_bb_info.appearance_info_.infos_for_observed_bbs_.back();
     ellipsoid_est = single_info.single_bb_init_est_;
     return single_info.est_generated_ ? SUFFICIENT_VIEWS_FOR_NEW
                                       : NOT_INITIALIZED;
@@ -464,6 +462,7 @@ class RoshanBbFrontEnd
     AbstractBoundingBoxFrontEnd<
         VisualFeatureFactorType,
         RoshanAggregateBbInfo,
+        util::EmptyStruct,
         std::optional<sensor_msgs::Image::ConstPtr>,
         RoshanImageSummaryInfo,
         RoshanBbInfo,
@@ -577,6 +576,7 @@ class RoshanBbFrontEndCreator {
   std::shared_ptr<AbstractBoundingBoxFrontEnd<
       VisualFeatureFactorType,
       RoshanAggregateBbInfo,
+      util::EmptyStruct,
       std::optional<sensor_msgs::Image::ConstPtr>,
       RoshanImageSummaryInfo,
       RoshanBbInfo,
@@ -590,8 +590,9 @@ class RoshanBbFrontEndCreator {
               association_params_,
               covariance_generator_,
               observed_corner_locations_,
-              all_filtered_corner_locations_,
-              long_term_map_front_end_data_);
+              all_filtered_corner_locations_);
+      roshan_front_end_->initializeWithLongTermMapFrontEndData(
+          long_term_map_front_end_data_);
       initialized_ = true;
     }
     return roshan_front_end_;
@@ -631,6 +632,7 @@ class RoshanBbFrontEndCreator {
   std::shared_ptr<AbstractBoundingBoxFrontEnd<
       VisualFeatureFactorType,
       RoshanAggregateBbInfo,
+      util::EmptyStruct,
       std::optional<sensor_msgs::Image::ConstPtr>,
       RoshanImageSummaryInfo,
       RoshanBbInfo,

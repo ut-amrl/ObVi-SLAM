@@ -31,6 +31,7 @@ class BoundingBoxFactor {
    *                                        measurements.
    */
   BoundingBoxFactor(
+      const double &invalid_ellipse_error,
       const vslam_types_refactor::CameraIntrinsicsMat<double> &intrinsics,
       const vslam_types_refactor::CameraExtrinsics<double> &extrinsics,
       const vslam_types_refactor::BbCorners<double> &corner_pixel_locations,
@@ -77,19 +78,19 @@ class BoundingBoxFactor {
                                     camera_intrinsics_mat_.cast<T>(),
                                     corner_results);
     if (!valid_case) {
-      residuals_ptr[0] = T(kInvalidEllipseError);
-      residuals_ptr[1] = T(kInvalidEllipseError);
-      residuals_ptr[2] = T(kInvalidEllipseError);
-      residuals_ptr[3] = T(kInvalidEllipseError);
+      residuals_ptr[0] = T(invalid_ellipse_error_);
+      residuals_ptr[1] = T(invalid_ellipse_error_);
+      residuals_ptr[2] = T(invalid_ellipse_error_);
+      residuals_ptr[3] = T(invalid_ellipse_error_);
       return true;
     }
 
     Eigen::Matrix<T, 4, 1> deviation =
         corner_results - corner_detections_.template cast<T>();
-//        LOG(INFO) << "Detection " << corner_detections_;
-//        LOG(INFO) << "Deviation " << deviation;
-//        LOG(INFO) << "Sqrt inf mat bounding box "
-//                  << sqrt_inf_mat_bounding_box_corners_;
+    //        LOG(INFO) << "Detection " << corner_detections_;
+    //        LOG(INFO) << "Deviation " << deviation;
+    //        LOG(INFO) << "Sqrt inf mat bounding box "
+    //                  << sqrt_inf_mat_bounding_box_corners_;
 
     Eigen::Map<Eigen::Matrix<T, 4, 1>> residuals(residuals_ptr);
     residuals =
@@ -115,13 +116,15 @@ class BoundingBoxFactor {
                                      kEllipsoidParamterizationSize,
                                      6> *
   createBoundingBoxFactor(
+      const double &invalid_ellipse_error,
       const vslam_types_refactor::BbCorners<double> &object_detection,
       const vslam_types_refactor::CameraIntrinsicsMat<double>
           &camera_intrinsics,
       const vslam_types_refactor::CameraExtrinsics<double> &camera_extrinsics,
       const vslam_types_refactor::Covariance<double, 4>
           &bounding_box_covariance) {
-    BoundingBoxFactor *factor = new BoundingBoxFactor(camera_intrinsics,
+    BoundingBoxFactor *factor = new BoundingBoxFactor(invalid_ellipse_error,
+                                                      camera_intrinsics,
                                                       camera_extrinsics,
                                                       object_detection,
                                                       bounding_box_covariance);
@@ -132,7 +135,8 @@ class BoundingBoxFactor {
   }
 
  private:
-  const static constexpr double kInvalidEllipseError = 1e6;
+  double invalid_ellipse_error_;
+
   /**
    * Corner detections for the bounding box. The first value is the smallest x
    * value, the next is the largest x value, the third is the smallest y value

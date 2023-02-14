@@ -32,5 +32,11 @@ build/CMakeLists.txt.copy: CMakeLists.txt Makefile
 	mkdir -p build
 	cd build && cmake -DCMAKE_BUILD_TYPE=$(build_type) \
 		-DCMAKE_CXX_COMPILER=$(CXX_compiler) \
-		-DCMAKE_C_COMPILER=$(C_compiler) ..
+		-DCMAKE_C_COMPILER=$(C_compiler)  \
+		${TESTFLAGS} ..
 	cp CMakeLists.txt build/CMakeLists.txt.copy
+
+
+test: TESTFLAGS += -DGENERATE_UNITTESTS=ON
+test: all
+	./bin/ut_vslam_tests

@@ -12,14 +12,42 @@
 namespace vslam_types_refactor {
 
 struct BoundingBoxCovGenParams {
+  // NOTE: If this structure is modified, increment the
+  // kCurrentConfigSchemaVersion number in FullOVSLAMConfig.h NOTE: If the
+  // default values here are modified, make sure any changes are reflected in
+  // the config and if necessary, regenerate the config with a new
+  // config_version_id_
   Covariance<double, 4> bounding_box_cov_ =
       createDiagCovFromStdDevs(Eigen::Vector4d(30, 30, 30, 30));
   double near_edge_threshold_ = 25;                   // TODO tune
   double image_boundary_variance_ = pow(200.0, 2.0);  // TODO tune
+
+  bool operator==(const BoundingBoxCovGenParams &rhs) const {
+    return (bounding_box_cov_ == rhs.bounding_box_cov_) &&
+           (near_edge_threshold_ == rhs.near_edge_threshold_) &&
+           (rhs.image_boundary_variance_ == rhs.image_boundary_variance_);
+  }
+
+  bool operator!=(const BoundingBoxCovGenParams &rhs) const {
+    return !operator==(rhs);
+  }
 };
 
 struct GeometricSimilarityScorerParams {
+  // NOTE: If this structure is modified, increment the
+  // kCurrentConfigSchemaVersion number in FullOVSLAMConfig.h NOTE: If the
+  // default values here are modified, make sure any changes are reflected in
+  // the config and if necessary, regenerate the config with a new
+  // config_version_id_
   double max_merge_distance_ = 1.5;
+
+  bool operator==(const GeometricSimilarityScorerParams &rhs) const {
+    return (max_merge_distance_ == rhs.max_merge_distance_);
+  }
+
+  bool operator!=(const GeometricSimilarityScorerParams &rhs) const {
+    return !operator==(rhs);
+  }
 };
 
 template <typename ImageContext>
@@ -140,7 +168,9 @@ generateFeatureBasedBbCreator(
         &img_heights_and_widths,
     const BoundingBoxCovGenParams &bb_cov_gen_params,
     const GeometricSimilarityScorerParams &similarity_scorer_params,
-    const FeatureBasedBbAssociationParams &association_params) {
+    const FeatureBasedBbAssociationParams &association_params,
+    const std::unordered_map<ObjectId, util::EmptyStruct>
+        &long_term_map_front_end_data) {
   std::function<bool(
       const EllipsoidState<double> &, const EllipsoidState<double> &, double &)>
       geometric_similarity_scorer =
@@ -170,7 +200,8 @@ generateFeatureBasedBbCreator(
       all_observed_corner_locations_with_uncertainty,
       associated_observed_corner_locations,
       bounding_boxes_for_pending_object,
-      pending_objects);
+      pending_objects,
+      long_term_map_front_end_data);
 }
 
 }  // namespace vslam_types_refactor

@@ -23,13 +23,16 @@ std::vector<RawBoundingBox> filterBoundingBoxesWithMinConfidence(
   return bbs_to_keep;
 }
 
-template <typename VisualFeatureFactorType, typename ObjectAssociationInfo>
+template <typename VisualFeatureFactorType,
+          typename ObjectAssociationInfo,
+          typename PendingObjInfo>
 void identifyMergeCandidates(
     const std::shared_ptr<vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
         VisualFeatureFactorType>> &pose_graph,
     const std::unordered_set<ObjectId> &existing_associated_to_objects,
     const std::unordered_set<ObjectId> &possible_pending_objs_to_merge,
-    const std::vector<UninitializedEllispoidInfo<ObjectAssociationInfo>>
+    const std::vector<
+        UninitializedEllispoidInfo<ObjectAssociationInfo, PendingObjInfo>>
         &uninitialized_object_info,
     const bool &only_match_semantic_class,
     std::unordered_map<ObjectId, std::vector<ObjectId>> &merge_candidates) {
@@ -80,8 +83,9 @@ void identifyMergeCandidates(
 
   for (const ObjectId &pending_obj_to_maybe_merge :
        possible_pending_objs_to_merge) {
-    UninitializedEllispoidInfo<ObjectAssociationInfo> pending_obj_info =
-        uninitialized_object_info[pending_obj_to_maybe_merge];
+    UninitializedEllispoidInfo<ObjectAssociationInfo, PendingObjInfo>
+        pending_obj_info =
+            uninitialized_object_info[pending_obj_to_maybe_merge];
     std::unordered_set<ObjectId> possible_obj_ids =
         plausible_candidate_getter(pending_obj_info.semantic_class_);
     for (const ObjectId &possible_merge_with : possible_obj_ids) {
@@ -179,16 +183,17 @@ std::vector<AssociatedObjectIdentifier> greedilyAssignBoundingBoxes(
   return final_assignments;
 }
 
-template <typename AssociationInfo>
+template <typename AssociationInfo, typename PendingObjInfo>
 void removeStalePendingObjects(
-    const std::vector<UninitializedEllispoidInfo<AssociationInfo>>
+    const std::vector<
+        UninitializedEllispoidInfo<AssociationInfo, PendingObjInfo>>
         &full_uninitialized_object_info,
     const FrameId &curr_frame_id,
     const FrameId &discard_candidate_after_num_frames,
-    std::vector<UninitializedEllispoidInfo<AssociationInfo>>
+    std::vector<UninitializedEllispoidInfo<AssociationInfo, PendingObjInfo>>
         &uninitialized_object_info_to_keep) {
-  for (const UninitializedEllispoidInfo<AssociationInfo> &uninitialized_info :
-       full_uninitialized_object_info) {
+  for (const UninitializedEllispoidInfo<AssociationInfo, PendingObjInfo>
+           &uninitialized_info : full_uninitialized_object_info) {
     if (curr_frame_id <= (uninitialized_info.max_frame_id_ +
                           discard_candidate_after_num_frames)) {
       uninitialized_object_info_to_keep.emplace_back(uninitialized_info);

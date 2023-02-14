@@ -10,9 +10,9 @@ option(CONSTRAIN_ELLIPSOID_ORIENTATION "Constrain ellipsoid orientation to yaw o
 if (CONSTRAIN_ELLIPSOID_ORIENTATION)
     MESSAGE("Constraining ellipsoid orientation")
     add_definitions(-DCONSTRAIN_ELLIPSOID_ORIENTATION)
-else()
+else ()
     MESSAGE("Not constraining ellipsoid orientation")
-endif()
+endif ()
 
 INCLUDE($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 ROSBUILD_INIT()
@@ -21,6 +21,10 @@ SET(ROS_BUILD_SHARED_LIBS false)
 
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
+
+OPTION(GENERATE_SHARED_LIB_UNITTESTS,
+        "Option to enable generation of shared library unit tests"
+        OFF)
 
 find_package(PCL 1.3 REQUIRED)
 find_package(Ceres REQUIRED)
@@ -103,3 +107,19 @@ target_link_libraries(test_det_call ut_vslam ${LIBS})
 
 ROSBUILD_ADD_EXECUTABLE(visualize_jacobian_problem_feats src/refactoring/visualize_jacobian_problem_feats.cpp)
 target_link_libraries(visualize_jacobian_problem_feats ut_vslam ${LIBS})
+
+ROSBUILD_ADD_EXECUTABLE(write_configuration src/refactoring/configuration/write_configuration.cpp)
+target_link_libraries(write_configuration ut_vslam ${LIBS})
+
+
+IF (GENERATE_UNITTESTS)
+    MESSAGE("Adding test executable")
+    SET(UT_VSLAM_UNITTEST_NAME "ut_vslam_tests"
+            CACHE STRING "Name of compiled unit test executable")
+    ADD_EXECUTABLE(${UT_VSLAM_UNITTEST_NAME}
+            test/file_io/cv_file_storage/config_file_storage_io_tests.cc)
+    TARGET_LINK_LIBRARIES(${UT_VSLAM_UNITTEST_NAME}
+            gtest
+            gtest_main
+            ${LIBS})
+ENDIF ()

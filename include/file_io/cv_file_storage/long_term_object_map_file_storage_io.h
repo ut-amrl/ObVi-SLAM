@@ -41,10 +41,13 @@ class SerializableIndependentEllipsoidsLongTermObjectMap
                                                kEllipsoidParamterizationSize,
                                                kEllipsoidParamterizationSize>>(
               data_.getEllipsoidCovariances());
-    FrontEndObjMapData front_end_data;
+    std::unordered_map<ObjectId, FrontEndObjMapData> front_end_data;
     data_.getFrontEndObjMapData(front_end_data);
     fs << kFrontEndMapDataLabel
-       << SerializableFrontEndObjMapData(front_end_data);
+       << SerializableMap<ObjectId,
+                          SerializableObjectId,
+                          FrontEndObjMapData,
+                          SerializableFrontEndObjMapData>(front_end_data);
     fs << "}";
   }
 
@@ -74,7 +77,11 @@ class SerializableIndependentEllipsoidsLongTermObjectMap
     results_map_data >> serializable_cov_map;
     data_.setEllipsoidCovariances(serializable_cov_map.getEntry());
 
-    SerializableFrontEndObjMapData ser_front_end_data;
+    SerializableMap<ObjectId,
+                    SerializableObjectId,
+                    FrontEndObjMapData,
+                    SerializableFrontEndObjMapData>
+        ser_front_end_data;
     node[kFrontEndMapDataLabel] >> ser_front_end_data;
     data_.setFrontEndObjMapData(ser_front_end_data.getEntry());
   }

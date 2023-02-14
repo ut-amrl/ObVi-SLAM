@@ -87,6 +87,7 @@ void addVisualFeatureFactorsForFrame(
 // TODO delete reprojection_error_provider from function arguments
 // TODO maybe make generic to both types of object pose graphs
 template <typename ObjectAssociationInfo,
+          typename PendingObjectInfo,
           typename RawBoundingBoxContextInfo,
           typename RefinedBoundingBoxContextInfo,
           typename SingleBbContextInfo,
@@ -115,6 +116,7 @@ void addFrameDataAssociatedBoundingBox(
     const std::function<std::shared_ptr<
         AbstractBoundingBoxFrontEnd<ReprojectionErrorFactor,
                                     ObjectAssociationInfo,
+                                    PendingObjectInfo,
                                     RawBoundingBoxContextInfo,
                                     RefinedBoundingBoxContextInfo,
                                     SingleBbContextInfo,
@@ -186,6 +188,7 @@ void addFrameDataAssociatedBoundingBox(
 
   std::shared_ptr<AbstractBoundingBoxFrontEnd<ReprojectionErrorFactor,
                                               ObjectAssociationInfo,
+                                              PendingObjectInfo,
                                               RawBoundingBoxContextInfo,
                                               RefinedBoundingBoxContextInfo,
                                               SingleBbContextInfo,

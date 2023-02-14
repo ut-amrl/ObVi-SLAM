@@ -10,6 +10,7 @@
 #include <ceres/problem.h>
 #include <glog/logging.h>
 #include <refactoring/optimization/object_pose_graph.h>
+#include <refactoring/optimization/optimization_factors_enabled_params.h>
 #include <refactoring/optimization/optimization_solver_params.h>
 
 namespace pose_graph_optimizer {
@@ -17,52 +18,6 @@ namespace pose_graph_optimizer {
 const std::string kPoseTypeStr = "pose";
 const std::string kObjTypeStr = "object";
 const std::string kFeatureTypeStr = "feature";
-
-struct OptimizationFactorsEnabledParams {
-  bool include_object_factors_ = true;
-  bool include_visual_factors_ = true;
-  bool fix_poses_ = true;
-  bool fix_objects_ = true;
-  bool fix_visual_features_ = true;
-  bool fix_ltm_objects_ = false;
-  bool use_pom_ = false;
-  uint32_t poses_prior_to_window_to_keep_constant_ = 1;
-
-  uint32_t min_object_observations_ = 1;
-  uint32_t min_low_level_feature_observations_ = 5;
-};
-
-struct OptimizationScopeParams {
-  bool include_object_factors_;
-  bool include_visual_factors_;
-  bool fix_poses_;
-  bool fix_objects_;
-  bool fix_visual_features_;
-  bool use_pom_;          // Effectively false if fix_objects_ is true
-  bool fix_ltm_objects_;  // Effectively true if fix_objects_ is true
-  uint32_t poses_prior_to_window_to_keep_constant_ =
-      1;  // Should be min of 1, default to 1
-
-  uint32_t min_object_observations_ = 1;
-  uint32_t min_low_level_feature_observations_ = 5;
-
-  // This will only filter out factors. A factor could still be excluded even if
-  // not in this list if one of the other flags excludes it (ex.
-  // include_visual_features)
-  // TODO peraps include object factors/include visual factors should be merged
-  // with this?
-  std::unordered_set<vslam_types_refactor::FactorType>
-      factor_types_to_exclude;  // Should be true for LTM extraction, false
-                                // otherwise.
-  vslam_types_refactor::FrameId min_frame_id_;
-  vslam_types_refactor::FrameId max_frame_id_;
-  // TODO consider adding set of nodes to optimize -- for now, we'll just assume
-  // that we have min_frame_id (held constant) and all poses above that
-
-  // TODO move them to appropriate places
-  size_t min_obj_observations_ = 1;
-  size_t min_visual_feature_observations_ = 3;
-};
 
 template <typename PoseGraphType>
 bool getParamBlockForPose(const vslam_types_refactor::FrameId &frame_id,
@@ -636,13 +591,17 @@ class ObjectPoseGraphOptimizer {
     options.max_num_iterations = solver_params.max_num_iterations_;
     options.num_threads = 10;
     options.linear_solver_type = ceres::DENSE_SCHUR;
-    options.max_trust_region_radius = solver_params.max_trust_region_radius_;
+    options.use_nonmonotonic_steps = solver_params.allow_non_monotonic_steps_;
+    options.function_tolerance = solver_params.function_tolerance_;
+    options.gradient_tolerance = solver_params.gradient_tolerance_;
+    options.parameter_tolerance = solver_params.parameter_tolerance_;
     options.initial_trust_region_radius =
         solver_params.initial_trust_region_radius_;
+    options.max_trust_region_radius = solver_params.max_trust_region_radius_;
 
     ceres::Solver::Summary summary;
     ceres::Solve(options, problem, &summary);
-    std::cout << summary.FullReport() << '\n';
+    LOG(INFO) << summary.FullReport();
 
     if (block_ids_and_residuals_ptr != nullptr) {
       std::vector<ceres::ResidualBlockId> residual_block_ids;

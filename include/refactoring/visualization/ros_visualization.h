@@ -167,9 +167,13 @@ class RosVisualization {
       if (ellipsoid.second.has_value()) {
         std_msgs::ColorRGBA color_for_ellipsoid = pending_obj_color_;
         if (different_colors_per_class) {
-          color_for_ellipsoid = brightenColor(getColorForClass(ellipsoid.first), .25);
+          color_for_ellipsoid =
+              brightenColor(getColorForClass(ellipsoid.first), .25);
         }
-        color_for_ellipsoid.a = (((0.8 - 0.25) * num_obs_per_obj[ellipsoid_id]) / min_obs_threshold) + 0.25;
+        color_for_ellipsoid.a =
+            (((0.8 - 0.25) * num_obs_per_obj[ellipsoid_id]) /
+             min_obs_threshold) +
+            0.25;
         publishEllipsoid(ellipsoid.second.value(),
                          ellipsoid_id,
                          pub,
@@ -212,8 +216,9 @@ class RosVisualization {
     geometry_msgs::TransformStamped transform;
     transform.header.frame_id = kVizFrame;
     transform.header.stamp = ros::Time::now();
-    transform.child_frame_id =
-        prefixes_for_plot_type_.at(plot_type) + kFrameForLatestNode;
+    transform.child_frame_id = frame_prefix_ +
+                               prefixes_for_plot_type_.at(plot_type) +
+                               kFrameForLatestNode;
     transform.transform.translation.x = latest_pose.transl_.x();
     transform.transform.translation.y = latest_pose.transl_.y();
     transform.transform.translation.z = latest_pose.transl_.z();
@@ -1729,12 +1734,7 @@ class RosVisualization {
   std_msgs::ColorRGBA getColorForClass(const std::string &semantic_class) {
     if (colors_for_semantic_classes_.find(semantic_class) ==
         colors_for_semantic_classes_.end()) {
-      std_msgs::ColorRGBA color_for_class;
-      color_for_class.a = 1.0;
-      color_for_class.r =
-          (rand_gen_.UniformRandom() + rand_gen_.UniformRandom()) / 2;
-      color_for_class.g = rand_gen_.UniformRandom();
-      color_for_class.b = rand_gen_.UniformRandom();
+      std_msgs::ColorRGBA color_for_class = generateRandomColor(rand_gen_);
       colors_for_semantic_classes_[semantic_class] = color_for_class;
     }
     return colors_for_semantic_classes_.at(semantic_class);

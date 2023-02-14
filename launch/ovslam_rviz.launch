@@ -1,0 +1,41 @@
+<launch>
+    <arg name="topics_prefix" default=""/>
+    <arg name="underscore_based_prefix" default="" />
+    <!--- Run Rviz-->
+    <node pkg="rviz" type="rviz" name="a_$(arg underscore_based_prefix)_ov_slam_rviz" args="-d $(find ut_vslam)/launch/ovslam.rviz">
+        <remap from="/est_ellipsoids" to="$(arg topics_prefix)/est_ellipsoids"/>
+        <remap from="/est_/feature_cloud" to="$(arg topics_prefix)/est_/feature_cloud"/>
+        <remap from="/init_/feature_cloud" to="$(arg topics_prefix)/init_/feature_cloud"/>
+        <remap from="/est_pose" to="$(arg topics_prefix)/est_pose"/>
+        <remap from="/init_pose" to="$(arg topics_prefix)/init_pose"/>
+        <remap from="/pending_ellipsoids" to="$(arg topics_prefix)/pending_ellipsoids"/>
+        <remap from="/init_ellipsoids" to="$(arg topics_prefix)/init_ellipsoids"/>
+
+        <!-- For images, we also need to remap the camera info -->
+        <remap from="/est_/latest/cam_1_bb/image_raw" to="$(arg topics_prefix)/est_/latest/cam_1_bb/image_raw"/>
+        <remap from="/est_/latest/cam_2_bb/image_raw" to="$(arg topics_prefix)/est_/latest/cam_2_bb/image_raw"/>
+        <remap from="/all_observed_bbs/latest/cam_1_bb/image_raw"
+               to="$(arg topics_prefix)/all_observed_bbs/latest/cam_1_bb/image_raw"/>
+        <remap from="/all_observed_bbs/latest/cam_2_bb/image_raw"
+               to="$(arg topics_prefix)/all_observed_bbs/latest/cam_2_bb/image_raw"/>
+        <remap from="/est_/latest/cam_1_feats/image_raw" to="$(arg topics_prefix)/est_/latest/cam_1_feats/image_raw"/>
+        <remap from="/est_/latest/cam_2_feats/image_raw" to="$(arg topics_prefix)/est_/latest/cam_2_feats/image_raw"/>
+        <remap from="/init_/latest/cam_1_feats/image_raw" to="$(arg topics_prefix)/init_/latest/cam_1_feats/image_raw"/>
+        <remap from="/init_/latest/cam_2_feats/image_raw" to="$(arg topics_prefix)/init_/latest/cam_2_feats/image_raw"/>
+
+        <remap from="/est_/latest/cam_1_bb/camera_info" to="$(arg topics_prefix)/est_/latest/cam_1_bb/camera_info"/>
+        <remap from="/est_/latest/cam_2_bb/camera_info" to="$(arg topics_prefix)/est_/latest/cam_2_bb/camera_info"/>
+        <remap from="/all_observed_bbs/latest/cam_1_bb/camera_info"
+               to="$(arg topics_prefix)/all_observed_bbs/latest/cam_1_bb/camera_info"/>
+        <remap from="/all_observed_bbs/latest/cam_2_bb/camera_info"
+               to="$(arg topics_prefix)/all_observed_bbs/latest/cam_2_bb/camera_info"/>
+        <remap from="/est_/latest/cam_1_feats/camera_info"
+               to="$(arg topics_prefix)/est_/latest/cam_1_feats/camera_info"/>
+        <remap from="/est_/latest/cam_2_feats/camera_info"
+               to="$(arg topics_prefix)/est_/latest/cam_2_feats/camera_info"/>
+        <remap from="/init_/latest/cam_1_feats/camera_info"
+               to="$(arg topics_prefix)/init_/latest/cam_1_feats/camera_info"/>
+        <remap from="/init_/latest/cam_2_feats/camera_info"
+               to="$(arg topics_prefix)/init_/latest/cam_2_feats/camera_info"/>
+    </node>
+</launch>

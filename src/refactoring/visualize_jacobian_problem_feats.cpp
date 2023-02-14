@@ -153,8 +153,10 @@ int main(int argc, char **argv) {
           vtr::FrameId,
           std::unordered_map<vtr::CameraId, vtr::PixelCoord<double>>>>
       low_level_features_map;
-  vtr::OrbOutputLowLevelFeatureReader orb_feat_reader(FLAGS_low_level_feats_dir,
-                                                      {});
+  vtr::LimitTrajectoryEvaluationParams limit_traj_params;
+  limit_traj_params.should_limit_trajectory_evaluation_ = false;
+  vtr::OrbOutputLowLevelFeatureReader orb_feat_reader(
+      FLAGS_low_level_feats_dir, {}, limit_traj_params);
   vtr::FrameId max_frame_id = 0;
   orb_feat_reader.getLowLevelFeatures(visual_features);
   for (const auto &feature_track : visual_features) {
@@ -240,7 +242,7 @@ int main(int argc, char **argv) {
       cv::Mat image_mosaic = vtr::generateMosaic(images_for_feat, 4);
       cv::imwrite(
           file_io::ensureDirectoryPathEndsWithSlash(FLAGS_images_out_dir) +
-              "feat_" + std::to_string(feat_id) + ".png",
+              "feat_" + std::to_string(feat_id) + vtr::kPngExtension,
           image_mosaic);
     } else {
       LOG(INFO) << "Images for feat was empty?";

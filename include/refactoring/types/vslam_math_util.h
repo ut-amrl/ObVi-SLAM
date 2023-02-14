@@ -267,16 +267,16 @@ void getProjectedPixelLocation(
   // Transform from world to current robot pose
   Eigen::Transform<T, 3, Eigen::Affine> world_to_robot_current =
       vslam_types_refactor::PoseArrayToAffine(&(pose[3]), &(pose[0])).inverse();
-//  LOG(INFO) << "World to robot current " << world_to_robot_current.matrix();
+  //  LOG(INFO) << "World to robot current " << world_to_robot_current.matrix();
 
   // Point in world frame
   Eigen::Matrix<T, 3, 1> point_world(point[0], point[1], point[2]);
-//  LOG(INFO) << "Point world " << point_world;
+  //  LOG(INFO) << "Point world " << point_world;
 
   // Transform the point from global coordinates to frame of current pose.
-  Eigen::Matrix<T, 3, 1> point_current = cam_to_robot_tf_.inverse() *
-                                         world_to_robot_current * point_world;
-//  LOG(INFO) << "Point " << point_current;
+  Eigen::Matrix<T, 3, 1> point_current =
+      cam_to_robot_tf_.inverse() * world_to_robot_current * point_world;
+  //  LOG(INFO) << "Point " << point_current;
 
   // Project the 3  D point into the current image.
   if (point_current.z() < T(0)) {
@@ -291,8 +291,6 @@ void getProjectedPixelLocation(
       intrinsics_(1, 1) * point_current.y() / point_current.z() +
       intrinsics_(1, 2);
 }
-
-
 
 }  // namespace vslam_types_refactor
 
