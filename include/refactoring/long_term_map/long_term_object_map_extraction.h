@@ -70,6 +70,7 @@ bool runOptimizationForLtmExtraction(
       kShapeDimPriorFactorTypeId};
   ltm_optimization_scope_params.min_frame_id_ = min_and_max_frame_id.first;
   ltm_optimization_scope_params.max_frame_id_ = min_and_max_frame_id.second;
+  ltm_optimization_scope_params.force_include_ltm_objs_ = true;
 
   pose_graph_optimizer::ObjectPoseGraphOptimizer<
       ReprojectionErrorFactor,

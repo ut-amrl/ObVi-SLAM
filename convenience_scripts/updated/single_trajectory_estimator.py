@@ -44,15 +44,18 @@ class CmdLineArgConstants:
         "Directory containing the intrinsics and extrinsics files. In this directory, the intrinsics file is named " \
         "'camera_matrix.txt' and the extrinsics file is named 'extrinsics.txt'"
     resultsRootDirectoryHelp = \
-        "Directory that contains the results. Within this directory, there will be directories named 'ut_vslam_out'" \
-        " (which contains the main executable results), 'jacobian_debugging_out' (which will contain information for " \
-        "debugging jacobian rank deficiencies experienced in covariance extraction), 'ellipsoid_debugging_out' (which" \
-        " contains debug information/images for helping to tune/debug the ellipsoid front-end and estimation). Within " \
-        "each of these directories, there will be a directory corresponding to the sequence_base_name and within " \
-        "those directories will be a directory corresponding to the config base name. Within the sequence-config " \
-        "directory, there will be a directory for each trajectory in the sequence. For trajectories run in " \
-        "isolation, the lowest directory will be named the same as the rosbag name. For trajectories from a sequence," \
-        " they will be prefixed with the number of the trajectory in the sequence"
+        "Directory that contains the results. Within this directory, there will be a directory corresponding to the " \
+        "sequence_base_name and within those directories will be a directory corresponding to the config base name. " \
+        "Within the sequence-config directory, there will be a directory for each trajectory in the sequence. For " \
+        "trajectories run in isolation, this will be named the same as the rosbag name. For trajectories from a" \
+        " sequence (even if there is only one entry in the sequence), they will be prefixed with the number of the " \
+        "trajectory in the sequence. Within the directory for the particular trajectory, there will be" \
+        "(depending on the output configuration) directories named 'ut_vslam_out' (which contains the main " \
+        "executable results), 'jacobian_debugging_out' (which will contain information for debugging jacobian rank " \
+        "deficiencies experienced in covariance extraction), 'ellipsoid_debugging_out' (which contains debug" \
+        " information/images for helping to tune/debug the ellipsoid front-end and estimation), 'logs' (which contains " \
+        "the logs for the run, this is configured mainly by glog), and 'visualization_rosbags' (which contains " \
+        "rosbags that have recorded the main visualization messages that are generated during trajectory optimization)"
 
     configFileBaseNameHelp = \
         "Base name of the configuration file. The config file used will be a file under the config file directory " \
@@ -462,7 +465,6 @@ def recordVisualizationRosbag(topicsPrefix, executionConfig):
         utVslamOutRootDir, executionConfig.sequenceFileBaseName, executionConfig.configFileBaseName,
         bag_results_dir_name)
     bagName = FileStructureUtils.ensureDirectoryEndsWithSlash(rosbagRecordDir) + "visualization_topics.bag";
-    topicsStr = " "
     cmdArgs = []
     cmdArgs.append("rosbag")
     cmdArgs.append("record")

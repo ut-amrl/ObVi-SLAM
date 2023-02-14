@@ -220,6 +220,7 @@ bool checkFactorRefresh(const MainFactorInfo &factor,
 void createPoseGraph(
     const MainProbData &input_problem_data,
     const std::function<bool(
+        const std::unordered_set<vtr::ObjectId> &,
         util::BoostHashMap<MainFactorInfo, std::unordered_set<vtr::ObjectId>>
             &)> &long_term_map_factor_provider,
     MainPgPtr &pose_graph) {
@@ -963,12 +964,15 @@ int main(int argc, char **argv) {
           };
 
   std::function<bool(
+      const std::unordered_set<vtr::ObjectId> &,
       util::BoostHashMap<MainFactorInfo, std::unordered_set<vtr::ObjectId>> &)>
       long_term_map_factor_provider =
-          [&](util::BoostHashMap<MainFactorInfo,
+          [&](const std::unordered_set<vtr::ObjectId> &objects_to_include,
+              util::BoostHashMap<MainFactorInfo,
                                  std::unordered_set<vtr::ObjectId>>
                   &factor_data) {
-            return ltm_factor_creator.getFactorsToInclude(factor_data);
+            return ltm_factor_creator.getFactorsToInclude(objects_to_include,
+                                                          factor_data);
           };
   std::function<void(const MainProbData &, MainPgPtr &)> pose_graph_creator =
       std::bind(createPoseGraph,
