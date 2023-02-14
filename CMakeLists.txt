@@ -68,10 +68,12 @@ add_subdirectory(src/shared)
 include_directories(src)
 
 add_library(ut_vslam
+        src/evaluation/trajectory_interpolation_utils.cpp
         src/refactoring/bounding_box_frontend/pending_object_estimator.cpp
         src/refactoring/factors/bounding_box_factor.cpp
         src/refactoring/factors/pairwise_2d_feature_cost_functor.cpp
         src/refactoring/factors/independent_object_map_factor.cpp
+        src/refactoring/factors/relative_pose_factor.cpp
         src/refactoring/factors/reprojection_cost_functor.cpp
         src/refactoring/factors/shape_prior_factor.cpp
         src/refactoring/types/vslam_obj_opt_types_refactor.cpp
@@ -105,6 +107,9 @@ target_link_libraries(visualize_jacobian_problem_feats ut_vslam ${LIBS})
 
 ROSBUILD_ADD_EXECUTABLE(write_configuration src/refactoring/configuration/write_configuration.cpp)
 target_link_libraries(write_configuration ut_vslam ${LIBS})
+
+ROSBUILD_ADD_EXECUTABLE(interpolate_poses_with_required_nodes src/evaluation/interpolate_poses_with_required_nodes.cpp)
+target_link_libraries(interpolate_poses_with_required_nodes ut_vslam ${LIBS})
 
 
 IF (GENERATE_UNITTESTS)
