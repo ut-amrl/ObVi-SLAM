@@ -10,7 +10,6 @@
 
 namespace vslam_types_refactor {
 namespace {
-const double kEpsilon = 1e-7;
 
 /**
  * Threshold for a small angle when creating a axis-angle representation.
@@ -183,7 +182,7 @@ Eigen::Matrix<T, 3, 1> FromSkewSymmetric(const Eigen::Matrix<T, 3, 3>& s) {
 template <typename T>
 Eigen::Matrix<T, 3, 1> Log(const Eigen::Matrix<T, 3, 3>& R) {
   const T cos_theta = T(0.5) * (R.trace() - T(1.0));
-  if (cos_theta > T(1.0 - kEpsilon)) {
+  if (cos_theta > T(1.0 - kSmallAngleThreshold)) {
     // Small-angle approximation.
     const Eigen::Matrix<T, 3, 3> s = T(0.5) * (R - R.transpose());
     return FromSkewSymmetric(s);
@@ -205,7 +204,7 @@ template <typename T>
 Eigen::Matrix<T, 3, 3> Exp(const Eigen::Matrix<T, 3, 1>& w) {
   const T theta = w.norm();
   const Eigen::Matrix<T, 3, 3> s = SkewSymmetric(w);
-  if (theta < T(kEpsilon)) {
+  if (theta < T(kSmallAngleThreshold)) {
     // Small-angle approximation.
     return (Eigen::Matrix<T, 3, 3>::Identity() + s);
   }
@@ -224,7 +223,7 @@ template <typename T>
 Eigen::Matrix<T, 3, 3> GetRodriguesJacobian(const Eigen::Matrix<T, 3, 1>& w) {
   Eigen::Matrix<T, 3, 3> e_S = SkewSymmetric(w);
   const T th = w.norm();
-  if (th < T(kEpsilon)) {
+  if (th < T(kSmallAngleThreshold)) {
     return (Eigen::Matrix<T, 3, 3>::Identity() - T(0.5) * e_S);
   } else {
     return (Eigen::Matrix<T, 3, 3>::Identity() -
