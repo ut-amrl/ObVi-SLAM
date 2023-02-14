@@ -1,7 +1,7 @@
 {
     "config": {
-        "config_schema_version": 1,
-        "config_version_id": "1",
+        "config_schema_version": 2,
+        "config_version_id": "2",
         "visual_feature_params": {
             "reprojection_error_std_dev": 2.0,
             "min_visual_feature_parallax_pixel_requirement": 5.0,
@@ -14,7 +14,9 @@
             "allow_non_monotonic_steps": 0,
             "function_tolerance": 9.9999999999999995e-07,
             "gradient_tolerance": 1.0000000000000000e-10,
-            "parameter_tolerance": 1.0000000000000000e-08
+            "parameter_tolerance": 1.0000000000000000e-08,
+            "initial_trust_region_radius": 100.0,
+            "max_trust_region_radius": 10000.0
         },
         "global_ba_solver_params": {
             "max_num_iterations": 250,
@@ -22,7 +24,9 @@
             "allow_non_monotonic_steps": 0,
             "function_tolerance": 9.9999999999999995e-07,
             "gradient_tolerance": 1.0000000000000000e-10,
-            "parameter_tolerance": 1.0000000000000000e-08
+            "parameter_tolerance": 1.0000000000000000e-08,
+            "initial_trust_region_radius": 100.0,
+            "max_trust_region_radius": 10000.0
         },
         "final_ba_solver_params": {
             "max_num_iterations": 300,
@@ -30,7 +34,9 @@
             "allow_non_monotonic_steps": 0,
             "function_tolerance": 9.9999999999999995e-07,
             "gradient_tolerance": 1.0000000000000000e-10,
-            "parameter_tolerance": 1.0000000000000000e-08
+            "parameter_tolerance": 1.0000000000000000e-08,
+            "initial_trust_region_radius": 100.0,
+            "max_trust_region_radius": 10000.0
         },
         "ltm_tunable_params": {
             "far_feature_threshold": 75.0
@@ -54,7 +60,9 @@
             "allow_non_monotonic_steps": 0,
             "function_tolerance": 9.9999999999999995e-07,
             "gradient_tolerance": 1.0000000000000000e-10,
-            "parameter_tolerance": 1.0000000000000000e-08
+            "parameter_tolerance": 1.0000000000000000e-08,
+            "initial_trust_region_radius": 100.0,
+            "max_trust_region_radius": 10000.0
         },
         "shape_dimension_priors": {
             "dimension_prior_label": [
@@ -266,7 +274,9 @@
                         "allow_non_monotonic_steps": 0,
                         "function_tolerance": 9.9999999999999995e-07,
                         "gradient_tolerance": 1.0000000000000000e-10,
-                        "parameter_tolerance": 1.0000000000000000e-08
+                        "parameter_tolerance": 1.0000000000000000e-08,
+                        "initial_trust_region_radius": 100.0,
+                        "max_trust_region_radius": 10000.0
                     }
                 },
                 "bounding_box_inflation_size": 0.0
