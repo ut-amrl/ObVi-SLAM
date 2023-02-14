@@ -838,6 +838,7 @@ class VSLAMDebugger {
                            encoding_);
   }
 
+  // TODO fix hardcoding here
   void debugOptimizationRunByFrameId(
       const vtr::FrameId &start_frame_id,
       const vtr::FrameId &end_frame_id,
@@ -845,12 +846,22 @@ class VSLAMDebugger {
           &features3d,
       const std::unordered_map<vtr::FrameId, vtr::Pose3D<double>> &poses,
       const DebugTypeEnum &debug_type) {
-    const double kConsecutiveTranslChangeTol = 1.5;
+    const double kConsecutiveTranslChangeTol = 1.0;
 
-    std::vector<vtr::FrameId> frame_ids;
+    if (debug_type == DebugTypeEnum::BEFORE_OPTIM) {
+      features3d_cached_ = features3d;
+      poses_cached_ = poses;
+      return;
+    }
+
+    if (debug_type != DebugTypeEnum::AFTER_OPTIM) {
+      return;
+    }
+
     if (end_frame_id - start_frame_id <= 1) {
       return;
     }
+    std::vector<vtr::FrameId> frame_ids;
     for (vtr::FrameId frame_id = start_frame_id + 1; frame_id <= end_frame_id;
          ++frame_id) {
       if ((poses.at(frame_id).transl_ - poses.at(frame_id - 1).transl_).norm() >
@@ -898,6 +909,42 @@ class VSLAMDebugger {
                                 debugLabels.at(debug_type) + ".png");
       cv::imwrite(optim_path, summary);
     }
+
+    cam_ids_and_images.clear();
+    for (const vtr::FrameId &frame_id : frame_ids) {
+      auto ret_images_and_residuals =
+          frame_ids_and_debuggers_[frame_id].getLowLevelFeaturesLatestImages(
+              features3d_cached_,
+              poses_cached_.at(frame_id),
+              DebugTypeEnum::BEFORE_OPTIM,
+              false);
+      std::unordered_map<vtr::CameraId, cv_bridge::CvImagePtr>
+          cam_ids_and_visualizations = std::get<0>(ret_images_and_residuals);
+      std::unordered_map<vtr::CameraId, std::vector<double>>
+          cam_ids_and_residuals = std::get<1>(ret_images_and_residuals);
+      for (const auto &cam_id_and_visualization : cam_ids_and_visualizations) {
+        const vtr::CameraId &cam_id = cam_id_and_visualization.first;
+        std::sort(cam_ids_and_residuals[cam_id].begin(),
+                  cam_ids_and_residuals[cam_id].end());
+        if (cam_ids_and_images.find(cam_id) == cam_ids_and_images.end()) {
+          cam_ids_and_images[cam_id] =
+              std::unordered_map<vtr::FrameId, cv_bridge::CvImagePtr>();
+        }
+        cam_ids_and_images[cam_id][frame_id] = cam_id_and_visualization.second;
+      }
+    }
+    for (const auto &cam_id_and_images : cam_ids_and_images) {
+      const vtr::CameraId &cam_id = cam_id_and_images.first;
+      cv::Mat summary = SummarizeVisualization(cam_id_and_images.second, 5);
+      std::string optim_path =
+          output_opt_window_directories_.at(cam_id) /
+          (std::to_string(end_frame_id) + "_" +
+           debugLabels.at(DebugTypeEnum::BEFORE_OPTIM) + ".png");
+      cv::imwrite(optim_path, summary);
+    }
+
+    features3d_cached_.clear();  // hard coding
+    poses_cached_.clear();
   }
 
   void debugFeatureFlowsByFrameId(const vtr::FrameId &end_frame_id,
@@ -1007,6 +1054,11 @@ class VSLAMDebugger {
   std::unordered_map<DebugTypeEnum, std_msgs::ColorRGBA>
       deubg_types_and_ros_colors_;
   unsigned int encoding_;
+
+  // hardcoding
+  std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>
+      features3d_cached_;
+  std::unordered_map<vtr::FrameId, vtr::Pose3D<double>> poses_cached_;
 };
 
 // TODO read from user specified input
@@ -1641,9 +1693,11 @@ int main(int argc, char **argv) {
 
   pose_graph_optimization::OptimizationSolverParams solver_params;  // TODO
   solver_params.max_num_iterations_ = 500;                          // Tuning
+  solver_params.initial_trust_region_radius_ = 1e2;
+  solver_params.max_trust_region_radius_ = 1e4;
   pose_graph_optimization::ObjectVisualPoseGraphResidualParams residual_params;
   residual_params.visual_residual_params_.reprojection_error_huber_loss_param_ =
-      .1;  // Tuning
+      1.0;  // Tuning
 
   vtr::RoshanBbAssociationParams roshan_associator_params;  // TODO tune these
   roshan_associator_params.saturation_histogram_bins_ = 50;

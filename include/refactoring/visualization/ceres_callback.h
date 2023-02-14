@@ -87,23 +87,28 @@ class CeresCallbackLogger {
     }
   }
 
-  cv::Mat get
+  void putImageText(const std::string &text, cv::Mat image) {
+    cv::putText(image,
+                text,
+                cv::Point(10, 50),
+                cv::FONT_HERSHEY_SIMPLEX,
+                1.0,  // font scale
+                CV_RGB(255, 255, 255),
+                2.0);  // line thickness
+  }
 
-      void
-      plotTrajectory2D(
-          const std::string &filepath,
-          const std::map<FrameId, Pose3D<double>> &frame_ids_and_poses,
-          const std::vector<std::pair<FrameId, FrameId>>
-              &frame_id1s_and_frame_id2s) {
-    const FrameId nframe_window = 20;
-    plt::figure();
-    plt::figure_size(640, 360);
+  void getMergedStartAndEndFrameId(
+      const std::vector<std::pair<FrameId, FrameId>> &frame_id1s_and_frame_id2s,
+      const FrameId &nframe_window,
+      const std::pair<FrameId, FrameId> &min_frame_id_and_max_frame_id,
+      std::vector<std::pair<FrameId, FrameId>>
+          &merged_start_frame_ids_and_end_frame_ids) {
     std::vector<std::pair<FrameId, FrameId>> start_frame_ids_and_end_frame_ids;
     for (const auto &frame_id1_and_frame_id2 : frame_id1s_and_frame_id2s) {
       const FrameId &frame_id1 = frame_id1_and_frame_id2.first;
       const FrameId &frame_id2 = frame_id1_and_frame_id2.second;
-      const FrameId &min_frame_id = frame_ids_and_poses.begin()->first;
-      const FrameId &max_frame_id = frame_ids_and_poses.rbegin()->first;
+      const FrameId &min_frame_id = min_frame_id_and_max_frame_id.first;
+      const FrameId &max_frame_id = min_frame_id_and_max_frame_id.second;
       FrameId start_frame_id, end_frame_id;
       start_frame_id = min_frame_id + nframe_window > frame_id1
                            ? min_frame_id
@@ -119,12 +124,9 @@ class CeresCallbackLogger {
     if (start_frame_ids_and_end_frame_ids.size() <= 1) {
       return;
     }
-    std::vector<std::pair<FrameId, FrameId>>
-        merged_start_frame_ids_and_end_frame_ids;
     std::pair<FrameId, FrameId> merged_start_frame_id_and_end_frame_id =
         start_frame_ids_and_end_frame_ids[0];
     for (size_t i = 1; i < start_frame_ids_and_end_frame_ids.size(); ++i) {
-      // if there's overlapping between two consecutive frame id pairs
       if (merged_start_frame_id_and_end_frame_id.second >=
           start_frame_ids_and_end_frame_ids[i].first) {
         FrameId end_frame_id =
@@ -143,6 +145,131 @@ class CeresCallbackLogger {
     }
     merged_start_frame_ids_and_end_frame_ids.push_back(
         merged_start_frame_id_and_end_frame_id);
+  }
+
+  cv::Mat getLowLevelFeaturesLatestImages(
+      const std::unordered_map<CameraId, CameraExtrinsics<double>>
+          &cam_ids_and_extrinsics,
+      const std::unordered_map<CameraId, CameraIntrinsicsMat<double>>
+          &cam_ids_and_intrinsics,
+      const std::unordered_map<CameraId, sensor_msgs::Image::ConstPtr>
+          &cam_ids_and_images,
+      const std::unordered_map<
+          CameraId,
+          std::unordered_map<FeatureId, PixelCoord<double>>>
+          &cam_ids_and_features2d,
+      const std::unordered_map<FeatureId, Position3d<double>>
+          &feat_ids_and_features3d,
+      const Pose3D<double> &pose,
+      const std::string &case_str) {
+    for (const auto &cam_id_and_observations : cam_ids_and_features2d) {
+      const CameraId &cam_id = cam_id_and_observations.first;
+      const CameraExtrinsics<double> &extrinsics_for_cam =
+          cam_ids_and_extrinsics.at(cam_id);
+      const CameraIntrinsicsMat<double> &intrinsics_for_cam =
+          cam_ids_and_intrinsics.at(cam_id);
+      std::optional<sensor_msgs::Image::ConstPtr> img_for_cam = std::nullopt;
+      if (cam_ids_and_images.find(cam_id) != cam_ids_and_images.end()) {
+        img_for_cam = cam_ids_and_images.at(cam_id);
+      }
+      cv_bridge::CvImagePtr cv_ptr;
+      if (img_for_cam.has_value()) {
+        try {
+          cv_ptr = cv_bridge::toCvCopy(img_for_cam.value(), kImageEncoding);
+        } catch (cv_bridge::Exception &e) {
+          LOG(ERROR) << "cv_bridge exception: " << e.what();
+          exit(1);
+        }
+      }
+      for (const auto &feat_id_and_feature2d : cam_id_and_observations.second) {
+        const auto &feat_id = feat_id_and_feature2d.first;
+        const auto &feature2d_obs = feat_id_and_feature2d.second;
+        if (feat_ids_and_features3d.find(feat_id) ==
+            feat_ids_and_features3d.end()) {
+          continue;
+        }
+        PixelCoord<double> projected_pixels =
+            getProjectedPixelCoord(feat_ids_and_features3d.at(feat_id),
+                                   pose,
+                                   extrinsics_for_cam,
+                                   intrinsics_for_cam);
+        // RosVisualization::drawTinyCircleOnImage(
+        //     feature2d_obs,
+        //     deubg_types_and_ros_colors_[DebugTypeEnum::OBSERVED],
+        //     cv_ptr);
+        // RosVisualization::drawTinyCircleOnImage(
+        //     projected_pixels, deubg_types_and_ros_colors_[debug_type],
+        //     cv_ptr);
+        // RosVisualization::drawLineOnImage(
+        //     feature2d_obs,
+        //     projected_pixels,
+        //     deubg_types_and_ros_colors_[debug_type],
+        //     cv_ptr);
+      }
+    }
+  }
+
+  void plotTrajectory2D(
+      const std::string &filepath,
+      const std::map<FrameId, Pose3D<double>> &frame_ids_and_poses,
+      const std::vector<std::pair<FrameId, FrameId>>
+          &frame_id1s_and_frame_id2s) {
+    const FrameId nframe_window = 20;
+    plt::figure();
+    plt::figure_size(640, 360);
+    std::vector<std::pair<FrameId, FrameId>>
+        merged_start_frame_ids_and_end_frame_ids;
+    getMergedStartAndEndFrameId(frame_id1s_and_frame_id2s,
+                                nframe_window,
+                                {frame_ids_and_poses.begin()->first,
+                                 frame_ids_and_poses.rbegin()->first},
+                                merged_start_frame_ids_and_end_frame_ids);
+    // std::vector<std::pair<FrameId, FrameId>>
+    // start_frame_ids_and_end_frame_ids; for (const auto
+    // &frame_id1_and_frame_id2 : frame_id1s_and_frame_id2s) {
+    //   const FrameId &frame_id1 = frame_id1_and_frame_id2.first;
+    //   const FrameId &frame_id2 = frame_id1_and_frame_id2.second;
+    //   const FrameId &min_frame_id = frame_ids_and_poses.begin()->first;
+    //   const FrameId &max_frame_id = frame_ids_and_poses.rbegin()->first;
+    //   FrameId start_frame_id, end_frame_id;
+    //   start_frame_id = min_frame_id + nframe_window > frame_id1
+    //                        ? min_frame_id
+    //                        : frame_id1 - nframe_window;
+    //   end_frame_id = frame_id2 + nframe_window > max_frame_id
+    //                      ? max_frame_id
+    //                      : frame_id2 + nframe_window;
+    //   start_frame_ids_and_end_frame_ids.emplace_back(start_frame_id,
+    //                                                  end_frame_id);
+    // }
+    // std::sort(start_frame_ids_and_end_frame_ids.begin(),
+    //           start_frame_ids_and_end_frame_ids.end());
+    // if (start_frame_ids_and_end_frame_ids.size() <= 1) {
+    //   return;
+    // }
+    // std::vector<std::pair<FrameId, FrameId>>
+    //     merged_start_frame_ids_and_end_frame_ids;
+    // std::pair<FrameId, FrameId> merged_start_frame_id_and_end_frame_id =
+    //     start_frame_ids_and_end_frame_ids[0];
+    // for (size_t i = 1; i < start_frame_ids_and_end_frame_ids.size(); ++i) {
+    //   // if there's overlapping between two consecutive frame id pairs
+    //   if (merged_start_frame_id_and_end_frame_id.second >=
+    //       start_frame_ids_and_end_frame_ids[i].first) {
+    //     FrameId end_frame_id =
+    //         merged_start_frame_id_and_end_frame_id.second >
+    //                 start_frame_ids_and_end_frame_ids[i].second
+    //             ? merged_start_frame_id_and_end_frame_id.second
+    //             : start_frame_ids_and_end_frame_ids[i].second;
+    //     merged_start_frame_id_and_end_frame_id = std::make_pair(
+    //         merged_start_frame_id_and_end_frame_id.first, end_frame_id);
+    //   } else {
+    //     merged_start_frame_ids_and_end_frame_ids.push_back(
+    //         merged_start_frame_id_and_end_frame_id);
+    //     merged_start_frame_id_and_end_frame_id =
+    //         start_frame_ids_and_end_frame_ids[i];
+    //   }
+    // }
+    // merged_start_frame_ids_and_end_frame_ids.push_back(
+    //     merged_start_frame_id_and_end_frame_id);
     for (const auto &start_frame_id_and_end_frame_id :
          merged_start_frame_ids_and_end_frame_ids) {
       const FrameId &start_frame_id = start_frame_id_and_end_frame_id.first;

@@ -636,6 +636,9 @@ class ObjectPoseGraphOptimizer {
     options.max_num_iterations = solver_params.max_num_iterations_;
     options.num_threads = 10;
     options.linear_solver_type = ceres::DENSE_SCHUR;
+    options.max_trust_region_radius = solver_params.max_trust_region_radius_;
+    options.initial_trust_region_radius =
+        solver_params.initial_trust_region_radius_;
 
     ceres::Solver::Summary summary;
     ceres::Solve(options, problem, &summary);

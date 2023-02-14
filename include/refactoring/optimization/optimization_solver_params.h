@@ -8,7 +8,9 @@
 namespace pose_graph_optimization {
 struct OptimizationSolverParams {
   int max_num_iterations_ = 100;
-  double feature_outlier_percentage = .1;
+  double feature_outlier_percentage_ = .1;
+  double initial_trust_region_radius_ = 1e4;
+  double max_trust_region_radius_ = 1e16;
   // TODO
 };
 
