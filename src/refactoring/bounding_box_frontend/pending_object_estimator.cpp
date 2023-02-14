@@ -108,7 +108,7 @@ refineInitialEstimateForPendingObjects(
       estimator_params.solver_params_.parameter_tolerance_;
 
   options.num_threads = 10;
-  options.linear_solver_type = ceres::DENSE_SCHUR;
+  options.linear_solver_type = ceres::SPARSE_SCHUR;
 
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
