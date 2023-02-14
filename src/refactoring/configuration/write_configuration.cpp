@@ -156,24 +156,30 @@ int main(int argc, char **argv) {
   base_solver_params.max_num_iterations_ = 100;
   base_solver_params.feature_outlier_percentage = .1;
   base_solver_params.allow_non_monotonic_steps_ = false;
-  base_solver_params.function_tolerance_ = 1e-6;   // Ceres default
-  base_solver_params.gradient_tolerance_ = 1e-10;  // Ceres default
-  base_solver_params.parameter_tolerance_ = 1e-8;  // Ceres default
-  base_solver_params.initial_trust_region_radius_ = 1e2;
-  base_solver_params.max_trust_region_radius_ = 1e4;
+  base_solver_params.function_tolerance_ = 1e-6;          // Ceres default
+  base_solver_params.gradient_tolerance_ = 1e-10;         // Ceres default
+  base_solver_params.parameter_tolerance_ = 1e-8;         // Ceres default
+  base_solver_params.initial_trust_region_radius_ = 1e4;  // Ceres default
+  base_solver_params.max_trust_region_radius_ = 1e16;     // Ceres default
 
   // TODO modify convergence thresholds
   pose_graph_optimization::OptimizationSolverParams local_ba_solver_params =
       base_solver_params;
   local_ba_solver_params.max_num_iterations_ = 200;
+  local_ba_solver_params.initial_trust_region_radius_ = 1e2;
+  local_ba_solver_params.max_trust_region_radius_ = 1e4;
 
   pose_graph_optimization::OptimizationSolverParams global_ba_solver_params =
       base_solver_params;
   global_ba_solver_params.max_num_iterations_ = 250;
+  global_ba_solver_params.initial_trust_region_radius_ = 1e2;
+  global_ba_solver_params.max_trust_region_radius_ = 1e4;
 
   pose_graph_optimization::OptimizationSolverParams final_opt_solver_params =
       base_solver_params;
   final_opt_solver_params.max_num_iterations_ = 300;
+  final_opt_solver_params.initial_trust_region_radius_ = 1e2;
+  final_opt_solver_params.max_trust_region_radius_ = 1e4;
 
   configuration.local_ba_solver_params_ = local_ba_solver_params;
   configuration.global_ba_solver_params_ = global_ba_solver_params;
@@ -211,8 +217,8 @@ int main(int argc, char **argv) {
   configuration.bounding_box_covariance_generator_params_ =
       generateCovGenParams();
 
-  configuration.sliding_window_params_.local_ba_window_size_ = 30;
-  configuration.sliding_window_params_.global_ba_frequency_ = 20;
+  configuration.sliding_window_params_.local_ba_window_size_ = 50;
+  configuration.sliding_window_params_.global_ba_frequency_ = 30;
 
   configuration.sparsifier_params_.max_pose_inc_threshold_transl_ = 0.2;
   configuration.sparsifier_params_.max_pose_inc_threshold_rot_ = 0.1;
@@ -227,7 +233,8 @@ int main(int argc, char **argv) {
   optimization_factors_enabled_params.fix_objects_ = false;
   optimization_factors_enabled_params.poses_prior_to_window_to_keep_constant_ =
       5;
-  optimization_factors_enabled_params.min_low_level_feature_observations_ = 3;
+  // adding larger min_low_level_feature_observations_ for stereo camera
+  optimization_factors_enabled_params.min_low_level_feature_observations_ = 7;
   optimization_factors_enabled_params.min_object_observations_ = 1;
 
   configuration.optimization_factors_enabled_params_ =
