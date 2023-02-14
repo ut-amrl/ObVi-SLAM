@@ -569,6 +569,9 @@ class ObjectPoseGraphOptimizer {
     options.function_tolerance = solver_params.function_tolerance_;
     options.gradient_tolerance = solver_params.gradient_tolerance_;
     options.parameter_tolerance = solver_params.parameter_tolerance_;
+    options.initial_trust_region_radius =
+        solver_params.initial_trust_region_radius_;
+    options.max_trust_region_radius = solver_params.max_trust_region_radius_;
 
     ceres::Solver::Summary summary;
     ceres::Solve(options, problem, &summary);
