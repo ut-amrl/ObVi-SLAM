@@ -133,7 +133,7 @@ int main(int argc, char **argv) {
   std::string config_identifier = FLAGS_config_identifier;
   if (config_identifier.empty()) {
     // TODO INCREMENT IF YOU CHANGE VALUES/STRUCTURE FOR CONFIG
-    int config_version_number = 1;
+    int config_version_number = 2;
 
     config_identifier = std::to_string(config_version_number);
   }
@@ -159,6 +159,8 @@ int main(int argc, char **argv) {
   base_solver_params.function_tolerance_ = 1e-6;   // Ceres default
   base_solver_params.gradient_tolerance_ = 1e-10;  // Ceres default
   base_solver_params.parameter_tolerance_ = 1e-8;  // Ceres default
+  base_solver_params.initial_trust_region_radius_ = 1e2;
+  base_solver_params.max_trust_region_radius_ = 1e4;
 
   // TODO modify convergence thresholds
   pose_graph_optimization::OptimizationSolverParams local_ba_solver_params =
