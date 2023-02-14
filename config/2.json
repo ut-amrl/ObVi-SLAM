@@ -275,8 +275,8 @@
                         "function_tolerance": 9.9999999999999995e-07,
                         "gradient_tolerance": 1.0000000000000000e-10,
                         "parameter_tolerance": 1.0000000000000000e-08,
-                        "initial_trust_region_radius": 100.0,
-                        "max_trust_region_radius": 10000.0
+                        "initial_trust_region_radius": 10000.0,
+                        "max_trust_region_radius": 1.0000000000000000e+16
                     }
                 },
                 "bounding_box_inflation_size": 0.0
@@ -309,8 +309,8 @@
             "image_boundary_variance": 40000.0
         },
         "sliding_window_params": {
-            "global_ba_frequency": "20",
-            "local_ba_window_size": "30"
+            "global_ba_frequency": "30",
+            "local_ba_window_size": "50"
         },
         "optimization_factors_enabled_params": {
             "include_object_factors": 1,
@@ -322,7 +322,7 @@
             "use_pom": 0,
             "poses_prior_to_window_to_keep_constant": 5,
             "min_object_observations": 1,
-            "min_low_level_feature_observations": 3
+            "min_low_level_feature_observations": 7
         },
         "object_visual_pose_graph_residual_params": {
             "object_residual_params": {
