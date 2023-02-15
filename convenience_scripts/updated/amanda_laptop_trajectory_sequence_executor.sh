@@ -14,7 +14,7 @@ config_file_base_name="1"
 #config_file_base_name="test_higher_obj_obs_for_opt"
 #config_file_base_name="1_first_25"
 
-python3 convenience_scripts/updated/ltm_trajectory_sequence_executor.py \
+python3 src/evaluation/ltm_trajectory_sequence_executor.py \
     --config_file_directory ${config_file_directory} \
     --orb_slam_out_directory ${orb_slam_out_directory} \
     --rosbag_file_directory ${rosbag_file_directory} \
