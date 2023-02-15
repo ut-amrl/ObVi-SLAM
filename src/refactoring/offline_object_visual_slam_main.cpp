@@ -1917,6 +1917,15 @@ int main(int argc, char **argv) {
     return max_frame_to_opt -
            config.sliding_window_params_.local_ba_window_size_;
   };
+  std::function<bool(const vtr::FrameId &)> gba_checker =
+      [&](const vtr::FrameId &max_frame_to_opt) -> bool {
+    vtr::FrameId min_frame_to_opt = window_provider_func(max_frame_to_opt);
+    if (max_frame_to_opt - min_frame_to_opt <=
+        config.sliding_window_params_.local_ba_window_size_) {
+      return false;
+    }
+    return true;
+  };
   std::function<pose_graph_optimization::OptimizationSolverParams(
       const vtr::FrameId &)>
       solver_params_provider_func = [&](const vtr::FrameId &max_frame_to_opt)
@@ -2025,10 +2034,12 @@ int main(int argc, char **argv) {
         return config.visual_feature_params_.reprojection_error_std_dev_;
       };
 
+  // TODO write them to and read them from config
   double min_visual_feature_parallax_pixel_requirement = 5.0;
   double min_visual_feature_parallax_robot_transl_requirement = 0.1;
   double min_visual_feature_parallax_robot_orient_requirement = 0.05;
-  vtr::VisualFeatureFrontend visual_feature_fronted(
+  vtr::VisualFeatureFrontend<MainProbData> visual_feature_fronted(
+      gba_checker,
       reprojection_error_provider,
       min_visual_feature_parallax_pixel_requirement,
       min_visual_feature_parallax_robot_transl_requirement,
