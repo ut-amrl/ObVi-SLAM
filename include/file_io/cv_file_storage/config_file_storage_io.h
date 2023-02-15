@@ -381,6 +381,8 @@ class SerializableOptimizationSolverParams
     data_.function_tolerance_ = node[kFunctionToleranceLabel];
     data_.gradient_tolerance_ = node[kGradientToleranceLabel];
     data_.parameter_tolerance_ = node[kParameterToleranceLabel];
+    data_.initial_trust_region_radius_ = node[kInitialTrustRegionRadiusLabel];
+    data_.max_trust_region_radius_ = node[kMaxTrustRegionRadiusLabel];
   }
 
  protected:
