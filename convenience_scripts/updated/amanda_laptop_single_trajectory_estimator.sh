@@ -13,7 +13,7 @@ sequence_file_base_name="test"
 config_file_base_name="test2"
 results_for_bag_dir_prefix="1_"
 
-python3 convenience_scripts/updated/single_trajectory_estimator.py \
+python3 src/evaluation/single_trajectory_estimator.py \
     --config_file_directory ${config_file_directory} \
     --orb_slam_out_directory ${orb_slam_out_directory} \
     --rosbag_file_directory ${rosbag_file_directory} \
