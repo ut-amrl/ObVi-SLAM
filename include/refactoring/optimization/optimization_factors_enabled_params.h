@@ -71,6 +71,7 @@ struct OptimizationScopeParams {
   // otherwise.
   vslam_types_refactor::FrameId min_frame_id_;
   vslam_types_refactor::FrameId max_frame_id_;
+  bool force_include_ltm_objs_ = false;
   // TODO consider adding set of nodes to optimize -- for now, we'll just assume
   // that we have min_frame_id (held constant) and all poses above that
 };

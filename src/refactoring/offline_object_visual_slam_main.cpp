@@ -1194,6 +1194,7 @@ bool checkFactorRefresh(const MainFactorInfo &factor,
 void createPoseGraph(
     const MainProbData &input_problem_data,
     const std::function<bool(
+        const std::unordered_set<vtr::ObjectId> &,
         util::BoostHashMap<MainFactorInfo, std::unordered_set<vtr::ObjectId>>
             &)> &long_term_map_factor_provider,
     MainPgPtr &pose_graph) {
@@ -2005,19 +2006,21 @@ int main(int argc, char **argv) {
           };
 
   std::function<bool(
+      const std::unordered_set<vtr::ObjectId> &,
       util::BoostHashMap<MainFactorInfo, std::unordered_set<vtr::ObjectId>> &)>
       long_term_map_factor_provider =
-          [&](util::BoostHashMap<MainFactorInfo,
+          [&](const std::unordered_set<vtr::ObjectId> &objects_to_include,
+              util::BoostHashMap<MainFactorInfo,
                                  std::unordered_set<vtr::ObjectId>>
                   &factor_data) {
-            return ltm_factor_creator.getFactorsToInclude(factor_data);
+            return ltm_factor_creator.getFactorsToInclude(objects_to_include,
+                                                          factor_data);
           };
   std::function<void(const MainProbData &, MainPgPtr &)> pose_graph_creator =
       std::bind(createPoseGraph,
                 std::placeholders::_1,
                 long_term_map_factor_provider,
                 std::placeholders::_2);
-  // Tuning
   std::function<double(const MainProbData &,
                        const MainPgPtr &,
                        const vtr::FrameId &,
@@ -2033,8 +2036,6 @@ int main(int argc, char **argv) {
         // into
         return config.visual_feature_params_.reprojection_error_std_dev_;
       };
-
-  // TODO write them to and read them from config
   vtr::VisualFeatureFrontend<MainProbData> visual_feature_fronted(
       gba_checker,
       reprojection_error_provider,
