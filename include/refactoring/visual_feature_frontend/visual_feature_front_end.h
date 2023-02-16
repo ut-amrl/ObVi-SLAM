@@ -32,13 +32,12 @@ struct VisualFeatureCachedInfo {
 
   std::vector<FrameId> getOrderedFrameIdsGreaterThan(
       const FrameId &min_frame_id) const {
-    // TODO we can directly locate iterate associated with the given frame_id
     std::vector<FrameId> frame_ids;
-    for (const auto &frame_id_and_factor :
-         frame_ids_and_reprojection_err_factors_) {
-      if (frame_id_and_factor.first >= min_frame_id) {
-        frame_ids.emplace_back(frame_id_and_factor.first);
-      }
+    for (auto iter =
+             frame_ids_and_reprojection_err_factors_.lower_bound(min_frame_id);
+         iter != frame_ids_and_reprojection_err_factors_.end();
+         ++iter) {
+      frame_ids.emplace_back(iter->first);
     }
     return frame_ids;
   }
@@ -99,7 +98,6 @@ class VisualFeatureFrontend {
       const FrameId &max_frame_id) {
     std::unordered_map<FeatureId, StructuredVisionFeatureTrack>
         visual_features = input_problem_data.getVisualFeatures();
-    std::unordered_set<FeatureId> feat_ids_to_change;
 
     for (const auto &feat_id_to_track : visual_features) {
       FeatureId feature_id = feat_id_to_track.first;
@@ -171,7 +169,8 @@ class VisualFeatureFrontend {
               pose_graph->addVisualFactor(factor);
             }
           }
-          feat_ids_to_change.insert(feature_id);
+          pending_feature_factors_.erase(feature_id);
+          added_feature_ids_.insert(feature_id);
         }
       }
     }
@@ -199,10 +198,10 @@ class VisualFeatureFrontend {
           feat_ids_to_change.insert(feature_id);
         }
       }
-    }
-    for (const auto &feat_id : feat_ids_to_change) {
-      pending_feature_factors_.erase(feat_id);
-      added_feature_ids_.insert(feat_id);
+      for (const auto &feat_id : feat_ids_to_change) {
+        pending_feature_factors_.erase(feat_id);
+        added_feature_ids_.insert(feat_id);
+      }
     }
   }
 
@@ -264,59 +263,65 @@ class VisualFeatureFrontend {
       return false;
     }
 
-    if (!enforce_min_robot_pose_parallax_requirement_) {
-      goto check_pixel_requirement;
-    }
-
     for (size_t i = 0; i < frame_ids.size() - 1; ++i) {
       FrameId frame_id1 = frame_ids[i];
       std::optional<Pose3D<double>> robot_pose1 =
           visualFeatureCachedInfo.frame_ids_and_poses_.at(frame_id1);
-      for (size_t j = i + 1; j < frame_ids.size(); ++j) {
-        FrameId frame_id2 = frame_ids[j];
-        std::optional<Pose3D<double>> robot_pose2 =
-            visualFeatureCachedInfo.frame_ids_and_poses_.at(frame_id2);
-        if (robot_pose1.has_value() && robot_pose2.has_value()) {
-          Pose3D<double> relative_pose =
-              getPose2RelativeToPose1(robot_pose1.value(), robot_pose2.value());
-          if ((relative_pose.transl_.norm() >=
-               min_visual_feature_parallax_robot_transl_requirement_) ||
-              (relative_pose.orientation_.angle() >=
-               min_visual_feature_parallax_robot_orient_requirement_)) {
-            return true;
-          }
-        }
-      }
-    }
-
-    if (!enforce_min_robot_pose_parallax_requirement_) {
-      goto exit;
-    }
-
-  check_pixel_requirement:
-    for (size_t i = 0; i < frame_ids.size() - 1; ++i) {
-      FrameId frame_id1 = frame_ids[i];
       std::unordered_map<CameraId, PixelCoord<double>> cam_ids_and_pixels1 =
           visualFeatureCachedInfo.getCamIdsAndPixelsByFrame(frame_id1);
       for (size_t j = i + 1; j < frame_ids.size(); ++j) {
         FrameId frame_id2 = frame_ids[j];
+        std::optional<Pose3D<double>> robot_pose2 =
+            visualFeatureCachedInfo.frame_ids_and_poses_.at(frame_id2);
         std::unordered_map<CameraId, PixelCoord<double>> cam_ids_and_pixels2 =
             visualFeatureCachedInfo.getCamIdsAndPixelsByFrame(frame_id2);
-        for (const auto &cam_id_and_pixel1 : cam_ids_and_pixels1) {
-          const PixelCoord<double> &pixel1 = cam_id_and_pixel1.second;
-          for (const auto &cam_id_and_pixel2 : cam_ids_and_pixels2) {
-            const PixelCoord<double> &pixel2 = cam_id_and_pixel2.second;
-            double pixel_displacement = (pixel1 - pixel2).norm();
-            if (pixel_displacement >=
-                min_visual_feature_parallax_pixel_requirement_) {
-              return true;
+
+        bool pixel_req_satisfied, pose_req_satisfied;
+        pixel_req_satisfied = pose_req_satisfied = false;
+        if (enforce_min_robot_pose_parallax_requirement_) {
+          if (robot_pose1.has_value() && robot_pose2.has_value()) {
+            Pose3D<double> relative_pose = getPose2RelativeToPose1(
+                robot_pose1.value(), robot_pose2.value());
+            if ((relative_pose.transl_.norm() >=
+                 min_visual_feature_parallax_robot_transl_requirement_) ||
+                (relative_pose.orientation_.angle() >=
+                 min_visual_feature_parallax_robot_orient_requirement_)) {
+              pose_req_satisfied = true;
             }
           }
         }
+        if (enforce_min_robot_pose_parallax_requirement_) {
+          for (const auto &cam_id_and_pixel1 : cam_ids_and_pixels1) {
+            const PixelCoord<double> &pixel1 = cam_id_and_pixel1.second;
+            for (const auto &cam_id_and_pixel2 : cam_ids_and_pixels2) {
+              const PixelCoord<double> &pixel2 = cam_id_and_pixel2.second;
+              double pixel_displacement = (pixel1 - pixel2).norm();
+              if (pixel_displacement >=
+                  min_visual_feature_parallax_pixel_requirement_) {
+                pixel_req_satisfied = true;
+              }
+            }
+          }
+        }
+        bool req_satisfied = false;
+        if (enforce_min_robot_pose_parallax_requirement_ &&
+            !enforce_min_robot_pose_parallax_requirement_) {
+          req_satisfied = pose_req_satisfied;
+        } else if (!enforce_min_robot_pose_parallax_requirement_ &&
+                   enforce_min_robot_pose_parallax_requirement_) {
+          req_satisfied = pixel_req_satisfied;
+        } else if (enforce_min_robot_pose_parallax_requirement_ &&
+                   enforce_min_robot_pose_parallax_requirement_) {
+          req_satisfied = (pose_req_satisfied && pixel_req_satisfied);
+        } else {  // !enforce_min_robot_pose_parallax_requirement_ &&
+                  // !enforce_min_robot_pose_parallax_requirement_
+          req_satisfied = true;
+        }
+        if (req_satisfied) {
+          return true;
+        }
       }
     }
-
-  exit:
     return false;
   }
 };
