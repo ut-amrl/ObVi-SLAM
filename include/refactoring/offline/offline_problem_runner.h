@@ -6,6 +6,7 @@
 #define UT_VSLAM_OFFLINE_PROBLEM_RUNNER_H
 
 #include <ceres/problem.h>
+#include <refactoring/offline/limit_trajectory_evaluation_params.h>
 #include <refactoring/optimization/object_pose_graph.h>
 #include <refactoring/optimization/object_pose_graph_optimizer.h>
 
@@ -28,6 +29,7 @@ class OfflineProblemRunner {
   OfflineProblemRunner(
       const pose_graph_optimization::ObjectVisualPoseGraphResidualParams
           &residual_params,
+      const LimitTrajectoryEvaluationParams &limit_trajectory_eval_params,
       const std::function<bool()> &continue_opt_checker,
       const std::function<FrameId(const FrameId &)> &window_provider_func,
       const std::function<
@@ -70,6 +72,7 @@ class OfflineProblemRunner {
       const std::function<pose_graph_optimization::OptimizationSolverParams(
           const FrameId &)> &solver_params_provider_func)
       : residual_params_(residual_params),
+        limit_trajectory_eval_params_(limit_trajectory_eval_params),
         continue_opt_checker_(continue_opt_checker),
         window_provider_func_(window_provider_func),
         optimizer_(refresh_residual_checker, residual_creator),
@@ -92,6 +95,12 @@ class OfflineProblemRunner {
     pose_graph_creator_(problem_data, pose_graph);
     frame_data_adder_(problem_data, pose_graph, 0, 0);
     FrameId max_frame_id = problem_data.getMaxFrameId();
+
+    if (limit_trajectory_eval_params_.should_limit_trajectory_evaluation_) {
+      max_frame_id =
+          std::min(limit_trajectory_eval_params_.max_frame_id_, max_frame_id);
+    }
+
     pose_graph_optimizer::OptimizationScopeParams optimization_scope_params;
     optimization_scope_params.fix_poses_ =
         optimization_factors_enabled_params.fix_poses_;
@@ -121,10 +130,9 @@ class OfflineProblemRunner {
                             max_frame_id,  // Should this be max or 0
                             VisualizationTypeEnum::BEFORE_ANY_OPTIMIZATION);
     LOG(INFO) << "Ready to run optimization";
+
     for (FrameId next_frame_id = 1; next_frame_id <= max_frame_id;
          next_frame_id++) {
-      //    for (FrameId next_frame_id = 1; next_frame_id <= 300;
-      //         next_frame_id++) {
       if (!continue_opt_checker_) {
         LOG(WARNING)
             << "Halted optimization due to continue checker reporting false";
@@ -172,45 +180,46 @@ class OfflineProblemRunner {
                    << next_frame_id;
         return false;
       }
-
-      // use map sort block ids by their corresponding residuals
-      std::map<double, ceres::ResidualBlockId, std::greater<double>>
-          ordered_residuals_and_block_ids;
-      for (const auto &block_id_and_residual : *block_ids_and_residuals) {
-        ordered_residuals_and_block_ids.insert(
-            {block_id_and_residual.second, block_id_and_residual.first});
-      }
-      // build excluded_feature_factor_types_and_ids
-      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
-          excluded_feature_factor_types_and_ids;
-      size_t n_outliers = (size_t)(ordered_residuals_and_block_ids.size() *
-                                   solver_params.feature_outlier_percentage);
-      auto it = ordered_residuals_and_block_ids.begin();
-      for (size_t i = 0; i < n_outliers; ++i) {
-        const ceres::ResidualBlockId &block_id = it->second;
-        if ((current_residual_block_info.at(block_id).first !=
-             kLongTermMapFactorTypeId) &&
-            (current_residual_block_info.at(block_id).first !=
-             kShapeDimPriorFactorTypeId)) {
-          excluded_feature_factor_types_and_ids.insert(
-              current_residual_block_info.at(block_id));
+      if (solver_params.feature_outlier_percentage > 0) {
+        // use map sort block ids by their corresponding residuals
+        std::map<double, ceres::ResidualBlockId, std::greater<double>>
+            ordered_residuals_and_block_ids;
+        for (const auto &block_id_and_residual : *block_ids_and_residuals) {
+          ordered_residuals_and_block_ids.insert(
+              {block_id_and_residual.second, block_id_and_residual.first});
         }
-        ++it;
-      }
+        // build excluded_feature_factor_types_and_ids
+        util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
+            excluded_feature_factor_types_and_ids;
+        size_t n_outliers = (size_t)(ordered_residuals_and_block_ids.size() *
+                                     solver_params.feature_outlier_percentage);
+        auto it = ordered_residuals_and_block_ids.begin();
+        for (size_t i = 0; i < n_outliers; ++i) {
+          const ceres::ResidualBlockId &block_id = it->second;
+          if ((current_residual_block_info.at(block_id).first !=
+               kLongTermMapFactorTypeId) &&
+              (current_residual_block_info.at(block_id).first !=
+               kShapeDimPriorFactorTypeId)) {
+            excluded_feature_factor_types_and_ids.insert(
+                current_residual_block_info.at(block_id));
+          }
+          ++it;
+        }
 
-      optimizer_.buildPoseGraphOptimization(
-          optimization_scope_params,
-          residual_params_,
-          pose_graph,
-          &problem,
-          excluded_feature_factor_types_and_ids);
+        optimizer_.buildPoseGraphOptimization(
+            optimization_scope_params,
+            residual_params_,
+            pose_graph,
+            &problem,
+            excluded_feature_factor_types_and_ids);
 
-      if (!optimizer_.solveOptimization(
-              &problem, solver_params, ceres_callbacks, nullptr)) {
-        // TODO do we want to quit or just silently let this iteration fail?
-        LOG(ERROR) << "Phase II Optimization failed at max frame id "
-                   << next_frame_id;
-        return false;
+        if (!optimizer_.solveOptimization(
+                &problem, solver_params, ceres_callbacks, nullptr)) {
+          // TODO do we want to quit or just silently let this iteration fail?
+          LOG(ERROR) << "Phase II Optimization failed at max frame id "
+                     << next_frame_id;
+          return false;
+        }
       }
 
       visualization_callback_(problem_data,
@@ -234,6 +243,8 @@ class OfflineProblemRunner {
 
  private:
   pose_graph_optimization::ObjectVisualPoseGraphResidualParams residual_params_;
+
+  LimitTrajectoryEvaluationParams limit_trajectory_eval_params_;
 
   std::function<bool()> continue_opt_checker_;
   std::function<FrameId(const FrameId &)> window_provider_func_;

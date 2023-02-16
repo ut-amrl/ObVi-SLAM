@@ -85,6 +85,7 @@ bool createObjectObservationResidual(
 
   residual_id = problem->AddResidualBlock(
       BoundingBoxFactor::createBoundingBoxFactor(
+          residual_params.object_residual_params_.invalid_ellipsoid_error_val_,
           factor.bounding_box_corners_,
           intrinsics,
           extrinsics,

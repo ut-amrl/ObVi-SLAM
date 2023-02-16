@@ -42,14 +42,16 @@ struct FeatureBasedBbCandidateMatchInfo {
 const int kNoBbDiscardingConst = INT_MIN;
 
 struct FeatureBasedBbAssociationParams {
-  double max_distance_for_associated_ellipsoids_;
-
-  // TODO tune/override in calling function
+  // NOTE: If this structure is modified, increment the
+  // kCurrentConfigSchemaVersion number in FullOVSLAMConfig.h NOTE: If the
+  // default values here are modified, make sure any changes are reflected in
+  // the config and if necessary, regenerate the config with a new
+  // config_version_id_
   uint16_t min_observations_for_local_est_ = 3;
   uint16_t min_observations_ = 10;
   FrameId discard_candidate_after_num_frames_ = kNoBbDiscardingConst;
   double min_bb_confidence_ = 0.3;
-  double required_min_conf_for_initialization = 0;
+  double required_min_conf_for_initialization_ = 0;
   double min_overlapping_features_for_match_ =
       2;  // TODO should this be ratio or absolute quantity? Going with absolute
           // quantity for now
@@ -59,6 +61,27 @@ struct FeatureBasedBbAssociationParams {
 
   PendingObjectEstimatorParams pending_obj_estimator_params_;
   double bounding_box_inflation_size_ = 0;
+
+  bool operator==(const FeatureBasedBbAssociationParams &rhs) const {
+    return (min_observations_for_local_est_ ==
+            rhs.min_observations_for_local_est_) &&
+           (min_observations_ == rhs.min_observations_) &&
+           (discard_candidate_after_num_frames_ ==
+            rhs.discard_candidate_after_num_frames_) &&
+           (min_bb_confidence_ == rhs.min_bb_confidence_) &&
+           (required_min_conf_for_initialization_ ==
+            rhs.required_min_conf_for_initialization_) &&
+           (min_overlapping_features_for_match_ ==
+            rhs.min_overlapping_features_for_match_) &&
+           (feature_validity_window_ == rhs.feature_validity_window_) &&
+           (pending_obj_estimator_params_ ==
+            rhs.pending_obj_estimator_params_) &&
+           (bounding_box_inflation_size_ == rhs.bounding_box_inflation_size_);
+  }
+
+  bool operator!=(const FeatureBasedBbAssociationParams &rhs) const {
+    return !operator==(rhs);
+  }
 };
 
 template <typename VisualFeatureFactorType>
@@ -640,7 +663,7 @@ class FeatureBasedBoundingBoxFrontEnd
           (association_info.observation_factors_.size() >=
            association_params_.min_observations_for_local_est_) &&
           (association_info.pending_info_.max_confidence_ >=
-           association_params_.required_min_conf_for_initialization) &&
+           association_params_.required_min_conf_for_initialization_) &&
           (association_info.pending_info_.object_estimate_.has_value());
     }
   }

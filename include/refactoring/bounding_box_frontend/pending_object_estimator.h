@@ -16,6 +16,15 @@ namespace vslam_types_refactor {
 struct PendingObjectEstimatorParams {
   pose_graph_optimization::ObjectResidualParams object_residual_params_;
   pose_graph_optimization::OptimizationSolverParams solver_params_;
+
+  bool operator==(const PendingObjectEstimatorParams &rhs) const {
+    return (object_residual_params_ == rhs.object_residual_params_) &&
+           (solver_params_ == rhs.solver_params_);
+  }
+
+  bool operator!=(const PendingObjectEstimatorParams &rhs) const {
+    return !operator==(rhs);
+  }
 };
 
 template <typename ObjectAppearanceInfo,
