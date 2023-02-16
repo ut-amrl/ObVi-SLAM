@@ -875,6 +875,10 @@ class SerializableVisualFeatureParams
        << data_.min_visual_feature_parallax_robot_transl_requirement_;
     fs << kMinVisualFeatureParallaxRobotOrientRequirementLabel
        << data_.min_visual_feature_parallax_robot_orient_requirement_;
+    fs << kEnforceMinPixelParallaxRequirement
+       << data_.enforce_min_pixel_parallax_requirement_;
+    fs << kEnforceMinRobotPoseParallaxRequirement
+       << data_.enforce_min_robot_pose_parallax_requirement_;
     fs << "}";
   }
 
@@ -903,6 +907,10 @@ class SerializableVisualFeatureParams
   inline static const std::string
       kMinVisualFeatureParallaxRobotOrientRequirementLabel =
           "min_visual_feature_parallax_robot_orient_requirement";
+  inline static const std::string kEnforceMinPixelParallaxRequirement =
+      "enforce_min_pixel_parallax_requirement_";
+  inline static const std::string kEnforceMinRobotPoseParallaxRequirement =
+      "enforce_min_robot_pose_parallax_requirement_";
 };
 
 static void write(cv::FileStorage &fs,

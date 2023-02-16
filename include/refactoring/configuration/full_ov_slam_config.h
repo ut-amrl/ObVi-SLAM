@@ -28,15 +28,32 @@ struct VisualFeatureParams {
   double min_visual_feature_parallax_pixel_requirement_;
   double min_visual_feature_parallax_robot_transl_requirement_;
   double min_visual_feature_parallax_robot_orient_requirement_;
-
+  bool enforce_min_pixel_parallax_requirement_ = true;
+  bool enforce_min_robot_pose_parallax_requirement_ = true;
   bool operator==(const VisualFeatureParams &rhs) const {
-    return (reprojection_error_std_dev_ == rhs.reprojection_error_std_dev_) &&
-           (min_visual_feature_parallax_pixel_requirement_ ==
-            rhs.min_visual_feature_parallax_pixel_requirement_) &&
-           (min_visual_feature_parallax_robot_transl_requirement_ ==
-            rhs.min_visual_feature_parallax_robot_transl_requirement_) &&
-           (min_visual_feature_parallax_robot_orient_requirement_ ==
-            rhs.min_visual_feature_parallax_robot_orient_requirement_);
+    return ((reprojection_error_std_dev_ - rhs.reprojection_error_std_dev_ <
+             kEpsilon) &&
+            (min_visual_feature_parallax_pixel_requirement_ -
+                 rhs.min_visual_feature_parallax_pixel_requirement_ <
+             kEpsilon) &&
+            (min_visual_feature_parallax_robot_transl_requirement_ -
+                 rhs.min_visual_feature_parallax_robot_transl_requirement_ <
+             kEpsilon) &&
+            (min_visual_feature_parallax_robot_orient_requirement_ -
+                 rhs.min_visual_feature_parallax_robot_orient_requirement_ <
+             kEpsilon) &&
+            (enforce_min_pixel_parallax_requirement_ ==
+             rhs.enforce_min_pixel_parallax_requirement_) &&
+            (enforce_min_robot_pose_parallax_requirement_ ==
+             rhs.enforce_min_robot_pose_parallax_requirement_));
+    // return (reprojection_error_std_dev_ == rhs.reprojection_error_std_dev_)
+    // &&
+    //        (min_visual_feature_parallax_pixel_requirement_ ==
+    //         rhs.min_visual_feature_parallax_pixel_requirement_) &&
+    //        (min_visual_feature_parallax_robot_transl_requirement_ ==
+    //         rhs.min_visual_feature_parallax_robot_transl_requirement_) &&
+    //        (min_visual_feature_parallax_robot_orient_requirement_ ==
+    //         rhs.min_visual_feature_parallax_robot_orient_requirement_);
   }
 
   bool operator!=(const VisualFeatureParams &rhs) const {
