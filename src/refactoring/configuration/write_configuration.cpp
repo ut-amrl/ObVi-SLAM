@@ -133,7 +133,7 @@ int main(int argc, char **argv) {
   std::string config_identifier = FLAGS_config_identifier;
   if (config_identifier.empty()) {
     // TODO INCREMENT IF YOU CHANGE VALUES/STRUCTURE FOR CONFIG
-    int config_version_number = 2;
+    int config_version_number = 3;
 
     config_identifier = std::to_string(config_version_number);
   }
@@ -149,6 +149,10 @@ int main(int argc, char **argv) {
       .min_visual_feature_parallax_robot_transl_requirement_ = 0.1;
   configuration.visual_feature_params_
       .min_visual_feature_parallax_robot_orient_requirement_ = 0.05;
+  configuration.visual_feature_params_.enforce_min_pixel_parallax_requirement_ =
+      true;
+  configuration.visual_feature_params_
+      .enforce_min_robot_pose_parallax_requirement_ = false;
 
   // Set up defaults for the different types of optimization that can be
   // overridden later

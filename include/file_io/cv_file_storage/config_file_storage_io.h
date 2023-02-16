@@ -898,6 +898,10 @@ class SerializableVisualFeatureParams
         data_.min_visual_feature_parallax_robot_transl_requirement_;
     node[kMinVisualFeatureParallaxRobotOrientRequirementLabel] >>
         data_.min_visual_feature_parallax_robot_orient_requirement_;
+    node[kEnforceMinPixelParallaxRequirement] >>
+        data_.enforce_min_pixel_parallax_requirement_;
+    node[kEnforceMinRobotPoseParallaxRequirement] >>
+        data_.enforce_min_robot_pose_parallax_requirement_;
   }
 
  protected:
