@@ -316,49 +316,6 @@ class VisualFeatureFrontend {
       }
     }
 
-    // for (size_t i = 0; i < frame_ids.size() - 1; ++i) {
-    //   FrameId frame_id1 = frame_ids[i];
-    //   std::optional<Pose3D<double>> robot_pose1 =
-    //       visualFeatureCachedInfo.frame_ids_and_poses_.at(frame_id1);
-    //   std::unordered_map<CameraId, PixelCoord<double>> cam_ids_and_pixels1 =
-    //       visualFeatureCachedInfo.getCamIdsAndPixelsByFrame(frame_id1);
-    //   for (size_t j = i + 1; j < frame_ids.size(); ++j) {
-    //     FrameId frame_id2 = frame_ids[j];
-    //     std::optional<Pose3D<double>> robot_pose2 =
-    //         visualFeatureCachedInfo.frame_ids_and_poses_.at(frame_id2);
-    //     std::optional<Pose3D<double>> relative_pose;
-    //     if (robot_pose1.has_value() && robot_pose2.has_value()) {
-    //       relative_pose =
-    //       std::optional<Pose3D<double>>(getPose2RelativeToPose1(
-    //           robot_pose1.value(), robot_pose2.value()));
-    //     }
-    //     std::unordered_map<CameraId, PixelCoord<double>> cam_ids_and_pixels2
-    //     =
-    //         visualFeatureCachedInfo.getCamIdsAndPixelsByFrame(frame_id2);
-    //     for (const auto cam_id_and_pixel1 : cam_ids_and_pixels1) {
-    //       const PixelCoord<double> &pixel1 = cam_id_and_pixel1.second;
-    //       for (const auto cam_id_and_pixel2 : cam_ids_and_pixels2) {
-    //         const PixelCoord<double> &pixel2 = cam_id_and_pixel2.second;
-    //         double pixel_displacement = (pixel1 - pixel2).norm();
-    //         if (pixel_displacement >=
-    //             min_visual_feature_parallax_pixel_requirement_) {
-    //           if (relative_pose.has_value()) {
-    //             if ((relative_pose.value().transl_.norm() >=
-    //                  min_visual_feature_parallax_robot_transl_requirement_)
-    //                  &&
-    //                 (relative_pose.value().orientation_.angle() >=
-    //                  min_visual_feature_parallax_robot_orient_requirement_))
-    //                  {
-    //               return true;
-    //             }
-    //           } else {
-    //             return true;
-    //           }
-    //         }
-    //       }
-    //     }
-    //   }
-    // }
   exit:
     return false;
   }

@@ -152,7 +152,7 @@ int main(int argc, char **argv) {
   configuration.visual_feature_params_.enforce_min_pixel_parallax_requirement_ =
       true;
   configuration.visual_feature_params_
-      .enforce_min_robot_pose_parallax_requirement_ = true;
+      .enforce_min_robot_pose_parallax_requirement_ = false;
 
   // Set up defaults for the different types of optimization that can be
   // overridden later
