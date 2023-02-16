@@ -2035,15 +2035,18 @@ int main(int argc, char **argv) {
       };
 
   // TODO write them to and read them from config
-  double min_visual_feature_parallax_pixel_requirement = 5.0;
-  double min_visual_feature_parallax_robot_transl_requirement = 0.1;
-  double min_visual_feature_parallax_robot_orient_requirement = 0.05;
   vtr::VisualFeatureFrontend<MainProbData> visual_feature_fronted(
       gba_checker,
       reprojection_error_provider,
-      min_visual_feature_parallax_pixel_requirement,
-      min_visual_feature_parallax_robot_transl_requirement,
-      min_visual_feature_parallax_robot_orient_requirement);
+      config.visual_feature_params_
+          .min_visual_feature_parallax_pixel_requirement_,
+      config.visual_feature_params_
+          .min_visual_feature_parallax_robot_transl_requirement_,
+      config.visual_feature_params_
+          .min_visual_feature_parallax_robot_orient_requirement_,
+      config.visual_feature_params_.enforce_min_pixel_parallax_requirement_,
+      config.visual_feature_params_
+          .enforce_min_robot_pose_parallax_requirement_);
   std::function<void(const MainProbData &,
                      const MainPgPtr &,
                      const vtr::FrameId &,

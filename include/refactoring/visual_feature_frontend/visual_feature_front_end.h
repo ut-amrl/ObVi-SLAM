@@ -66,9 +66,11 @@ class VisualFeatureFrontend {
                  const FrameId &,
                  const FeatureId &,
                  const CameraId &)> &reprojection_error_provider,
-      const double min_visual_feature_parallax_pixel_requirement,
-      const double min_visual_feature_parallax_robot_transl_requirement,
-      const double min_visual_feature_parallax_robot_orient_requirement)
+      const double &min_visual_feature_parallax_pixel_requirement,
+      const double &min_visual_feature_parallax_robot_transl_requirement,
+      const double &min_visual_feature_parallax_robot_orient_requirement,
+      const bool &enforce_min_pixel_parallax_requirement,
+      const bool &enforce_min_robot_pose_parallax_requirement)
       : gba_checker_(gba_checker),
         reprojection_error_provider_(reprojection_error_provider),
         min_visual_feature_parallax_pixel_requirement_(
@@ -76,7 +78,11 @@ class VisualFeatureFrontend {
         min_visual_feature_parallax_robot_transl_requirement_(
             min_visual_feature_parallax_robot_transl_requirement),
         min_visual_feature_parallax_robot_orient_requirement_(
-            min_visual_feature_parallax_robot_orient_requirement) {}
+            min_visual_feature_parallax_robot_orient_requirement),
+        enforce_min_pixel_parallax_requirement_(
+            enforce_min_pixel_parallax_requirement),
+        enforce_min_robot_pose_parallax_requirement_(
+            enforce_min_robot_pose_parallax_requirement) {}
 
   /**
    * @brief
@@ -93,6 +99,7 @@ class VisualFeatureFrontend {
       const FrameId &max_frame_id) {
     std::unordered_map<FeatureId, StructuredVisionFeatureTrack>
         visual_features = input_problem_data.getVisualFeatures();
+    std::unordered_set<FeatureId> feat_ids_to_change;
 
     for (const auto &feat_id_to_track : visual_features) {
       FeatureId feature_id = feat_id_to_track.first;
@@ -164,41 +171,39 @@ class VisualFeatureFrontend {
               pose_graph->addVisualFactor(factor);
             }
           }
-          pending_feature_factors_.erase(feature_id);
-          added_feature_ids_.insert(feature_id);
+          feat_ids_to_change.insert(feature_id);
         }
       }
     }
-    // if (gba_checker_(max_frame_id)) {
-    //   LOG(INFO) << "start gba";
-    //   for (const auto &feat_id_and_cache : pending_feature_factors_) {
-    //     const FeatureId &feature_id = feat_id_and_cache.first;
-    //     const auto &visual_feature_cache = feat_id_and_cache.second;
-    //     if (checkMinParallaxRequirements_(
-    //             min_frame_id, max_frame_id, visual_feature_cache)) {
-    //       LOG(INFO) << "satisfy min parallax requirements";
-    //       Position3d<double> initial_position;
-    //       getInitialFeaturePosition_(
-    //           input_problem_data,
-    //           pose_graph,
-    //           feature_id,
-    //           visual_features.at(feature_id).feature_pos_,
-    //           initial_position);
-    //       LOG(INFO) << "after get getInitialFeaturePosition_";
-    //       pose_graph->addFeature(feature_id, initial_position);
-    //       for (const auto &frame_id_and_factors :
-    //            visual_feature_cache.frame_ids_and_reprojection_err_factors_)
-    //            {
-    //         for (const auto &factor : frame_id_and_factors.second) {
-    //           pose_graph->addVisualFactor(factor);
-    //         }
-    //       }
-    //       pending_feature_factors_.erase(feature_id);
-    //       added_feature_ids_.insert(feature_id);
-    //     }
-    //   }
-    // }
-    // LOG(INFO) << "end gba";
+    if (gba_checker_(max_frame_id)) {
+      std::unordered_set<FeatureId> feat_ids_to_change;
+      for (const auto &feat_id_and_cache : pending_feature_factors_) {
+        const FeatureId &feature_id = feat_id_and_cache.first;
+        const auto &visual_feature_cache = feat_id_and_cache.second;
+        if (checkMinParallaxRequirements_(
+                min_frame_id, max_frame_id, visual_feature_cache)) {
+          Position3d<double> initial_position;
+          getInitialFeaturePosition_(
+              input_problem_data,
+              pose_graph,
+              feature_id,
+              visual_features.at(feature_id).feature_pos_,
+              initial_position);
+          pose_graph->addFeature(feature_id, initial_position);
+          for (const auto &frame_id_and_factors :
+               visual_feature_cache.frame_ids_and_reprojection_err_factors_) {
+            for (const auto &factor : frame_id_and_factors.second) {
+              pose_graph->addVisualFactor(factor);
+            }
+          }
+          feat_ids_to_change.insert(feature_id);
+        }
+      }
+    }
+    for (const auto &feat_id : feat_ids_to_change) {
+      pending_feature_factors_.erase(feat_id);
+      added_feature_ids_.insert(feat_id);
+    }
   }
 
  protected:
