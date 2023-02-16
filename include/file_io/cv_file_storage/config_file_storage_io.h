@@ -368,6 +368,8 @@ class SerializableOptimizationSolverParams
     fs << kFunctionToleranceLabel << data_.function_tolerance_;
     fs << kGradientToleranceLabel << data_.gradient_tolerance_;
     fs << kParameterToleranceLabel << data_.parameter_tolerance_;
+    fs << kInitialTrustRegionRadiusLabel << data_.initial_trust_region_radius_;
+    fs << kMaxTrustRegionRadiusLabel << data_.max_trust_region_radius_;
     fs << "}";
   }
 
@@ -379,6 +381,8 @@ class SerializableOptimizationSolverParams
     data_.function_tolerance_ = node[kFunctionToleranceLabel];
     data_.gradient_tolerance_ = node[kGradientToleranceLabel];
     data_.parameter_tolerance_ = node[kParameterToleranceLabel];
+    data_.initial_trust_region_radius_ = node[kInitialTrustRegionRadiusLabel];
+    data_.max_trust_region_radius_ = node[kMaxTrustRegionRadiusLabel];
   }
 
  protected:
@@ -397,6 +401,10 @@ class SerializableOptimizationSolverParams
       "gradient_tolerance";
   inline static const std::string kParameterToleranceLabel =
       "parameter_tolerance";
+  inline static const std::string kInitialTrustRegionRadiusLabel =
+      "initial_trust_region_radius";
+  inline static const std::string kMaxTrustRegionRadiusLabel =
+      "max_trust_region_radius";
 };
 
 static void write(cv::FileStorage &fs,
