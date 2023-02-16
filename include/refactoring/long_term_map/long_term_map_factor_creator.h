@@ -19,6 +19,7 @@ template <typename CachedInfo>
 class AbsLongTermMapFactorCreator {
  public:
   virtual bool getFactorsToInclude(
+      const std::unordered_set<ObjectId> &objects_to_include,
       util::BoostHashMap<std::pair<FactorType, FeatureFactorId>,
                          std::unordered_set<ObjectId>> &ltm_factors) const = 0;
 
@@ -93,15 +94,21 @@ class PairwiseCovarianceLongTermObjectMapFactorCreator
   }
 
   virtual bool getFactorsToInclude(
+      const std::unordered_set<ObjectId> &objects_to_include,
       util::BoostHashMap<std::pair<FactorType, FeatureFactorId>,
                          std::unordered_set<ObjectId>> &ltm_factors)
       const override {
     for (const auto &factor_entry : factor_data_) {
       FactorType factor_type = factor_entry.first;
       for (const auto &feature_entry : factor_entry.second) {
-        FeatureFactorId feature_id = feature_entry.first;
-        ltm_factors[std::make_pair(factor_type, feature_id)] = {
-            feature_entry.second.obj_1_, feature_entry.second.obj_2_};
+        if ((objects_to_include.find(feature_entry.second.obj_1_) !=
+             objects_to_include.end()) ||
+            (objects_to_include.find(feature_entry.second.obj_2_) !=
+             objects_to_include.end())) {
+          FeatureFactorId feature_id = feature_entry.first;
+          ltm_factors[std::make_pair(factor_type, feature_id)] = {
+              feature_entry.second.obj_1_, feature_entry.second.obj_2_};
+        }
       }
     }
     return true;
@@ -237,15 +244,19 @@ class IndependentEllipsoidsLongTermObjectMapFactorCreator
   }
 
   virtual bool getFactorsToInclude(
+      const std::unordered_set<ObjectId> &objects_to_include,
       util::BoostHashMap<std::pair<FactorType, FeatureFactorId>,
                          std::unordered_set<ObjectId>> &ltm_factors)
       const override {
     for (const auto &factor_entry : factor_data_) {
       FactorType factor_type = factor_entry.first;
       for (const auto &feature_entry : factor_entry.second) {
-        FeatureFactorId feature_id = feature_entry.first;
-        ltm_factors[std::make_pair(factor_type, feature_id)] = {
-            feature_entry.second.obj_id_};
+        if (objects_to_include.find(feature_entry.second.obj_id_) !=
+            objects_to_include.end()) {
+          FeatureFactorId feature_id = feature_entry.first;
+          ltm_factors[std::make_pair(factor_type, feature_id)] = {
+              feature_entry.second.obj_id_};
+        }
       }
     }
     return true;

@@ -133,7 +133,8 @@ class ObjAndLowLevelFeaturePoseGraph
                                std::pair<std::string, RawEllipsoid<double>>>
           &long_term_map_objects_with_semantic_class,
       const std::function<
-          bool(util::BoostHashMap<std::pair<FactorType, FeatureFactorId>,
+          bool(const std::unordered_set<ObjectId> &,
+               util::BoostHashMap<std::pair<FactorType, FeatureFactorId>,
                                   std::unordered_set<ObjectId>> &)>
           &long_term_map_factor_provider,
       const FactorType &visual_feature_factor_type)
@@ -398,7 +399,7 @@ class ObjAndLowLevelFeaturePoseGraph
       util::BoostHashMap<std::pair<FactorType, FeatureFactorId>,
                          std::unordered_set<ObjectId>>
           ltm_factors;
-      if (!long_term_map_factor_provider_(ltm_factors)) {
+      if (!long_term_map_factor_provider_(objects, ltm_factors)) {
         LOG(ERROR) << "Could not add long term map factors to the set to "
                       "include in the optimization. Skipping them.";
       }
@@ -570,7 +571,8 @@ class ObjAndLowLevelFeaturePoseGraph
                      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>
       object_only_factors_by_object_;
 
-  std::function<bool(util::BoostHashMap<std::pair<FactorType, FeatureFactorId>,
+  std::function<bool(const std::unordered_set<ObjectId> &,
+                     util::BoostHashMap<std::pair<FactorType, FeatureFactorId>,
                                         std::unordered_set<ObjectId>> &)>
       long_term_map_factor_provider_;
 
@@ -595,7 +597,8 @@ class ObjectAndReprojectionFeaturePoseGraph
                                std::pair<std::string, RawEllipsoid<double>>>
           &long_term_map_objects_with_semantic_class,
       const std::function<
-          bool(util::BoostHashMap<std::pair<FactorType, FeatureFactorId>,
+          bool(const std::unordered_set<ObjectId> &,
+               util::BoostHashMap<std::pair<FactorType, FeatureFactorId>,
                                   std::unordered_set<ObjectId>> &)>
           &long_term_map_factor_provider)
       : ReprojectionLowLevelFeaturePoseGraph(camera_extrinsics_by_camera,
