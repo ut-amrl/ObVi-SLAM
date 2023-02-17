@@ -31,6 +31,7 @@ struct VisualFeatureParams {
   bool enforce_min_pixel_parallax_requirement_ = true;
   bool enforce_min_robot_pose_parallax_requirement_ = true;
   bool operator==(const VisualFeatureParams &rhs) const {
+    const double kEpsilon = 1e-8;  // TODO FIXME
     return ((reprojection_error_std_dev_ - rhs.reprojection_error_std_dev_ <
              kEpsilon) &&
             (min_visual_feature_parallax_pixel_requirement_ -

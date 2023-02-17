@@ -80,10 +80,10 @@ std::vector<RelativePoseFactorInfo> createRelativePoseFactorInfo(
           required_pose_factor_1.before_pose_timestamp_ = prev_timestamp;
           required_pose_factor_1.after_pose_timestamp_ =
               next_required_timestamp;
-          odom_pose_factor_info.measured_pose_deviation_ = Pose3D<double>(
+          required_pose_factor_1.measured_pose_deviation_ = Pose3D<double>(
               required_pose_factor_1_3d.first,
               Orientation3D<double>(required_pose_factor_1_3d.second));
-          odom_pose_factor_info.pose_deviation_cov_ =
+          required_pose_factor_1.pose_deviation_cov_ =
               generateOdomCov(required_pose_factor_1.measured_pose_deviation_,
                               kTranslErrorMultForTranslError,
                               kTranslErrorMultForRotError,
@@ -100,10 +100,10 @@ std::vector<RelativePoseFactorInfo> createRelativePoseFactorInfo(
           required_pose_factor_2.before_pose_timestamp_ =
               next_required_timestamp;
           required_pose_factor_2.after_pose_timestamp_ = curr_timestamp;
-          odom_pose_factor_info.measured_pose_deviation_ = Pose3D<double>(
+          required_pose_factor_2.measured_pose_deviation_ = Pose3D<double>(
               required_pose_factor_2_3d.first,
               Orientation3D<double>(required_pose_factor_2_3d.second));
-          odom_pose_factor_info.pose_deviation_cov_ =
+          required_pose_factor_2.pose_deviation_cov_ =
               generateOdomCov(required_pose_factor_2.measured_pose_deviation_,
                               kTranslErrorMultForTranslError,
                               kTranslErrorMultForRotError,
@@ -159,10 +159,10 @@ std::vector<RelativePoseFactorInfo> createRelativePoseFactorInfo(
           coarse_traj_pose_factor_1.before_pose_timestamp_ = prev_timestamp;
           coarse_traj_pose_factor_1.after_pose_timestamp_ =
               next_coarse_traj_timestamp;
-          odom_pose_factor_info.measured_pose_deviation_ = Pose3D<double>(
+          coarse_traj_pose_factor_1.measured_pose_deviation_ = Pose3D<double>(
               coarse_traj_pose_factor_1_3d.first,
               Orientation3D<double>(coarse_traj_pose_factor_1_3d.second));
-          odom_pose_factor_info.pose_deviation_cov_ = generateOdomCov(
+          coarse_traj_pose_factor_1.pose_deviation_cov_ = generateOdomCov(
               coarse_traj_pose_factor_1.measured_pose_deviation_,
               kTranslErrorMultForTranslError,
               kTranslErrorMultForRotError,
@@ -179,10 +179,10 @@ std::vector<RelativePoseFactorInfo> createRelativePoseFactorInfo(
           coarse_traj_pose_factor_2.before_pose_timestamp_ =
               next_coarse_traj_timestamp;
           coarse_traj_pose_factor_2.after_pose_timestamp_ = curr_timestamp;
-          odom_pose_factor_info.measured_pose_deviation_ = Pose3D<double>(
+          coarse_traj_pose_factor_2.measured_pose_deviation_ = Pose3D<double>(
               coarse_traj_pose_factor_2_3d.first,
               Orientation3D<double>(coarse_traj_pose_factor_2_3d.second));
-          odom_pose_factor_info.pose_deviation_cov_ = generateOdomCov(
+          coarse_traj_pose_factor_2.pose_deviation_cov_ = generateOdomCov(
               coarse_traj_pose_factor_2.measured_pose_deviation_,
               kTranslErrorMultForTranslError,
               kTranslErrorMultForRotError,
