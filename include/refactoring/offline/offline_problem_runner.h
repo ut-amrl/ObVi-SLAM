@@ -50,6 +50,7 @@ class OfflineProblemRunner {
           &pose_graph_creator,
       const std::function<void(const InputProblemData &,
                                const std::shared_ptr<PoseGraphType> &,
+                               const FrameId &,
                                const FrameId &)> &frame_data_adder,
       const std::function<
           void(const InputProblemData &,
@@ -92,7 +93,7 @@ class OfflineProblemRunner {
     ceres::Problem problem;
     LOG(INFO) << "Running pose graph creator";
     pose_graph_creator_(problem_data, pose_graph);
-    frame_data_adder_(problem_data, pose_graph, 0);
+    frame_data_adder_(problem_data, pose_graph, 0, 0);
     FrameId max_frame_id = problem_data.getMaxFrameId();
 
     if (limit_trajectory_eval_params_.should_limit_trajectory_evaluation_) {
@@ -140,10 +141,10 @@ class OfflineProblemRunner {
       // This function is also responsible for adjusting the initial estimate
       // for the pose at next_frame_id given the optimized pose at next_frame_id
       // - 1
-      frame_data_adder_(problem_data, pose_graph, next_frame_id);
       FrameId start_opt_with_frame = window_provider_func_(next_frame_id);
       optimization_scope_params.min_frame_id_ = start_opt_with_frame;
       optimization_scope_params.max_frame_id_ = next_frame_id;
+      frame_data_adder_(problem_data, pose_graph, start_opt_with_frame, next_frame_id);
       pose_graph_optimization::OptimizationSolverParams solver_params =
           solver_params_provider_func_(next_frame_id);
 
@@ -257,6 +258,7 @@ class OfflineProblemRunner {
 
   std::function<void(const InputProblemData &,
                      const std::shared_ptr<PoseGraphType> &,
+                     const FrameId &,
                      const FrameId &)>
       frame_data_adder_;
   std::function<void(

@@ -26,6 +26,7 @@
 #include <refactoring/optimization/residual_creator.h>
 #include <refactoring/output_problem_data.h>
 #include <refactoring/output_problem_data_extraction.h>
+#include <refactoring/visual_feature_frontend/visual_feature_front_end.h>
 #include <refactoring/visual_feature_processing/orb_output_low_level_feature_reader.h>
 #include <refactoring/visualization/ros_visualization.h>
 #include <refactoring/visualization/save_to_file_visualizer.h>
@@ -885,6 +886,15 @@ int main(int argc, char **argv) {
     return max_frame_to_opt -
            config.sliding_window_params_.local_ba_window_size_;
   };
+  std::function<bool(const vtr::FrameId &)> gba_checker =
+      [&](const vtr::FrameId &max_frame_to_opt) -> bool {
+    vtr::FrameId min_frame_to_opt = window_provider_func(max_frame_to_opt);
+    if (max_frame_to_opt - min_frame_to_opt <=
+        config.sliding_window_params_.local_ba_window_size_) {
+      return false;
+    }
+    return true;
+  };
   std::function<pose_graph_optimization::OptimizationSolverParams(
       const vtr::FrameId &)>
       solver_params_provider_func = [&](const vtr::FrameId &max_frame_to_opt)
@@ -980,7 +990,6 @@ int main(int argc, char **argv) {
                 long_term_map_factor_provider,
                 std::placeholders::_2);
 
-  // TODO set the parallax requirements from the config values here
   std::function<double(const MainProbData &,
                        const MainPgPtr &,
                        const vtr::FrameId &,
@@ -995,6 +1004,29 @@ int main(int argc, char **argv) {
         // ORB-SLAM has a more advanced thing that I haven't looked
         // into
         return config.visual_feature_params_.reprojection_error_std_dev_;
+      };
+  vtr::VisualFeatureFrontend<MainProbData> visual_feature_fronted(
+      gba_checker,
+      reprojection_error_provider,
+      config.visual_feature_params_
+          .min_visual_feature_parallax_pixel_requirement_,
+      config.visual_feature_params_
+          .min_visual_feature_parallax_robot_transl_requirement_,
+      config.visual_feature_params_
+          .min_visual_feature_parallax_robot_orient_requirement_,
+      config.visual_feature_params_.enforce_min_pixel_parallax_requirement_,
+      config.visual_feature_params_
+          .enforce_min_robot_pose_parallax_requirement_);
+  std::function<void(const MainProbData &,
+                     const MainPgPtr &,
+                     const vtr::FrameId &,
+                     const vtr::FrameId &)>
+      visual_feature_frame_data_adder = [&](const MainProbData &input_problem,
+                                            const MainPgPtr &pose_graph,
+                                            const vtr::FrameId &min_frame_id,
+                                            const vtr::FrameId &max_frame_id) {
+        visual_feature_fronted.addVisualFeatureObservations(
+            input_problem_data, pose_graph, min_frame_id, max_frame_id);
       };
 
   //  std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>
@@ -1132,15 +1164,20 @@ int main(int argc, char **argv) {
   //            frame_id_to_query_for, input_problem_data,
   //            bounding_boxes_by_cam);
   //      };
-  std::function<void(
-      const MainProbData &, const MainPgPtr &, const vtr::FrameId &)>
+  std::function<void(const MainProbData &,
+                     const MainPgPtr &,
+                     const vtr::FrameId &,
+                     const vtr::FrameId &)>
       frame_data_adder = [&](const MainProbData &problem_data,
                              const MainPgPtr &pose_graph,
+                             const vtr::FrameId &min_frame_id,
                              const vtr::FrameId &frame_to_add) {
         vtr::addFrameDataAssociatedBoundingBox(problem_data,
                                                pose_graph,
+                                               min_frame_id,
                                                frame_to_add,
                                                reprojection_error_provider,
+                                               visual_feature_frame_data_adder,
                                                bb_retriever,
                                                bb_associator_retriever,
                                                bb_context_retriever);
