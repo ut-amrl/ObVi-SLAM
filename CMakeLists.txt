@@ -68,6 +68,7 @@ add_subdirectory(src/shared)
 include_directories(src)
 
 add_library(ut_vslam
+        src/evaluation/evaluation_utils.cpp
         src/evaluation/trajectory_interpolation_utils.cpp
         src/refactoring/bounding_box_frontend/pending_object_estimator.cpp
         src/refactoring/factors/bounding_box_factor.cpp
@@ -78,6 +79,7 @@ add_library(ut_vslam
         src/refactoring/factors/shape_prior_factor.cpp
         src/refactoring/types/vslam_obj_opt_types_refactor.cpp
         src/refactoring/visual_feature_processing/orb_output_low_level_feature_reader.cpp
+        src/types/timestamped_data_to_frames_utils.cpp
         )
 
 target_compile_features(ut_vslam PRIVATE cxx_std_17)

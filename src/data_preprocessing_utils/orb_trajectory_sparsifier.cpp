@@ -13,6 +13,7 @@
 #include <refactoring/configuration/full_ov_slam_config.h>
 #include <refactoring/types/vslam_types_math_util.h>
 #include <ros/ros.h>
+#include <types/timestamped_data_to_frames_utils.h>
 
 #include <experimental/filesystem>
 
@@ -54,18 +55,6 @@ const std::string kRobotPosesFile = "initial_robot_poses_by_node.txt";
 const std::string kNodesWithTimestampsFolder = "timestamps/";
 const std::string kNodesWithTimestampsFile = "node_ids_and_timestamps.txt";
 }  // namespace
-
-struct sort_timestamp_and_node {
-  inline bool operator()(
-      const file_io::NodeIdAndTimestamp &node_id_and_timestamp1,
-      const file_io::NodeIdAndTimestamp &node_id_and_timestamp2) {
-    return pose::timestamp_sort()(
-        std::make_pair(node_id_and_timestamp1.seconds_,
-                       node_id_and_timestamp1.nano_seconds_),
-        std::make_pair(node_id_and_timestamp2.seconds_,
-                       node_id_and_timestamp2.nano_seconds_));
-  }
-};
 
 void copyAndUpdateFeatureObsFileWithNewFrameNum(
     const std::string &old_feature_obs_file_name,
@@ -158,49 +147,6 @@ std::unordered_map<vtr::FrameId, vtr::FrameId> getSparsifiedFrames(
   return old_frame_to_new_frame_mapping;
 }
 
-util::BoostHashMap<pose::Timestamp, vtr::FrameId> getRequiredFrames(
-    const std::vector<pose::Timestamp> &required_stamps,
-    const std::vector<file_io::NodeIdAndTimestamp>
-        &old_node_ids_with_timestamps) {
-  util::BoostHashMap<pose::Timestamp, vtr::FrameId> required_frames_by_stamp;
-  std::vector<file_io::NodeIdAndTimestamp> sorted_nodes_with_stamps =
-      old_node_ids_with_timestamps;
-  std::sort(sorted_nodes_with_stamps.begin(),
-            sorted_nodes_with_stamps.end(),
-            sort_timestamp_and_node());
-
-  size_t index_next_required_timestamp = 0;
-  size_t next_node_and_timestamp = 0;
-
-  bool all_stamps_found = false;
-  while ((next_node_and_timestamp < old_node_ids_with_timestamps.size()) &&
-         (!all_stamps_found)) {
-    pose::Timestamp stamp_for_node = std::make_pair(
-        sorted_nodes_with_stamps[next_node_and_timestamp].seconds_,
-        sorted_nodes_with_stamps[next_node_and_timestamp].seconds_);
-    vtr::FrameId node =
-        sorted_nodes_with_stamps[next_node_and_timestamp].node_id_;
-
-    while (pose::timestamp_sort()(
-        required_stamps[index_next_required_timestamp], stamp_for_node)) {
-      required_frames_by_stamp[required_stamps[index_next_required_timestamp]] =
-          node;
-      index_next_required_timestamp++;
-      if (index_next_required_timestamp >= required_stamps.size()) {
-        all_stamps_found = true;
-        break;
-      }
-    }
-    next_node_and_timestamp++;
-  }
-
-  while (index_next_required_timestamp < required_stamps.size()) {
-    required_frames_by_stamp[required_stamps[index_next_required_timestamp]] =
-        sorted_nodes_with_stamps.back().node_id_;
-    index_next_required_timestamp++;
-  }
-}
-
 int main(int argc, char **argv) {
   google::InitGoogleLogging(argv[0]);
   google::ParseCommandLineFlags(&argc, &argv, true);
@@ -267,8 +213,18 @@ int main(int argc, char **argv) {
                                     required_stamps);
     std::sort(
         required_stamps.begin(), required_stamps.end(), pose::timestamp_sort());
-    required_stamps_with_old_frame_id =
-        getRequiredFrames(required_stamps, old_node_ids_with_timestamps);
+    util::BoostHashMap<pose::Timestamp, vtr::FrameId>
+        old_poses_by_timestamp_map;
+    for (const file_io::NodeIdAndTimestamp &old_node_and_timestamp :
+         old_node_ids_with_timestamps) {
+      old_poses_by_timestamp_map[std::make_pair(
+          old_node_and_timestamp.seconds_,
+          old_node_and_timestamp.nano_seconds_)] =
+          old_node_and_timestamp.node_id_;
+    }
+    required_stamps_with_old_frame_id = vtr::getFramesForRequiredStamps(
+        required_stamps, old_poses_by_timestamp_map);
+
     for (const auto &required_with_old_frame :
          required_stamps_with_old_frame_id) {
       required_old_frames.insert(required_with_old_frame.second);
@@ -300,7 +256,8 @@ int main(int argc, char **argv) {
       node_and_stamp.nano_seconds_ = required_stamp.second;
       required_timestamps_with_new_node_ids.emplace_back(node_and_stamp);
     }
-    file_io::writeNodeIdsAndTimestampsToFile(FLAGS_required_stamps_by_node_file,
+    file_io::writeNodeIdsAndTimestampsToFile(
+        FLAGS_required_stamps_by_node_file,
         required_timestamps_with_new_node_ids);
   }
 
