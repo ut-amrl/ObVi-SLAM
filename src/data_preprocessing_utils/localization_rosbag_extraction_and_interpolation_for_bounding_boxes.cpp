@@ -71,16 +71,6 @@ struct pair_hash {
   }
 };
 
-struct timestamp_sort {
-  inline bool operator()(const Timestamp &timestamp1,
-                         const Timestamp &timestamp2) {
-    if (timestamp1.first != timestamp2.first) {
-      return timestamp1.first < timestamp2.first;
-    }
-    return timestamp1.second <= timestamp2.second;
-  }
-};
-
 template <typename BbByTimestampType>
 
 void readBbsAndFilterBySemanticClass(
