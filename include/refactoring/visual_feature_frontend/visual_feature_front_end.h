@@ -282,6 +282,8 @@ class VisualFeatureFrontend {
           if (robot_pose1.has_value() && robot_pose2.has_value()) {
             Pose3D<double> relative_pose = getPose2RelativeToPose1(
                 robot_pose1.value(), robot_pose2.value());
+            // TODO consider the camera extrinsics when checking the pose
+            // requirement
             if ((relative_pose.transl_.norm() >=
                  min_visual_feature_parallax_robot_transl_requirement_) ||
                 (relative_pose.orientation_.angle() >=
