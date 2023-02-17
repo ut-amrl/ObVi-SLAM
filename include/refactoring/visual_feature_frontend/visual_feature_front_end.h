@@ -169,8 +169,8 @@ class VisualFeatureFrontend {
               pose_graph->addVisualFactor(factor);
             }
           }
-          pending_feature_factors_.erase(feat_id);
-          added_feature_ids_.insert(feat_id);
+          pending_feature_factors_.erase(feature_id);
+          added_feature_ids_.insert(feature_id);
         }
       }
     }
