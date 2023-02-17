@@ -174,7 +174,6 @@ class VisualFeatureFrontend {
         }
       }
     }
-    feat_ids_to_change.clear();
     if (gba_checker_(max_frame_id)) {
       std::unordered_set<FeatureId> feat_ids_to_change;
       for (const auto &feat_id_and_cache : pending_feature_factors_) {
