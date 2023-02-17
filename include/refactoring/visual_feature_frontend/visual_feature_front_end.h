@@ -98,7 +98,6 @@ class VisualFeatureFrontend {
       const FrameId &max_frame_id) {
     std::unordered_map<FeatureId, StructuredVisionFeatureTrack>
         visual_features = input_problem_data.getVisualFeatures();
-    std::unordered_set<FeatureId> feat_ids_to_change;
 
     for (const auto &feat_id_to_track : visual_features) {
       FeatureId feature_id = feat_id_to_track.first;
@@ -170,13 +169,10 @@ class VisualFeatureFrontend {
               pose_graph->addVisualFactor(factor);
             }
           }
-          feat_ids_to_change.insert(feature_id);
+          pending_feature_factors_.erase(feat_id);
+          added_feature_ids_.insert(feat_id);
         }
       }
-    }
-    for (const auto &feat_id : feat_ids_to_change) {
-      pending_feature_factors_.erase(feat_id);
-      added_feature_ids_.insert(feat_id);
     }
     feat_ids_to_change.clear();
     if (gba_checker_(max_frame_id)) {
@@ -203,10 +199,10 @@ class VisualFeatureFrontend {
           feat_ids_to_change.insert(feature_id);
         }
       }
-    }
-    for (const auto &feat_id : feat_ids_to_change) {
-      pending_feature_factors_.erase(feat_id);
-      added_feature_ids_.insert(feat_id);
+      for (const auto &feat_id : feat_ids_to_change) {
+        pending_feature_factors_.erase(feat_id);
+        added_feature_ids_.insert(feat_id);
+      }
     }
   }
 
