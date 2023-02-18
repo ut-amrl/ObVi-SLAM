@@ -320,10 +320,11 @@ class VisualFeatureFrontend {
           req_satisfied = true;
         }
         if (req_satisfied) {
-          break;
+          return true;
         }
       }
     }
+    return false;
   }
 };
 
