@@ -23,11 +23,13 @@ struct sort_timestamp_and_node_by_stamp {
 
 struct WaypointInfo {
   WaypointId waypoint_id_;
+  bool reversed_;
   pose::Timestamp waypoint_timestamp_;
 };
 
 struct AssociatedWaypointInfo {
   WaypointId waypoint_id_;
+  bool reversed_;
   FrameId associated_frame_id_;
 };
 

@@ -5,4 +5,5 @@ build/*
 media/*
 .idea/*
 cmake-build-debug/*
+cmake-build-debug-remote/*
 *__pycache__/

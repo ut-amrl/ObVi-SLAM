@@ -84,21 +84,23 @@ class CmdLineArgConstants:
                                 " generates point clouds from lidar packets messages)"
     forceRunLegoLoamHelp = "Force running lego loam for the bag even if there is data there"
 
+    # Constants specific to ORBSLAM3/ORBSLAM2
+    orbSlamConfigurationFileBaseArgName = 'orb_slam_configuration_file'
+    orbSlamConfigurationFileHelp = "Location of the configuration file for orbslam"
 
-    # Constants specific to ORBSLAM3
-    orbSlam3ConfigurationFileBaseArgName = 'orb_slam_configuration_file'
-    orbSlam3ConfigurationFileHelp = "Location of the configuration file for orbslam"
-
-    orbSlam3VocabularyFileBaseArgName = 'orb_slam_vocabulary_file'
-    orbSlam3VocabularyFileHelp = "Location of the vocabulary file for orbslam"
+    orbSlamVocabularyFileBaseArgName = 'orb_slam_vocabulary_file'
+    orbSlamVocabularyFileHelp = "Location of the vocabulary file for orbslam"
 
     orbSlam3OutRootDirBaseArgName = 'orb_slam_3_out_root_dir'
-    orbSlam3OutRootDirHelp = "Root directory where ORB-SLAM# output files should be stored. There will be a " \
+    orbSlam3OutRootDirHelp = "Root directory where ORB-SLAM3 output files should be stored. There will be a " \
                              "subdirectory for each sequence, and within that, a subdirectory for each bag (prefixed " \
                              "with the number in the sequence)"
+    orbSlam2OutRootDirBaseArgName = 'orb_slam_2_out_root_dir'
+    orbSlam2OutRootDirHelp = "Root directory where ORB-SLAM2 output files should be stored. There will be a" \
+                             " subdirectory for each bag"
 
-    forceRunORBSLAM3BaseArgName = 'force_run_orb_slam_3'
-    forceRunORBSLAM3Help = "Force running ORB-SLAM 3 for the sequence even if there is data there"
+    forceRunORBSLAMBaseArgName = 'force_run_orb_slam'
+    forceRunORBSLAMHelp = "Force running ORB-SLAM for the sequence even if there is data there"
 
     generateMapFileBaseArgName = 'generate_map_file'
     generateMapFileHelp = "Generate the ORB-SLAM map file in addition to the raw trajectory at the end of each bag"

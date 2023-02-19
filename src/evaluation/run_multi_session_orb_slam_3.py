@@ -5,12 +5,12 @@ import argparse
 import time
 import rospy
 import sys
-
+import roslib
 from trajectory_sequence import *
 from file_structure_utils import *
 from cmd_line_arg_utils import *
 
-sys.path.insert(1, os.path.abspath('/home/amanda/workspaces/amrl_libs/amrl_msgs/src'))
+roslib.load_manifest('amrl_msgs')
 from amrl_msgs.srv import *
 
 
@@ -157,12 +157,12 @@ def runOrbSLAM3Sequence(orbSlamLaunchConfig, orbSlamSequenceConfig):
 def orbSlam3SequenceArgParse():
     parser = argparse.ArgumentParser(description="Run ORB-SLAM3 for full trajectory sequence")
     parser.add_argument(
-        CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.orbSlam3ConfigurationFileBaseArgName),
+        CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.orbSlamConfigurationFileBaseArgName),
         required=True,
-        help=CmdLineArgConstants.orbSlam3ConfigurationFileHelp)
-    parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.orbSlam3VocabularyFileBaseArgName),
+        help=CmdLineArgConstants.orbSlamConfigurationFileHelp)
+    parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.orbSlamVocabularyFileBaseArgName),
                         required=True,
-                        help=CmdLineArgConstants.orbSlam3VocabularyFileHelp)
+                        help=CmdLineArgConstants.orbSlamVocabularyFileHelp)
 
     parser.add_argument(
         CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.trajectorySequenceFileDirectoryBaseArgName),
@@ -180,13 +180,13 @@ def orbSlam3SequenceArgParse():
 
     # Boolean arguments
     parser.add_argument(
-        CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.forceRunORBSLAM3BaseArgName),
+        CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.forceRunORBSLAMBaseArgName),
         default=False,
         action='store_true',
-        help=CmdLineArgConstants.forceRunORBSLAM3Help)
-    parser.add_argument('--no-' + CmdLineArgConstants.forceRunORBSLAM3BaseArgName,
+        help=CmdLineArgConstants.forceRunORBSLAMHelp)
+    parser.add_argument('--no-' + CmdLineArgConstants.forceRunORBSLAMBaseArgName,
                         dest=CmdLineArgConstants.forceRunORBSLAM3BaseArgName, action='store_false',
-                        help="Opposite of " + CmdLineArgConstants.forceRunORBSLAM3BaseArgName)
+                        help="Opposite of " + CmdLineArgConstants.forceRunORBSLAMBaseArgName)
     parser.add_argument(
         CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.generateMapFileBaseArgName),
         default=False,

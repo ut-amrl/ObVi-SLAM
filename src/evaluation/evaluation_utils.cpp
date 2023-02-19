@@ -115,6 +115,7 @@ RawWaypointConsistencyResults computeWaypointConsistencyResults(
           frames_for_req_stamps.at(waypoint_info.waypoint_timestamp_);
       AssociatedWaypointInfo assoc_waypoint_info;
       assoc_waypoint_info.waypoint_id_ = waypoint_info.waypoint_id_;
+      assoc_waypoint_info.reversed_ = waypoint_info.reversed_;
       assoc_waypoint_info.associated_frame_id_ = frame_for_waypoint;
       assoc_waypoints_for_traj.emplace_back(assoc_waypoint_info);
     }
@@ -139,8 +140,17 @@ computeWaypointConsistencyResultsForFrameAssociatedWaypoints(
     std::unordered_map<FrameId, Pose3D<double>> poses_by_frame =
         poses_by_frame_by_trajectory.at(traj_num);
     for (const AssociatedWaypointInfo &waypoint_info : waypoints_for_traj) {
+      Pose3D<double> pose_at_waypoint =
+          poses_by_frame.at(waypoint_info.associated_frame_id_);
+      if (waypoint_info.reversed_) {
+        pose_at_waypoint = combinePoses(
+            pose_at_waypoint,
+            Pose3D<double>(
+                Position3d<double>(),
+                Orientation3D<double>(M_PI, Eigen::Vector3d::UnitZ())));
+      }
       poses_by_waypoint[waypoint_info.waypoint_id_].emplace_back(
-          poses_by_frame.at(waypoint_info.associated_frame_id_));
+          pose_at_waypoint);
     }
   }
 
@@ -169,11 +179,13 @@ Pose3D<double> getMeanPose(const std::vector<Pose3D<double>> &poses) {
     return Pose3D<double>();
   }
   Position3d<double> position_mean(0, 0, 0);
-  // TODO orientatoin mean
+  // TODO orientation mean
   for (const Pose3D<double> &pose : poses) {
     position_mean = position_mean + pose.transl_;
   }
   position_mean = position_mean / poses.size();
+
+  return Pose3D<double>(position_mean, Orientation3D<double>());  // TODO
 }
 
 void getDeviationFromMeanPose(const Pose3D<double> &mean_pose,
