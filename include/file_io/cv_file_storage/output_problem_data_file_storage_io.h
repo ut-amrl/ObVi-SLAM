@@ -11,6 +11,8 @@
 #include <refactoring/output_problem_data.h>
 
 namespace vslam_types_refactor {
+const std::string kRobotPosesKey = "robot_poses";
+
 class SerializableEllipsoidResults
     : public FileStorageSerializable<EllipsoidResults> {
  public:
@@ -279,6 +281,24 @@ static void read(const cv::FileNode &node,
   } else {
     data.read(node);
   }
+}
+
+void writeRobotPoseResults(const std::string &robot_pose_file,
+                           const RobotPoseResults &robot_pose_results) {
+  cv::FileStorage robot_poses_results_out(robot_pose_file,
+                                          cv::FileStorage::WRITE);
+  robot_poses_results_out << kRobotPosesKey
+                          << SerializableRobotPoseResults(robot_pose_results);
+  robot_poses_results_out.release();
+}
+
+void readRobotPoseResults(const std::string &robot_pose_file,
+                          RobotPoseResults &robot_pose_results) {
+  cv::FileStorage robot_pose_in(robot_pose_file, cv::FileStorage::READ);
+  SerializableRobotPoseResults serializable_robot_pose_results;
+  robot_pose_in[kRobotPosesKey] >> serializable_robot_pose_results;
+  robot_pose_in.release();
+  robot_pose_results = serializable_robot_pose_results.getEntry();
 }
 
 }  // namespace vslam_types_refactor

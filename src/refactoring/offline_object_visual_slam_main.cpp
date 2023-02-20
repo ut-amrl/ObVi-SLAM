@@ -753,7 +753,7 @@ int main(int argc, char **argv) {
     ltm_in_fs.release();
     MainLtm ltm_from_serializable = serializable_ltm.getEntry();
     vtr::EllipsoidResults ellipsoid_results_ltm;
-    ltm_from_serializable.getEllipsoidResults(ellipsoid_results_ltm);
+    ltm_from_serializable.getLtmEllipsoidResults(ellipsoid_results_ltm);
     LOG(INFO) << "Long term map size "
               << ellipsoid_results_ltm.ellipsoids_.size();
     long_term_map = std::make_shared<MainLtm>(ltm_from_serializable);
@@ -1425,14 +1425,8 @@ int main(int argc, char **argv) {
   }
 
   if (!FLAGS_robot_poses_results_file.empty()) {
-    cv::FileStorage robot_poses_results_out(FLAGS_robot_poses_results_file,
-                                            cv::FileStorage::WRITE);
-    vtr::RobotPoseResults robot_pose_results =
-        output_results.robot_pose_results_;
-    robot_poses_results_out
-        << "robot_poses"
-        << vtr::SerializableRobotPoseResults(robot_pose_results);
-    robot_poses_results_out.release();
+    vtr::writeRobotPoseResults(FLAGS_robot_poses_results_file,
+                               output_results.robot_pose_results_);
   }
 
   return 0;

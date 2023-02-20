@@ -28,7 +28,7 @@ DEFINE_string(
     "",
     "File with coarse 3d trajectory to get more detailed estimates for");
 DEFINE_string(rosbag_file, "", "File with rosbag containing odometry messages");
-DEFINE_string(odom_topic, "", "/husky_velocity_controller/odom");
+DEFINE_string(odom_topic, "/husky_velocity_controller/odom", "Odometry topic. ");
 DEFINE_string(poses_for_required_timestamps_file,
               "",
               "File to which to output the interpolated poses for the required "
@@ -152,13 +152,18 @@ int main(int argc, char **argv) {
 
   if (!timestamp_sort()(odom_poses.front().first,
                         coarse_fixed_poses.front().first)) {
+    LOG(INFO) << odom_poses.front().first.first << ", " << odom_poses.front().first.second;
+    LOG(INFO) << coarse_fixed_poses.front().first.first << ", " << coarse_fixed_poses.front().first.second;
     LOG(INFO) << "The first odom timestamp is greater than the first "
-                 "bb timestamp";
+                 "coarse pose timestamp";
     exit(1);
   }
   if (!timestamp_sort()(coarse_fixed_poses.back().first,
                         odom_poses.back().first)) {
-    LOG(INFO) << "Last bb timestamp is not less than or equal to "
+    LOG(INFO) << odom_poses.back().first.first << ", " << odom_poses.back().first.second;
+    LOG(INFO) << coarse_fixed_poses.back().first.first << ", " << coarse_fixed_poses.back().first.second;
+
+    LOG(INFO) << "Last coarse timestamp is not less than or equal to "
                  "the odom timestamp";
     exit(1);
   }
@@ -171,12 +176,17 @@ int main(int argc, char **argv) {
 
   if (!timestamp_sort()(odom_poses.front().first,
                         required_timestamps.front())) {
+    LOG(INFO) << odom_poses.front().first.first << ", " << odom_poses.front().first.second;
+    LOG(INFO) << required_timestamps.front().first << ", " << required_timestamps.front().second;
     LOG(INFO) << "The first odom timestamp is greater than the first "
-                 "bb timestamp";
+                 "required timestamp";
     exit(1);
   }
   if (!timestamp_sort()(required_timestamps.back(), odom_poses.back().first)) {
-    LOG(INFO) << "Last bb timestamp is not less than or equal to "
+    LOG(INFO) << odom_poses.back().first.first << ", " << odom_poses.back().first.second;
+    LOG(INFO) << required_timestamps.back().first << ", " << required_timestamps.back().second;
+
+    LOG(INFO) << "Last required timestamp is not less than or equal to "
                  "the odom timestamp";
     exit(1);
   }

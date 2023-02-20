@@ -9,8 +9,10 @@ orb_post_process_base_directory=${root_data_dir}orb_post_process/
 results_root_directory=${root_data_dir}ut_vslam_results/
 trajectory_sequence_file_directory=/home/amanda/workspaces/ut_vslam/sequences/
 
-sequence_file_base_name="1676766718_only"
-config_file_base_name="two_phase_off"
+#sequence_file_base_name="1676766718_only"
+#config_file_base_name="two_phase_off"
+sequence_file_base_name="20230218_1a_4a"
+config_file_base_name="3_higher_obj_thresh_lower_conf"
 #config_file_base_name="test_higher_obj_obs_for_opt"
 #config_file_base_name="1_first_25"
 

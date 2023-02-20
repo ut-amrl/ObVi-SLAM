@@ -107,6 +107,7 @@ def runLegoLoamSequence(legoLoamExecutionInfoForSequence):
             lego_loam_out_root_dir=legoLoamExecutionInfoForSequence.lego_loam_out_root_dir,
             coda_parser_repo_root_dir=legoLoamExecutionInfoForSequence.coda_parser_repo_root_dir,
             rosbag_base_name=bagName,
+            rosbag_file_directory=legoLoamSequenceConfig.rosbag_file_directory,
             force_run_lego_loam=legoLoamExecutionInfoForSequence.force_run_lego_loam)
         runLegoLoamSingleTrajectory(singleTrajeExecutionInfo)
 
@@ -184,5 +185,7 @@ def legoLoamSequenceArgParse():
 
 
 if __name__ == "__main__":
-    legoLoamSingleBagConfig = legoLoamTrajectoryArgParse()
-    runLegoLoamSingleTrajectory(legoLoamSingleBagConfig)
+    # legoLoamSingleBagConfig = legoLoamTrajectoryArgParse()
+    # runLegoLoamSingleTrajectory(legoLoamSingleBagConfig)
+    legoLoamSequenceConfig = legoLoamSequenceArgParse()
+    runLegoLoamSequence(legoLoamSequenceConfig)

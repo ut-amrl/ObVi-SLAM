@@ -78,7 +78,7 @@ class PairwiseCovarianceLongTermObjectMapFactorCreator
     }
     FeatureFactorId next_feature_factor_id = 0;
     EllipsoidResults map_ellipsoid_ests;
-    ltm->getEllipsoidResults(map_ellipsoid_ests);
+    ltm->getLtmEllipsoidResults(map_ellipsoid_ests);
     for (const auto &ltm_entry : ltm->getPairwiseEllipsoidCovariances()) {
       PairwiseCovarianceLongTermMapFactorData factor_entry;
       factor_entry.obj_1_ = ltm_entry.first.first;
@@ -231,7 +231,7 @@ class IndependentEllipsoidsLongTermObjectMapFactorCreator
     }
     FeatureFactorId next_feature_factor_id = 0;
     EllipsoidResults map_ellipsoid_ests;
-    ltm->getEllipsoidResults(map_ellipsoid_ests);
+    ltm->getLtmEllipsoidResults(map_ellipsoid_ests);
     for (const auto &ltm_entry : ltm->getEllipsoidCovariances()) {
       IndependentEllipsoidsLongTermMapFactorData factor_entry;
       factor_entry.obj_id_ = ltm_entry.first;

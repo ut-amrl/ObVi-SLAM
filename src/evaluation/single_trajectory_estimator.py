@@ -242,12 +242,6 @@ def generateOfflineRunnerArgsFromExecutionConfigAndPreprocessOrbDataIfNecessary(
     return (param_prefix, offlineArgs)
 
 
-def createCommandStrAddition(argumentName, argumentValue):
-    if (argumentValue is None):
-        return ""
-    return CmdLineArgConstants.prefixWithDashDash(argumentName) + " " + argumentValue + " "
-
-
 def runTrajectoryFromOfflineArgs(offlineArgs):
     argsString = ""
     argsString += createCommandStrAddition(SingleTrajectoryExecutableParamConstants.paramPrefix,

@@ -8,15 +8,14 @@
 
 namespace vslam_types_refactor {
 
-TrajectorySequenceATEResults combineSingleTrajectoryResults(
-    const std::vector<SingleTrajectoryATEResults> &single_traj_results) {
+ATEResults combineSingleTrajectoryResults(
+    const std::vector<ATEResults> &single_traj_results) {
   double rmse_transl_err = 0;
   double rmse_rot_err = 0;
   int total_valid_poses = 0;
   int total_invalid_poses = 0;
 
-  for (const SingleTrajectoryATEResults &single_traj_ate_result :
-       single_traj_results) {
+  for (const ATEResults &single_traj_ate_result : single_traj_results) {
     double squared_sum_transl_err =
         pow(single_traj_ate_result.rmse_transl_err_, 2) *
         single_traj_ate_result.valid_poses_used_in_score_;
@@ -32,12 +31,11 @@ TrajectorySequenceATEResults combineSingleTrajectoryResults(
   rmse_transl_err = sqrt(rmse_transl_err / total_valid_poses);
   rmse_rot_err = sqrt(rmse_rot_err / total_valid_poses);
 
-  return TrajectorySequenceATEResults(
+  return ATEResults(
       rmse_transl_err, rmse_rot_err, total_valid_poses, total_invalid_poses);
 }
 
-SingleTrajectoryATEResults
-generateATEforRotAndTranslForSyncedAlignedTrajectories(
+ATEResults generateATEforRotAndTranslForSyncedAlignedTrajectories(
     const std::vector<std::optional<Pose3D<double>>> &est_traj,
     const std::vector<Pose3D<double>> &gt_traj) {
   CHECK_EQ(est_traj.size(), gt_traj.size())
@@ -68,11 +66,10 @@ generateATEforRotAndTranslForSyncedAlignedTrajectories(
 
   avg_position_error = sqrt(avg_position_error / valid_results_num);
   avg_rot_error = sqrt(avg_rot_error / valid_results_num);
-  SingleTrajectoryATEResults single_traj_ate_results(
-      avg_position_error,
-      avg_rot_error,
-      valid_results_num,
-      (est_traj.size() - valid_results_num));
+  ATEResults single_traj_ate_results(avg_position_error,
+                                     avg_rot_error,
+                                     valid_results_num,
+                                     (est_traj.size() - valid_results_num));
   return single_traj_ate_results;
 }
 

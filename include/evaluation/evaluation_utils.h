@@ -8,42 +8,15 @@
 #include <base_lib/basic_utils.h>
 #include <types/timestamped_data_to_frames_utils.h>
 #include <refactoring/types/vslam_basic_types_refactor.h>
-
+#include <evaluation/trajectory_metrics.h>
 #include <utility>
 #include <vector>
 
 namespace vslam_types_refactor {
 
-struct SingleTrajectoryATEResults {
-  SingleTrajectoryATEResults(const double &rmse_transl_err,
-                             const double &rmse_rot_err,
-                             const int &valid_poses_used_in_score,
-                             const int &lost_poses)
-      : rmse_transl_err_(rmse_transl_err),
-        rmse_rot_err_(rmse_rot_err),
-        valid_poses_used_in_score_(valid_poses_used_in_score),
-        lost_poses_(lost_poses){};
-  double rmse_transl_err_;
-  double rmse_rot_err_;
-  int valid_poses_used_in_score_;
-  int lost_poses_;
-};
 
-struct TrajectorySequenceATEResults {
-  TrajectorySequenceATEResults(const double &rmse_transl_err,
-                               const double &rmse_rot_err,
-                               const int &valid_poses_used_in_score,
-                               const int &lost_poses)
-      : rmse_transl_err_(rmse_transl_err),
-        rmse_rot_err_(rmse_rot_err),
-        valid_poses_used_in_score_(valid_poses_used_in_score),
-        lost_poses_(lost_poses){};
-  double rmse_transl_err_;
-  double rmse_rot_err_;
-  int valid_poses_used_in_score_;
-  int lost_poses_;
-};
 
+// TODO want to move this to metrics class?
 struct RawWaypointConsistencyResults {
   std::unordered_map<WaypointId, std::vector<double>>
       centroid_deviations_by_waypoint_;
@@ -51,14 +24,14 @@ struct RawWaypointConsistencyResults {
       orientation_deviations_by_waypoint_;
 };
 
-TrajectorySequenceATEResults combineSingleTrajectoryResults(
-    const std::vector<SingleTrajectoryATEResults> &single_traj_results);
+ATEResults combineSingleTrajectoryResults(
+    const std::vector<ATEResults> &single_traj_results);
 
 // TODO do we need to find transform that minimizes dist first or should we
 // assume they're aligned
-SingleTrajectoryATEResults
+ATEResults
 generateATEforRotAndTranslForSyncedAlignedTrajectories(
-    const std::vector<Pose3D<double>> &est_traj,
+    const std::vector<std::optional<Pose3D<double>>> &est_traj,
     const std::vector<Pose3D<double>> &gt_traj);
 
 RawWaypointConsistencyResults computeWaypointConsistencyResults(
