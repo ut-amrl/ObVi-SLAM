@@ -105,6 +105,20 @@ class CmdLineArgConstants:
     generateMapFileBaseArgName = 'generate_map_file'
     generateMapFileHelp = "Generate the ORB-SLAM map file in addition to the raw trajectory at the end of each bag"
 
+    # Metrics
+    forceRerunMetricsGeneratorBaseArgName = 'force_rerun_metrics_generator'
+    forceRerunMetricsGeneratorHelp = "Force run the metrics generator even if there is already a metrics file"
+
+    forceRerunInterpolatorBaseArgName = "force_rerun_interpolator"
+    forceRerunInterpolatorHelp = "Force rerun the interpolator even if the interpolated file is already generated"
+
+
     @staticmethod
     def prefixWithDashDash(argName):
         return '--' + argName
+
+
+def createCommandStrAddition(argumentName, argumentValue):
+    if ((argumentValue is None) or (len(argumentValue) == 0)):
+        return ""
+    return CmdLineArgConstants.prefixWithDashDash(argumentName) + " " + argumentValue + " "

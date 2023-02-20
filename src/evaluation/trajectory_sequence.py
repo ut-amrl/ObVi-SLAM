@@ -5,10 +5,12 @@ class SequenceFileConstants:
     sequenceIdentifierKey = "seq_id"
     sequenceKey = "sequence"
 
+def generateSequenceFilePath(sequenceFilesDirectory, sequenceFileBaseName):
+    return FileStructureUtils.ensureDirectoryEndsWithSlash(sequenceFilesDirectory) + \
+           sequenceFileBaseName + FileStructureConstants.jsonExtension
+
 def readTrajectorySequence(sequenceFilesDirectory, sequenceFileBaseName):
-    sequenceFile = \
-        FileStructureUtils.ensureDirectoryEndsWithSlash(sequenceFilesDirectory) + \
-        sequenceFileBaseName + FileStructureConstants.jsonExtension
+    sequenceFile = generateSequenceFilePath(sequenceFilesDirectory, sequenceFileBaseName)
 
     with open(sequenceFile) as sequenceFileObj:
         sequenceFileJson = json.load(sequenceFileObj)

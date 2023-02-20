@@ -30,9 +30,13 @@ class SerializableIndependentEllipsoidsLongTermObjectMap
     fs << "{";
     fs << kEllipsoidParameterizationLabel << kEllipsoidParameterizationType;
     EllipsoidResults ellipsoid_results;
-    data_.getEllipsoidResults(ellipsoid_results);
+    data_.getLtmEllipsoidResults(ellipsoid_results);
     fs << kEllipsoidResultsLabel
        << SerializableEllipsoidResults(ellipsoid_results);
+    EllipsoidResults prev_ellipsoid_results;
+    data_.getEllipsoidResults(prev_ellipsoid_results);
+    fs << kPrevTrajEstEllipsoidResultsLabel
+       << SerializableEllipsoidResults(prev_ellipsoid_results);
     fs << kEllipsoidCovariancesLabel
        << SerializableMap<ObjectId,
                           SerializableObjectId,
@@ -63,8 +67,14 @@ class SerializableIndependentEllipsoidsLongTermObjectMap
     }
     SerializableEllipsoidResults ser_ellipsoid_results;
     node[kEllipsoidResultsLabel] >> ser_ellipsoid_results;
+    data_.setLtmEllipsoidResults(ser_ellipsoid_results.getEntry());
 
-    data_.setEllipsoidResults(ser_ellipsoid_results.getEntry());
+    SerializableEllipsoidResults ser_prev_traj_ellipsoid_results;
+    node[kPrevTrajEstEllipsoidResultsLabel] >> ser_prev_traj_ellipsoid_results;
+    data_.setEllipsoidResults(ser_prev_traj_ellipsoid_results.getEntry());
+//    SerializableEllipsoidResults ser_prev_traj_ellipsoid_results;
+//    node[kPrevTrajEstEllipsoidResultsLabel] >> ser_prev_traj_ellipsoid_results;
+//    data_.setEllipsoidResults(ser_prev_traj_ellipsoid_results.getEntry());
 
     cv::FileNode results_map_data = node[kEllipsoidCovariancesLabel];
     SerializableMap<ObjectId,
@@ -100,6 +110,8 @@ class SerializableIndependentEllipsoidsLongTermObjectMap
 #endif
 
   inline static const std::string kEllipsoidResultsLabel = "ellipsoid_results";
+  inline static const std::string kPrevTrajEstEllipsoidResultsLabel =
+      "prev_traj_est_ellipsoid_results";
   inline static const std::string kEllipsoidCovariancesLabel =
       "obj_id_covariance_map";
   inline static const std::string kFrontEndMapDataLabel = "front_end_map_data";

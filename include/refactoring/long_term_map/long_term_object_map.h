@@ -21,9 +21,11 @@ class AbsLongTermObjectMap {
    *
    * @param ellipsoid_results   Results to store in the long term map.
    */
-  virtual void setEllipsoidResults(const EllipsoidResults &ellipsoid_results) {
-    ellipsoids_ = ellipsoid_results;
-    LOG(INFO) << "Ellipsoid results size " << ellipsoids_.ellipsoids_.size();
+  virtual void setLtmEllipsoidResults(
+      const EllipsoidResults &ellipsoid_results) {
+    ltm_ellipsoids_ = ellipsoid_results;
+    LOG(INFO) << "Ellipsoid results size "
+              << ltm_ellipsoids_.ellipsoids_.size();
   }
 
   virtual void setFrontEndObjMapData(
@@ -31,10 +33,46 @@ class AbsLongTermObjectMap {
     front_end_map_data_ = front_end_data;
   }
 
-  virtual void getEllipsoidResults(EllipsoidResults &ellipsoids) const {
-    LOG(INFO) << "Ellipsoids size " << ellipsoids_.ellipsoids_.size();
-    ellipsoids = ellipsoids_;
+  virtual void getLtmEllipsoidResults(EllipsoidResults &ellipsoids) const {
+    LOG(INFO) << "Ellipsoids size " << ltm_ellipsoids_.ellipsoids_.size();
+    ellipsoids = ltm_ellipsoids_;
   }
+
+  virtual void getEllipsoidResults(EllipsoidResults &ellipsoids) const {
+    LOG(INFO) << "Ellipsoids size "
+              << prev_traj_est_ellipsoids_.ellipsoids_.size();
+    ellipsoids = prev_traj_est_ellipsoids_;
+  }
+
+    virtual void setEllipsoidResults(const EllipsoidResults &ellipsoids) {
+      // Should be called after ltm ellipsoids are set
+      prev_traj_est_ellipsoids_.ellipsoids_.clear();
+
+      for (const auto &ltm_ellipsoid : ltm_ellipsoids_.ellipsoids_) {
+        if (ellipsoids.ellipsoids_.find(ltm_ellipsoid.first) ==
+            ellipsoids.ellipsoids_.end()) {
+          LOG(WARNING) << "LTM ellipsoid was not in prev results. Not adding,"
+                          "probably a bug somewhere.";
+        } else {
+          prev_traj_est_ellipsoids_.ellipsoids_[ltm_ellipsoid.first] =
+              ellipsoids.ellipsoids_.at(ltm_ellipsoid.first);
+        }
+      }
+    }
+
+//  virtual void setEllipsoidResults(const EllipsoidResults &ellipsoid_results) {
+//    prev_traj_est_ellipsoids_.ellipsoids_.clear();
+//    for (const auto &ltm_ellipsoid : ltm_ellipsoids_.ellipsoids_) {
+//      if (ellipsoid_results.ellipsoids_.find(ltm_ellipsoid.first) ==
+//          ellipsoid_results.ellipsoids_.end()) {
+//        LOG(WARNING) << "LTM ellipsoid was not in prev results. Not adding,"
+//                        "probably a bug somewhere.";
+//      } else {
+//        prev_traj_est_ellipsoids_.ellipsoids_[ltm_ellipsoid.first] =
+//            ellipsoid_results.ellipsoids_.at(ltm_ellipsoid.first);
+//      }
+//    }
+//  }
 
   virtual void getFrontEndObjMapData(
       std::unordered_map<ObjectId, FrontEndObjMapData> &front_end_data) const {
@@ -48,7 +86,8 @@ class AbsLongTermObjectMap {
   // representation is flexible
 
   // Ellipsoid estimates
-  EllipsoidResults ellipsoids_;
+  EllipsoidResults ltm_ellipsoids_;
+  EllipsoidResults prev_traj_est_ellipsoids_;
 
   std::unordered_map<ObjectId, FrontEndObjMapData> front_end_map_data_;
 };

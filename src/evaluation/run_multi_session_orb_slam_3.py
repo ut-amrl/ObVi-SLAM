@@ -185,7 +185,7 @@ def orbSlam3SequenceArgParse():
         action='store_true',
         help=CmdLineArgConstants.forceRunORBSLAMHelp)
     parser.add_argument('--no-' + CmdLineArgConstants.forceRunORBSLAMBaseArgName,
-                        dest=CmdLineArgConstants.forceRunORBSLAM3BaseArgName, action='store_false',
+                        dest=CmdLineArgConstants.forceRunORBSLAMBaseArgName, action='store_false',
                         help="Opposite of " + CmdLineArgConstants.forceRunORBSLAMBaseArgName)
     parser.add_argument(
         CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.generateMapFileBaseArgName),
@@ -198,8 +198,8 @@ def orbSlam3SequenceArgParse():
     args_dict = vars(parser.parse_args())
 
     launchConfig = ORBSLAM3LaunchStartInfo(
-        orb_slam_configuration_file=args_dict[CmdLineArgConstants.orbSlam3ConfigurationFileBaseArgName],
-        orb_slam_vocabulary_file=args_dict[CmdLineArgConstants.orbSlam3VocabularyFileBaseArgName])
+        orb_slam_configuration_file=args_dict[CmdLineArgConstants.orbSlamConfigurationFileBaseArgName],
+        orb_slam_vocabulary_file=args_dict[CmdLineArgConstants.orbSlamVocabularyFileBaseArgName])
 
     sequenceConfig = ORBSLAM3SequenceConfig(
         sequence_dir=args_dict[CmdLineArgConstants.trajectorySequenceFileDirectoryBaseArgName],
@@ -207,7 +207,7 @@ def orbSlam3SequenceArgParse():
         top_level_orb_slam_results_dir=args_dict[CmdLineArgConstants.orbSlam3OutRootDirBaseArgName],
         rosbagDirectory=args_dict[CmdLineArgConstants.rosbagDirectoryBaseArgName],
         generate_map_file=args_dict[CmdLineArgConstants.generateMapFileBaseArgName],
-        force_regenerate_results=args_dict[CmdLineArgConstants.forceRunORBSLAM3BaseArgName])
+        force_regenerate_results=args_dict[CmdLineArgConstants.forceRunORBSLAMBaseArgName])
 
     return launchConfig, sequenceConfig
 

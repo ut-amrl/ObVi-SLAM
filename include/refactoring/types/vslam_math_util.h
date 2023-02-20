@@ -279,8 +279,8 @@ void getProjectedPixelLocation(
 
   // Project the 3  D point into the current image.
   if (point_current.z() < T(0)) {
-    LOG(WARNING) << "Point projected onto camera was behind the image plane."
-                    " This should not happen";
+//    LOG(WARNING) << "Point projected onto camera was behind the image plane."
+//                    " This should not happen";
     // TODO should we sleep or exit here to make this error more evident?
   }
   pixel_results.x() =
