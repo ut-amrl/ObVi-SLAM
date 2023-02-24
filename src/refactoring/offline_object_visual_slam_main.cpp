@@ -504,6 +504,8 @@ void visualizationStub(
                                        vtr::PlotType::ESTIMATED);
       vis_manager->publishTfForLatestPose(est_trajectory_vec.back(),
                                           vtr::PlotType::ESTIMATED);
+      vis_manager->publishTfForLatestPose(init_trajectory_vec.back(),
+                                          vtr::PlotType::INITIAL);
 
       std::unordered_map<vtr::FeatureId, vtr::Position3d<double>> feature_ests;
       std::unordered_map<

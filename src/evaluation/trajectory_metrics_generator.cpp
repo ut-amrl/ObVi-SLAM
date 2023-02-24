@@ -75,7 +75,7 @@ DEFINE_string(metrics_out_file,
 // TODO Add waypoints file (waypoints by timestamp)
 
 const std::string kIndivTrajectoryBaseFileName = "trajectory.csv";
-const std::string kGTIndivTrajectoryBaseFileName = "lego_loam_poses.csv";
+const std::string kGTIndivTrajectoryBaseFileName = "interpolated_lego_loam_poses.csv";
 
 FullSequenceMetrics computeMetrics(
     const std::vector<

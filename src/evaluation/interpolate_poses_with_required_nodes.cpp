@@ -5,6 +5,7 @@
 #include <base_lib/basic_utils.h>
 #include <base_lib/pose_utils.h>
 #include <evaluation/trajectory_interpolation_utils.h>
+#include <file_io/pose_3d_io.h>
 #include <file_io/pose_3d_with_double_timestamp_io.h>
 #include <file_io/pose_3d_with_timestamp_io.h>
 #include <file_io/timestamp_io.h>
@@ -28,7 +29,9 @@ DEFINE_string(
     "",
     "File with coarse 3d trajectory to get more detailed estimates for");
 DEFINE_string(rosbag_file, "", "File with rosbag containing odometry messages");
-DEFINE_string(odom_topic, "/husky_velocity_controller/odom", "Odometry topic. ");
+DEFINE_string(odom_topic,
+              "/husky_velocity_controller/odom",
+              "Odometry topic. ");
 DEFINE_string(poses_for_required_timestamps_file,
               "",
               "File to which to output the interpolated poses for the required "
@@ -37,6 +40,15 @@ DEFINE_string(poses_for_all_timestamps_file,
               "",
               "File to which to output the interpolated poses "
               "for all timestamps (i.e. also contains smoothed odom)");
+DEFINE_string(
+    coarse_trajectory_frame_rel_bl_file,
+    "",
+    "File containing the extrinsics representing the frame of the coarse poses "
+    "file (one to interpolate) relative to the base link");
+DEFINE_string(odom_frame_rel_bl_file,
+              "",
+              "File containing the extrinsics representing the frame of the "
+              "odom poses file (one to interpolate) relative to the base link");
 
 struct sort_pose3d_timestamp_pair {
   inline bool operator()(const std::pair<Timestamp, Pose3D<double>> &pose_1,
@@ -107,6 +119,33 @@ void convertToStampAndPose3D(
             sort_pose3d_timestamp_pair());
 }
 
+void visualizePoseGraph(
+    const std::shared_ptr<RosVisualization> &vis_manager,
+    const util::BoostHashMap<pose::Timestamp, Pose3D<double>>
+        &raw_poses_by_timestamp,
+    const std::vector<RelativePoseFactorInfo> &residuals_info,
+    ros::Publisher &pub) {
+  if (vis_manager == nullptr) {
+    return;
+  }
+  std_msgs::ColorRGBA color;
+  color.b = 1;
+  color.r = 1;
+  color.a = 1;
+  std::vector<std::pair<Position3d<double>, Position3d<double>>>
+      residuals_lines;
+  for (const RelativePoseFactorInfo &relative_pose_info : residuals_info) {
+    Pose3D<double> raw_pose_1 =
+        raw_poses_by_timestamp.at(relative_pose_info.before_pose_timestamp_);
+    Pose3D<double> raw_pose_2 =
+        raw_poses_by_timestamp.at(relative_pose_info.after_pose_timestamp_);
+    residuals_lines.emplace_back(
+        std::make_pair(raw_pose_1.transl_, raw_pose_2.transl_));
+  }
+
+  vis_manager->publishLines(pub, color, residuals_lines, 1);
+}
+
 int main(int argc, char **argv) {
   google::ParseCommandLineFlags(&argc, &argv, false);
 
@@ -135,6 +174,52 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
+  if (FLAGS_odom_frame_rel_bl_file.empty()) {
+    LOG(ERROR) << "Odometry frame relative to base link file"
+                  "required but not specified";
+    exit(1);
+  }
+
+  if (FLAGS_odom_frame_rel_bl_file.empty()) {
+    LOG(ERROR) << "Coarse trajectory frame relative to base link file"
+                  "required but not specified";
+    exit(1);
+  }
+
+  LOG(INFO) << "Reading extrinsics from " << FLAGS_odom_frame_rel_bl_file;
+  Pose3D<double> odom_frame_rel_base_link;
+  std::vector<Pose3D<double>> odom_extrinsics_contents;
+  file_io::readPose3dsFromFile(FLAGS_odom_frame_rel_bl_file,
+                               odom_extrinsics_contents);
+  LOG(INFO) << "Got raw conent from file ";
+  if (odom_extrinsics_contents.empty()) {
+    LOG(ERROR) << "Odom extrinsics missing";
+    exit(1);
+  }
+  if (odom_extrinsics_contents.size() > 1) {
+    LOG(WARNING) << "Odom extrinsics file contained more than "
+                    "one pose. Taking the first";
+  }
+
+  odom_frame_rel_base_link = odom_extrinsics_contents.front();
+  LOG(INFO) << "Done reading odom extrincis";
+
+  Pose3D<double> coarse_traj_frame_rel_base_link;
+  std::vector<Pose3D<double>> coarse_traj_extrinsics_contents;
+  file_io::readPose3dsFromFile(FLAGS_coarse_trajectory_frame_rel_bl_file,
+                               coarse_traj_extrinsics_contents);
+  if (coarse_traj_extrinsics_contents.empty()) {
+    LOG(ERROR) << "Coarse trajectory extrinsics missing";
+    exit(1);
+  }
+  if (coarse_traj_extrinsics_contents.size() > 1) {
+    LOG(WARNING) << "Coarse trajectory extrinsics file contained more than "
+                    "one pose. Taking the first";
+  }
+
+  coarse_traj_frame_rel_base_link = coarse_traj_extrinsics_contents.front();
+
+  LOG(INFO) << "Done reading extrinsics";
   std::vector<std::pair<Timestamp, Pose2d>> odom_poses;
   getOdomPoseEsts(FLAGS_rosbag_file, FLAGS_odom_topic, odom_poses);
 
@@ -150,22 +235,15 @@ int main(int argc, char **argv) {
     coarse_fixed_poses_no_stamp.emplace_back(fixed_pose.second);
   }
 
-  if (!timestamp_sort()(odom_poses.front().first,
-                        coarse_fixed_poses.front().first)) {
-    LOG(INFO) << odom_poses.front().first.first << ", " << odom_poses.front().first.second;
-    LOG(INFO) << coarse_fixed_poses.front().first.first << ", " << coarse_fixed_poses.front().first.second;
-    LOG(INFO) << "The first odom timestamp is greater than the first "
-                 "coarse pose timestamp";
-    exit(1);
-  }
-  if (!timestamp_sort()(coarse_fixed_poses.back().first,
-                        odom_poses.back().first)) {
-    LOG(INFO) << odom_poses.back().first.first << ", " << odom_poses.back().first.second;
-    LOG(INFO) << coarse_fixed_poses.back().first.first << ", " << coarse_fixed_poses.back().first.second;
-
-    LOG(INFO) << "Last coarse timestamp is not less than or equal to "
-                 "the odom timestamp";
-    exit(1);
+  Pose3D<double> odom_rel_lidar = combinePoses(
+      poseInverse(coarse_traj_frame_rel_base_link), odom_frame_rel_base_link);
+  std::vector<std::pair<Timestamp, Pose3D<double>>> coarse_fixed_poses_rel_odom;
+  for (const std::pair<Timestamp, Pose3D<double>> &coarse_pose :
+       coarse_fixed_poses) {
+    Pose3D<double> coarse_pose_rel_odom =
+        combinePoses(coarse_pose.second, odom_rel_lidar);
+    coarse_fixed_poses_rel_odom.emplace_back(
+        std::make_pair(coarse_pose.first, coarse_pose_rel_odom));
   }
 
   std::vector<Timestamp> required_timestamps;
@@ -173,23 +251,6 @@ int main(int argc, char **argv) {
                                   required_timestamps);
   std::sort(
       required_timestamps.begin(), required_timestamps.end(), timestamp_sort());
-
-  if (!timestamp_sort()(odom_poses.front().first,
-                        required_timestamps.front())) {
-    LOG(INFO) << odom_poses.front().first.first << ", " << odom_poses.front().first.second;
-    LOG(INFO) << required_timestamps.front().first << ", " << required_timestamps.front().second;
-    LOG(INFO) << "The first odom timestamp is greater than the first "
-                 "required timestamp";
-    exit(1);
-  }
-  if (!timestamp_sort()(required_timestamps.back(), odom_poses.back().first)) {
-    LOG(INFO) << odom_poses.back().first.first << ", " << odom_poses.back().first.second;
-    LOG(INFO) << required_timestamps.back().first << ", " << required_timestamps.back().second;
-
-    LOG(INFO) << "Last required timestamp is not less than or equal to "
-                 "the odom timestamp";
-    exit(1);
-  }
 
   std::vector<Timestamp> all_sorted_timestamps;
   all_sorted_timestamps.insert(all_sorted_timestamps.end(),
@@ -206,23 +267,49 @@ int main(int argc, char **argv) {
             all_sorted_timestamps.end(),
             timestamp_sort());
 
-  util::BoostHashMap<pose::Timestamp, Pose3D<double>> odom_poses_adjusted_3d;
-  util::BoostHashMap<pose::Timestamp, Pose3D<double>> interpolated_poses;
-  interpolate3dPosesUsingOdom(odom_poses,
-                              coarse_fixed_poses,
-                              required_timestamps,
-                              interpolated_poses,
-                              odom_poses_adjusted_3d);
-
   ros::init(argc, argv, "interpolator");
   ros::NodeHandle node_handle;
   std::shared_ptr<RosVisualization> vis_manager =
       std::make_shared<RosVisualization>(node_handle);
+  ros::Publisher pub = node_handle.advertise<visualization_msgs::Marker>(
+      "/pose_graph_constraints", 5000);
+
+  util::BoostHashMap<pose::Timestamp, Pose3D<double>> odom_poses_adjusted_3d;
+  util::BoostHashMap<pose::Timestamp, Pose3D<double>>
+      interpolated_poses_rel_odom;
+
+  std::function<void(
+      const util::BoostHashMap<pose::Timestamp, Pose3D<double>> &,
+      const std::vector<RelativePoseFactorInfo> &)>
+      vis_function =
+          [&](const util::BoostHashMap<pose::Timestamp, Pose3D<double>> &poses,
+              const std::vector<RelativePoseFactorInfo> &factors) {
+            std::vector<Pose3D<double>> req_poses;
+            for (const Timestamp &required_timestamp : required_timestamps) {
+              req_poses.emplace_back(poses.at(required_timestamp));
+            }
+            vis_manager->visualizeTrajectory(coarse_fixed_poses_no_stamp,
+                                             GROUND_TRUTH);
+            vis_manager->visualizeTrajectory(req_poses, ESTIMATED);
+            visualizePoseGraph(vis_manager, poses, factors, pub);
+          };
+  interpolate3dPosesUsingOdom(odom_poses,
+                              coarse_fixed_poses_rel_odom,
+                              required_timestamps,
+                              vis_function,
+                              interpolated_poses_rel_odom,
+                              odom_poses_adjusted_3d);
 
   std::vector<std::pair<Timestamp, Pose3D<double>>> all_poses_with_timestamps;
   std::vector<Pose3D<double>> all_poses;
   std::vector<std::pair<Timestamp, Pose3D<double>>>
       poses_for_required_timestamp;
+
+  util::BoostHashMap<pose::Timestamp, Pose3D<double>> interpolated_poses;
+  for (const auto &interp_rel_odom : interpolated_poses_rel_odom) {
+    interpolated_poses[interp_rel_odom.first] =
+        combinePoses(interp_rel_odom.second, poseInverse(odom_rel_lidar));
+  }
 
   for (const Timestamp &timestamp : all_sorted_timestamps) {
     all_poses_with_timestamps.emplace_back(
@@ -240,10 +327,6 @@ int main(int argc, char **argv) {
     adjusted_odom_poses.emplace_back(
         odom_poses_adjusted_3d.at(orig_odom_stamp_and_pose.first));
   }
-
-  vis_manager->visualizeTrajectory(coarse_fixed_poses_no_stamp, GROUND_TRUTH);
-  vis_manager->visualizeTrajectory(adjusted_odom_poses, INITIAL);
-  vis_manager->visualizeTrajectory(all_poses, ESTIMATED);
 
   file_io::writePose3dsWithTimestampToFile(
       FLAGS_poses_for_required_timestamps_file, poses_for_required_timestamp);

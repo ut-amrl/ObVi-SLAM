@@ -41,6 +41,7 @@ class RelativePoseFactor {
 
     Eigen::Transform<T, 3, Eigen::Affine> after_rel_before =
         world_to_robot_before.inverse() * world_to_robot_after;
+
     Eigen::Matrix<T, 6, 1> unscaled_residuals;
 
     unscaled_residuals.template block<3, 1>(0, 0) =
@@ -49,11 +50,13 @@ class RelativePoseFactor {
     Eigen::Matrix<T, 3, 3> rotation_error =
         after_rel_before.linear() * measured_rotation_change_.inverse();
 
-    // TODO is this right?
-    unscaled_residuals.template block<3, 1>(3, 0) = Log(rotation_error);
+    Eigen::AngleAxis<T> ax_ang_error(rotation_error);
+    unscaled_residuals.template block<3, 1>(3, 0) =
+        ax_ang_error.angle() * ax_ang_error.axis();
 
     Eigen::Map<Eigen::Matrix<T, 6, 1>> residuals(residuals_ptr);
     residuals = sqrt_inf_mat_rel_pose_.template cast<T>() * unscaled_residuals;
+
     return true;
   }
 

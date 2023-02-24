@@ -15,4 +15,4 @@ make && python3 src/evaluation/compute_metrics_for_orbslam3.py \
     --sequence_file_base_name=${sequence_file_base_name} \
     --orb_slam_3_out_root_dir=${orb_slam_3_out_root_dir} \
     --lego_loam_out_root_dir=${lego_loam_out_root_dir} \
-    --calibration_file_directory=${calibration_file_directory}
+    --calibration_file_directory=${calibration_file_directory} \

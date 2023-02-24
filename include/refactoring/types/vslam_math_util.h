@@ -175,22 +175,49 @@ Eigen::Matrix<T, 3, 1> FromSkewSymmetric(const Eigen::Matrix<T, 3, 3>& s) {
 
 /**
  * Convert SO(3) to so(3)
+ * WARNING: This does not handle some rotations well. Trace can evaluate to
+ * number outside of [-1, 1] which cases cos_theta to be NaN. Recommend using
+ * Eigen's convert from rotation to AngleAxis and then obtaining the so(3)
+ * representation by multiplying the resultant angle with the axis instead.
+ *
  *
  * @param R[in]     SO(3) representation of rotation (3x3 matrix)
  * @return          so(3) representation of rotation matrix (3x1 column vector)
  */
 template <typename T>
 Eigen::Matrix<T, 3, 1> Log(const Eigen::Matrix<T, 3, 3>& R) {
+  if (R.trace() == T(-1)) {
+    LOG(WARNING) << "Singularity condition";
+  }
   const T cos_theta = T(0.5) * (R.trace() - T(1.0));
   if (cos_theta > T(1.0 - kSmallAngleThreshold)) {
     // Small-angle approximation.
     const Eigen::Matrix<T, 3, 3> s = T(0.5) * (R - R.transpose());
+    if (s.hasNaN()) {
+      LOG(WARNING) << "Small angle Log has nan";
+      LOG(WARNING) << cos_theta;
+      LOG(WARNING) << R.trace();
+      LOG(WARNING) << R;
+      LOG(WARNING) << s;
+    }
     return FromSkewSymmetric(s);
   }
   // Inverse Rodrigues' formula.
   const T theta = acos(cos_theta);
   const Eigen::Matrix<T, 3, 3> s =
       theta / (T(2.0) * sin(theta)) * (R - R.transpose());
+  if (s.hasNaN()) {
+    LOG(WARNING) << "Normal angle Log has nan";
+    LOG(WARNING) << cos_theta;
+
+    LOG(WARNING) << (cos_theta > 1.0);
+    LOG(WARNING) << (cos_theta < -1.0);
+    LOG(WARNING) << R.trace();
+    LOG(WARNING) << theta;
+    LOG(WARNING) << sin(theta);
+    LOG(WARNING) << R;
+    LOG(WARNING) << s;
+  }
   return FromSkewSymmetric(s);
 }
 

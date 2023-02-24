@@ -293,7 +293,8 @@ def recordVisualizationRosbag(topicsPrefix, executionConfig):
     rosbagRecordDir = FileStructureUtils.getAndOptionallyCreateVisualizationRosbagDirectory(
         utVslamOutRootDir, executionConfig.sequenceFileBaseName, executionConfig.configFileBaseName,
         bag_results_dir_name)
-    bagName = FileStructureUtils.ensureDirectoryEndsWithSlash(rosbagRecordDir) + "visualization_topics.bag";
+    bagName = FileStructureUtils.ensureDirectoryEndsWithSlash(rosbagRecordDir) + "pending_visualization_topics.bag"
+    permanentBagName = FileStructureUtils.ensureDirectoryEndsWithSlash(rosbagRecordDir) + "visualization_topics.bag"
     cmdArgs = []
     cmdArgs.append("rosbag")
     cmdArgs.append("record")
@@ -324,8 +325,9 @@ def recordVisualizationRosbag(topicsPrefix, executionConfig):
     cmdArgs.append((topicsPrefix + "/est_/latest/cam_2_feats/camera_info"))
     cmdArgs.append((topicsPrefix + "/init_/latest/cam_1_feats/camera_info"))
     cmdArgs.append((topicsPrefix + "/init_/latest/cam_2_feats/camera_info"))
+    cmdArgs.append("/tf")
     processReturn = subprocess.Popen(cmdArgs, preexec_fn=os.setsid)
-    return processReturn
+    return (processReturn, bagName, permanentBagName)
 
 
 def runSingleTrajectory(executionConfig):
@@ -341,12 +343,17 @@ def runSingleTrajectory(executionConfig):
                   + underscore_based_prefix + " &"
         os.system(rvizCmd)
     processReturn = None
+    pendingVisBagName = None
+    permanentVisBagName = None
     if (executionConfig.recordVisualizationRosbag):
-        processReturn = recordVisualizationRosbag(topicsPrefix, executionConfig)
+        processReturn, pendingVisBagName, permanentVisBagName = recordVisualizationRosbag(topicsPrefix, executionConfig)
     runTrajectoryFromOfflineArgs(offlineArgs)
 
     if (executionConfig.recordVisualizationRosbag):
         os.killpg(os.getpgid(processReturn.pid), signal.SIGTERM)
+        if (os.path.exists(pendingVisBagName)):
+            os.system("mv " + pendingVisBagName + " " + permanentVisBagName)
+
 
 
 def singleTrajectoryArgParse():

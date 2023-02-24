@@ -39,27 +39,27 @@ def runTrajectorySequence(sequenceExecutionConfig):
 
     for idx, bagName in enumerate(rosbagsSequence):
         bagPrefix = str(idx) + "_"
-        if (idx != 0):
-            trajectoryExecutionConfig = SingleTrajectoryExecutionConfig(
-                configFileDirectory=sequenceExecutionConfig.configFileDirectory,
-                orbSlamOutDirectory=sequenceExecutionConfig.orbSlamOutDirectory,
-                rosbagDirectory=sequenceExecutionConfig.rosbagDirectory,
-                orbPostProcessBaseDirectory=sequenceExecutionConfig.orbPostProcessBaseDirectory,
-                calibrationFileDirectory=sequenceExecutionConfig.calibrationFileDirectory,
-                resultsRootDirectory=sequenceExecutionConfig.resultsRootDirectory,
-                configFileBaseName=sequenceExecutionConfig.configFileBaseName,
-                sequenceFileBaseName=sequenceExecutionConfig.sequenceFileBaseName,
-                rosbagBaseName=bagName,
-                resultsForBagDirPrefix=bagPrefix,
-                longTermMapBagDir=prevTrajectoryIdentifier,
-                forceRunOrbSlamPostProcess=sequenceExecutionConfig.forceRunOrbSlamPostProcess,
-                outputEllipsoidDebugInfo=sequenceExecutionConfig.outputEllipsoidDebugInfo,
-                outputJacobianDebugInfo=sequenceExecutionConfig.outputJacobianDebugInfo,
-                outputBbAssocInfo=sequenceExecutionConfig.outputBbAssocInfo,
-                runRviz=sequenceExecutionConfig.runRviz,
-                recordVisualizationRosbag=sequenceExecutionConfig.recordVisualizationRosbag,
-                logToFile=sequenceExecutionConfig.logToFile)
-            runSingleTrajectory(trajectoryExecutionConfig)
+        # if (idx != 0):
+        trajectoryExecutionConfig = SingleTrajectoryExecutionConfig(
+            configFileDirectory=sequenceExecutionConfig.configFileDirectory,
+            orbSlamOutDirectory=sequenceExecutionConfig.orbSlamOutDirectory,
+            rosbagDirectory=sequenceExecutionConfig.rosbagDirectory,
+            orbPostProcessBaseDirectory=sequenceExecutionConfig.orbPostProcessBaseDirectory,
+            calibrationFileDirectory=sequenceExecutionConfig.calibrationFileDirectory,
+            resultsRootDirectory=sequenceExecutionConfig.resultsRootDirectory,
+            configFileBaseName=sequenceExecutionConfig.configFileBaseName,
+            sequenceFileBaseName=sequenceExecutionConfig.sequenceFileBaseName,
+            rosbagBaseName=bagName,
+            resultsForBagDirPrefix=bagPrefix,
+            longTermMapBagDir=prevTrajectoryIdentifier,
+            forceRunOrbSlamPostProcess=sequenceExecutionConfig.forceRunOrbSlamPostProcess,
+            outputEllipsoidDebugInfo=sequenceExecutionConfig.outputEllipsoidDebugInfo,
+            outputJacobianDebugInfo=sequenceExecutionConfig.outputJacobianDebugInfo,
+            outputBbAssocInfo=sequenceExecutionConfig.outputBbAssocInfo,
+            runRviz=sequenceExecutionConfig.runRviz,
+            recordVisualizationRosbag=sequenceExecutionConfig.recordVisualizationRosbag,
+            logToFile=sequenceExecutionConfig.logToFile)
+        runSingleTrajectory(trajectoryExecutionConfig)
         prevTrajectoryIdentifier = bagPrefix + bagName
 
 

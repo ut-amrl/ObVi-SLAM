@@ -3,10 +3,14 @@ from cmd_line_arg_utils import *
 from file_structure_utils import *
 from trajectory_sequence import *
 
+
 class MetricsForApproachConstants:
     legoLoamCalibFile = "lego_loam_bl.txt"
     orbslam3CalibFile = "orb_slam3_bl.txt"
     ovslamCalibFile = "ov_slam_bl.txt"
+    odomCalibFile = "odom_bl.txt"
+    identityTransformFile = "identity_transform.txt"
+
 
 class MetricsForApproachConfig:
     def __init__(self, rosbag_dir,
@@ -15,6 +19,7 @@ class MetricsForApproachConfig:
                  lego_loam_root_dir,
                  lego_loam_frame_to_bl_extrinsics,
                  comparison_alg_to_bl_extrinsics,
+                 odom_frame_rel_bl_file,
                  results_for_approach_root,
                  within_sequence_dir_subdir,
                  within_bagdir_sub_dir,
@@ -26,6 +31,7 @@ class MetricsForApproachConfig:
         self.lego_loam_root_dir = lego_loam_root_dir
         self.lego_loam_frame_to_bl_extrinsics = lego_loam_frame_to_bl_extrinsics
         self.comparison_alg_to_bl_extrinsics = comparison_alg_to_bl_extrinsics
+        self.odom_frame_rel_bl_file = odom_frame_rel_bl_file
         self.results_for_approach_root = results_for_approach_root
         self.within_sequence_dir_subdir = within_sequence_dir_subdir
         self.within_bagdir_sub_dir = within_bagdir_sub_dir
@@ -66,15 +72,19 @@ class InterpolatorParamConstants:
     coarse_trajectory_file = "coarse_trajectory_file"
     rosbag_file = "rosbag_file"
     poses_for_required_timestamps_file = "poses_for_required_timestamps_file"
+    coarse_trajectory_frame_rel_bl_file = "coarse_trajectory_frame_rel_bl_file"
+    odom_frame_rel_bl_file = "odom_frame_rel_bl_file"
 
 
 class InterpolatorConfig:
     def __init__(self, required_timestamps_file, coarse_trajectory_file, rosbag_file,
-                 poses_for_required_timestamps_file):
+                 poses_for_required_timestamps_file, coarse_trajectory_frame_rel_bl_file, odom_frame_rel_bl_file):
         self.required_timestamps_file = required_timestamps_file
         self.coarse_trajectory_file = coarse_trajectory_file
         self.rosbag_file = rosbag_file
         self.poses_for_required_timestamps_file = poses_for_required_timestamps_file
+        self.coarse_trajectory_frame_rel_bl_file = coarse_trajectory_frame_rel_bl_file
+        self.odom_frame_rel_bl_file = odom_frame_rel_bl_file
 
 
 def runInterpolatorCmd(interpolatorConfig):
@@ -86,6 +96,10 @@ def runInterpolatorCmd(interpolatorConfig):
     argsString += createCommandStrAddition(InterpolatorParamConstants.rosbag_file, interpolatorConfig.rosbag_file)
     argsString += createCommandStrAddition(InterpolatorParamConstants.poses_for_required_timestamps_file,
                                            interpolatorConfig.poses_for_required_timestamps_file)
+    argsString += createCommandStrAddition(InterpolatorParamConstants.coarse_trajectory_frame_rel_bl_file,
+                                           interpolatorConfig.coarse_trajectory_frame_rel_bl_file)
+    argsString += createCommandStrAddition(InterpolatorParamConstants.odom_frame_rel_bl_file,
+                                           interpolatorConfig.odom_frame_rel_bl_file)
 
     cmdToRun = "./bin/interpolate_poses_with_required_nodes " + argsString
     print("Running command: ")
@@ -109,7 +123,7 @@ def runMetricsGeneratorWithGeneratorConfig(generator_config):
                                            generator_config.gt_dir_suffix)
     print("Arg for gt dir suffix ")
     print(createCommandStrAddition(TrajectoryMetricsGeneratorParamConstants.gt_dir_suffix,
-                             generator_config.gt_dir_suffix))
+                                   generator_config.gt_dir_suffix))
     argsString += createCommandStrAddition(TrajectoryMetricsGeneratorParamConstants.sequence_file,
                                            generator_config.sequence_file)
     argsString += createCommandStrAddition(TrajectoryMetricsGeneratorParamConstants.metrics_out_file,
@@ -121,10 +135,10 @@ def runMetricsGeneratorWithGeneratorConfig(generator_config):
     os.system(cmdToRun)
 
 
-def runInterpolator(rosbag_dir, rosbag_name, interpolation_traj_dir, lego_loam_root_dir,
-                    required_timestamps_file_dir, forceRerunInterpolator):
+def runInterpolator(rosbag_dir, rosbag_name, interpolation_traj_dir, lego_loam_root_dir, required_timestamps_file_dir,
+                    coarse_trajectory_frame_rel_bl_file, odom_frame_rel_bl_file, forceRerunInterpolator):
     poses_for_required_timestamps_file = FileStructureUtils.ensureDirectoryEndsWithSlash(
-        interpolation_traj_dir) + "lego_loam_poses.csv"
+        interpolation_traj_dir) + "interpolated_lego_loam_poses.csv"
     needToRerunInterpolator = False
     if (forceRerunInterpolator):
         needToRerunInterpolator = True
@@ -141,7 +155,9 @@ def runInterpolator(rosbag_dir, rosbag_name, interpolation_traj_dir, lego_loam_r
         coarse_trajectory_file=coarse_trajectory_file,
         rosbag_file=(FileStructureUtils.ensureDirectoryEndsWithSlash(rosbag_dir) + \
                      rosbag_name + FileStructureConstants.bagSuffix),
-        poses_for_required_timestamps_file=poses_for_required_timestamps_file)
+        poses_for_required_timestamps_file=poses_for_required_timestamps_file,
+        coarse_trajectory_frame_rel_bl_file=coarse_trajectory_frame_rel_bl_file,
+        odom_frame_rel_bl_file=odom_frame_rel_bl_file)
     runInterpolatorCmd(interpolatorConfig)
 
 
@@ -172,7 +188,6 @@ def generateMetricsForApproach(metrics_for_approach_config):
         # Run the interpolator
         bagInSeqSubdir = str(idx) + "_" + bagName
 
-
         dirForBagResults = dirForSequenceResults + bagInSeqSubdir + within_bagdir_sub_dir
 
         interpolation_traj_dir = dirForBagResults
@@ -183,16 +198,9 @@ def generateMetricsForApproach(metrics_for_approach_config):
                         interpolation_traj_dir=interpolation_traj_dir,
                         lego_loam_root_dir=metrics_for_approach_config.lego_loam_root_dir,
                         required_timestamps_file_dir=required_timestamps_file_dir,
+                        coarse_trajectory_frame_rel_bl_file=metrics_for_approach_config.lego_loam_frame_to_bl_extrinsics,
+                        odom_frame_rel_bl_file=metrics_for_approach_config.odom_frame_rel_bl_file,
                         forceRerunInterpolator=metrics_for_approach_config.force_rerun_interpolator)
-
-    # class TrajectoryMetricsGeneratorConfig:
-    #     def __init__(self, interpolated_gt_traj_dir, lego_loam_frame_to_bl_extrinsics, comparison_alg_traj_est_dir,
-    #                  comparison_alg_to_bl_extrinsics, trajectory_results_dir_suffix, gt_dir_suffix, sequence_file,
-    #                  metrics_out_file):
-    #         self.interpolated_gt_traj_dir = interpolated_gt_traj_dir
-    #         self.comparison_alg_traj_est_dir = comparison_alg_traj_est_dir
-    #         self.trajectory_results_dir_suffix = trajectory_results_dir_suffix
-    #         self.gt_dir_suffix = gt_dir_suffix
 
     metrics_out_file = dirForSequenceResults + "metrics.json"
     needToRerunMetrics = False
@@ -201,6 +209,7 @@ def generateMetricsForApproach(metrics_for_approach_config):
     elif (not os.path.exists(metrics_out_file)):
         needToRerunMetrics = True
     if (not needToRerunMetrics):
+        print("Metrics file already generated. Skipping metrics generator")
         return
 
     metrics_generator_config = TrajectoryMetricsGeneratorConfig(
@@ -212,12 +221,8 @@ def generateMetricsForApproach(metrics_for_approach_config):
         sequence_file=generateSequenceFilePath(metrics_for_approach_config.sequence_dir,
                                                metrics_for_approach_config.sequence_file_base_name),
         lego_loam_frame_to_bl_extrinsics=metrics_for_approach_config.lego_loam_frame_to_bl_extrinsics,
-        comparison_alg_to_bl_extrinsics = metrics_for_approach_config.comparison_alg_to_bl_extrinsics)
+        comparison_alg_to_bl_extrinsics=metrics_for_approach_config.comparison_alg_to_bl_extrinsics)
     runMetricsGeneratorWithGeneratorConfig(metrics_generator_config)
-
-
-# def metricsForApproachArgParse():
-#     return MetricsForApproachConfig()
 
 
 if __name__ == "__main__":

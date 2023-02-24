@@ -29,27 +29,16 @@ Covariance<double, 6> generateOdomCov(
     const double &transl_error_mult_for_transl_error,
     const double &transl_error_mult_for_rot_error,
     const double &rot_error_mult_for_transl_error,
-    const double &rot_error_mult_for_rot_error) {
-  Eigen::Matrix<double, 6, 1> std_devs;
-  std_devs.topRows(3) =
-      relative_pose.transl_.cwiseAbs() * transl_error_mult_for_transl_error +
-      (abs(relative_pose.orientation_.angle()) *
-       rot_error_mult_for_transl_error * Eigen::Vector3d::Ones());
-  std_devs.bottomRows(3) =
-      (relative_pose.orientation_.axis() * relative_pose.orientation_.angle())
-              .cwiseAbs() *
-          rot_error_mult_for_rot_error +
-      (relative_pose.transl_.norm() * transl_error_mult_for_rot_error *
-       Eigen::Vector3d::Ones());
-
-  return createDiagCovFromStdDevs(std_devs);
-}
+    const double &rot_error_mult_for_rot_error);
 
 void interpolate3dPosesUsingOdom(
     const std::vector<std::pair<pose::Timestamp, pose::Pose2d>> &odom_poses,
     const std::vector<std::pair<pose::Timestamp, Pose3D<double>>>
         &coarse_fixed_poses,
     const std::vector<pose::Timestamp> &required_timestamps,
+    const std::function<
+        void(const util::BoostHashMap<pose::Timestamp, Pose3D<double>> &,
+             const std::vector<RelativePoseFactorInfo> &)> &vis_function,
     util::BoostHashMap<pose::Timestamp, Pose3D<double>> &interpolated_poses,
     util::BoostHashMap<pose::Timestamp, Pose3D<double>>
         &odom_poses_adjusted_3d);
