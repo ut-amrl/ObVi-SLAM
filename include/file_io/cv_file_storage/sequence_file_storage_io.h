@@ -63,14 +63,14 @@ static void read(
 }
 
 void writeSequenceInfo(const std::string &sequence_file,
-                   const SequenceInfo &sequence_info) {
+                       const SequenceInfo &sequence_info) {
   cv::FileStorage sequence_out(sequence_file, cv::FileStorage::WRITE);
   sequence_out << SerializableSequenceInfo(sequence_info);
   sequence_out.release();
 }
 
 void readSequenceInfo(const std::string &sequence_file,
-                          SequenceInfo &sequence_info) {
+                      SequenceInfo &sequence_info) {
   cv::FileStorage sequence_in(sequence_file, cv::FileStorage::READ);
   SerializableSequenceInfo serializable_sequence_info;
   sequence_in.root() >> serializable_sequence_info;

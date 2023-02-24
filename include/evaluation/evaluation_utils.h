@@ -6,15 +6,14 @@
 #define UT_VSLAM_EVALUATION_UTILS_H
 
 #include <base_lib/basic_utils.h>
-#include <types/timestamped_data_to_frames_utils.h>
-#include <refactoring/types/vslam_basic_types_refactor.h>
 #include <evaluation/trajectory_metrics.h>
+#include <refactoring/types/vslam_basic_types_refactor.h>
+#include <types/timestamped_data_to_frames_utils.h>
+
 #include <utility>
 #include <vector>
 
 namespace vslam_types_refactor {
-
-
 
 // TODO want to move this to metrics class?
 struct RawWaypointConsistencyResults {
@@ -29,8 +28,7 @@ ATEResults combineSingleTrajectoryResults(
 
 // TODO do we need to find transform that minimizes dist first or should we
 // assume they're aligned
-ATEResults
-generateATEforRotAndTranslForSyncedAlignedTrajectories(
+ATEResults generateATEforRotAndTranslForSyncedAlignedTrajectories(
     const std::vector<std::optional<Pose3D<double>>> &est_traj,
     const std::vector<Pose3D<double>> &gt_traj);
 
@@ -43,7 +41,8 @@ RawWaypointConsistencyResults computeWaypointConsistencyResults(
 
 RawWaypointConsistencyResults
 computeWaypointConsistencyResultsForFrameAssociatedWaypoints(
-    const std::vector<std::vector<AssociatedWaypointInfo>> &waypoints_by_trajectory,
+    const std::vector<std::vector<AssociatedWaypointInfo>>
+        &waypoints_by_trajectory,
     const std::vector<std::unordered_map<FrameId, Pose3D<double>>>
         &poses_by_frame_by_trajectory);
 

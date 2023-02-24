@@ -72,9 +72,6 @@ class SerializableIndependentEllipsoidsLongTermObjectMap
     SerializableEllipsoidResults ser_prev_traj_ellipsoid_results;
     node[kPrevTrajEstEllipsoidResultsLabel] >> ser_prev_traj_ellipsoid_results;
     data_.setEllipsoidResults(ser_prev_traj_ellipsoid_results.getEntry());
-//    SerializableEllipsoidResults ser_prev_traj_ellipsoid_results;
-//    node[kPrevTrajEstEllipsoidResultsLabel] >> ser_prev_traj_ellipsoid_results;
-//    data_.setEllipsoidResults(ser_prev_traj_ellipsoid_results.getEntry());
 
     cv::FileNode results_map_data = node[kEllipsoidCovariancesLabel];
     SerializableMap<ObjectId,

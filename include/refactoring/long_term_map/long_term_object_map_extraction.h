@@ -447,7 +447,6 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
       const std::string &jacobian_output_dir,
       IndependentEllipsoidsLongTermObjectMap<FrontEndObjMapData>
           &long_term_obj_map) {
-
     EllipsoidResults prev_run_ellipsoid_results;
     extractEllipsoidEstimates(pose_graph, prev_run_ellipsoid_results);
     std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> pose_graph_copy =

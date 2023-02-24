@@ -44,35 +44,21 @@ class AbsLongTermObjectMap {
     ellipsoids = prev_traj_est_ellipsoids_;
   }
 
-    virtual void setEllipsoidResults(const EllipsoidResults &ellipsoids) {
-      // Should be called after ltm ellipsoids are set
-      prev_traj_est_ellipsoids_.ellipsoids_.clear();
+  virtual void setEllipsoidResults(const EllipsoidResults &ellipsoids) {
+    // Should be called after ltm ellipsoids are set
+    prev_traj_est_ellipsoids_.ellipsoids_.clear();
 
-      for (const auto &ltm_ellipsoid : ltm_ellipsoids_.ellipsoids_) {
-        if (ellipsoids.ellipsoids_.find(ltm_ellipsoid.first) ==
-            ellipsoids.ellipsoids_.end()) {
-          LOG(WARNING) << "LTM ellipsoid was not in prev results. Not adding,"
-                          "probably a bug somewhere.";
-        } else {
-          prev_traj_est_ellipsoids_.ellipsoids_[ltm_ellipsoid.first] =
-              ellipsoids.ellipsoids_.at(ltm_ellipsoid.first);
-        }
+    for (const auto &ltm_ellipsoid : ltm_ellipsoids_.ellipsoids_) {
+      if (ellipsoids.ellipsoids_.find(ltm_ellipsoid.first) ==
+          ellipsoids.ellipsoids_.end()) {
+        LOG(WARNING) << "LTM ellipsoid was not in prev results. Not adding,"
+                        "probably a bug somewhere.";
+      } else {
+        prev_traj_est_ellipsoids_.ellipsoids_[ltm_ellipsoid.first] =
+            ellipsoids.ellipsoids_.at(ltm_ellipsoid.first);
       }
     }
-
-//  virtual void setEllipsoidResults(const EllipsoidResults &ellipsoid_results) {
-//    prev_traj_est_ellipsoids_.ellipsoids_.clear();
-//    for (const auto &ltm_ellipsoid : ltm_ellipsoids_.ellipsoids_) {
-//      if (ellipsoid_results.ellipsoids_.find(ltm_ellipsoid.first) ==
-//          ellipsoid_results.ellipsoids_.end()) {
-//        LOG(WARNING) << "LTM ellipsoid was not in prev results. Not adding,"
-//                        "probably a bug somewhere.";
-//      } else {
-//        prev_traj_est_ellipsoids_.ellipsoids_[ltm_ellipsoid.first] =
-//            ellipsoid_results.ellipsoids_.at(ltm_ellipsoid.first);
-//      }
-//    }
-//  }
+  }
 
   virtual void getFrontEndObjMapData(
       std::unordered_map<ObjectId, FrontEndObjMapData> &front_end_data) const {

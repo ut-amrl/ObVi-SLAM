@@ -14,9 +14,9 @@ namespace vslam_types_refactor {
 struct ATEResults {
   ATEResults() = default;
   ATEResults(const double &rmse_transl_err,
-                             const double &rmse_rot_err,
-                             const int &valid_poses_used_in_score,
-                             const int &lost_poses)
+             const double &rmse_rot_err,
+             const int &valid_poses_used_in_score,
+             const int &lost_poses)
       : rmse_transl_err_(rmse_transl_err),
         rmse_rot_err_(rmse_rot_err),
         valid_poses_used_in_score_(valid_poses_used_in_score),
@@ -26,7 +26,6 @@ struct ATEResults {
   int valid_poses_used_in_score_;
   int lost_poses_;
 };
-
 
 struct TrajectoryMetrics {
   std::unordered_map<WaypointId, std::vector<std::pair<double, double>>>

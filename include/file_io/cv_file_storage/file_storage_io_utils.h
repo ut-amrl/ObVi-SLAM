@@ -409,8 +409,7 @@ static void read(
 class SerializableInt : public FileStorageSerializable<int> {
  public:
   SerializableInt() : FileStorageSerializable<int>() {}
-  SerializableInt(const int &data)
-      : FileStorageSerializable<int>(data) {}
+  SerializableInt(const int &data) : FileStorageSerializable<int>(data) {}
 
   virtual void write(cv::FileStorage &fs) const override { fs << data_; }
 
@@ -426,10 +425,9 @@ static void write(cv::FileStorage &fs,
   data.write(fs);
 }
 
-static void read(
-    const cv::FileNode &node,
-    SerializableInt &data,
-    const SerializableInt &default_data = SerializableInt()) {
+static void read(const cv::FileNode &node,
+                 SerializableInt &data,
+                 const SerializableInt &default_data = SerializableInt()) {
   if (node.empty()) {
     data = default_data;
   } else {
