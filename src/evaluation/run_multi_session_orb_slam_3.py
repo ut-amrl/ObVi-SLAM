@@ -15,7 +15,6 @@ from amrl_msgs.srv import *
 
 
 class ORBSLAM3RelatedConstants:
-    posesFileBaseName = "trajectory.csv"
     mapFileBaseName = "orbslam_map.osa"
     orbSlamSaveTrajServiceName = "/orb_slam/save_and_start_new_trajectory"
 
@@ -51,7 +50,7 @@ def generateResultsFileNamesForBagInSeq(bagNumInSeq, bagName, top_level_orb_slam
     bagSpecificDir = str(bagNumInSeq) + "_" + bagName + "/"
     sessionRootDir = FileStructureUtils.ensureDirectoryEndsWithSlash(
         top_level_orb_slam_results_dir) + "/" + bagSpecificDir
-    trajectoryFileName = sessionRootDir + ORBSLAM3RelatedConstants.posesFileBaseName
+    trajectoryFileName = sessionRootDir + FileStructureConstants.finalTrajectoryFileBaseName
     mapFileName = sessionRootDir + ORBSLAM3RelatedConstants.mapFileBaseName
 
     return sessionRootDir, trajectoryFileName, mapFileName

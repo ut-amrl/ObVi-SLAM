@@ -15,6 +15,7 @@ class FileStructureConstants:
     utVslamOutRootDirBaseName = "ut_vslam_out"
     visualizationRosbagRootDirBaseName = "visualization_rosbags"
     logsRootDirBaseName = "logs"
+    postprocessingDirBaseName = "postprocessing"
 
     longTermMapFileBaseName = "long_term_map.json"
     visualFeatureResultsFileBaseName = "visual_feature_results.json"
@@ -22,6 +23,8 @@ class FileStructureConstants:
 
     ellipsoidResultsFileBaseName = "ellipsoid_results.json"
     robotPoseResultsFileBaseName = "robot_pose_results.json"
+
+    finalTrajectoryFileBaseName = "trajectory.csv"
 
     # File extensions
     jsonExtension = ".json"

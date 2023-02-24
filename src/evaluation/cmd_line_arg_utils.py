@@ -112,6 +112,12 @@ class CmdLineArgConstants:
     forceRerunInterpolatorBaseArgName = "force_rerun_interpolator"
     forceRerunInterpolatorHelp = "Force rerun the interpolator even if the interpolated file is already generated"
 
+    forceRerunMetricsGeneratorBaseArgName = 'force_rerun_metrics_generator'
+    forceRerunMetricsGeneratorHelp = "Force run the metrics generator even if there is already a metrics file"
+
+    forceReformatUTVSLAMOutputBaseArgName = "force_rerun_trajectory_formatter"
+    forceReformatUTVSLAMOutputHelp = "Force rerun the trajectory formatter that converts from JSON with trajectories " \
+                                     "by frame to a csv with trajectories stored by timestamp"
 
     @staticmethod
     def prefixWithDashDash(argName):

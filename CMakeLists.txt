@@ -117,8 +117,8 @@ target_link_libraries(interpolate_poses_with_required_nodes ut_vslam ${LIBS})
 ROSBUILD_ADD_EXECUTABLE(trajectory_metrics_generator src/evaluation/trajectory_metrics_generator.cpp)
 target_link_libraries(trajectory_metrics_generator ut_vslam ${LIBS})
 
-ROSBUILD_ADD_EXECUTABLE(ov_slam_out_to_poses_by_timestamp src/evaluation/trajectory_formatting/ov_slam_out_to_poses_by_timestamp.cpp)
-target_link_libraries(ov_slam_out_to_poses_by_timestamp ut_vslam ${LIBS})
+ROSBUILD_ADD_EXECUTABLE(utvslam_out_to_poses_by_timestamp src/evaluation/trajectory_formatting/utvslam_out_to_poses_by_timestamp.cpp)
+target_link_libraries(utvslam_out_to_poses_by_timestamp ut_vslam ${LIBS})
 
 
 IF (GENERATE_UNITTESTS)

@@ -145,13 +145,14 @@ def runInterpolator(rosbag_dir, rosbag_name, interpolation_traj_dir, lego_loam_r
     elif (not os.path.exists(poses_for_required_timestamps_file)):
         needToRerunInterpolator = True
     if (not needToRerunInterpolator):
+        print("Interpolated trajectory already exists so skipping generation")
         return
 
     coarse_trajectory_file = FileStructureUtils.ensureDirectoryEndsWithSlash(
         lego_loam_root_dir) + rosbag_name + "/poses/lego_loam_poses.csv"
     interpolatorConfig = InterpolatorConfig(
         required_timestamps_file=(
-                FileStructureUtils.ensureDirectoryEndsWithSlash(required_timestamps_file_dir) + "trajectory.csv"),
+                FileStructureUtils.ensureDirectoryEndsWithSlash(required_timestamps_file_dir) + FileStructureConstants.finalTrajectoryFileBaseName),
         coarse_trajectory_file=coarse_trajectory_file,
         rosbag_file=(FileStructureUtils.ensureDirectoryEndsWithSlash(rosbag_dir) + \
                      rosbag_name + FileStructureConstants.bagSuffix),
@@ -188,7 +189,7 @@ def generateMetricsForApproach(metrics_for_approach_config):
         # Run the interpolator
         bagInSeqSubdir = str(idx) + "_" + bagName
 
-        dirForBagResults = dirForSequenceResults + bagInSeqSubdir + within_bagdir_sub_dir
+        dirForBagResults = dirForSequenceResults + bagInSeqSubdir + "/" + within_bagdir_sub_dir
 
         interpolation_traj_dir = dirForBagResults
         interpolatedGtDirs.append(interpolation_traj_dir)
