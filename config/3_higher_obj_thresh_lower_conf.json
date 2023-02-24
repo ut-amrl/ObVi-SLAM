@@ -1,7 +1,7 @@
 {
     "config": {
         "config_schema_version": 3,
-        "config_version_id": "3_higher_obj_threshold",
+        "config_version_id": "3_higher_obj_thresh_lower_conf",
         "visual_feature_params": {
             "reprojection_error_std_dev": 2.0,
             "min_visual_feature_parallax_pixel_requirement": 5.0,
@@ -260,7 +260,7 @@
                 "min_observations_for_local_est": 3,
                 "min_observations": 10,
                 "discard_candidate_after_num_frames": "40",
-                "min_bb_confidence": 2.9999999999999999e-01,
+                "min_bb_confidence": 0.2,
                 "required_min_conf_for_initialization": 0.0,
                 "min_overlapping_features_for_match": 3.0,
                 "feature_validity_window": "20",
