@@ -17,7 +17,7 @@ util::BoostHashMap<pose::Timestamp, FrameId> getFramesForRequiredStamps(
   util::BoostHashMap<pose::Timestamp, FrameId> required_frames_by_stamp;
   std::sort(sorted_nodes_with_stamps.begin(),
             sorted_nodes_with_stamps.end(),
-            sort_timestamp_and_node_by_stamp());
+            sort_timestamp_and_assoc_data_by_stamp<FrameId>());
 
   size_t index_next_required_timestamp = 0;
   size_t next_node_and_timestamp = 0;
