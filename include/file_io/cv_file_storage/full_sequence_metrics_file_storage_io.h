@@ -76,12 +76,11 @@ class SerializableTrajectoryMetrics
        << SerializableMap<
               int,
               SerializableInt,
-              std::vector<std::pair<double, double>>,
-              SerializableVector<std::pair<double, double>,
-                                 SerializablePair<double,
-                                                  SerializableDouble,
-                                                  double,
-                                                  SerializableDouble>>>(
+              std::pair<std::vector<double>, std::vector<double>>,
+              SerializablePair<std::vector<double>,
+                               SerializableVector<double, SerializableDouble>,
+                               std::vector<double>,
+                               SerializableVector<double, SerializableDouble>>>(
               data_.waypoint_deviations_);
     fs << kAllTranslationDeviationsLabel
        << SerializableVector<double, SerializableDouble>(
@@ -94,14 +93,14 @@ class SerializableTrajectoryMetrics
   }
 
   virtual void read(const cv::FileNode &node) override {
-    SerializableMap<int,
-                    SerializableInt,
-                    std::vector<std::pair<double, double>>,
-                    SerializableVector<std::pair<double, double>,
-                                       SerializablePair<double,
-                                                        SerializableDouble,
-                                                        double,
-                                                        SerializableDouble>>>
+    SerializableMap<
+        int,
+        SerializableInt,
+        std::pair<std::vector<double>, std::vector<double>>,
+        SerializablePair<std::vector<double>,
+                         SerializableVector<double, SerializableDouble>,
+                         std::vector<double>,
+                         SerializableVector<double, SerializableDouble>>>
         ser_waypoint_deviations;
     node[kWaypointDeviationsLabel] >> ser_waypoint_deviations;
     data_.waypoint_deviations_ = ser_waypoint_deviations.getEntry();

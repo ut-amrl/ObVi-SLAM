@@ -17,10 +17,11 @@ namespace vslam_types_refactor {
 
 // TODO want to move this to metrics class?
 struct RawWaypointConsistencyResults {
-  std::unordered_map<WaypointId, std::vector<double>>
-      centroid_deviations_by_waypoint_;
-  std::unordered_map<WaypointId, std::vector<double>>
-      orientation_deviations_by_waypoint_;
+  std::unordered_map<WaypointId, std::vector<std::vector<double>>>
+      centroid_deviations_by_waypoint_by_trajectory_  ;
+  std::unordered_map<WaypointId, std::vector<std::vector<double>>>
+      orientation_deviations_by_waypoint_by_trajectory_;
+  // TODO how to handle lost nodes
 };
 
 ATEResults combineSingleTrajectoryResults(
@@ -34,17 +35,8 @@ ATEResults generateATEforRotAndTranslForSyncedAlignedTrajectories(
 
 RawWaypointConsistencyResults computeWaypointConsistencyResults(
     const std::vector<std::vector<WaypointInfo>> &waypoints_by_trajectory,
-    const std::vector<util::BoostHashMap<pose::Timestamp, FrameId>>
-        &poses_by_timestamp_by_trajectory,
-    const std::vector<std::unordered_map<FrameId, Pose3D<double>>>
-        &poses_by_frame_by_trajectory);
-
-RawWaypointConsistencyResults
-computeWaypointConsistencyResultsForFrameAssociatedWaypoints(
-    const std::vector<std::vector<AssociatedWaypointInfo>>
-        &waypoints_by_trajectory,
-    const std::vector<std::unordered_map<FrameId, Pose3D<double>>>
-        &poses_by_frame_by_trajectory);
+    const std::vector<util::BoostHashMap<pose::Timestamp, Pose3D<double>>>
+        &poses_by_timestamp_by_trajectory);
 
 Pose3D<double> getMeanPose(const std::vector<Pose3D<double>> &poses);
 

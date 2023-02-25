@@ -83,11 +83,32 @@ FullSequenceMetrics computeMetrics(
         std::vector<std::pair<pose::Timestamp, std::optional<Pose3D<double>>>>>
         &comparison_trajectories_rel_baselink,
     const std::vector<std::vector<std::pair<pose::Timestamp, Pose3D<double>>>>
-        &interp_gt_trajectories_rel_baselink) {  // TODO modify to take in
-                                                 // waypoint info
-
+        &interp_gt_trajectories_rel_baselink,
+    const std::vector<std::vector<WaypointInfo>> &waypoint_info_by_trajectory) {
   FullSequenceMetrics full_metrics;
   std::vector<ATEResults> single_traj_ate_results;
+
+  std::vector<util::BoostHashMap<pose::Timestamp, Pose3D<double>>>
+      poses_by_timestamp_by_trajectory;
+  for (size_t traj_num = 0;
+       traj_num < comparison_trajectories_rel_baselink.size();
+       traj_num++) {
+    util::BoostHashMap<pose::Timestamp, Pose3D<double>> poses_by_timestamp;
+    for (const std::pair<pose::Timestamp, std::optional<Pose3D<double>>>
+             &timestamp_and_pose :
+         comparison_trajectories_rel_baselink.at(traj_num)) {
+      if (timestamp_and_pose.second.has_value()) {
+        poses_by_timestamp[timestamp_and_pose.first] =
+            timestamp_and_pose.second.value();
+      }
+    }
+    poses_by_timestamp_by_trajectory.emplace_back(poses_by_timestamp);
+  }
+
+  RawWaypointConsistencyResults raw_consistency_results =
+      computeWaypointConsistencyResults(waypoint_info_by_trajectory,
+                                        poses_by_timestamp_by_trajectory);
+
   for (size_t traj_num = 0;
        traj_num < comparison_trajectories_rel_baselink.size();
        traj_num++) {
@@ -113,14 +134,66 @@ FullSequenceMetrics computeMetrics(
     TrajectoryMetrics single_traj_metrics;
     single_traj_metrics.ate_results_ = traj_ate_results;
     single_traj_ate_results.emplace_back(traj_ate_results);
+
+    for (const auto &waypoint_with_centroid_dev_by_trajectory :
+         raw_consistency_results
+             .centroid_deviations_by_waypoint_by_trajectory_) {
+      WaypointId waypoint = waypoint_with_centroid_dev_by_trajectory.first;
+      std::vector<double> centroid_devs_for_waypoint_for_trajectory =
+          waypoint_with_centroid_dev_by_trajectory.second.at(traj_num);
+      std::vector<double> orientation_devs_for_trajectory =
+          raw_consistency_results
+              .orientation_deviations_by_waypoint_by_trajectory_.at(waypoint)
+              .at(traj_num);
+      single_traj_metrics.waypoint_deviations_[waypoint] =
+          std::make_pair(centroid_devs_for_waypoint_for_trajectory,
+                         orientation_devs_for_trajectory);
+      single_traj_metrics.all_rotation_deviations_.insert(
+          single_traj_metrics.all_rotation_deviations_.end(),
+          orientation_devs_for_trajectory.begin(),
+          orientation_devs_for_trajectory.end());
+      single_traj_metrics.all_translation_deviations_.insert(
+          single_traj_metrics.all_translation_deviations_.end(),
+          centroid_devs_for_waypoint_for_trajectory.begin(),
+          centroid_devs_for_waypoint_for_trajectory.end());
+    }
+
     full_metrics.indiv_trajectory_metrics_.emplace_back(single_traj_metrics);
   }
-
-  // TODO compute waypoint consistency here
 
   TrajectoryMetrics sequence_results;
   sequence_results.ate_results_ =
       combineSingleTrajectoryResults(single_traj_ate_results);
+  for (const TrajectoryMetrics &single_traj_metrics :
+       full_metrics.indiv_trajectory_metrics_) {
+    sequence_results.all_translation_deviations_.insert(
+        sequence_results.all_translation_deviations_.end(),
+        single_traj_metrics.all_translation_deviations_.begin(),
+        single_traj_metrics.all_translation_deviations_.end());
+    sequence_results.all_rotation_deviations_.insert(
+        sequence_results.all_rotation_deviations_.end(),
+        single_traj_metrics.all_rotation_deviations_.begin(),
+        single_traj_metrics.all_rotation_deviations_.end());
+
+    for (const auto &waypoint_and_devs :
+         single_traj_metrics.waypoint_deviations_) {
+      std::pair<std::vector<double>, std::vector<double>> all_waypoint_devs =
+          sequence_results.waypoint_deviations_.at(waypoint_and_devs.first);
+      std::vector<double> centroid_devs_for_waypoint = all_waypoint_devs.first;
+      std::vector<double> orientation_devs_for_waypoint =
+          all_waypoint_devs.second;
+      centroid_devs_for_waypoint.insert(centroid_devs_for_waypoint.end(),
+                                        waypoint_and_devs.second.first.begin(),
+                                        waypoint_and_devs.second.first.end());
+      orientation_devs_for_waypoint.insert(
+          orientation_devs_for_waypoint.end(),
+          waypoint_and_devs.second.second.begin(),
+          waypoint_and_devs.second.second.end());
+      sequence_results.waypoint_deviations_[waypoint_and_devs.first] =
+          std::make_pair(centroid_devs_for_waypoint,
+                         orientation_devs_for_waypoint);
+    }
+  }
 
   full_metrics.sequence_metrics_ = sequence_results;
   return full_metrics;
@@ -298,7 +371,7 @@ int main(int argc, char **argv) {
     }
 
     std::vector<std::pair<pose::Timestamp, std::optional<Pose3D<double>>>>
-        coomparison_traj_rel_bl_origin_start;
+        comparison_traj_rel_bl_origin_start;
 
     Pose3D<double> transform_traj_to_origin_with;
     for (const std::pair<pose::Timestamp, std::optional<Pose3D<double>>>
@@ -316,12 +389,12 @@ int main(int argc, char **argv) {
         pose_to_use = combinePoses(transform_traj_to_origin_with,
                                    pos_rel_bl.second.value());
       }
-      coomparison_traj_rel_bl_origin_start.emplace_back(
+      comparison_traj_rel_bl_origin_start.emplace_back(
           std::make_pair(pos_rel_bl.first, pose_to_use));
     }
 
     comparison_trajectories_rel_baselink.emplace_back(
-        coomparison_traj_rel_bl_origin_start);
+        comparison_traj_rel_bl_origin_start);
   }
 
   // Read in LeGO-LOAM trajectories
@@ -358,9 +431,17 @@ int main(int argc, char **argv) {
         interp_gt_traj_rel_bl_origin_start);
   }
 
+  // TODO Read this if provided
+  std::vector<std::vector<WaypointInfo>> waypoint_info_by_trajectory;
+  bool waypoints_not_provided = true;  // TODO set
+  if (waypoints_not_provided) {
+    waypoint_info_by_trajectory.resize(
+        comparison_trajectories_rel_baselink.size());
+  }
   FullSequenceMetrics full_metrics =
       computeMetrics(comparison_trajectories_rel_baselink,
-                     interp_gt_trajectories_rel_baselink);
+                     interp_gt_trajectories_rel_baselink,
+                     waypoint_info_by_trajectory);
 
   writeFullSequenceMetrics(FLAGS_metrics_out_file, full_metrics);
 }

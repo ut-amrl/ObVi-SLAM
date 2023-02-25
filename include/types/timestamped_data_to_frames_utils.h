@@ -12,10 +12,12 @@
 namespace vslam_types_refactor {
 typedef int WaypointId;
 
-struct sort_timestamp_and_node_by_stamp {
-  inline bool operator()(
-      const std::pair<pose::Timestamp, FrameId> &timestamp_and_node_id1,
-      const std::pair<pose::Timestamp, FrameId> &timestamp_and_node_id2) {
+template <typename TimestampAssocData>
+struct sort_timestamp_and_assoc_data_by_stamp {
+  inline bool operator()(const std::pair<pose::Timestamp, TimestampAssocData>
+                             &timestamp_and_node_id1,
+                         const std::pair<pose::Timestamp, TimestampAssocData>
+                             &timestamp_and_node_id2) {
     return pose::timestamp_sort()(timestamp_and_node_id1.first,
                                   timestamp_and_node_id2.first);
   }
