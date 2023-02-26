@@ -120,6 +120,10 @@ target_link_libraries(trajectory_metrics_generator ut_vslam ${LIBS})
 ROSBUILD_ADD_EXECUTABLE(utvslam_out_to_poses_by_timestamp src/evaluation/trajectory_formatting/utvslam_out_to_poses_by_timestamp.cpp)
 target_link_libraries(utvslam_out_to_poses_by_timestamp ut_vslam ${LIBS})
 
+ROSBUILD_ADD_EXECUTABLE(check_obj_detection_freq src/testing/check_obj_detection_freq.cpp)
+target_link_libraries(check_obj_detection_freq ut_vslam ${LIBS})
+
+
 
 IF (GENERATE_UNITTESTS)
     MESSAGE("Adding test executable")
