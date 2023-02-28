@@ -1,6 +1,6 @@
 #!/bin/bash
 
-bagname="1668019589"
+bagname="1676767081"
 # CALIB_DIR="/robodata/taijing/object-slam/calibration/husky_zed_resolution_2_scale_0_5/"
 CALIB_DIR="/robodata/taijing/object-slam/calibration/husky_zed_resolution_1_scale_0_5/"
 SLAM_DIR="/home/tiejean/projects/ut_semantic_vslam/"
@@ -43,6 +43,7 @@ echo "ORB  directory: "$ORB_DIR
 echo "ORB  Output directory: "$ORB_OUT_DIR
 echo "SLAM Intput directory: "$VSLAM_IN_DIR
 echo "SLAM Intput directory (Sparse): "$VSLAM_IN_SPARSE_DIR
+echo "Debug Output directory: "$DEBUG_OUT_DIR
 
 params_config_file=config/3.json
 source ~/.bashrc

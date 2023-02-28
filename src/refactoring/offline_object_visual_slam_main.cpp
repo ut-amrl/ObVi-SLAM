@@ -716,6 +716,7 @@ class VSLAMDebugger {
   VSLAMDebugger(const std::string &root_directory,
                 const std::vector<vtr::CameraId> &cam_ids)
       : root_directory_(root_directory) {
+    LOG(INFO) << "Initializing VSLAMDebugger on " << root_directory;
     SetupOutputDirectory(root_directory_.string());
 
     fs::path output_image_directory = root_directory_ / "images";

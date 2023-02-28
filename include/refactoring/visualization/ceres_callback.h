@@ -364,8 +364,8 @@ class CeresCallback : public ceres::IterationCallback {
     std::vector<std::pair<FrameId, FrameId>> frame_id1s_and_frame_id2s;
     if (!isConsecutivePosesStable(frame_ids_and_poses,
                                   frame_id1s_and_frame_id2s)) {
-      LOG(WARNING)
-          << "Detect jumps in trajectory during optimization between frames";
+      // LOG(WARNING)
+      //     << "Detect jumps in trajectory during optimization between frames";
       logger_.log(max_frame_id_,
                   summary.iteration,
                   frame_ids_and_poses,

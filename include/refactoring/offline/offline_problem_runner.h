@@ -281,6 +281,7 @@ class OfflineProblemRunner {
           //   }
 
           // Phase I
+          LOG(INFO) << "Starting Phase I";
           std::unordered_map<ceres::ResidualBlockId,
                              std::pair<vslam_types_refactor::FactorType,
                                        vslam_types_refactor::FeatureFactorId>>
@@ -290,6 +291,8 @@ class OfflineProblemRunner {
                       residual_params_,
                       pose_graph,
                       &problem);
+          std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph>
+              pose_graph_copy = pose_graph->makeDeepCopy();
           visualization_callback_(
               problem_data,
               pose_graph,
@@ -311,6 +314,8 @@ class OfflineProblemRunner {
           }
           // Phase II
           // use map sort block ids by their corresponding residuals
+          LOG(INFO) << "Starting Phase II";
+          pose_graph->setValuesFromAnotherPoseGraph(pose_graph_copy);
           std::map<double, ceres::ResidualBlockId, std::greater<double>>
               ordered_residuals_and_block_ids;
           for (const auto &block_id_and_residual : *block_ids_and_residuals) {
@@ -353,6 +358,11 @@ class OfflineProblemRunner {
                                                 solver_params);
           if (!optim_success) {
             return false;
+          }
+          if (!isConsecutivePosesStable_(
+                  pose_graph, start_frame_id, end_frame_id)) {
+            LOG(ERROR) << "Detecting jumps in poses; Reverting...";
+            pose_graph->setValuesFromAnotherPoseGraph(pose_graph_copy);
           }
           visualization_callback_(
               problem_data,
@@ -422,6 +432,44 @@ class OfflineProblemRunner {
   std::function<pose_graph_optimization::OptimizationSolverParams(
       const FrameId &)>
       solver_params_provider_func_;
+
+  bool isConsecutivePosesStable_(
+      const std::shared_ptr<PoseGraphType> &pose_graph,
+      const FrameId &min_frame_id,
+      const FrameId &max_frame_id) {
+    if (max_frame_id == min_frame_id) {
+      return true;
+    }
+    // LOG(INFO) << "insdie isConsecutivePosesStable_";
+    // exit(0);
+    const double kConsecutiveTranslTol = 1.0;
+    const double kConsecutiveOrientTol = 3.14;
+    for (FrameId frame_id = min_frame_id + 1; frame_id <= max_frame_id;
+         ++frame_id) {
+      std::optional<RawPose3d<double>> prev_raw_robot_pose =
+          pose_graph->getRobotPose(frame_id - 1);
+      std::optional<RawPose3d<double>> raw_robot_pose =
+          pose_graph->getRobotPose(frame_id);
+      // TODO unsure of how to handle the checks here. Techinically this case
+      // should not happen.
+      if (!prev_raw_robot_pose.has_value() || !raw_robot_pose.has_value()) {
+        LOG(ERROR) << "Couldn't find pose for frame " << frame_id
+                   << " in pose graph";
+        continue;
+      }
+      Pose3D<double> prev_robot_pose =
+          convertToPose3D(prev_raw_robot_pose.value());
+      Pose3D<double> robot_pose = convertToPose3D(raw_robot_pose.value());
+      Pose3D<double> relative_pose =
+          getPose2RelativeToPose1(prev_robot_pose, robot_pose);
+      if (relative_pose.transl_.norm() > kConsecutiveTranslTol ||
+          std::fabs(relative_pose.orientation_.angle()) >
+              kConsecutiveOrientTol) {
+        return false;
+      }
+    }
+    return true;
+  }
 };
 }  // namespace vslam_types_refactor
 

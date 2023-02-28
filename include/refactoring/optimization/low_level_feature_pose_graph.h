@@ -31,6 +31,10 @@ struct RobotPoseNode {
     RawPose3d<double> pose_copy(*pose_);
     return RobotPoseNode(pose_copy);
   }
+
+  void setRobotPoseValue(const RobotPoseNode &other) {
+    *pose_ = *(other.pose_);
+  }
 };
 
 struct VisualFeatureNode {
@@ -45,6 +49,10 @@ struct VisualFeatureNode {
   VisualFeatureNode makeDeepCopy() const {
     Position3d<double> position_copy(*position_);
     return VisualFeatureNode(position_copy);
+  }
+
+  void setVisualFeatureValue(const VisualFeatureNode &other) {
+    *position_ = *(other.position_);
   }
 };
 
@@ -307,6 +315,16 @@ class LowLevelFeaturePoseGraph {
     return true;
   };
 
+  void setRobotPosePtrs(
+      const std::unordered_map<FrameId, RobotPoseNode> &robot_poses) {
+    robot_poses_ = robot_poses;
+  }
+
+  void getRobotPosePtrs(
+      std::unordered_map<FrameId, RobotPoseNode> &robot_poses) {
+    robot_poses = robot_poses_;
+  }
+
  protected:
   /**
    * Extrinsics for each camera.
@@ -382,6 +400,17 @@ class ReprojectionLowLevelFeaturePoseGraph
     // TODO should we check if a feature with this id already exists?
     feature_positions_[feature_id] = VisualFeatureNode(feature_position);
     visual_factors_by_feature_[feature_id] = {};
+  }
+
+  void setFeaturePositionPtrs(
+      const std::unordered_map<FeatureId, VisualFeatureNode>
+          &feature_positions) {
+    feature_positions_ = feature_positions;
+  }
+
+  void getFeaturePositionPtrs(
+      std::unordered_map<FeatureId, VisualFeatureNode> &feature_positions) {
+    feature_positions = feature_positions_;
   }
 
  protected:

@@ -124,6 +124,10 @@ getImagesFromRosbag(
         raw_node_id_and_timestamp.nano_seconds_)] =
         raw_node_id_and_timestamp.node_id_;
   }
+  LOG(INFO) << "rosbag_file_name: " << rosbag_file_name;
+  LOG(INFO) << "nodes_by_timestamp_file: " << nodes_by_timestamp_file;
+  LOG(INFO) << "nodes_for_timestamps_map size: "
+            << nodes_for_timestamps_map.size();
 
   // Read the images
   rosbag::Bag bag;
@@ -134,6 +138,7 @@ getImagesFromRosbag(
     topics.emplace_back(camera_topic_and_id.first);
   }
 
+  LOG(INFO) << "topics size: " << topics.size();
   rosbag::View view(bag, rosbag::TopicQuery(topics));
 
   std::unordered_map<vslam_types_refactor::FrameId,
