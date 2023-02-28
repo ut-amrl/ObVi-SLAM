@@ -32,8 +32,12 @@ struct RobotPoseNode {
     return RobotPoseNode(pose_copy);
   }
 
-  void setRobotPoseValue(const RobotPoseNode &other) {
-    *pose_ = *(other.pose_);
+  void updateRobotPoseParams(const RawPose3d<double> &pose) {
+    pose_->topRows(6) = pose;
+  }
+
+  void updateRobotPoseParams(const RawPose3dPtr<double> &pose_ptr) {
+    updateRobotPoseParams(*pose_ptr);
   }
 };
 
@@ -51,8 +55,12 @@ struct VisualFeatureNode {
     return VisualFeatureNode(position_copy);
   }
 
-  void setVisualFeatureValue(const VisualFeatureNode &other) {
-    *position_ = *(other.position_);
+  void updateVisualPositionParams(const Position3d<double> &position) {
+    position_->topRows(3) = position;
+  }
+
+  void updateVisualPositionParams(const Position3dPtr<double> &position_ptr) {
+    updateVisualPositionParams(*position_ptr);
   }
 };
 

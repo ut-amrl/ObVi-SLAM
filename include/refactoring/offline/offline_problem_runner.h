@@ -133,6 +133,13 @@ class OfflineProblemRunner {
     }
 
     pose_graph_optimizer::OptimizationScopeParams optimization_scope_params;
+    optimization_scope_params.allow_reversion_after_dectecting_jumps_ =
+        optimization_factors_enabled_params
+            .allow_reversion_after_dectecting_jumps_;
+    optimization_scope_params.consecutive_pose_transl_tol_ =
+        optimization_factors_enabled_params.consecutive_pose_transl_tol_;
+    optimization_scope_params.consecutive_pose_orient_tol_ =
+        optimization_factors_enabled_params.consecutive_pose_orient_tol_;
     optimization_scope_params.fix_poses_ =
         optimization_factors_enabled_params.fix_poses_;
     optimization_scope_params.fix_objects_ =
@@ -360,8 +367,12 @@ class OfflineProblemRunner {
             return false;
           }
           if (!isConsecutivePosesStable_(
-                  pose_graph, start_frame_id, end_frame_id)) {
-            LOG(ERROR) << "Detecting jumps in poses; Reverting...";
+                  pose_graph,
+                  optimization_scope_params.min_frame_id_,
+                  optimization_scope_params.max_frame_id_,
+                  optimization_scope_params.consecutive_pose_transl_tol_,
+                  optimization_scope_params.consecutive_pose_orient_tol_)) {
+            LOG(WARNING) << "Detecting jumps after optimization. Reverting...";
             pose_graph->setValuesFromAnotherPoseGraph(pose_graph_copy);
           }
           visualization_callback_(
@@ -436,14 +447,12 @@ class OfflineProblemRunner {
   bool isConsecutivePosesStable_(
       const std::shared_ptr<PoseGraphType> &pose_graph,
       const FrameId &min_frame_id,
-      const FrameId &max_frame_id) {
+      const FrameId &max_frame_id,
+      const double kConsecutiveTranslTol,
+      const double kConsecutiveOrientTol) {
     if (max_frame_id == min_frame_id) {
       return true;
     }
-    // LOG(INFO) << "insdie isConsecutivePosesStable_";
-    // exit(0);
-    const double kConsecutiveTranslTol = 1.0;
-    const double kConsecutiveOrientTol = 3.14;
     for (FrameId frame_id = min_frame_id + 1; frame_id <= max_frame_id;
          ++frame_id) {
       std::optional<RawPose3d<double>> prev_raw_robot_pose =

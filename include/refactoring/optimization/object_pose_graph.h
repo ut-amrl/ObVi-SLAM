@@ -75,17 +75,13 @@ struct EllipsoidEstimateNode {
       updatePoseData(*pose_ptr);
 }
 
-  void updateEllipsoidParams(const RawEllipsoidPtr<double> &ellipsoid_ptr) {
+void updateEllipsoidParams(const RawEllipsoidPtr<double> &ellipsoid_ptr) {
   updateEllipsoidParams(*ellipsoid_ptr);
 }
 
 EllipsoidEstimateNode makeDeepCopy() const {
   RawEllipsoid<double> ellipsoid_copy(*ellipsoid_);
   return EllipsoidEstimateNode(ellipsoid_copy);
-}
-
-void setEllipsoidValue(const EllipsoidEstimateNode &other) {
-  *ellipsoid_ = *(other.ellipsoid_);
 }
 };  // namespace vslam_types_refactor
 
@@ -647,19 +643,20 @@ class ObjectAndReprojectionFeaturePoseGraph
     std::unordered_map<ObjectId, EllipsoidEstimateNode> ellipsoid_estimates;
     pose_graph->getEllipsoidEstimatePtrs(ellipsoid_estimates);
     for (const auto &ellipsoid_est : ellipsoid_estimates) {
-      this->ellipsoid_estimates_[ellipsoid_est.first].setEllipsoidValue(
-          ellipsoid_est.second);
+      this->ellipsoid_estimates_[ellipsoid_est.first].updateEllipsoidParams(
+          ellipsoid_est.second.ellipsoid_);
     }
     std::unordered_map<FrameId, RobotPoseNode> robot_poses;
     pose_graph->getRobotPosePtrs(robot_poses);
     for (const auto &robot_pose : robot_poses) {
-      this->robot_poses_[robot_pose.first].setRobotPoseValue(robot_pose.second);
+      this->robot_poses_[robot_pose.first].updateRobotPoseParams(
+          robot_pose.second.pose_);
     }
     std::unordered_map<FeatureId, VisualFeatureNode> feature_positions;
     pose_graph->getFeaturePositionPtrs(feature_positions);
     for (const auto &feature_position : feature_positions) {
-      this->feature_positions_[feature_position.first].setVisualFeatureValue(
-          feature_position.second);
+      this->feature_positions_[feature_position.first]
+          .updateVisualPositionParams(feature_position.second.position_);
     }
   }
 
@@ -694,9 +691,6 @@ class ObjectAndReprojectionFeaturePoseGraph
     // ObjectAndReprojectionFeaturePoseGraph::feature_positions_ =
     //     feature_positions_copy;
     return copy;
-
-    // TODO verify that everything is copied appropriately such that
-    // modifications to the copy don't affect the original
   }
 
  protected:

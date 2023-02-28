@@ -45,7 +45,7 @@ echo "SLAM Intput directory: "$VSLAM_IN_DIR
 echo "SLAM Intput directory (Sparse): "$VSLAM_IN_SPARSE_DIR
 echo "Debug Output directory: "$DEBUG_OUT_DIR
 
-params_config_file=config/3.json
+params_config_file=config/4.json
 source ~/.bashrc
 rosparam set /use_sim_time false
 
