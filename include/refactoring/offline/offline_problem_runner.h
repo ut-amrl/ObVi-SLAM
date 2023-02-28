@@ -119,7 +119,8 @@ class OfflineProblemRunner {
       const pose_graph_optimizer::OptimizationFactorsEnabledParams
           &optimization_factors_enabled_params,
       OutputProblemData &output_problem_data,
-      const OptimTypeEnum &optim_type = OptimTypeEnum::SLIDING_WINDOW) {
+      const OptimTypeEnum &optim_type =
+          OptimTypeEnum::TWOPHASE_SLIDING_WINDOW) {
     ceres::Problem problem;
     std::shared_ptr<PoseGraphType> pose_graph;
     pose_graph_creator_(problem_data, pose_graph);

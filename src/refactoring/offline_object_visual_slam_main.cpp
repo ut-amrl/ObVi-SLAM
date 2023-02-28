@@ -711,6 +711,8 @@ class VSLAMFrameDebugger {
 
 class VSLAMDebugger {
  public:
+  VSLAMDebugger() {}
+
   VSLAMDebugger(const std::string &root_directory,
                 const std::vector<vtr::CameraId> &cam_ids)
       : root_directory_(root_directory) {
@@ -1070,7 +1072,7 @@ class VSLAMDebugger {
 };
 
 // TODO read from user specified input
-VSLAMDebugger debugger(FLAGS_vslam_debugger_directory, {1, 2});
+VSLAMDebugger debugger;
 
 std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
 readCameraIntrinsicsByCameraFromFile(const std::string &file_name) {
@@ -1619,6 +1621,7 @@ void visualizationStub(
 int main(int argc, char **argv) {
   google::InitGoogleLogging(argv[0]);
   google::ParseCommandLineFlags(&argc, &argv, true);
+  debugger = VSLAMDebugger(FLAGS_vslam_debugger_directory, {1, 2});
 
   if (FLAGS_logs_directory.empty()) {
     FLAGS_logtostderr = true;  // Don't log to disk - log to terminal
