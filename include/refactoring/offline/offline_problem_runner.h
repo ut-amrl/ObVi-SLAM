@@ -102,6 +102,13 @@ class OfflineProblemRunner {
     }
 
     pose_graph_optimizer::OptimizationScopeParams optimization_scope_params;
+    optimization_scope_params.allow_reversion_after_dectecting_jumps_ =
+        optimization_factors_enabled_params
+            .allow_reversion_after_dectecting_jumps_;
+    optimization_scope_params.consecutive_pose_transl_tol_ =
+        optimization_factors_enabled_params.consecutive_pose_transl_tol_;
+    optimization_scope_params.consecutive_pose_orient_tol_ =
+        optimization_factors_enabled_params.consecutive_pose_orient_tol_;
     optimization_scope_params.fix_poses_ =
         optimization_factors_enabled_params.fix_poses_;
     optimization_scope_params.fix_objects_ =
@@ -144,7 +151,8 @@ class OfflineProblemRunner {
       FrameId start_opt_with_frame = window_provider_func_(next_frame_id);
       optimization_scope_params.min_frame_id_ = start_opt_with_frame;
       optimization_scope_params.max_frame_id_ = next_frame_id;
-      frame_data_adder_(problem_data, pose_graph, start_opt_with_frame, next_frame_id);
+      frame_data_adder_(
+          problem_data, pose_graph, start_opt_with_frame, next_frame_id);
       pose_graph_optimization::OptimizationSolverParams solver_params =
           solver_params_provider_func_(next_frame_id);
 
@@ -158,7 +166,8 @@ class OfflineProblemRunner {
                                                     residual_params_,
                                                     pose_graph,
                                                     &problem);
-
+      std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> pose_graph_copy =
+          pose_graph->makeDeepCopy();
       visualization_callback_(problem_data,
                               pose_graph,
                               start_opt_with_frame,
@@ -180,7 +189,10 @@ class OfflineProblemRunner {
                    << next_frame_id;
         return false;
       }
+      // Phase II
       if (solver_params.feature_outlier_percentage > 0) {
+        // revert back to the old pose graph for Phase II optim
+        pose_graph->setValuesFromAnotherPoseGraph(pose_graph_copy);
         // use map sort block ids by their corresponding residuals
         std::map<double, ceres::ResidualBlockId, std::greater<double>>
             ordered_residuals_and_block_ids;
@@ -220,6 +232,15 @@ class OfflineProblemRunner {
                      << next_frame_id;
           return false;
         }
+      }
+      if (!isConsecutivePosesStable_(
+              pose_graph,
+              optimization_scope_params.min_frame_id_,
+              optimization_scope_params.max_frame_id_,
+              optimization_scope_params.consecutive_pose_transl_tol_,
+              optimization_scope_params.consecutive_pose_orient_tol_)) {
+        LOG(WARNING) << "Detecting jumps after optimization. Reverting...";
+        pose_graph->setValuesFromAnotherPoseGraph(pose_graph_copy);
       }
 
       visualization_callback_(problem_data,
@@ -284,6 +305,42 @@ class OfflineProblemRunner {
   std::function<pose_graph_optimization::OptimizationSolverParams(
       const FrameId &)>
       solver_params_provider_func_;
+
+  bool isConsecutivePosesStable_(
+      const std::shared_ptr<PoseGraphType> &pose_graph,
+      const FrameId &min_frame_id,
+      const FrameId &max_frame_id,
+      const double kConsecutiveTranslTol,
+      const double kConsecutiveOrientTol) {
+    if (max_frame_id == min_frame_id) {
+      return true;
+    }
+    for (FrameId frame_id = min_frame_id + 1; frame_id <= max_frame_id;
+         ++frame_id) {
+      std::optional<RawPose3d<double>> prev_raw_robot_pose =
+          pose_graph->getRobotPose(frame_id - 1);
+      std::optional<RawPose3d<double>> raw_robot_pose =
+          pose_graph->getRobotPose(frame_id);
+      // TODO unsure of how to handle the checks here. Techinically this case
+      // should not happen.
+      if (!prev_raw_robot_pose.has_value() || !raw_robot_pose.has_value()) {
+        LOG(ERROR) << "Couldn't find pose for frame " << frame_id
+                   << " in pose graph";
+        continue;
+      }
+      Pose3D<double> prev_robot_pose =
+          convertToPose3D(prev_raw_robot_pose.value());
+      Pose3D<double> robot_pose = convertToPose3D(raw_robot_pose.value());
+      Pose3D<double> relative_pose =
+          getPose2RelativeToPose1(prev_robot_pose, robot_pose);
+      if (relative_pose.transl_.norm() > kConsecutiveTranslTol ||
+          std::fabs(relative_pose.orientation_.angle()) >
+              kConsecutiveOrientTol) {
+        return false;
+      }
+    }
+    return true;
+  }
 };
 }  // namespace vslam_types_refactor
 
