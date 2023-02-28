@@ -1,8 +1,8 @@
 #!/bin/bash
 
 bagname="1668019589"
-CALIB_DIR="/robodata/taijing/object-slam/calibration/husky_zed_resolution_2_scale_0_5/"
-# CALIB_DIR="/robodata/taijing/object-slam/calibration/husky_zed_resolution_1_scale_0_5/"
+# CALIB_DIR="/robodata/taijing/object-slam/calibration/husky_zed_resolution_2_scale_0_5/"
+CALIB_DIR="/robodata/taijing/object-slam/calibration/husky_zed_resolution_1_scale_0_5/"
 SLAM_DIR="/home/tiejean/projects/ut_semantic_vslam/"
 ORB_DIR="/home/tiejean/projects/ORB_SLAM2/"
 DATA_DIR="/robodata/taijing/object-slam/vslam/"
@@ -56,6 +56,7 @@ if [[ "$stage" < "1" ]]; then # run ORB_SLAM2
     cd $ORB_DIR
     echo "removing directory "$ORB_OUT_DIR"..."
     rm -rf $ORB_OUT_DIR/*
+    sleep 5
     ./build.sh && ./build_ros.sh
     # (rosrun ORB_SLAM2 Stereo Vocabulary/ORBvoc.txt Examples/Stereo/husky_zed_rectified.yaml false $ORB_OUT_DIR false) &
     (rosrun ORB_SLAM2 Stereo Vocabulary/ORBvoc.txt Examples/Stereo/husky_zed_rectified_high_res.yaml false $ORB_OUT_DIR false) &
@@ -74,11 +75,13 @@ if [[ "$stage" < "2" ]]; then # format vslam_in
     cd $SLAM_DIR
     echo "removing directory "$VSLAM_IN_DIR"..."
     rm -rf $VSLAM_IN_DIR/*
+    sleep 5
     python3 src/data_preprocessing_utils/orb_stereo_reformat_data.py -i $ORB_OUT_DIR -o $VSLAM_IN_DIR 
     make -j4
     ./bin/initialize_traj_and_feats_from_orb_out --raw_data_path $ORB_OUT_DIR --calibration_path $CALIB_DIR --processed_data_path $VSLAM_IN_DIR
     echo "removing directory "$VSLAM_IN_SPARSE_DIR"..."
     rm -rf $VSLAM_IN_SPARSE_DIR/*
+    sleep 5
    ./bin/orb_trajectory_sparsifier -input_processed_data_path $VSLAM_IN_DIR --output_processed_data_path $VSLAM_IN_SPARSE_DIR --params_config_file $params_config_file
     echo "finish formating vslam_in!"
 fi
@@ -104,11 +107,12 @@ if [[ "$stage" < "3" ]]; then # running slam
     intrinsics_file=${CALIB_DIR}camera_matrix.txt
     extrinsics_file=${CALIB_DIR}extrinsics.txt
     bounding_boxes_by_node_id_file="/home/tiejean/Documents/mnt/vslam/dummy/1668019589/bounding_boxes_by_node.csv" # TODO FIXME
-    poses_by_node_id_file=${VSLAM_IN_SPARSE_DIR}poses/initial_robot_poses_by_node.txt
-    nodes_by_timestamp_file=${VSLAM_IN_SPARSE_DIR}timestamps/node_ids_and_timestamps.txt
+    vslam_in_directory=${VSLAM_IN_SPARSE_DIR}
+    poses_by_node_id_file=${vslam_in_directory}poses/initial_robot_poses_by_node.txt
+    nodes_by_timestamp_file=${vslam_in_directory}timestamps/node_ids_and_timestamps.txt
     rosbag_file=${bagfile}
     long_term_map_output_file=${VSLAM_OUT_DIR}long_term_map.json
-    low_level_feats_dir=${VSLAM_IN_SPARSE_DIR}
+    low_level_feats_dir=${vslam_in_directory}
     debug_output_directory=${DEBUG_OUT_DIR}
 
     echo "\n"
