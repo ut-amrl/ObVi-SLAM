@@ -83,6 +83,36 @@ class RosVisualization {
     return frame_prefix_ + "ellipsoid_" + std::to_string(ellipsoid_idx);
   }
 
+  void publishLines(
+      ros::Publisher &marker_pub,
+      const std_msgs::ColorRGBA &color,
+      const std::vector<std::pair<Position3d<double>, Position3d<double>>>
+          &lines,
+      const int32_t marker_num) {
+    visualization_msgs::Marker marker_msg;
+    marker_msg.id = marker_num;
+    marker_msg.color = color;
+    marker_msg.type = visualization_msgs::Marker::LINE_LIST;
+    marker_msg.scale.x = kTrajectoryScaleX;
+    marker_msg.pose.orientation.w = 1.0;
+
+    for (const std::pair<Position3d<double>, Position3d<double>> &line_seg :
+         lines) {
+      geometry_msgs::Point point1;
+      point1.x = line_seg.first.x();
+      point1.y = line_seg.first.y();
+      point1.z = line_seg.first.z();
+      marker_msg.points.emplace_back(point1);
+
+      geometry_msgs::Point point2;
+      point2.x = line_seg.second.x();
+      point2.y = line_seg.second.y();
+      point2.z = line_seg.second.z();
+      marker_msg.points.emplace_back(point2);
+    }
+    publishMarker(marker_msg, marker_pub);
+  }
+
   std::string createRobotPoseFrameId(
       const FrameId &robot_pose_index,
       const std::string &robot_pose_prefix = "") {
@@ -95,6 +125,10 @@ class RosVisualization {
                                               const std::string &prefix = "") {
     return createRobotPoseFrameId(robot_pose_index, prefix) + "_cam" +
            std::to_string(camera_id);
+  }
+
+  std::string getFrameForLatestPose(const std::string &type_prefix) {
+    return frame_prefix_ + type_prefix + kFrameForLatestNode;
   }
 
   std::pair<std::string, std::string>
@@ -112,10 +146,11 @@ class RosVisualization {
     return std::make_pair(base_name + "/image_raw", base_name + "/camera_info");
   }
 
-  std::pair<std::string, std::string>
+  std::pair<std::pair<std::string, std::string>, std::string>
   createLatestImageAndCameraInfoTopicsForTrajectoryTypeCameraId(
       const CameraId &camera_id,
       const std::string &data_type,
+      const std::string &latest_frame_prefix,
       const std::string &trajectory_type_prefix = "") {
     std::string trajectory_type_prefix_with_slash;
     if (!trajectory_type_prefix.empty()) {
@@ -124,7 +159,10 @@ class RosVisualization {
     std::string base_name = topic_prefix_ + "/" +
                             trajectory_type_prefix_with_slash + "/latest/cam_" +
                             std::to_string(camera_id) + "_" + data_type;
-    return std::make_pair(base_name + "/image_raw", base_name + "/camera_info");
+    std::string frame_name = getFrameForLatestPose(latest_frame_prefix);
+    return std::make_pair(
+        std::make_pair(base_name + "/image_raw", base_name + "/camera_info"),
+        frame_name);
   }
 
   std::string createFeatureCloudTopicName(const PlotType &plot_type) {
@@ -216,9 +254,8 @@ class RosVisualization {
     geometry_msgs::TransformStamped transform;
     transform.header.frame_id = kVizFrame;
     transform.header.stamp = ros::Time::now();
-    transform.child_frame_id = frame_prefix_ +
-                               prefixes_for_plot_type_.at(plot_type) +
-                               kFrameForLatestNode;
+    transform.child_frame_id =
+        getFrameForLatestPose(prefixes_for_plot_type_.at(plot_type));
     transform.transform.translation.x = latest_pose.transl_.x();
     transform.transform.translation.y = latest_pose.transl_.y();
     transform.transform.translation.z = latest_pose.transl_.z();
@@ -425,16 +462,17 @@ class RosVisualization {
             std::to_string(pose_idx));
 
         if (pose_idx == max_frame) {
-          std::pair<std::string, std::string>
+          std::pair<std::pair<std::string, std::string>, std::string>
               last_image_and_camera_info_topics =
                   createLatestImageAndCameraInfoTopicsForTrajectoryTypeCameraId(
                       cam_id_and_intrinsics.first,
                       kBoundingBoxesImageLabel,
+                      prefixes_for_plot_type_.at(plot_type),
                       kAllBoundingBoxesPrefix);
           publishImageWithDetectedBoundingBoxes(
-              last_image_and_camera_info_topics.first,
+              last_image_and_camera_info_topics.first.first,
+              last_image_and_camera_info_topics.first.second,
               last_image_and_camera_info_topics.second,
-              frame_id,
               cam_intrinsics,
               image_height_and_width,
               image,
@@ -699,16 +737,17 @@ class RosVisualization {
                                         std::to_string(pose_idx));
 
           if (pose_idx == max_frame) {
-            std::pair<std::string, std::string>
+            std::pair<std::pair<std::string, std::string>, std::string>
                 last_image_and_camera_info_topics =
                     createLatestImageAndCameraInfoTopicsForTrajectoryTypeCameraId(
                         cam_id_and_extrinsics.first,
                         kBoundingBoxesImageLabel,
+                        trajectory_type_prefix,
                         trajectory_type_prefix);
             publishImageWithBoundingBoxes(
-                last_image_and_camera_info_topics.first,
+                last_image_and_camera_info_topics.first.first,
+                last_image_and_camera_info_topics.first.second,
                 last_image_and_camera_info_topics.second,
-                frame_id,
                 cam_intrinsics,
                 image_height_and_width,
                 image,
@@ -1136,22 +1175,24 @@ class RosVisualization {
       const bool &display_pixels_if_no_image) {
     std::string trajectory_type_prefix =
         prefixes_for_plot_type_.at(trajectory_type);
-    std::pair<std::string, std::string> image_and_camera_info_topics =
-        createLatestImageAndCameraInfoTopicsForTrajectoryTypeCameraId(
-            camera_id, kLowLevelFeatsImageLabel, trajectory_type_prefix);
+    std::pair<std::pair<std::string, std::string>, std::string>
+        image_and_camera_info_topics =
+            createLatestImageAndCameraInfoTopicsForTrajectoryTypeCameraId(
+                camera_id,
+                kLowLevelFeatsImageLabel,
+                trajectory_type_prefix,
+                trajectory_type_prefix);
 
-    std::string frame_id = createCameraPoseFrameIdRelRobot(
-        node_id, camera_id, trajectory_type_prefix);
-
-    publishLatestImageWithReprojectionResiduals(image_and_camera_info_topics,
-                                                frame_id,
-                                                camera_intrinsics,
-                                                observed_pixels,
-                                                projected_pixels,
-                                                image,
-                                                img_height_and_width,
-                                                display_pixels_if_no_image,
-                                                std::to_string(node_id));
+    publishLatestImageWithReprojectionResiduals(
+        image_and_camera_info_topics.first,
+        image_and_camera_info_topics.second,
+        camera_intrinsics,
+        observed_pixels,
+        projected_pixels,
+        image,
+        img_height_and_width,
+        display_pixels_if_no_image,
+        std::to_string(node_id));
   }
 
   void visualizeFrustum(const Pose3D<double> &robot_pose,
@@ -1210,7 +1251,7 @@ class RosVisualization {
 
 //  private:
   const static uint32_t kEllipsoidMarkerPubQueueSize = 1000;
-  const static uint32_t kRobotPoseMarkerPubQueueSize = 1000;
+  const static uint32_t kRobotPoseMarkerPubQueueSize = 7000;
 
   const static uint32_t kCameraInfoQueueSize = 100;
 
@@ -1623,36 +1664,6 @@ class RosVisualization {
 
     intrinsics_pub.publish(cam_info);
     image_pub.publish(image);
-  }
-
-  void publishLines(
-      ros::Publisher &marker_pub,
-      const std_msgs::ColorRGBA &color,
-      const std::vector<std::pair<Position3d<double>, Position3d<double>>>
-          &lines,
-      const int32_t marker_num) {
-    visualization_msgs::Marker marker_msg;
-    marker_msg.id = marker_num;
-    marker_msg.color = color;
-    marker_msg.type = visualization_msgs::Marker::LINE_LIST;
-    marker_msg.scale.x = kTrajectoryScaleX;
-    marker_msg.pose.orientation.w = 1.0;
-
-    for (const std::pair<Position3d<double>, Position3d<double>> &line_seg :
-         lines) {
-      geometry_msgs::Point point1;
-      point1.x = line_seg.first.x();
-      point1.y = line_seg.first.y();
-      point1.z = line_seg.first.z();
-      marker_msg.points.emplace_back(point1);
-
-      geometry_msgs::Point point2;
-      point2.x = line_seg.second.x();
-      point2.y = line_seg.second.y();
-      point2.z = line_seg.second.z();
-      marker_msg.points.emplace_back(point2);
-    }
-    publishMarker(marker_msg, marker_pub);
   }
 
   void publishTrajectory(ros::Publisher &marker_pub,

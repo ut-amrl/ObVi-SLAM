@@ -250,6 +250,9 @@ class PairwiseCovarianceLongTermObjectMapExtractor {
       const std::string &jacobian_output_dir,
       IndependentEllipsoidsLongTermObjectMap<FrontEndObjMapData>
           &long_term_obj_map) {
+    EllipsoidResults prev_run_ellipsoid_results;
+    extractEllipsoidEstimates(pose_graph, prev_run_ellipsoid_results);
+
     std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> pose_graph_copy =
         pose_graph->makeDeepCopy();
     ceres::Problem problem_for_ltm;
@@ -277,7 +280,8 @@ class PairwiseCovarianceLongTermObjectMapExtractor {
 
     EllipsoidResults ellipsoid_results;
     extractEllipsoidEstimates(pose_graph_copy, ellipsoid_results);
-    long_term_obj_map.setEllipsoidResults(ellipsoid_results);
+    long_term_obj_map.setLtmEllipsoidResults(ellipsoid_results);
+    long_term_obj_map.setEllipsoidResults(prev_run_ellipsoid_results);
 
     ceres::Covariance::Options covariance_options;
     covariance_options.num_threads = covariance_extractor_params_.num_threads_;
@@ -443,6 +447,8 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
       const std::string &jacobian_output_dir,
       IndependentEllipsoidsLongTermObjectMap<FrontEndObjMapData>
           &long_term_obj_map) {
+    EllipsoidResults prev_run_ellipsoid_results;
+    extractEllipsoidEstimates(pose_graph, prev_run_ellipsoid_results);
     std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> pose_graph_copy =
         pose_graph->makeDeepCopy();
     ceres::Problem problem_for_ltm;
@@ -470,7 +476,8 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
 
     EllipsoidResults ellipsoid_results;
     extractEllipsoidEstimates(pose_graph_copy, ellipsoid_results);
-    long_term_obj_map.setEllipsoidResults(ellipsoid_results);
+    long_term_obj_map.setLtmEllipsoidResults(ellipsoid_results);
+    long_term_obj_map.setEllipsoidResults(prev_run_ellipsoid_results);
 
     ceres::Covariance::Options covariance_options;
 

@@ -1,17 +1,19 @@
 //
 // Created by amanda on 12/9/22.
 //
-
+#include <base_lib/pose_utils.h>
 #include <file_io/cv_file_storage/config_file_storage_io.h>
 #include <file_io/features_ests_with_id_io.h>
 #include <file_io/file_access_utils.h>
 #include <file_io/node_id_and_timestamp_io.h>
 #include <file_io/pose_3d_with_node_id_io.h>
+#include <file_io/timestamp_io.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 #include <refactoring/configuration/full_ov_slam_config.h>
 #include <refactoring/types/vslam_types_math_util.h>
 #include <ros/ros.h>
+#include <types/timestamped_data_to_frames_utils.h>
 
 #include <experimental/filesystem>
 
@@ -32,6 +34,16 @@ DEFINE_string(
     "Directory that contains trajectory information to sparsify. Should"
     " have the contents that will be there after running unproject_main");
 DEFINE_string(params_config_file, "", "config file containing tunable params");
+DEFINE_string(required_timestamps_file,
+              "",
+              "(Optional) If specified, file containing comma separated "
+              "timestamps (per line) that should be reflected in the output "
+              "file. If the exact timestamp does not exist in the ORB output, "
+              "the closest timestamp will be retained.");
+DEFINE_string(
+    required_stamps_by_node_file,
+    "",
+    "(Optional) If specified, file with node ids for the required timestamps");
 
 namespace {
 const std::string kFeaturesFolderPath = "features/";
@@ -104,7 +116,8 @@ void updateFeatureObsWithNewFrameId(
 std::unordered_map<vtr::FrameId, vtr::FrameId> getSparsifiedFrames(
     const std::vector<std::pair<vtr::FrameId, pose::Pose3d>> &poses,
     const double &max_pose_inc_threshold_transl,
-    const double &max_pose_inc_threshold_rot) {
+    const double &max_pose_inc_threshold_rot,
+    const std::unordered_set<vtr::FrameId> &required_frames) {
   std::unordered_map<vtr::FrameId, vtr::FrameId> old_frame_to_new_frame_mapping;
   old_frame_to_new_frame_mapping[poses.front().first] = 0;
   vtr::FrameId next_new_frame_id = 1;
@@ -118,7 +131,9 @@ std::unordered_map<vtr::FrameId, vtr::FrameId> getSparsifiedFrames(
     if ((relative_since_last_pose.first.norm() >
          max_pose_inc_threshold_transl) ||
         (Eigen::AngleAxisd(relative_since_last_pose.second).angle() >
-         max_pose_inc_threshold_rot)) {
+         max_pose_inc_threshold_rot) ||
+        (required_frames.find(next_candidate_pose.first) !=
+         required_frames.end())) {
       old_frame_to_new_frame_mapping[next_candidate_pose.first] =
           next_new_frame_id;
       next_new_frame_id++;
@@ -184,11 +199,67 @@ int main(int argc, char **argv) {
   std::vector<std::pair<vtr::FrameId, pose::Pose3d>> input_poses_vector;
   file_io::readPose3dsAndNodeIdFromFile(old_poses_file, input_poses_vector);
 
+  std::vector<file_io::NodeIdAndTimestamp> old_node_ids_with_timestamps;
+  file_io::readNodeIdsAndTimestampsFromFile(old_timestamps_file,
+                                            old_node_ids_with_timestamps);
+  util::BoostHashMap<pose::Timestamp, vtr::FrameId>
+      required_stamps_with_old_frame_id;
+  std::unordered_set<vtr::FrameId> required_old_frames;
+
+  std::vector<pose::Timestamp> required_stamps;
+
+  if (!FLAGS_required_timestamps_file.empty()) {
+    file_io::readTimestampsFromFile(FLAGS_required_timestamps_file,
+                                    required_stamps);
+    std::sort(
+        required_stamps.begin(), required_stamps.end(), pose::timestamp_sort());
+    util::BoostHashMap<pose::Timestamp, vtr::FrameId>
+        old_poses_by_timestamp_map;
+    for (const file_io::NodeIdAndTimestamp &old_node_and_timestamp :
+         old_node_ids_with_timestamps) {
+      old_poses_by_timestamp_map[std::make_pair(
+          old_node_and_timestamp.seconds_,
+          old_node_and_timestamp.nano_seconds_)] =
+          old_node_and_timestamp.node_id_;
+    }
+    required_stamps_with_old_frame_id = vtr::getFramesForRequiredStamps(
+        required_stamps, old_poses_by_timestamp_map);
+
+    for (const auto &required_with_old_frame :
+         required_stamps_with_old_frame_id) {
+      required_old_frames.insert(required_with_old_frame.second);
+    }
+  }
+
   std::unordered_map<vtr::FrameId, vtr::FrameId>
       old_frame_to_new_frame_mapping = getSparsifiedFrames(
           input_poses_vector,
           config.sparsifier_params_.max_pose_inc_threshold_transl_,
-          config.sparsifier_params_.max_pose_inc_threshold_rot_);
+          config.sparsifier_params_.max_pose_inc_threshold_rot_,
+          required_old_frames);
+
+  if (!FLAGS_required_stamps_by_node_file.empty()) {
+    if (FLAGS_required_timestamps_file.empty()) {
+      LOG(ERROR) << "Output file for the required stamps by node file was "
+                    "specified, but the required stamps were not";
+      exit(1);
+    }
+    std::vector<file_io::NodeIdAndTimestamp>
+        required_timestamps_with_new_node_ids;
+    for (const pose::Timestamp &required_stamp : required_stamps) {
+      vtr::FrameId old_frame =
+          required_stamps_with_old_frame_id.at(required_stamp);
+      vtr::FrameId new_frame = old_frame_to_new_frame_mapping.at(old_frame);
+      file_io::NodeIdAndTimestamp node_and_stamp;
+      node_and_stamp.node_id_ = new_frame;
+      node_and_stamp.seconds_ = required_stamp.first;
+      node_and_stamp.nano_seconds_ = required_stamp.second;
+      required_timestamps_with_new_node_ids.emplace_back(node_and_stamp);
+    }
+    file_io::writeNodeIdsAndTimestampsToFile(
+        FLAGS_required_stamps_by_node_file,
+        required_timestamps_with_new_node_ids);
+  }
 
   std::vector<std::pair<uint64_t, pose::Pose3d>> new_poses_vector;
   for (const std::pair<vtr::FrameId, pose::Pose3d> &old_frame_id_pose_pair :
@@ -208,9 +279,6 @@ int main(int argc, char **argv) {
   file_io::writeFeatureEstsWithIdToFile(new_feature_ests_file,
                                         input_feature_ests);
 
-  std::vector<file_io::NodeIdAndTimestamp> old_node_ids_with_timestamps;
-  file_io::readNodeIdsAndTimestampsFromFile(old_timestamps_file,
-                                            old_node_ids_with_timestamps);
   std::vector<file_io::NodeIdAndTimestamp> new_node_ids_with_timestamps;
   for (const file_io::NodeIdAndTimestamp &old_node_id_and_timestamp :
        old_node_ids_with_timestamps) {

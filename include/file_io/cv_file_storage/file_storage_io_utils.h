@@ -406,6 +406,35 @@ static void read(
   }
 }
 
+class SerializableInt : public FileStorageSerializable<int> {
+ public:
+  SerializableInt() : FileStorageSerializable<int>() {}
+  SerializableInt(const int &data) : FileStorageSerializable<int>(data) {}
+
+  virtual void write(cv::FileStorage &fs) const override { fs << data_; }
+
+  virtual void read(const cv::FileNode &node) override { node >> data_; }
+
+ protected:
+  using FileStorageSerializable<int>::data_;
+};
+
+static void write(cv::FileStorage &fs,
+                  const std::string &,
+                  const SerializableInt &data) {
+  data.write(fs);
+}
+
+static void read(const cv::FileNode &node,
+                 SerializableInt &data,
+                 const SerializableInt &default_data = SerializableInt()) {
+  if (node.empty()) {
+    data = default_data;
+  } else {
+    data.read(node);
+  }
+}
+
 }  // namespace vslam_types_refactor
 
 #endif  // UT_VSLAM_FILE_STORAGE_IO_UTILS_H

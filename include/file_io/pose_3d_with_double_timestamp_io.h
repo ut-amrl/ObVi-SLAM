@@ -31,7 +31,7 @@ void readPose3DWithDoubleTimestampLine(
   std::vector<double> data;
   while (ss.good()) {
     std::string substr;
-    getline(ss, substr, ',');
+    getline(ss, substr, ' ');
     data.push_back(std::stod(substr));
   }
   lidar_odom_est_data.timestamp_ = data[0];

@@ -568,7 +568,7 @@ bool readPairwiseCovarianceMapFromFile(
     ellipsoid_results.ellipsoids_[ellipsoid_entry.first] =
         ellipsoid_entry.second;
   }
-  map_data->setEllipsoidResults(ellipsoid_results);
+  map_data->setLtmEllipsoidResults(ellipsoid_results);
 
   // Read pairwise ellipsoid covariance
   std::vector<std::pair<
@@ -624,69 +624,73 @@ bool readPairwiseCovarianceMapFromFile(
   return true;
 }
 
-template <typename FrontEndObjMapData>
-void writePairwiseCovarianceMapToFile(
-    const std::shared_ptr<
-        vslam_types_refactor::PairwiseCovarianceLongTermObjectMap<
-            FrontEndObjMapData>> &map_data,
-    const std::string &file_name,
-    const std::function<void(const FrontEndObjMapData &, std::ofstream &)>
-        &front_end_map_data_writer) {
-  std::ofstream file_obj(file_name, std::ios::trunc);
-
-  vslam_types_refactor::EllipsoidResults ellipsoid_results;
-  map_data->getEllipsoidResults(ellipsoid_results);
-
-  // Write ellipsoid results
-  std::vector<std::pair<
-      vslam_types_refactor::ObjectId,
-      std::pair<std::string, vslam_types_refactor::EllipsoidState<double>>>>
-      ellipsoid_states;
-  for (const auto &ellipsoid_entry : ellipsoid_results.ellipsoids_) {
-    ellipsoid_states.push_back(
-        std::make_pair(ellipsoid_entry.first, ellipsoid_entry.second));
-  }
-  writeOneObjectPerLinePrecededByNumObjects<std::pair<
-      vslam_types_refactor::ObjectId,
-      std::pair<std::string, vslam_types_refactor::EllipsoidState<double>>>>(
-      ellipsoid_states, writeEllipsoidResultEntryToFile, file_obj);
-
-  // Write pairwise ellipsoid covariance
-  util::BoostHashMap<
-      std::pair<vslam_types_refactor::ObjectId, vslam_types_refactor::ObjectId>,
-#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
-      Eigen::Matrix<double, 7, 7>>
-#else
-      Eigen::Matrix<double, 9, 9>>
-#endif
-      cov_entries_map = map_data->getPairwiseEllipsoidCovariances();
-  std::vector<std::pair<
-      std::pair<vslam_types_refactor::ObjectId, vslam_types_refactor::ObjectId>,
-#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
-      Eigen::Matrix<double, 7, 7>>>
-#else
-      Eigen::Matrix<double, 9, 9>>>
-#endif
-      pairwise_covariance_entries;
-  for (const auto &cov_entry : cov_entries_map) {
-    pairwise_covariance_entries.emplace_back(
-        std::make_pair(cov_entry.first, cov_entry.second));
-  }
-  writeOneObjectPerLinePrecededByNumObjects<std::pair<
-      std::pair<vslam_types_refactor::ObjectId, vslam_types_refactor::ObjectId>,
-#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
-      Eigen::Matrix<double, 7, 7>>>(pairwise_covariance_entries,
-#else
-      Eigen::Matrix<double, 9, 9>>>(pairwise_covariance_entries,
-#endif
-                                    writePairwiseEllipsoidCovarianceEntryToFile,
-                                    file_obj);
-
-  // Write front end map data
-  FrontEndObjMapData front_end_data;
-  map_data->getFrontEndObjMapData(front_end_data);
-  front_end_map_data_writer(front_end_data, file_obj);
-}
+//// THIS IS PROBABLY BROKEN
+//template <typename FrontEndObjMapData>
+//void writePairwiseCovarianceMapToFile(
+//    const std::shared_ptr<
+//        vslam_types_refactor::PairwiseCovarianceLongTermObjectMap<
+//            FrontEndObjMapData>> &map_data,
+//    const std::string &file_name,
+//    const std::function<void(const FrontEndObjMapData &, std::ofstream &)>
+//        &front_end_map_data_writer) {
+//  std::ofstream file_obj(file_name, std::ios::trunc);
+//
+//  vslam_types_refactor::EllipsoidResults ellipsoid_results;
+//  map_data->getLtmEllipsoidResults(ellipsoid_results);
+//
+//  vslam_types_refactor::EllipsoidResults prev_ellipsoid_results;
+//  map_data->getEllipsoidResults(prev_ellipsoid_results);
+//
+//  // Write ellipsoid results
+//  std::vector<std::pair<
+//      vslam_types_refactor::ObjectId,
+//      std::pair<std::string, vslam_types_refactor::EllipsoidState<double>>>>
+//      ellipsoid_states;
+//  for (const auto &ellipsoid_entry : ellipsoid_results.ellipsoids_) {
+//    ellipsoid_states.push_back(
+//        std::make_pair(ellipsoid_entry.first, ellipsoid_entry.second));
+//  }
+//  writeOneObjectPerLinePrecededByNumObjects<std::pair<
+//      vslam_types_refactor::ObjectId,
+//      std::pair<std::string, vslam_types_refactor::EllipsoidState<double>>>>(
+//      ellipsoid_states, writeEllipsoidResultEntryToFile, file_obj);
+//
+//  // Write pairwise ellipsoid covariance
+//  util::BoostHashMap<
+//      std::pair<vslam_types_refactor::ObjectId, vslam_types_refactor::ObjectId>,
+//#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+//      Eigen::Matrix<double, 7, 7>>
+//#else
+//      Eigen::Matrix<double, 9, 9>>
+//#endif
+//      cov_entries_map = map_data->getPairwiseEllipsoidCovariances();
+//  std::vector<std::pair<
+//      std::pair<vslam_types_refactor::ObjectId, vslam_types_refactor::ObjectId>,
+//#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+//      Eigen::Matrix<double, 7, 7>>>
+//#else
+//      Eigen::Matrix<double, 9, 9>>>
+//#endif
+//      pairwise_covariance_entries;
+//  for (const auto &cov_entry : cov_entries_map) {
+//    pairwise_covariance_entries.emplace_back(
+//        std::make_pair(cov_entry.first, cov_entry.second));
+//  }
+//  writeOneObjectPerLinePrecededByNumObjects<std::pair<
+//      std::pair<vslam_types_refactor::ObjectId, vslam_types_refactor::ObjectId>,
+//#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+//      Eigen::Matrix<double, 7, 7>>>(pairwise_covariance_entries,
+//#else
+//      Eigen::Matrix<double, 9, 9>>>(pairwise_covariance_entries,
+//#endif
+//                                    writePairwiseEllipsoidCovarianceEntryToFile,
+//                                    file_obj);
+//
+//  // Write front end map data
+//  FrontEndObjMapData front_end_data;
+//  map_data->getFrontEndObjMapData(front_end_data);
+//  front_end_map_data_writer(front_end_data, file_obj);
+//}
 
 }  // namespace file_io
 
