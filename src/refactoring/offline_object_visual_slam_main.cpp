@@ -37,6 +37,8 @@
 
 namespace vtr = vslam_types_refactor;
 
+const std::string kCeresOptInfoLogFile = "ceres_opt_summary.csv";
+
 typedef vtr::IndependentEllipsoidsLongTermObjectMap<
     //    std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>>
     util::EmptyStruct>
@@ -588,11 +590,15 @@ int main(int argc, char **argv) {
   google::InitGoogleLogging(argv[0]);
   google::ParseCommandLineFlags(&argc, &argv, true);
 
+  std::optional<vtr::OptimizationLogger> opt_logger;
   if (FLAGS_logs_directory.empty()) {
     FLAGS_logtostderr = true;  // Don't log to disk - log to terminal
   } else {
     FLAGS_alsologtostderr = true;
     FLAGS_log_dir = FLAGS_logs_directory;
+    opt_logger = vtr::OptimizationLogger(
+        file_io::ensureDirectoryPathEndsWithSlash(FLAGS_logs_directory) +
+        kCeresOptInfoLogFile);
   }
   FLAGS_colorlogtostderr = true;
 
@@ -1360,6 +1366,7 @@ int main(int argc, char **argv) {
   offline_problem_runner.runOptimization(
       input_problem_data,
       config.optimization_factors_enabled_params_,
+      opt_logger,
       output_results);
 
   if (!FLAGS_visual_feature_results_file.empty()) {

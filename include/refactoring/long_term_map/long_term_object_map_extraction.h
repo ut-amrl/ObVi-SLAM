@@ -78,10 +78,15 @@ bool runOptimizationForLtmExtraction(
       ObjectAndReprojectionFeaturePoseGraph>
       optimizer(refresh_residual_checker, residual_creator);
 
-  optimizer.buildPoseGraphOptimization(
-      ltm_optimization_scope_params, residual_params, pose_graph, problem);
+  std::optional<OptimizationLogger> opt_log;
+  optimizer.buildPoseGraphOptimization(ltm_optimization_scope_params,
+                                       residual_params,
+                                       pose_graph,
+                                       problem,
+                                       opt_log);
 
-  bool opt_success = optimizer.solveOptimization(problem, solver_params, {});
+  bool opt_success =
+      optimizer.solveOptimization(problem, solver_params, {}, opt_log);
   if (!opt_success) {
     LOG(ERROR) << "Optimization failed during LTM extraction";
     return false;
@@ -157,8 +162,10 @@ bool runOptimizationForLtmExtraction(
                                            residual_params,
                                            pose_graph,
                                            problem,
+                                           opt_log,
                                            factors_for_bad_feats);
-  opt_success = optimizer.solveOptimization(problem, solver_params_copy, {});
+  opt_success =
+      optimizer.solveOptimization(problem, solver_params_copy, {}, opt_log);
 
   if (!opt_success) {
     LOG(ERROR) << "Second round optimization failed during LTM extraction";
