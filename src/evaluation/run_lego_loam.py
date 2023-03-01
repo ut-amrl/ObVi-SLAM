@@ -3,7 +3,7 @@ import subprocess
 import signal
 import argparse
 import time
-
+import sys
 from trajectory_sequence import *
 from file_structure_utils import *
 from cmd_line_arg_utils import *
@@ -185,7 +185,10 @@ def legoLoamSequenceArgParse():
 
 
 if __name__ == "__main__":
-    # legoLoamSingleBagConfig = legoLoamTrajectoryArgParse()
-    # runLegoLoamSingleTrajectory(legoLoamSingleBagConfig)
-    legoLoamSequenceConfig = legoLoamSequenceArgParse()
-    runLegoLoamSequence(legoLoamSequenceConfig)
+
+    if (("--" + CmdLineArgConstants.rosbagBaseNameBaseArgName) in sys.argv):
+        legoLoamSingleBagConfig = legoLoamTrajectoryArgParse()
+        runLegoLoamSingleTrajectory(legoLoamSingleBagConfig)
+    else:
+        legoLoamSequenceConfig = legoLoamSequenceArgParse()
+        runLegoLoamSequence(legoLoamSequenceConfig)

@@ -9,9 +9,9 @@ class TrajectorySequenceExecutionConfig:
                  configFileDirectory, orbSlamOutDirectory, rosbagDirectory,
                  orbPostProcessBaseDirectory, calibrationFileDirectory,
                  sequenceFilesDirectory, resultsRootDirectory, configFileBaseName,
-                 sequenceFileBaseName,
+                 sequenceFileBaseName, lego_loam_root_dir,
                  forceRunOrbSlamPostProcess=False, outputEllipsoidDebugInfo=True, outputJacobianDebugInfo=True,
-                 outputBbAssocInfo=True, runRviz=False, recordVisualizationRosbag=False, logToFile=False):
+                 outputBbAssocInfo=True, runRviz=False, recordVisualizationRosbag=False, logToFile=False, forceRerunInterpolator=False):
         self.configFileDirectory = configFileDirectory
         self.orbSlamOutDirectory = orbSlamOutDirectory
         self.rosbagDirectory = rosbagDirectory
@@ -21,6 +21,7 @@ class TrajectorySequenceExecutionConfig:
         self.resultsRootDirectory = resultsRootDirectory
         self.configFileBaseName = configFileBaseName
         self.sequenceFileBaseName = sequenceFileBaseName
+        self.lego_loam_root_dir = lego_loam_root_dir
         self.forceRunOrbSlamPostProcess = forceRunOrbSlamPostProcess
         self.outputEllipsoidDebugInfo = outputEllipsoidDebugInfo
         self.outputJacobianDebugInfo = outputJacobianDebugInfo
@@ -28,6 +29,7 @@ class TrajectorySequenceExecutionConfig:
         self.runRviz = runRviz
         self.recordVisualizationRosbag = recordVisualizationRosbag
         self.logToFile = logToFile
+        self.forceRerunInterpolator = forceRerunInterpolator
 
 
 
@@ -52,13 +54,15 @@ def runTrajectorySequence(sequenceExecutionConfig):
             rosbagBaseName=bagName,
             resultsForBagDirPrefix=bagPrefix,
             longTermMapBagDir=prevTrajectoryIdentifier,
+            lego_loam_root_dir=sequenceExecutionConfig.lego_loam_root_dir,
             forceRunOrbSlamPostProcess=sequenceExecutionConfig.forceRunOrbSlamPostProcess,
             outputEllipsoidDebugInfo=sequenceExecutionConfig.outputEllipsoidDebugInfo,
             outputJacobianDebugInfo=sequenceExecutionConfig.outputJacobianDebugInfo,
             outputBbAssocInfo=sequenceExecutionConfig.outputBbAssocInfo,
             runRviz=sequenceExecutionConfig.runRviz,
             recordVisualizationRosbag=sequenceExecutionConfig.recordVisualizationRosbag,
-            logToFile=sequenceExecutionConfig.logToFile)
+            logToFile=sequenceExecutionConfig.logToFile,
+            forceRerunInterpolator=sequenceExecutionConfig.forceRerunInterpolator)
         runSingleTrajectory(trajectoryExecutionConfig)
         prevTrajectoryIdentifier = bagPrefix + bagName
 
@@ -96,6 +100,9 @@ def trajectorySequenceArgParse():
     parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.sequenceFileBaseNameBaseArgName),
                         required=True,
                         help=CmdLineArgConstants.sequenceFileBaseNameHelp)
+    parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.legoLoamOutRootDirBaseArgName),
+                        required=False,
+                        help=CmdLineArgConstants.legoLoamOutRootDirHelp)
 
     # Boolean arguments
     parser.add_argument(
@@ -155,6 +162,14 @@ def trajectorySequenceArgParse():
     parser.add_argument('--no-' + CmdLineArgConstants.logToFileBaseArgName,
                     dest=CmdLineArgConstants.logToFileBaseArgName, action='store_false',
                     help="Opposite of " + CmdLineArgConstants.logToFileBaseArgName)
+    parser.add_argument(
+        CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.forceRerunInterpolatorBaseArgName),
+        default=False,
+        action='store_true',
+        help=CmdLineArgConstants.forceRerunInterpolatorHelp)
+    parser.add_argument('--no-' + CmdLineArgConstants.forceRerunInterpolatorBaseArgName,
+                        dest=CmdLineArgConstants.forceRerunInterpolatorBaseArgName, action='store_false',
+                        help="Opposite of " + CmdLineArgConstants.forceRerunInterpolatorBaseArgName)
     args_dict = vars(parser.parse_args())
 
     return TrajectorySequenceExecutionConfig(
@@ -169,6 +184,7 @@ def trajectorySequenceArgParse():
         resultsRootDirectory=args_dict[CmdLineArgConstants.resultsRootDirectoryBaseArgName],
         configFileBaseName=args_dict[CmdLineArgConstants.configFileBaseNameBaseArgName],
         sequenceFileBaseName=args_dict[CmdLineArgConstants.sequenceFileBaseNameBaseArgName],
+        lego_loam_root_dir=args_dict[CmdLineArgConstants.legoLoamOutRootDirBaseArgName],
         forceRunOrbSlamPostProcess=args_dict[
             CmdLineArgConstants.forceRunOrbSlamPostProcessBaseArgName],
         outputEllipsoidDebugInfo=args_dict[
@@ -178,7 +194,8 @@ def trajectorySequenceArgParse():
         outputBbAssocInfo=args_dict[CmdLineArgConstants.outputBbAssocInfoBaseArgName],
         runRviz=args_dict[CmdLineArgConstants.runRvizBaseArgName],
         recordVisualizationRosbag=args_dict[CmdLineArgConstants.recordVisualizationRosbagBaseArgName],
-        logToFile=args_dict[CmdLineArgConstants.logToFileBaseArgName])
+        logToFile=args_dict[CmdLineArgConstants.logToFileBaseArgName],
+        forceRerunInterpolator=args_dict[CmdLineArgConstants.forceRerunInterpolatorBaseArgName])
 
 
 if __name__ == "__main__":

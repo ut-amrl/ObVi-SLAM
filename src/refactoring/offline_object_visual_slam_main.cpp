@@ -9,7 +9,9 @@
 #include <file_io/cv_file_storage/roshan_bounding_box_front_end_file_storage_io.h>
 #include <file_io/cv_file_storage/vslam_basic_types_file_storage_io.h>
 #include <file_io/node_id_and_timestamp_io.h>
+#include <file_io/pose_3d_io.h>
 #include <file_io/pose_3d_with_node_id_io.h>
+#include <file_io/pose_3d_with_timestamp_io.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 #include <refactoring/bounding_box_frontend/bounding_box_front_end_creation_utils.h>
@@ -100,6 +102,14 @@ DEFINE_string(robot_poses_results_file, "", "File for robot pose results");
 DEFINE_string(logs_directory,
               "",
               "If specified, where logs are written (in addition to stderr)");
+DEFINE_string(ground_truth_trajectory_file,
+              "",
+              "File containing ground truth for the trajectory");
+DEFINE_string(ground_truth_extrinsics_file,
+              "",
+              "File containing the "
+              "extrinsics that relate the ground truth trajectory frame to the"
+              " frame that is estimated here.");
 
 std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
 readCameraIntrinsicsByCameraFromFile(const std::string &file_name) {
@@ -387,7 +397,8 @@ void visualizationStub(
     const vtr::FrameId &max_frame_optimized,
     const vtr::VisualizationTypeEnum &visualization_stage,
     const double &near_edge_threshold,
-    const size_t &pending_obj_min_obs_threshold) {
+    const size_t &pending_obj_min_obs_threshold,
+    const std::optional<std::vector<vtr::Pose3D<double>>> &gt_trajectory) {
   switch (visualization_stage) {
     case vtr::BEFORE_ANY_OPTIMIZATION:
       vis_manager->publishTransformsForEachCamera(
@@ -504,6 +515,13 @@ void visualizationStub(
                                        vtr::PlotType::INITIAL);
       vis_manager->visualizeTrajectory(est_trajectory_vec,
                                        vtr::PlotType::ESTIMATED);
+      if (gt_trajectory.has_value()) {
+        std::vector<vtr::Pose3D<double>> truncated_gt_traj(
+            gt_trajectory.value().begin(),
+            gt_trajectory.value().begin() + (max_frame_optimized + 1));
+        vis_manager->visualizeTrajectory(truncated_gt_traj,
+                                         vtr::PlotType::GROUND_TRUTH);
+      }
       vis_manager->publishTfForLatestPose(est_trajectory_vec.back(),
                                           vtr::PlotType::ESTIMATED);
       vis_manager->publishTfForLatestPose(init_trajectory_vec.back(),
@@ -1300,6 +1318,74 @@ int main(int argc, char **argv) {
                 output_problem_data);
           };
 
+  std::optional<std::vector<vtr::Pose3D<double>>> gt_trajectory;
+  if ((!FLAGS_ground_truth_trajectory_file.empty()) &&
+      (!FLAGS_ground_truth_extrinsics_file.empty())) {
+    std::vector<std::pair<pose::Timestamp, vtr::Pose3D<double>>>
+        raw_pose_3ds_with_timestamp;
+    file_io::readPose3dsWithTimestampFromFile(
+        FLAGS_ground_truth_trajectory_file, raw_pose_3ds_with_timestamp);
+
+    vtr::Pose3D<double> gt_traj_frame_rel_base_link;
+    std::vector<vtr::Pose3D<double>> gt_traj_extrinsics_contents;
+    file_io::readPose3dsFromFile(FLAGS_ground_truth_extrinsics_file,
+                                 gt_traj_extrinsics_contents);
+    if (gt_traj_extrinsics_contents.empty()) {
+      LOG(ERROR) << "GT trajectory extrinsics missing";
+      exit(1);
+    }
+    if (gt_traj_extrinsics_contents.size() > 1) {
+      LOG(WARNING) << "Coarse trajectory extrinsics file contained more than "
+                      "one pose. Taking the first";
+    }
+
+    gt_traj_frame_rel_base_link = gt_traj_extrinsics_contents.front();
+
+    std::vector<file_io::NodeIdAndTimestamp> nodes_by_timestamps_vec;
+    util::BoostHashMap<pose::Timestamp, vslam_types_refactor::FrameId>
+        nodes_for_timestamps_map;
+    file_io::readNodeIdsAndTimestampsFromFile(FLAGS_nodes_by_timestamp_file,
+                                              nodes_by_timestamps_vec);
+
+    for (const file_io::NodeIdAndTimestamp &raw_node_id_and_timestamp :
+         nodes_by_timestamps_vec) {
+      nodes_for_timestamps_map[std::make_pair(
+          raw_node_id_and_timestamp.seconds_,
+          raw_node_id_and_timestamp.nano_seconds_)] =
+          raw_node_id_and_timestamp.node_id_;
+    }
+
+    std::unordered_map<vtr::FrameId, vtr::Pose3D<double>> gt_traj_map;
+
+    for (const std::pair<pose::Timestamp, vtr::Pose3D<double>> &gt_pose_entry :
+         raw_pose_3ds_with_timestamp) {
+      if (nodes_for_timestamps_map.find(gt_pose_entry.first) !=
+          nodes_for_timestamps_map.end()) {
+        gt_traj_map[nodes_for_timestamps_map.at(gt_pose_entry.first)] =
+            vtr::combinePoses(gt_pose_entry.second,
+                              vtr::poseInverse(gt_traj_frame_rel_base_link));
+      }
+    }
+
+    bool valid_gt_traj = true;
+    std::vector<vtr::Pose3D<double>> gt_traj_under_construction;
+    for (vtr::FrameId frame_num = 0;
+         frame_num <= input_problem_data.getMaxFrameId();
+         frame_num++) {
+      if (gt_traj_map.find(frame_num) == gt_traj_map.end()) {
+        LOG(WARNING) << "Could not find GT pose corresponding to frame num "
+                     << frame_num << "; not using GT trajectory";
+        valid_gt_traj = false;
+        break;
+      }
+      gt_traj_under_construction.emplace_back(gt_traj_map.at(frame_num));
+    }
+    if (valid_gt_traj) {
+      gt_trajectory =
+          vtr::adjustTrajectoryToStartAtOrigin(gt_traj_under_construction);
+    }
+  }
+
   std::function<std::vector<std::shared_ptr<ceres::IterationCallback>>(
       const MainProbData &,
       const MainPgPtr &,
@@ -1341,7 +1427,8 @@ int main(int argc, char **argv) {
             config.bounding_box_covariance_generator_params_
                 .near_edge_threshold_,
             config.bounding_box_front_end_params_
-                .feature_based_bb_association_params_.min_observations_);
+                .feature_based_bb_association_params_.min_observations_,
+            gt_trajectory);
       };
   vtr::OfflineProblemRunner<MainProbData,
                             vtr::ReprojectionErrorFactor,

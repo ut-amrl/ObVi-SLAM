@@ -44,7 +44,7 @@ class TrajectoryReformatterParamConstants:
 def reformatUTVSLAMOutput(ut_vslam_preprocessing_dir, config_base_name, bag_name, utvslam_out_root_dir,
                           sequence_file_base_name, idx_in_sequence, forceReformatUTVSLAMOutput):
     frames_for_timestamps_file = FileStructureUtils.ensureDirectoryEndsWithSlash(
-        ut_vslam_preprocessing_dir) + config_base_name + "/" + bag_name + "/timestamps/node_ids_and_timestamps.txt"
+        ut_vslam_preprocessing_dir) + config_base_name + "/" + bag_name + "/" + FileStructureConstants.nodesByTimestampFileWithinSparsifiedDir
     results_for_bag_dir = FileStructureUtils.ensureDirectoryEndsWithSlash(
         utvslam_out_root_dir) + sequence_file_base_name + "/" + config_base_name + "/" + str(
         idx_in_sequence) + "_" + bag_name + "/"
@@ -161,9 +161,9 @@ def metricsForUTVSlamArgParse():
     args_dict = vars(parser.parse_args())
     calibrationFileDirectory = FileStructureUtils.ensureDirectoryEndsWithSlash(
         args_dict[CmdLineArgConstants.calibrationFileDirectoryBaseArgName])
-    lego_loam_frame_to_bl_extrinsics = calibrationFileDirectory + MetricsForApproachConstants.legoLoamCalibFile
-    comparison_alg_to_bl_extrinsics = calibrationFileDirectory + MetricsForApproachConstants.ovslamCalibFile
-    odom_to_bl_extrinsics = calibrationFileDirectory + MetricsForApproachConstants.odomCalibFile
+    lego_loam_frame_to_bl_extrinsics = calibrationFileDirectory + CalibrationFileConstants.legoLoamCalibFile
+    comparison_alg_to_bl_extrinsics = calibrationFileDirectory + CalibrationFileConstants.ovslamCalibFile
+    odom_to_bl_extrinsics = calibrationFileDirectory + CalibrationFileConstants.odomCalibFile
 
     ut_vslam_preprocessing_root_dir = FileStructureUtils.ensureDirectoryEndsWithSlash(
         args_dict[

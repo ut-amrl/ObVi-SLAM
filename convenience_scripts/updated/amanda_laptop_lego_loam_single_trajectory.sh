@@ -1,11 +1,14 @@
 #!/bin/bash
 
-root_data_dir=/home/amanda/rosbags/ellipsoid_slam/eer_bags/
+#root_data_dir=/home/amanda/rosbags/ellipsoid_slam/eer_bags/
+root_data_dir=/home/amanda/rosbags/ellipsoid_slam/eer_higher_res/
+
 rosbag_file_directory=${root_data_dir}original_data/
 lego_loam_out_root_dir=${root_data_dir}lego_loam_out/
 coda_parser_repo_root_dir=/home/amanda/workspaces/amrl_libs/coda
 
-rosbag_base_name="1669743059"
+#rosbag_base_name="1669743059"
+rosbag_base_name=1677097326
 #rosbag_base_name="1668019589"
 
 # NOTE: Before running this

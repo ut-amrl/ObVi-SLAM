@@ -11,7 +11,6 @@ from cmd_line_arg_utils import *
 
 
 class OrbSlam2RelatedConstants:
-    timestampsFileName = "timestamps/node_ids_and_timestamps.txt"
     velocitiesDir = "velocities"
     minOrbFilesForLegitimateResults = 20
 
@@ -49,7 +48,7 @@ def runOrbSlam2SingleTrajectory(orbSlam2ExecutionInfo):
     else:
         if (not os.path.exists(outputDirForBag)):
             needToRerun = True
-        elif (not os.path.exists(outputDirForBag + OrbSlam2RelatedConstants.timestampsFileName)):
+        elif (not os.path.exists(outputDirForBag + FileStructureConstants.nodesByTimestampFileWithinSparsifiedDir)):
             needToRerun = True
         elif (len(os.listdir(outputDirForBag)) < OrbSlam2RelatedConstants.minOrbFilesForLegitimateResults):
             needToRerun = True
