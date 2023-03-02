@@ -472,6 +472,36 @@ void visualizationStub(
       vis_manager->visualizePendingEllipsoids(pending_objects,
                                               num_obs_per_pending_obj,
                                               pending_obj_min_obs_threshold);
+      std::unordered_map<vtr::FeatureId, vtr::Position3d<double>> feature_ests;
+      pose_graph->getVisualFeatureEstimates(feature_ests);
+      std::unordered_map<
+          vtr::CameraId,
+          std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>>
+          observed_feats_for_frame = observed_features.at(max_frame_optimized);
+      publishLowLevelFeaturesLatestImages(
+          vis_manager,
+          extrinsics,
+          intrinsics,
+          img_heights_and_widths,
+          images.at(max_frame_optimized),
+          max_frame_optimized,
+          optimized_trajectory.at(max_frame_optimized),
+          feature_ests,
+          observed_feats_for_frame,
+          vtr::PlotType::ESTIMATED);
+
+      publishLowLevelFeaturesLatestImages(
+          vis_manager,
+          extrinsics,
+          intrinsics,
+          img_heights_and_widths,
+          images.at(max_frame_optimized),
+          max_frame_optimized,
+          input_problem_data.getRobotPoseEstimates().at(max_frame_optimized),
+          initial_feat_positions,
+          observed_feats_for_frame,
+          vtr::PlotType::INITIAL);
+
 
       vis_manager->visualizeCameraObservations(
           max_frame_optimized,
@@ -527,12 +557,7 @@ void visualizationStub(
       vis_manager->publishTfForLatestPose(init_trajectory_vec.back(),
                                           vtr::PlotType::INITIAL);
 
-      std::unordered_map<vtr::FeatureId, vtr::Position3d<double>> feature_ests;
-      std::unordered_map<
-          vtr::CameraId,
-          std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>>
-          observed_feats_for_frame = observed_features.at(max_frame_optimized);
-      pose_graph->getVisualFeatureEstimates(feature_ests);
+
       std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>
           curr_frame_initial_feature_ests;
       for (const auto &cam_and_feats : observed_feats_for_frame) {
@@ -558,29 +583,6 @@ void visualizationStub(
       }
       vis_manager->visualizeFeatureEstimates(curr_frame_est_feature_ests,
                                              vtr::PlotType::ESTIMATED);
-      publishLowLevelFeaturesLatestImages(
-          vis_manager,
-          extrinsics,
-          intrinsics,
-          img_heights_and_widths,
-          images.at(max_frame_optimized),
-          max_frame_optimized,
-          optimized_trajectory.at(max_frame_optimized),
-          feature_ests,
-          observed_feats_for_frame,
-          vtr::PlotType::ESTIMATED);
-
-      publishLowLevelFeaturesLatestImages(
-          vis_manager,
-          extrinsics,
-          intrinsics,
-          img_heights_and_widths,
-          images.at(max_frame_optimized),
-          max_frame_optimized,
-          input_problem_data.getRobotPoseEstimates().at(max_frame_optimized),
-          initial_feat_positions,
-          observed_feats_for_frame,
-          vtr::PlotType::INITIAL);
 
       save_to_file_visualizer.boundingBoxFrontEndVisualization(
           images,
