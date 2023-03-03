@@ -32,7 +32,7 @@ class SerializableOptimizationFactorsEnabledParams
     fs << kAllowReversionAfterDectectingJumps
        << allow_reversion_after_dectecting_jumps_int;
 
-    fs << kConsecutivePoseOrientTol
+    fs << kConsecutivePoseTranslTol
        << (double)data_.consecutive_pose_transl_tol_;
     fs << kConsecutivePoseOrientTol
        << (double)data_.consecutive_pose_orient_tol_;
