@@ -316,7 +316,7 @@
         },
         "optimization_factors_enabled_params": {
             "allow_reversion_after_dectecting_jumps": 1,
-            "consecutive_pose_orient_tol": 1.0,
+            "consecutive_pose_transl_tol": 1.0,
             "consecutive_pose_orient_tol": 3.1415926535897931e+00,
             "include_object_factors": 1,
             "include_visual_factors": 1,
