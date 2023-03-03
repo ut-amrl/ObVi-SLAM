@@ -204,7 +204,6 @@ class OfflineProblemRunner {
         opt_logger->writeCurrentOptInfo();
       }
       // Phase II
-
       if (solver_params.feature_outlier_percentage > 0) {
         if (opt_logger.has_value()) {
           opt_logger->setOptimizationTypeParams(
@@ -258,6 +257,15 @@ class OfflineProblemRunner {
         if (opt_logger.has_value()) {
           opt_logger->writeCurrentOptInfo();
         }
+      }
+      if (!isConsecutivePosesStable_(
+              pose_graph,
+              optimization_scope_params.min_frame_id_,
+              optimization_scope_params.max_frame_id_,
+              optimization_scope_params.consecutive_pose_transl_tol_,
+              optimization_scope_params.consecutive_pose_orient_tol_)) {
+        LOG(WARNING) << "Detecting jumps after optimization. Reverting...";
+        pose_graph->setValuesFromAnotherPoseGraph(pose_graph_copy);
       }
       if (!isConsecutivePosesStable_(
               pose_graph,
