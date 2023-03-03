@@ -267,15 +267,6 @@ class OfflineProblemRunner {
         LOG(WARNING) << "Detecting jumps after optimization. Reverting...";
         pose_graph->setValuesFromAnotherPoseGraph(pose_graph_copy);
       }
-      if (!isConsecutivePosesStable_(
-              pose_graph,
-              optimization_scope_params.min_frame_id_,
-              optimization_scope_params.max_frame_id_,
-              optimization_scope_params.consecutive_pose_transl_tol_,
-              optimization_scope_params.consecutive_pose_orient_tol_)) {
-        LOG(WARNING) << "Detecting jumps after optimization. Reverting...";
-        pose_graph->setValuesFromAnotherPoseGraph(pose_graph_copy);
-      }
 
       visualization_callback_(problem_data,
                               pose_graph,
