@@ -75,7 +75,7 @@ struct EllipsoidEstimateNode {
       updatePoseData(*pose_ptr);
 }
 
-  void updateEllipsoidParams(const RawEllipsoidPtr<double> &ellipsoid_ptr) {
+void updateEllipsoidParams(const RawEllipsoidPtr<double> &ellipsoid_ptr) {
   updateEllipsoidParams(*ellipsoid_ptr);
 }
 
@@ -534,6 +534,18 @@ class ObjAndLowLevelFeaturePoseGraph
     return true;
   }
 
+  void setEllipsoidEstimatePtrs(
+      const std::unordered_map<ObjectId, EllipsoidEstimateNode>
+          &ellipsoid_estimates) {
+    ellipsoid_estimates_ = ellipsoid_estimates;
+  }
+
+  void getEllipsoidEstimatePtrs(
+      std::unordered_map<ObjectId, EllipsoidEstimateNode>
+          &ellipsoid_estimates) {
+    ellipsoid_estimates = ellipsoid_estimates_;
+  }
+
  protected:
   std::unordered_map<std::string,
                      std::pair<ObjectDim<double>, Covariance<double, 3>>>
@@ -625,7 +637,30 @@ class ObjectAndReprojectionFeaturePoseGraph
   ObjectAndReprojectionFeaturePoseGraph(
       const ObjectAndReprojectionFeaturePoseGraph &other) = default;
 
-  std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> makeDeepCopy() {
+  void setValuesFromAnotherPoseGraph(
+      const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph>
+          &pose_graph) {
+    std::unordered_map<ObjectId, EllipsoidEstimateNode> ellipsoid_estimates;
+    pose_graph->getEllipsoidEstimatePtrs(ellipsoid_estimates);
+    for (const auto &ellipsoid_est : ellipsoid_estimates) {
+      this->ellipsoid_estimates_[ellipsoid_est.first].updateEllipsoidParams(
+          ellipsoid_est.second.ellipsoid_);
+    }
+    std::unordered_map<FrameId, RobotPoseNode> robot_poses;
+    pose_graph->getRobotPosePtrs(robot_poses);
+    for (const auto &robot_pose : robot_poses) {
+      this->robot_poses_[robot_pose.first].updateRobotPoseParams(
+          robot_pose.second.pose_);
+    }
+    std::unordered_map<FeatureId, VisualFeatureNode> feature_positions;
+    pose_graph->getFeaturePositionPtrs(feature_positions);
+    for (const auto &feature_position : feature_positions) {
+      this->feature_positions_[feature_position.first]
+          .updateVisualPositionParams(feature_position.second.position_);
+    }
+  }
+
+  std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> makeDeepCopy() const {
     std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> copy =
         std::make_shared<ObjectAndReprojectionFeaturePoseGraph>(*this);
     // Reset the fields that we don't just want a shallow copy of
@@ -635,27 +670,27 @@ class ObjectAndReprojectionFeaturePoseGraph
       ellipsoid_estimates_copy[ellipsoid_est.first] =
           ellipsoid_est.second.makeDeepCopy();
     }
-    ObjectAndReprojectionFeaturePoseGraph::ellipsoid_estimates_ =
-        ellipsoid_estimates_copy;
+    copy->setEllipsoidEstimatePtrs(ellipsoid_estimates_copy);
+    // ObjectAndReprojectionFeaturePoseGraph::ellipsoid_estimates_ =
+    //     ellipsoid_estimates_copy;
 
     std::unordered_map<FrameId, RobotPoseNode> robot_poses_copy;
     for (const auto &robot_pose_est : this->robot_poses_) {
       robot_poses_copy[robot_pose_est.first] =
           robot_pose_est.second.makeDeepCopy();
     }
-    ObjectAndReprojectionFeaturePoseGraph::robot_poses_ = robot_poses_copy;
+    copy->setRobotPosePtrs(robot_poses_copy);
+    // ObjectAndReprojectionFeaturePoseGraph::robot_poses_ = robot_poses_copy;
 
     std::unordered_map<FeatureId, VisualFeatureNode> feature_positions_copy;
     for (const auto &feature_pos_est : this->feature_positions_) {
       feature_positions_copy[feature_pos_est.first] =
           feature_pos_est.second.makeDeepCopy();
     }
-    ObjectAndReprojectionFeaturePoseGraph::feature_positions_ =
-        feature_positions_copy;
+    copy->setFeaturePositionPtrs(feature_positions_copy);
+    // ObjectAndReprojectionFeaturePoseGraph::feature_positions_ =
+    //     feature_positions_copy;
     return copy;
-
-    // TODO verify that everything is copied appropriately such that
-    // modifications to the copy don't affect the original
   }
 
  protected:

@@ -15,6 +15,10 @@ struct OptimizationFactorsEnabledParams {
   // default values here are modified, make sure any changes are reflected in
   // the config and if necessary, regenerate the config with a new
   // config_version_id_
+  bool allow_reversion_after_dectecting_jumps_ = true;
+  double consecutive_pose_transl_tol_ = 1.0;
+  double consecutive_pose_orient_tol_ = M_PI;
+
   bool include_object_factors_ = true;
   bool include_visual_factors_ = true;
   bool fix_poses_ = true;
@@ -48,6 +52,10 @@ struct OptimizationFactorsEnabledParams {
 };
 
 struct OptimizationScopeParams {
+  bool allow_reversion_after_dectecting_jumps_;
+  double consecutive_pose_transl_tol_ = 1.0;
+  double consecutive_pose_orient_tol_ = M_PI;
+
   bool include_object_factors_;
   bool include_visual_factors_;
   bool fix_poses_;
