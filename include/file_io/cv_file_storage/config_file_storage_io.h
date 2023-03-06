@@ -27,6 +27,16 @@ class SerializableOptimizationFactorsEnabledParams
 
   virtual void write(cv::FileStorage &fs) const override {
     fs << "{";
+    int allow_reversion_after_dectecting_jumps_int =
+        data_.allow_reversion_after_dectecting_jumps_ ? 1 : 0;
+    fs << kAllowReversionAfterDectectingJumps
+       << allow_reversion_after_dectecting_jumps_int;
+
+    fs << kConsecutivePoseOrientTol
+       << (double)data_.consecutive_pose_transl_tol_;
+    fs << kConsecutivePoseOrientTol
+       << (double)data_.consecutive_pose_orient_tol_;
+
     int include_object_factors_int = data_.include_object_factors_ ? 1 : 0;
     fs << kIncludeObjectFactorsLabel << include_object_factors_int;
 
@@ -57,6 +67,16 @@ class SerializableOptimizationFactorsEnabledParams
   }
 
   virtual void read(const cv::FileNode &node) override {
+    int allow_reversion_after_dectecting_jumps_int =
+        node[kAllowReversionAfterDectectingJumps];
+    data_.allow_reversion_after_dectecting_jumps_ =
+        allow_reversion_after_dectecting_jumps_int != 0;
+
+    data_.consecutive_pose_transl_tol_ =
+        (double)node[kConsecutivePoseTranslTol];
+    data_.consecutive_pose_orient_tol_ =
+        (double)node[kConsecutivePoseOrientTol];
+
     int include_object_factors_int = node[kIncludeObjectFactorsLabel];
     data_.include_object_factors_ = include_object_factors_int != 0;
 
@@ -90,6 +110,12 @@ class SerializableOptimizationFactorsEnabledParams
       pose_graph_optimizer::OptimizationFactorsEnabledParams>::data_;
 
  private:
+  inline static const std::string kAllowReversionAfterDectectingJumps =
+      "allow_reversion_after_dectecting_jumps";
+  inline static const std::string kConsecutivePoseTranslTol =
+      "consecutive_pose_transl_tol";
+  inline static const std::string kConsecutivePoseOrientTol =
+      "consecutive_pose_orient_tol";
   inline static const std::string kIncludeObjectFactorsLabel =
       "include_object_factors";
   inline static const std::string kIncludeVisualFactorsLabel =
