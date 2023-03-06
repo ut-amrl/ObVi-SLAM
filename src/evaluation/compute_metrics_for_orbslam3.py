@@ -3,6 +3,7 @@ import argparse
 from cmd_line_arg_utils import *
 from compute_metrics_for_approach import *
 from file_structure_utils import *
+from trajectory_interpolation import *
 
 
 class MetricsForOrbSLAM3Config:
@@ -89,9 +90,9 @@ def metricsForOrbSLAM3ArgParse():
     args_dict = vars(parser.parse_args())
     calibrationFileDirectory = FileStructureUtils.ensureDirectoryEndsWithSlash(
         args_dict[CmdLineArgConstants.calibrationFileDirectoryBaseArgName])
-    lego_loam_frame_to_bl_extrinsics = calibrationFileDirectory + MetricsForApproachConstants.legoLoamCalibFile
-    comparison_alg_to_bl_extrinsics = calibrationFileDirectory + MetricsForApproachConstants.orbslam3CalibFile
-    odom_to_bl_extrinsics = calibrationFileDirectory + MetricsForApproachConstants.odomCalibFile
+    lego_loam_frame_to_bl_extrinsics = calibrationFileDirectory + CalibrationFileConstants.legoLoamCalibFile
+    comparison_alg_to_bl_extrinsics = calibrationFileDirectory + CalibrationFileConstants.orbslam3CalibFile
+    odom_to_bl_extrinsics = calibrationFileDirectory + CalibrationFileConstants.odomCalibFile
     return MetricsForOrbSLAM3Config(rosbag_dir=args_dict[CmdLineArgConstants.rosbagDirectoryBaseArgName],
                                     sequence_dir=args_dict[
                                         CmdLineArgConstants.trajectorySequenceFileDirectoryBaseArgName],

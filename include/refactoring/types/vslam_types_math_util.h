@@ -127,6 +127,27 @@ PixelCoord<NumType> getProjectedPixelCoord(
   return pixel_coord;
 }
 
+template <typename NumType>
+std::vector<Pose3D<NumType>> adjustTrajectoryToStartAtOrigin(
+    const std::vector<Pose3D<NumType>>& original_traj) {
+  if (original_traj.empty()) {
+    return original_traj;
+  }
+  std::vector<Pose3D<NumType>> new_traj;
+  new_traj.emplace_back(Pose3D<NumType>(
+      Position3d<NumType>(),
+      Orientation3D<NumType>(NumType(0), Position3d<NumType>())));
+  Pose3D<NumType> prev_pose = original_traj.front();
+  for (size_t frame_num = 1; frame_num < original_traj.size(); frame_num++) {
+    Pose3D<NumType> curr_pose = original_traj.at(frame_num);
+    Pose3D<NumType> relative_pose =
+        getPose2RelativeToPose1(prev_pose, curr_pose);
+    new_traj.emplace_back(combinePoses(new_traj.back(), relative_pose));
+    prev_pose = curr_pose;
+  }
+  return new_traj;
+}
+
 }  // namespace vslam_types_refactor
 
 #endif  // UT_VSLAM_VSLAM_TYPES_MATH_UTIL_H

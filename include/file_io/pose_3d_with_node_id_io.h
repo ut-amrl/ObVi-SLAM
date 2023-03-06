@@ -2,8 +2,8 @@
 // Created by amanda on 2/5/22.
 //
 
-#ifndef UT_VSLAM_POSE_3D_IO_H
-#define UT_VSLAM_POSE_3D_IO_H
+#ifndef UT_VSLAM_POSE_3D_WITH_NODE_ID_IO_H
+#define UT_VSLAM_POSE_3D_WITH_NODE_ID_IO_H
 
 #include <base_lib/pose_reps.h>
 #include <file_io/file_io_utils.h>
@@ -76,4 +76,4 @@ void writePose3dsWithNodeIdToFile(
 
 }  // namespace file_io
 
-#endif  // UT_VSLAM_POSE_3D_IO_H
+#endif  // UT_VSLAM_POSE_3D_WITH_NODE_ID_IO_H

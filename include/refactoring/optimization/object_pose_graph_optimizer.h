@@ -8,6 +8,7 @@
 #include <base_lib/basic_utils.h>
 #include <ceres/ceres.h>
 #include <ceres/problem.h>
+#include <debugging/optimization_logger.h>
 #include <glog/logging.h>
 #include <refactoring/optimization/object_pose_graph.h>
 #include <refactoring/optimization/optimization_factors_enabled_params.h>
@@ -127,6 +128,7 @@ class ObjectPoseGraphOptimizer {
           &residual_params,
       std::shared_ptr<PoseGraphType> &pose_graph,
       ceres::Problem *problem,
+      std::optional<vslam_types_refactor::OptimizationLogger> &opt_logger,
       const util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
                                          vslam_types_refactor::FeatureFactorId>>
           &excluded_feature_factor_types_and_ids = {}) {
@@ -543,6 +545,11 @@ class ObjectPoseGraphOptimizer {
                            factor_id_and_info.first);
       }
     }
+    if (opt_logger.has_value()) {
+      opt_logger->setOptimizationParams(last_optimized_objects_,
+                                        last_optimized_features_,
+                                        last_optimized_nodes_);
+    }
     return current_residual_block_info;
   }
 
@@ -550,6 +557,7 @@ class ObjectPoseGraphOptimizer {
       ceres::Problem *problem,
       const pose_graph_optimization::OptimizationSolverParams &solver_params,
       const std::vector<std::shared_ptr<ceres::IterationCallback>> callbacks,
+      std::optional<vslam_types_refactor::OptimizationLogger> &opt_logger,
       std::shared_ptr<std::unordered_map<ceres::ResidualBlockId, double>>
           block_ids_and_residuals_ptr = nullptr) {
     CHECK(problem != NULL);
@@ -600,6 +608,9 @@ class ObjectPoseGraphOptimizer {
       LOG(ERROR) << "Ceres optimization failed";
     }
     LOG(INFO) << "Optimization complete";
+    if (opt_logger.has_value()) {
+      opt_logger->extractOptimizationTimingResults(summary);
+    }
     return summary.IsSolutionUsable();
   }
 

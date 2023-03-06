@@ -8,6 +8,7 @@
         <remap from="/init_/feature_cloud" to="$(arg topics_prefix)/init_/feature_cloud"/>
         <remap from="/est_pose" to="$(arg topics_prefix)/est_pose"/>
         <remap from="/init_pose" to="$(arg topics_prefix)/init_pose"/>
+        <remap from="/gt_pose" to="$(arg topics_prefix)/gt_pose"/>
         <remap from="/pending_ellipsoids" to="$(arg topics_prefix)/pending_ellipsoids"/>
         <remap from="/init_ellipsoids" to="$(arg topics_prefix)/init_ellipsoids"/>
 

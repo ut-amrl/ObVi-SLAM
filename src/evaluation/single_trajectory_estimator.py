@@ -5,6 +5,8 @@ import argparse
 import time
 from cmd_line_arg_utils import *
 from file_structure_utils import *
+from trajectory_interpolation import *
+import csv
 
 
 class SingleTrajectoryExecutableParamConstants:
@@ -26,7 +28,8 @@ class SingleTrajectoryExecutableParamConstants:
     ellipsoidsResultsFile = "ellipsoids_results_file"
     robotPosesResultsFile = "robot_poses_results_file"
     logsDirectory = "logs_directory"
-
+    ground_truth_trajectory_file = "ground_truth_trajectory_file"
+    ground_truth_extrinsics_file = "ground_truth_extrinsics_file"
 
 
 class SingleTrajectoryExecutionConfig:
@@ -35,8 +38,10 @@ class SingleTrajectoryExecutionConfig:
                  configFileDirectory, orbSlamOutDirectory, rosbagDirectory,
                  orbPostProcessBaseDirectory, calibrationFileDirectory, resultsRootDirectory, configFileBaseName,
                  sequenceFileBaseName, rosbagBaseName, resultsForBagDirPrefix, longTermMapBagDir,
+                 lego_loam_root_dir,
                  forceRunOrbSlamPostProcess=False, outputEllipsoidDebugInfo=True, outputJacobianDebugInfo=True,
-                 outputBbAssocInfo=True, runRviz=False, recordVisualizationRosbag=False, logToFile=False):
+                 outputBbAssocInfo=True, runRviz=False, recordVisualizationRosbag=False, logToFile=False,
+                 forceRerunInterpolator=False):
         self.configFileDirectory = configFileDirectory
         self.orbSlamOutDirectory = orbSlamOutDirectory
         self.rosbagDirectory = rosbagDirectory
@@ -48,6 +53,7 @@ class SingleTrajectoryExecutionConfig:
         self.rosbagBaseName = rosbagBaseName
         self.resultsForBagDirPrefix = resultsForBagDirPrefix
         self.longTermMapBagDir = longTermMapBagDir
+        self.lego_loam_root_dir = lego_loam_root_dir
         self.forceRunOrbSlamPostProcess = forceRunOrbSlamPostProcess
         self.outputEllipsoidDebugInfo = outputEllipsoidDebugInfo
         self.outputJacobianDebugInfo = outputJacobianDebugInfo
@@ -55,6 +61,7 @@ class SingleTrajectoryExecutionConfig:
         self.runRviz = runRviz
         self.recordVisualizationRosbag = recordVisualizationRosbag
         self.logToFile = logToFile
+        self.forceRerunInterpolator = forceRerunInterpolator
 
 
 class OfflineRunnerArgs:
@@ -62,7 +69,8 @@ class OfflineRunnerArgs:
     def __init__(self, param_prefix, intrinsics_file, extrinsics_file, poses_by_node_id_file, nodes_by_timestamp_file,
                  rosbag_file, long_term_map_input, long_term_map_output, low_level_feats_dir, bb_associations_out_file,
                  ltm_opt_jacobian_info_directory, visual_feature_results_file, debug_images_output_directory,
-                 params_config_file, ellipsoids_results_file, robot_poses_results_file, logs_directory,
+                 params_config_file, ellipsoids_results_file, robot_poses_results_file, logs_directory, gt_poses_file,
+                 gt_extrinsics_file,
                  bounding_boxes_by_node_id_file=None):
         self.param_prefix = param_prefix
         self.intrinsics_file = intrinsics_file
@@ -82,6 +90,8 @@ class OfflineRunnerArgs:
         self.robot_poses_results_file = robot_poses_results_file
         self.logs_directory = logs_directory
         self.bounding_boxes_by_node_id_file = bounding_boxes_by_node_id_file
+        self.gt_poses_file = gt_poses_file
+        self.gt_extrinsics_file = gt_extrinsics_file
 
 
 def runOrbPostProcess(orbDataDirForBag, unsparsifiedUtVslamInDir, sparsifiedUtVslamInDir, calibrationDir,
@@ -138,6 +148,40 @@ def ensureOrbDataPostProcessed(orbDataDirForBag, unsparsifiedUtVslamInDir, spars
                           configFileName)
 
 
+def generateRequiredStampsFileFromNodesAndTimestampsFile(nodesAndTimestampsFile, requiredStampsFile):
+    with open(nodesAndTimestampsFile) as nodesAndStampsCsv:
+        with open(requiredStampsFile, 'w') as requiredStampsCsv:
+            nodesReader = csv.reader(nodesAndStampsCsv, delimiter=',')
+            timestampsWriter = csv.writer(requiredStampsCsv, delimiter=',')
+            for row in nodesReader:
+                timestampsOnly = row[1:]
+                timestampsWriter.writerow(timestampsOnly)
+
+
+def runInterpolatorIfNecessary(executionConfig, postProcessingDir, sparsifiedUtVslamInDir):
+    if (executionConfig.lego_loam_root_dir is None):
+        print("Lego loam root directory not provided, so not getting GT")
+        return (None, None)
+    nodesAndTimestampsFile = FileStructureUtils.ensureDirectoryEndsWithSlash(
+        sparsifiedUtVslamInDir) + FileStructureConstants.nodesByTimestampFileWithinSparsifiedDir
+    requiredStampsFile = FileStructureUtils.ensureDirectoryEndsWithSlash(
+        sparsifiedUtVslamInDir) + FileStructureConstants.timestampsOnlyFileWithinSparsifiedDir
+    generateRequiredStampsFileFromNodesAndTimestampsFile(nodesAndTimestampsFile, requiredStampsFile)
+
+    gtExtrinsicsRelBlFile = FileStructureUtils.ensureDirectoryEndsWithSlash(
+        executionConfig.calibrationFileDirectory) + CalibrationFileConstants.legoLoamCalibFile
+    interpolatedPosesFileName = runInterpolator(executionConfig.rosbagDirectory, executionConfig.rosbagBaseName,
+                                                postProcessingDir,
+                                                executionConfig.lego_loam_root_dir,
+                                                None,
+                                                gtExtrinsicsRelBlFile,
+                                                FileStructureUtils.ensureDirectoryEndsWithSlash(
+                                                    executionConfig.calibrationFileDirectory) + CalibrationFileConstants.odomCalibFile,
+                                                executionConfig.forceRerunInterpolator,
+                                                requiredStampsFile)
+    return (interpolatedPosesFileName, gtExtrinsicsRelBlFile)
+
+
 def generateOfflineRunnerArgsFromExecutionConfigAndPreprocessOrbDataIfNecessary(executionConfig):
     rosbagBaseName = executionConfig.rosbagBaseName
     calibrationFileDirectory = FileStructureUtils.ensureDirectoryEndsWithSlash(executionConfig.calibrationFileDirectory)
@@ -179,6 +223,13 @@ def generateOfflineRunnerArgsFromExecutionConfigAndPreprocessOrbDataIfNecessary(
     utVslamResultsDir = FileStructureUtils.getAndOptionallyCreateUtVslamOutDirectory(
         utVslamOutRootDir, executionConfig.sequenceFileBaseName, executionConfig.configFileBaseName,
         bag_results_dir_name)
+
+    postProcessingDir = FileStructureUtils.getAndOptionallyCreateUtVslamPostprocessingDirectory(
+        utVslamOutRootDir, executionConfig.sequenceFileBaseName, executionConfig.configFileBaseName,
+        bag_results_dir_name)
+
+    (interpolatedPosesFileName, gtExtrinsicsRelBlFile) = runInterpolatorIfNecessary(executionConfig, postProcessingDir,
+                                                                                    sparsifiedUtVslamInDir)
 
     jacobianDebuggingDir = None
     if (executionConfig.outputJacobianDebugInfo):
@@ -222,6 +273,12 @@ def generateOfflineRunnerArgsFromExecutionConfigAndPreprocessOrbDataIfNecessary(
         longTermMapInputFile = FileStructureUtils.ensureDirectoryEndsWithSlash(
             longTermMapFileDir) + FileStructureConstants.longTermMapFileBaseName
 
+    gt_poses_file = None
+    gt_extrinsics_file = None
+    if (interpolatedPosesFileName is not None):
+        gt_poses_file = interpolatedPosesFileName
+        gt_extrinsics_file = gtExtrinsicsRelBlFile
+
     offlineArgs = OfflineRunnerArgs(param_prefix=param_prefix,
                                     intrinsics_file=intrinsicsFile,
                                     extrinsics_file=extrinsicsFile,
@@ -238,7 +295,9 @@ def generateOfflineRunnerArgsFromExecutionConfigAndPreprocessOrbDataIfNecessary(
                                     params_config_file=fullConfigFileName,
                                     ellipsoids_results_file=ellipsoidResultsFile,
                                     robot_poses_results_file=robotPoseResultsFile,
-                                    logs_directory=fileLogDir)
+                                    logs_directory=fileLogDir,
+                                    gt_poses_file=gt_poses_file,
+                                    gt_extrinsics_file=gt_extrinsics_file)
     return (param_prefix, offlineArgs)
 
 
@@ -279,6 +338,10 @@ def runTrajectoryFromOfflineArgs(offlineArgs):
                                            offlineArgs.robot_poses_results_file)
     argsString += createCommandStrAddition(SingleTrajectoryExecutableParamConstants.logsDirectory,
                                            offlineArgs.logs_directory)
+    argsString += createCommandStrAddition(SingleTrajectoryExecutableParamConstants.ground_truth_trajectory_file,
+                                           offlineArgs.gt_poses_file)
+    argsString += createCommandStrAddition(SingleTrajectoryExecutableParamConstants.ground_truth_extrinsics_file,
+                                           offlineArgs.gt_extrinsics_file)
 
     cmdToRun = "./bin/offline_object_visual_slam_main " + argsString
     print("Running command: ")
@@ -305,6 +368,7 @@ def recordVisualizationRosbag(topicsPrefix, executionConfig):
     cmdArgs.append((topicsPrefix + "/init_/feature_cloud"))
     cmdArgs.append((topicsPrefix + "/est_pose"))
     cmdArgs.append((topicsPrefix + "/init_pose"))
+    cmdArgs.append((topicsPrefix + "/gt_pose"))
     cmdArgs.append((topicsPrefix + "/pending_ellipsoids"))
     cmdArgs.append((topicsPrefix + "/init_ellipsoids"))
 
@@ -355,7 +419,6 @@ def runSingleTrajectory(executionConfig):
             os.system("mv " + pendingVisBagName + " " + permanentVisBagName)
 
 
-
 def singleTrajectoryArgParse():
     parser = argparse.ArgumentParser(description="Run single trajectory")
     parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.configFileDirectoryBaseArgName),
@@ -393,6 +456,9 @@ def singleTrajectoryArgParse():
     parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.longTermMapBagDirBaseArgName),
                         required=False,
                         help=CmdLineArgConstants.longTermMapBagDirHelp)
+    parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.legoLoamOutRootDirBaseArgName),
+                        required=False,
+                        help=CmdLineArgConstants.legoLoamOutRootDirHelp)
 
     # Boolean arguments
     parser.add_argument(
@@ -453,6 +519,15 @@ def singleTrajectoryArgParse():
     parser.add_argument('--no-' + CmdLineArgConstants.logToFileBaseArgName,
                         dest=CmdLineArgConstants.logToFileBaseArgName, action='store_false',
                         help="Opposite of " + CmdLineArgConstants.logToFileBaseArgName)
+
+    parser.add_argument(
+        CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.forceRerunInterpolatorBaseArgName),
+        default=False,
+        action='store_true',
+        help=CmdLineArgConstants.forceRerunInterpolatorHelp)
+    parser.add_argument('--no-' + CmdLineArgConstants.forceRerunInterpolatorBaseArgName,
+                        dest=CmdLineArgConstants.forceRerunInterpolatorBaseArgName, action='store_false',
+                        help="Opposite of " + CmdLineArgConstants.forceRerunInterpolatorBaseArgName)
     args_dict = vars(parser.parse_args())
 
     return SingleTrajectoryExecutionConfig(
@@ -469,6 +544,7 @@ def singleTrajectoryArgParse():
         rosbagBaseName=args_dict[CmdLineArgConstants.rosbagBaseNameBaseArgName],
         resultsForBagDirPrefix=args_dict[CmdLineArgConstants.resultsForBagDirPrefixBaseArgName],
         longTermMapBagDir=args_dict[CmdLineArgConstants.longTermMapBagDirBaseArgName],
+        lego_loam_root_dir=args_dict[CmdLineArgConstants.legoLoamOutRootDirBaseArgName],
         forceRunOrbSlamPostProcess=args_dict[
             CmdLineArgConstants.forceRunOrbSlamPostProcessBaseArgName],
         outputEllipsoidDebugInfo=args_dict[
@@ -478,7 +554,8 @@ def singleTrajectoryArgParse():
         outputBbAssocInfo=args_dict[CmdLineArgConstants.outputBbAssocInfoBaseArgName],
         runRviz=args_dict[CmdLineArgConstants.runRvizBaseArgName],
         recordVisualizationRosbag=args_dict[CmdLineArgConstants.recordVisualizationRosbagBaseArgName],
-        logToFile=args_dict[CmdLineArgConstants.logToFileBaseArgName])
+        logToFile=args_dict[CmdLineArgConstants.logToFileBaseArgName],
+        forceRerunInterpolator=args_dict[CmdLineArgConstants.forceRerunInterpolatorBaseArgName])
 
 
 if __name__ == "__main__":

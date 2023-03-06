@@ -9,6 +9,7 @@ class FileStructureConstants:
 
     posesByNodeIdFileWithinSparsifiedDir = "poses/initial_robot_poses_by_node.txt"
     nodesByTimestampFileWithinSparsifiedDir = "timestamps/node_ids_and_timestamps.txt"
+    timestampsOnlyFileWithinSparsifiedDir = "timestamps/timestamps_only.txt"
 
     jacobianDebuggingRootDirBaseName = "jacobian_debugging_out"
     ellipsoidDebuggingRootDirBaseName = "ellipsoid_debugging_out"
@@ -54,6 +55,13 @@ class FileStructureUtils:
             FileStructureUtils.makeDirectory(directoryName)
         # TODO Should we force remove old data
         return directoryName
+
+    @staticmethod
+    def getAndOptionallyCreateUtVslamPostprocessingDirectory(resultsBaseDir, sequenceBaseName, configBaseName,
+                                                             dirForBagResults, create=True):
+        return FileStructureUtils.getAndOptionallyCreateConfigSpecificResultsDirectory(
+            resultsBaseDir, FileStructureConstants.postprocessingDirBaseName, sequenceBaseName, configBaseName,
+            dirForBagResults, create)
 
     @staticmethod
     def getAndOptionallyCreateUtVslamOutDirectory(resultsBaseDir, sequenceBaseName, configBaseName, dirForBagResults,

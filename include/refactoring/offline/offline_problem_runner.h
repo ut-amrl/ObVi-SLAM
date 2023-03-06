@@ -99,13 +99,18 @@ class OfflineProblemRunner {
       std::shared_ptr<PoseGraphType> &pose_graph,
       std::shared_ptr<std::unordered_map<ceres::ResidualBlockId, double>>
           block_ids_and_residuals_ptr,
-      pose_graph_optimization::OptimizationSolverParams &solver_params) {
+      pose_graph_optimization::OptimizationSolverParams &solver_params,
+      std::optional<vslam_types_refactor::OptimizationLogger> &opt_logger) {
     std::vector<std::shared_ptr<ceres::IterationCallback>> ceres_callbacks =
         ceres_callback_creator_(
             problem_data, pose_graph, start_frame_id, end_frame_id);
     LOG(INFO) << "Solving optimization";
-    bool opt_success = optimizer_.solveOptimization(
-        &problem, solver_params, ceres_callbacks, block_ids_and_residuals_ptr);
+    bool opt_success =
+        optimizer_.solveOptimization(&problem,
+                                     solver_params,
+                                     ceres_callbacks,
+                                     opt_logger,
+                                     block_ids_and_residuals_ptr);
     if (!opt_success) {
       // TODO do we want to quit or just silently let this iteration fail?
       LOG(ERROR) << "Optimization failed at max frame id " << end_frame_id;
@@ -118,11 +123,16 @@ class OfflineProblemRunner {
       const InputProblemData &problem_data,
       const pose_graph_optimizer::OptimizationFactorsEnabledParams
           &optimization_factors_enabled_params,
+      std::optional<vslam_types_refactor::OptimizationLogger> &opt_logger,
       OutputProblemData &output_problem_data,
       const OptimTypeEnum &optim_type =
           OptimTypeEnum::TWOPHASE_SLIDING_WINDOW) {
-    ceres::Problem problem;
     std::shared_ptr<PoseGraphType> pose_graph;
+
+    if (opt_logger.has_value()) {
+      opt_logger->writeOptInfoHeader();
+    }
+    ceres::Problem problem;
     pose_graph_creator_(problem_data, pose_graph);
     frame_data_adder_(problem_data, pose_graph, 0, 0);
     FrameId max_frame_id = problem_data.getMaxFrameId();
@@ -195,7 +205,8 @@ class OfflineProblemRunner {
                       optimization_scope_params,
                       residual_params_,
                       pose_graph,
-                      &problem);
+                      &problem,
+                      opt_logger);
           visualization_callback_(
               problem_data,
               pose_graph,
@@ -208,7 +219,8 @@ class OfflineProblemRunner {
                                                 problem,
                                                 pose_graph,
                                                 nullptr,
-                                                solver_params);
+                                                solver_params,
+                                                opt_logger);
           if (!optim_success) {
             return optim_success;
           }
@@ -239,7 +251,8 @@ class OfflineProblemRunner {
                 optimizer_.buildPoseGraphOptimization(optimization_scope_params,
                                                       residual_params_,
                                                       pose_graph,
-                                                      &problem);
+                                                      &problem,
+                                                      opt_logger);
         visualization_callback_(
             problem_data,
             pose_graph,
@@ -252,7 +265,8 @@ class OfflineProblemRunner {
                                               problem,
                                               pose_graph,
                                               nullptr,
-                                              solver_params);
+                                              solver_params,
+                                              opt_logger);
         if (!optim_success) {
           return false;
         }
@@ -297,7 +311,8 @@ class OfflineProblemRunner {
                       optimization_scope_params,
                       residual_params_,
                       pose_graph,
-                      &problem);
+                      &problem,
+                      opt_logger);
           std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph>
               pose_graph_copy = pose_graph->makeDeepCopy();
           visualization_callback_(
@@ -315,7 +330,8 @@ class OfflineProblemRunner {
                                                 problem,
                                                 pose_graph,
                                                 block_ids_and_residuals,
-                                                solver_params);
+                                                solver_params,
+                                                opt_logger);
           if (!optim_success) {
             return false;
           }
@@ -353,6 +369,7 @@ class OfflineProblemRunner {
               residual_params_,
               pose_graph,
               &problem,
+              opt_logger,
               excluded_feature_factor_types_and_ids);
           // TODO extract feature_factor_ids_to_remove from
           // block_ids_and_residuals
@@ -362,7 +379,8 @@ class OfflineProblemRunner {
                                                 problem,
                                                 pose_graph,
                                                 nullptr,
-                                                solver_params);
+                                                solver_params,
+                                                opt_logger);
           if (!optim_success) {
             return false;
           }
