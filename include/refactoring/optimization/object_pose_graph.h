@@ -541,8 +541,8 @@ class ObjAndLowLevelFeaturePoseGraph
   }
 
   void getEllipsoidEstimatePtrs(
-      std::unordered_map<ObjectId, EllipsoidEstimateNode>
-          &ellipsoid_estimates) {
+      std::unordered_map<ObjectId, EllipsoidEstimateNode> &ellipsoid_estimates)
+      const {
     ellipsoid_estimates = ellipsoid_estimates_;
   }
 
