@@ -148,6 +148,11 @@ class ObjectPoseGraphOptimizer {
         util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
                                      vslam_types_refactor::FeatureFactorId>>>
         objects_to_include;
+    std::unordered_map<
+        vslam_types_refactor::FrameId,
+        util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
+                                     vslam_types_refactor::FeatureFactorId>>>
+        pose_factors_to_include;
 
     bool use_object_only_factors = false;  // POM, shape prior, etc
     if (optimization_scope.include_object_factors_) {
@@ -156,6 +161,8 @@ class ObjectPoseGraphOptimizer {
       }
     }
 
+    bool use_relative_pose_factors =
+        optimization_scope.include_relative_factors_;
     bool use_feature_pose_factors = optimization_scope.include_visual_factors_;
     bool use_object_pose_factors = optimization_scope.include_object_factors_;
     bool use_object_param_blocks = optimization_scope.include_object_factors_;
@@ -220,6 +227,66 @@ class ObjectPoseGraphOptimizer {
           required_feature_factors);
       addIncludedFactorsToRequiredFactors(features_to_include,
                                           required_feature_factors);
+    }
+
+    // std::unordered_map<
+    //     vslam_types_refactor::FactorType,
+    //     std::unordered_set<vslam_types_refactor::FeatureFactorId>>
+    //     required_feature_factors;
+    // TODO may need to exclude certain factors by type
+    // if (use_relative_pose_factors) {
+    if (false) {
+      std::unordered_map<
+          vslam_types_refactor::FrameId,
+          util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
+                                       vslam_types_refactor::PoseFactorId>>>
+          frames_and_matching_factors;
+      pose_graph->getPoseFactorIdsBetweenFrameIdsInclusive(
+          optimization_scope.min_frame_id_,
+          optimization_scope.max_frame_id_,
+          frames_and_matching_factors);
+
+      util::BoostHashSet<vslam_types_refactor::FactorType> factor_types = {
+          vslam_types_refactor::kReprojectionErrorFactorTypeId};
+      std::unordered_map<vslam_types_refactor::FrameId, size_t>
+          frames_and_feature_obs_nums;
+      for (vslam_types_refactor::FrameId frame_id =
+               optimization_scope.min_frame_id_;
+           frame_id <= optimization_scope.max_frame_id_;
+           ++frame_id) {
+        frames_and_feature_obs_nums[frame_id] =
+            pose_graph->getObservationNumByFrameIdAndFactorTypes(frame_id,
+                                                                 factor_types);
+      }
+
+      // for (const auto &frame_and_feat_obs_num : frames_and_feature_obs_nums)
+      // {
+      //   if (frame_and_feature_obs_num.second >=
+      //       optimization_scope.min_low_level_feature_observations_per_frame_)
+      //       {
+      //     continue;  // TODO may want to exclude factors or relax constraint
+      //     in
+      //                // this case
+      //   } else {
+      //     const FrameId &curr_frame_id = frame_and_feature_obs_num.first;
+      //   }
+      // }
+
+      // for (const auto &frame_and_feature_obs_num :
+      //      frames_and_feature_obs_nums) {
+      //   if (frame_and_feature_obs_num.second <
+      //       optimization_scope.min_low_level_feature_observations_per_frame_)
+      //       {
+      //     const FrameId &curr_frame_id = frame_and_feature_obs_num.first;
+      //     if (frames_and_matching_factors.find(curr_frame_id) ==
+      //         frames_and_matching_factors.end()) {
+      //     } else if (frames_and_matching_factors.at(curr_frame_id).size() >=
+      //                2) {
+      //       continue;
+      //     } else {
+      //     }
+      //   }
+      // }
     }
 
     if (use_object_param_blocks) {

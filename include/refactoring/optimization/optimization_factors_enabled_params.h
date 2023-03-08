@@ -19,6 +19,9 @@ struct OptimizationFactorsEnabledParams {
   double consecutive_pose_transl_tol_ = 1.0;
   double consecutive_pose_orient_tol_ = M_PI;
 
+  bool include_relative_factors_ = true;
+  size_t min_low_level_feature_observations_per_frame_ = 25;
+
   bool include_object_factors_ = true;
   bool include_visual_factors_ = true;
   bool fix_poses_ = true;
@@ -55,6 +58,9 @@ struct OptimizationScopeParams {
   bool allow_reversion_after_dectecting_jumps_;
   double consecutive_pose_transl_tol_ = 1.0;
   double consecutive_pose_orient_tol_ = M_PI;
+
+  bool include_relative_factors_;
+  size_t min_low_level_feature_observations_per_frame_ = 25;
 
   bool include_object_factors_;
   bool include_visual_factors_;

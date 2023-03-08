@@ -158,7 +158,11 @@ class OfflineProblemRunner {
         optimization_factors_enabled_params.fix_visual_features_;
     optimization_scope_params.fix_ltm_objects_ =
         optimization_factors_enabled_params.fix_ltm_objects_;
-    optimization_scope_params.include_visual_factors_ =
+    optimization_scope_params.include_relative_factors_ =
+        optimization_factors_enabled_params.include_relative_factors_;
+    optimization_scope_params.include_relative_factors_ =
+        optimization_factors_enabled_params.min_low_level_feature_observations_per_frame_;
+    optimization_scope_params.min_low_level_feature_observations_per_frame_ =
         optimization_factors_enabled_params.include_visual_factors_;
     optimization_scope_params.include_object_factors_ =
         optimization_factors_enabled_params.include_object_factors_;
