@@ -413,7 +413,7 @@ class LowLevelFeaturePoseGraph {
   }
 
   void getRobotPosePtrs(
-      std::unordered_map<FrameId, RobotPoseNode> &robot_poses) {
+      std::unordered_map<FrameId, RobotPoseNode> &robot_poses) const {
     robot_poses = robot_poses_;
   }
 
@@ -509,8 +509,8 @@ class ReprojectionLowLevelFeaturePoseGraph
     feature_positions_ = feature_positions;
   }
 
-  void getFeaturePositionPtrs(
-      std::unordered_map<FeatureId, VisualFeatureNode> &feature_positions) {
+  void getFeaturePositionPtrs(std::unordered_map<FeatureId, VisualFeatureNode>
+                                  &feature_positions) const {
     feature_positions = feature_positions_;
   }
 

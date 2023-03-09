@@ -56,8 +56,6 @@ struct OptimizationFactorsEnabledParams {
 
 struct OptimizationScopeParams {
   bool allow_reversion_after_dectecting_jumps_;
-  double consecutive_pose_transl_tol_ = 1.0;
-  double consecutive_pose_orient_tol_ = M_PI;
 
   bool include_relative_factors_;
   size_t min_low_level_feature_observations_per_frame_ = 25;
