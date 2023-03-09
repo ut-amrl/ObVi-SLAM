@@ -225,8 +225,6 @@ class ObjectPoseGraphOptimizer {
           optimization_scope.min_low_level_feature_observations_,
           features_to_include,
           required_feature_factors);
-      addIncludedFactorsToRequiredFactors(features_to_include,
-                                          required_feature_factors);
     }
 
     // std::unordered_map<
@@ -791,27 +789,14 @@ class ObjectPoseGraphOptimizer {
             factor_to_include.second;
       }
     }
-    factors_to_include_by_id = new_factors_to_include;
-  }
-
-  template <typename IdType>
-  void addIncludedFactorsToRequiredFactors(
-      const std::unordered_map<
-          IdType,
-          util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
-                                       vslam_types_refactor::FeatureFactorId>>>
-          &factors_to_include_by_id,
-      std::unordered_map<
-          vslam_types_refactor::FactorType,
-          std::unordered_set<vslam_types_refactor::FeatureFactorId>>
-          &required_feature_factors) {
-    for (const auto &factor_ids_and_factor_sets : factors_to_include_by_id) {
+    for (const auto &factor_ids_and_factor_sets : new_factors_to_include) {
       for (const auto &factor_type_and_factor_id :
            factor_ids_and_factor_sets.second) {
         required_feature_factors[factor_type_and_factor_id.first].insert(
             factor_type_and_factor_id.second);
       }
     }
+    factors_to_include_by_id = new_factors_to_include;
   }
 
   template <typename IdType>
