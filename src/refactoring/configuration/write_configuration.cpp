@@ -92,10 +92,10 @@ BoundingBoxFrontEndParams generateBoundingBoxFrontEndParams(
   // TODO tune/override
   bb_assoc_front_end_params.min_observations_for_local_est_ = 3;
   bb_assoc_front_end_params.min_observations_ = 10;
-  bb_assoc_front_end_params.min_bb_confidence_ = 0.3;
+  bb_assoc_front_end_params.min_bb_confidence_ = 0.2;
   bb_assoc_front_end_params.required_min_conf_for_initialization_ = 0;
-  bb_assoc_front_end_params.min_overlapping_features_for_match_ = 2;
-  bb_assoc_front_end_params.bounding_box_inflation_size_ = 0;
+  bb_assoc_front_end_params.min_overlapping_features_for_match_ = 3;
+  bb_assoc_front_end_params.bounding_box_inflation_size_ = 10;
   bb_assoc_front_end_params.pending_obj_estimator_params_ =
       pending_obj_estimator_params;
 
@@ -133,7 +133,7 @@ int main(int argc, char **argv) {
   std::string config_identifier = FLAGS_config_identifier;
   if (config_identifier.empty()) {
     // TODO INCREMENT IF YOU CHANGE VALUES/STRUCTURE FOR CONFIG
-    int config_version_number = 5;
+    int config_version_number = 6;
 
     config_identifier = std::to_string(config_version_number);
   }
@@ -258,7 +258,7 @@ int main(int argc, char **argv) {
       5;
   // adding larger min_low_level_feature_observations_ for stereo camera
   optimization_factors_enabled_params.min_low_level_feature_observations_ = 7;
-  optimization_factors_enabled_params.min_object_observations_ = 1;
+  optimization_factors_enabled_params.min_object_observations_ = 10;
   optimization_factors_enabled_params.use_visual_features_on_global_ba_ = false;
   optimization_factors_enabled_params.use_pose_graph_on_global_ba_ = true;
   optimization_factors_enabled_params.use_pose_graph_on_final_global_ba_ =
