@@ -3,6 +3,7 @@
 #include <ceres/problem.h>
 #include <evaluation/trajectory_interpolation_utils.h>
 #include <refactoring/factors/relative_pose_factor.h>
+#include <refactoring/factors/relative_pose_factor_utils.h>
 #include <refactoring/optimization/low_level_feature_pose_graph.h>
 #include <refactoring/types/vslam_types_conversion.h>
 #include <refactoring/types/vslam_types_math_util.h>
@@ -10,31 +11,6 @@
 #include <unsupported/Eigen/MatrixFunctions>
 
 namespace vslam_types_refactor {
-
-namespace {
-const double kMinStdDev = 1e-3;
-}
-
-Covariance<double, 6> generateOdomCov(
-    const Pose3D<double> &relative_pose,
-    const double &transl_error_mult_for_transl_error,
-    const double &transl_error_mult_for_rot_error,
-    const double &rot_error_mult_for_transl_error,
-    const double &rot_error_mult_for_rot_error) {
-  Eigen::Matrix<double, 6, 1> std_devs;
-  std_devs.topRows(3) =
-      relative_pose.transl_.cwiseAbs() * transl_error_mult_for_transl_error +
-      (abs(relative_pose.orientation_.angle()) *
-       rot_error_mult_for_transl_error * Eigen::Vector3d::Ones());
-  std_devs.bottomRows(3) =
-      (relative_pose.orientation_.axis() * relative_pose.orientation_.angle())
-              .cwiseAbs() *
-          rot_error_mult_for_rot_error +
-      (relative_pose.transl_.norm() * transl_error_mult_for_rot_error *
-       Eigen::Vector3d::Ones());
-
-  return createDiagCovFromStdDevs(std_devs, kMinStdDev);
-}
 
 bool runOptimization(
     const util::BoostHashMap<pose::Timestamp, Pose3D<double>>

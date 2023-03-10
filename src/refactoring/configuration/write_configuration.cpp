@@ -133,7 +133,7 @@ int main(int argc, char **argv) {
   std::string config_identifier = FLAGS_config_identifier;
   if (config_identifier.empty()) {
     // TODO INCREMENT IF YOU CHANGE VALUES/STRUCTURE FOR CONFIG
-    int config_version_number = 4;
+    int config_version_number = 5;
 
     config_identifier = std::to_string(config_version_number);
   }
@@ -188,6 +188,20 @@ int main(int argc, char **argv) {
   configuration.local_ba_solver_params_ = local_ba_solver_params;
   configuration.global_ba_solver_params_ = global_ba_solver_params;
   configuration.final_ba_solver_params_ = final_opt_solver_params;
+
+  configuration.pgo_solver_params_.relative_pose_factor_huber_loss_ = 5;
+  configuration.pgo_solver_params_.pgo_optimization_solver_params_ =
+      global_ba_solver_params;
+  configuration.pgo_solver_params_.final_pgo_optimization_solver_params_ =
+      final_opt_solver_params;
+  pose_graph_optimization::RelativePoseCovarianceOdomModelParams
+      relative_pose_cov_params;
+  relative_pose_cov_params.transl_error_mult_for_transl_error_ = 0.1;
+  relative_pose_cov_params.transl_error_mult_for_rot_error_ = 0.1;
+  relative_pose_cov_params.rot_error_mult_for_transl_error_ = 0.1;
+  relative_pose_cov_params.rot_error_mult_for_rot_error_ = 0.1;
+  configuration.pgo_solver_params_.relative_pose_cov_params_ =
+      relative_pose_cov_params;
 
   configuration.ltm_tunable_params_.far_feature_threshold_ = 75;
   configuration.ltm_solver_params_ =
@@ -245,6 +259,12 @@ int main(int argc, char **argv) {
   // adding larger min_low_level_feature_observations_ for stereo camera
   optimization_factors_enabled_params.min_low_level_feature_observations_ = 7;
   optimization_factors_enabled_params.min_object_observations_ = 1;
+  optimization_factors_enabled_params.use_visual_features_on_global_ba_ = false;
+  optimization_factors_enabled_params.use_pose_graph_on_global_ba_ = true;
+  optimization_factors_enabled_params.use_pose_graph_on_final_global_ba_ =
+      optimization_factors_enabled_params.use_pose_graph_on_global_ba_;
+  optimization_factors_enabled_params.use_visual_features_on_final_global_ba_ =
+      true;
 
   configuration.optimization_factors_enabled_params_ =
       optimization_factors_enabled_params;

@@ -11,7 +11,7 @@
 
 namespace vslam_types_refactor {
 
-const static constexpr double kDownsampleRatio = 0.5;
+const static int kMaxDebugImageHeight = 180;
 
 struct SaveToFileBbFrontEndVisualizerConfig {
   FrameId feature_validity_window_ = INT_MAX;
@@ -78,15 +78,24 @@ class SaveToFileVisualizer {
       const std::unordered_map<CameraId, std::pair<double, double>>
           &img_heights_and_widths,
       const FrameId &min_frame_optimized,
-      const FrameId &max_frame_optimized) {
+      const FrameId &max_frame_optimized,
+      const bool &pgo_opt) {
     if (output_directory_.empty()) {
       return;
     }
 
-    std::string mosaic_file_name =
-        output_directory_ + "bounding_boxes_" +
-        util::padIntNumberToConstantWidth(max_frame_optimized, 4) +
-        kPngExtension;
+    std::string mosaic_file_name;
+    if (!pgo_opt) {
+      mosaic_file_name =
+          output_directory_ + "bounding_boxes_" +
+          util::padIntNumberToConstantWidth(max_frame_optimized, 4) +
+          kPngExtension;
+    } else {
+      mosaic_file_name =
+          output_directory_ + "bounding_boxes_" +
+          util::padIntNumberToConstantWidth(max_frame_optimized, 4) + "_pgo" +
+          kPngExtension;
+    }
 
     // For each pose in the window, for each camera in window,
     // write image with pending bounding boxes,
@@ -174,7 +183,7 @@ class SaveToFileVisualizer {
                                     pending_inflated_bb_color_,
                                     cv_ptr,
                                     std::nullopt,
-                                    std::nullopt,
+                                    std::to_string(num_obs_per_pending_obj.at(pending_obj_id)),
                                     std::nullopt,
                                     std::nullopt);
           displayBoundingBoxOnImage(
@@ -183,7 +192,7 @@ class SaveToFileVisualizer {
               pending_bb_color_,
               cv_ptr,
               std::nullopt,
-              std::to_string(num_obs_per_pending_obj.at(pending_obj_id)),
+              std::nullopt,
               std::to_string(pending_obj_id),
               std::nullopt);
         }
@@ -234,8 +243,14 @@ class SaveToFileVisualizer {
           drawTinyCircleOnImage(
               feat.second, colors_for_features_.at(feat.first), cv_ptr);
         }
-        indiv_visualizations.emplace_back(
-            scaleImage(kDownsampleRatio, cv_ptr->image));
+        int imgHeight = cv_ptr->image.size().height;
+        if (imgHeight <= kMaxDebugImageHeight) {
+          indiv_visualizations.emplace_back(cv_ptr->image);
+        } else {
+          double downsample_ratio = ((double) kMaxDebugImageHeight) / imgHeight;
+          indiv_visualizations.emplace_back(
+              scaleImage(downsample_ratio, cv_ptr->image));
+        }
       }
     }
     cv::Mat mosaic = generateMosaic(indiv_visualizations, 4);

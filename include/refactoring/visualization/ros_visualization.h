@@ -128,6 +128,12 @@ class RosVisualization {
     return frame_prefix_ + type_prefix + kFrameForLatestNode;
   }
 
+  std::string getFrameForLatestPoseAndCamId(const std::string &type_prefix,
+                                            const CameraId &cam_id) {
+    return frame_prefix_ + type_prefix + kFrameForLatestNode + "_cam" +
+           std::to_string(cam_id);
+  }
+
   std::pair<std::string, std::string>
   createImageAndCameraInfoTopicsForTrajectoryTypeRobotPoseAndCameraId(
       const FrameId &robot_pose_idx,
@@ -156,7 +162,8 @@ class RosVisualization {
     std::string base_name = topic_prefix_ + "/" +
                             trajectory_type_prefix_with_slash + "/latest/cam_" +
                             std::to_string(camera_id) + "_" + data_type;
-    std::string frame_name = getFrameForLatestPose(latest_frame_prefix);
+    std::string frame_name =
+        getFrameForLatestPoseAndCamId(latest_frame_prefix, camera_id);
     return std::make_pair(
         std::make_pair(base_name + "/image_raw", base_name + "/camera_info"),
         frame_name);
@@ -246,22 +253,30 @@ class RosVisualization {
     publishTrajectory(pub, color, trajectory);
   }
 
-  void publishTfForLatestPose(const Pose3D<double> &latest_pose,
-                              const PlotType &plot_type) {
+  void publishTfsForLatestPose(
+      const Pose3D<double> &latest_pose,
+      const PlotType &plot_type,
+      const std::unordered_map<CameraId, CameraExtrinsics<double>>
+          &extrinsics) {
+    std::string bl_frame_id =
+        getFrameForLatestPose(prefixes_for_plot_type_.at(plot_type));
     geometry_msgs::TransformStamped transform;
     transform.header.frame_id = kVizFrame;
     transform.header.stamp = ros::Time::now();
-    transform.child_frame_id =
-        getFrameForLatestPose(prefixes_for_plot_type_.at(plot_type));
-    transform.transform.translation.x = latest_pose.transl_.x();
-    transform.transform.translation.y = latest_pose.transl_.y();
-    transform.transform.translation.z = latest_pose.transl_.z();
-    Eigen::Quaterniond pose_orientation(latest_pose.orientation_);
-    transform.transform.rotation.x = pose_orientation.x();
-    transform.transform.rotation.y = pose_orientation.y();
-    transform.transform.rotation.z = pose_orientation.z();
-    transform.transform.rotation.w = pose_orientation.w();
+    transform.child_frame_id = bl_frame_id;
+    transform.transform = convertPose3DtoTransformMsg(latest_pose);
     tf_broadcaster_.sendTransform(transform);
+
+    for (const auto &extrinsics_entry : extrinsics) {
+      geometry_msgs::TransformStamped transform_cam;
+      transform_cam.header.frame_id = kVizFrame;
+      transform_cam.header.stamp = ros::Time::now();
+      transform_cam.child_frame_id = getFrameForLatestPoseAndCamId(
+          prefixes_for_plot_type_.at(plot_type), extrinsics_entry.first);
+      transform_cam.transform = convertPose3DtoTransformMsg(
+          combinePoses(latest_pose, extrinsics_entry.second));
+      tf_broadcaster_.sendTransform(transform_cam);
+    }
   }
 
   // TODO modify this to also take min frame
@@ -317,8 +332,8 @@ class RosVisualization {
 
     // Publish frames for trajectories and cameras and bounding boxes for each
     // trajectory
-    publishTransformsForEachCamera(
-        max_frame, initial_trajectory, extrinsics, kInitPrefix);
+//    publishTransformsForEachCamera(
+//        max_frame, initial_trajectory, extrinsics, kInitPrefix);
     publishBoundingBoxDataFromTrajectory(
         max_frame,
         initial_trajectory,
@@ -335,8 +350,8 @@ class RosVisualization {
         display_boxes_if_no_image,
         near_edge_threshold);
     if (optimized_trajectory.has_value()) {
-      publishTransformsForEachCamera(
-          max_frame, optimized_trajectory.value(), extrinsics, kEstPrefix);
+//      publishTransformsForEachCamera(
+//          max_frame, optimized_trajectory.value(), extrinsics, kEstPrefix);
       publishBoundingBoxDataFromTrajectory(
           max_frame,
           optimized_trajectory.value(),
@@ -354,8 +369,8 @@ class RosVisualization {
           near_edge_threshold);
     }
     if (gt_trajectory.has_value()) {
-      publishTransformsForEachCamera(
-          max_frame, gt_trajectory.value(), extrinsics, kGtPrefix);
+//      publishTransformsForEachCamera(
+//          max_frame, gt_trajectory.value(), extrinsics, kGtPrefix);
       publishBoundingBoxDataFromTrajectory(
           max_frame,
           gt_trajectory.value(),
@@ -393,7 +408,8 @@ class RosVisualization {
     for (const auto &frame_and_bbs :
          observed_corner_locations_with_uncertainty) {
       FrameId pose_idx = frame_and_bbs.first;
-      if (pose_idx > max_frame) {
+//      if (pose_idx != max_frame) {
+              if (pose_idx > max_frame) {
         continue;
       }
 
@@ -566,7 +582,8 @@ class RosVisualization {
       const bool &display_boxes_if_no_image,
       const double &near_edge_threshold) {
     // For each robot pose
-    for (FrameId pose_idx = 0; pose_idx <= max_frame; pose_idx++) {
+    //    for (FrameId pose_idx = 0; pose_idx <= max_frame; pose_idx++) {
+    for (FrameId pose_idx = max_frame; pose_idx <= max_frame; pose_idx++) {
       Pose3D<double> robot_pose = trajectory.at(pose_idx);
 
       // If we need images to display things, check if there are any images for
@@ -718,20 +735,20 @@ class RosVisualization {
                         BbCornerPair<double>>>{pred_corners_from_gt_nonopt}
                   : std::nullopt;
 
-          publishImageWithBoundingBoxes(image_and_camera_info_topics.first,
-                                        image_and_camera_info_topics.second,
-                                        frame_id,
-                                        cam_intrinsics,
-                                        image_height_and_width,
-                                        image,
-                                        observed_corner_locations_for_pose.at(
-                                            cam_id_and_extrinsics.first),
-                                        gt_corners,
-                                        predicted_corners_from_optimized,
-                                        predicted_corners_from_initial,
-                                        predicted_corners_from_gt,
-                                        near_edge_threshold,
-                                        std::to_string(pose_idx));
+          //          publishImageWithBoundingBoxes(image_and_camera_info_topics.first,
+          //                                        image_and_camera_info_topics.second,
+          //                                        frame_id,
+          //                                        cam_intrinsics,
+          //                                        image_height_and_width,
+          //                                        image,
+          //                                        observed_corner_locations_for_pose.at(
+          //                                            cam_id_and_extrinsics.first),
+          //                                        gt_corners,
+          //                                        predicted_corners_from_optimized,
+          //                                        predicted_corners_from_initial,
+          //                                        predicted_corners_from_gt,
+          //                                        near_edge_threshold,
+          //                                        std::to_string(pose_idx));
 
           if (pose_idx == max_frame) {
             std::pair<std::pair<std::string, std::string>, std::string>
@@ -1675,6 +1692,20 @@ class RosVisualization {
     for (size_t i = 0; i < robot_poses.size(); i++) {
       publishRobotPose(marker_pub, robot_poses[i], color, min_id + i);
     }
+  }
+
+  geometry_msgs::Transform convertPose3DtoTransformMsg(
+      const Pose3D<double> &pose) {
+    geometry_msgs::Transform transform;
+    transform.translation.x = pose.transl_.x();
+    transform.translation.y = pose.transl_.y();
+    transform.translation.z = pose.transl_.z();
+    Eigen::Quaterniond pose_orientation(pose.orientation_);
+    transform.rotation.x = pose_orientation.x();
+    transform.rotation.y = pose_orientation.y();
+    transform.rotation.z = pose_orientation.z();
+    transform.rotation.w = pose_orientation.w();
+    return transform;
   }
 
   void publishRobotPose(ros::Publisher &marker_pub,

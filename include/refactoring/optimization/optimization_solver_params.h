@@ -118,6 +118,49 @@ struct ObjectVisualPoseGraphResidualParams {
     return !operator==(rhs);
   }
 };
+
+struct RelativePoseCovarianceOdomModelParams {
+  double transl_error_mult_for_transl_error_;
+  double transl_error_mult_for_rot_error_;
+  double rot_error_mult_for_transl_error_;
+  double rot_error_mult_for_rot_error_;
+
+  bool operator==(const RelativePoseCovarianceOdomModelParams &rhs) const {
+    return (transl_error_mult_for_transl_error_ ==
+            rhs.transl_error_mult_for_transl_error_) &&
+           (transl_error_mult_for_rot_error_ ==
+            rhs.transl_error_mult_for_rot_error_) &&
+           (rot_error_mult_for_transl_error_ ==
+            rhs.rot_error_mult_for_transl_error_) &&
+           (rot_error_mult_for_rot_error_ == rhs.rot_error_mult_for_rot_error_);
+  }
+
+  bool operator!=(const RelativePoseCovarianceOdomModelParams &rhs) const {
+    return !operator==(rhs);
+  }
+};
+
+struct PoseGraphPlusObjectsOptimizationParams {
+  double relative_pose_factor_huber_loss_ = 1.0;
+
+  RelativePoseCovarianceOdomModelParams relative_pose_cov_params_;
+  OptimizationSolverParams pgo_optimization_solver_params_;
+  OptimizationSolverParams final_pgo_optimization_solver_params_;
+
+  bool operator==(const PoseGraphPlusObjectsOptimizationParams &rhs) const {
+    return (relative_pose_factor_huber_loss_ ==
+            rhs.relative_pose_factor_huber_loss_) &&
+           (relative_pose_cov_params_ == rhs.relative_pose_cov_params_) &&
+           (pgo_optimization_solver_params_ ==
+            rhs.pgo_optimization_solver_params_) &&
+           (final_pgo_optimization_solver_params_ ==
+            rhs.final_pgo_optimization_solver_params_);
+  }
+
+  bool operator!=(const PoseGraphPlusObjectsOptimizationParams &rhs) const {
+    return !operator==(rhs);
+  }
+};
 }  // namespace pose_graph_optimization
 
 #endif  // UT_VSLAM_OPTIMIZATION_SOLVER_PARAMS_H

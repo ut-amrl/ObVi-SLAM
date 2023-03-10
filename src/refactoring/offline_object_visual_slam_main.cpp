@@ -399,17 +399,20 @@ void visualizationStub(
     const double &near_edge_threshold,
     const size_t &pending_obj_min_obs_threshold,
     const std::optional<std::vector<vtr::Pose3D<double>>> &gt_trajectory) {
+  bool pgo_opt = false;
   switch (visualization_stage) {
     case vtr::BEFORE_ANY_OPTIMIZATION:
-      vis_manager->publishTransformsForEachCamera(
-          input_problem_data.getMaxFrameId(),
-          input_problem_data.getRobotPoseEstimates(),
-          input_problem_data.getCameraExtrinsicsByCamera());
+//      vis_manager->publishTransformsForEachCamera(
+//          input_problem_data.getMaxFrameId(),
+//          input_problem_data.getRobotPoseEstimates(),
+//          input_problem_data.getCameraExtrinsicsByCamera());
 
       sleep(3);
       break;
     case vtr::BEFORE_EACH_OPTIMIZATION:
       break;
+    case vtr::AFTER_PGO_PLUS_OBJ_OPTIMIZATION:
+      pgo_opt = true;
     case vtr::AFTER_EACH_OPTIMIZATION: {
       std::unordered_map<vtr::FrameId, vtr::RawPose3d<double>>
           optimized_robot_pose_estimates;
@@ -502,7 +505,6 @@ void visualizationStub(
           observed_feats_for_frame,
           vtr::PlotType::INITIAL);
 
-
       vis_manager->visualizeCameraObservations(
           max_frame_optimized,
           initial_robot_pose_estimates,
@@ -552,10 +554,6 @@ void visualizationStub(
         vis_manager->visualizeTrajectory(truncated_gt_traj,
                                          vtr::PlotType::GROUND_TRUTH);
       }
-      vis_manager->publishTfForLatestPose(est_trajectory_vec.back(),
-                                          vtr::PlotType::ESTIMATED);
-      vis_manager->publishTfForLatestPose(init_trajectory_vec.back(),
-                                          vtr::PlotType::INITIAL);
 
 
       std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>
@@ -583,6 +581,12 @@ void visualizationStub(
       }
       vis_manager->visualizeFeatureEstimates(curr_frame_est_feature_ests,
                                              vtr::PlotType::ESTIMATED);
+      vis_manager->publishTfsForLatestPose(est_trajectory_vec.back(),
+                                           vtr::PlotType::ESTIMATED,
+                                           extrinsics);
+      vis_manager->publishTfsForLatestPose(init_trajectory_vec.back(),
+                                           vtr::PlotType::INITIAL,
+                                           extrinsics);
 
       save_to_file_visualizer.boundingBoxFrontEndVisualization(
           images,
@@ -595,7 +599,8 @@ void visualizationStub(
           observed_features,
           img_heights_and_widths,
           min_frame_optimized,
-          max_frame_optimized);
+          max_frame_optimized,
+          pgo_opt);
 
       break;
     }
@@ -744,6 +749,7 @@ int main(int argc, char **argv) {
   //  LOG(INFO) << "Bounding boxes for " << bounding_boxes.size() << " frames ";
   std::unordered_map<vtr::FrameId, vtr::Pose3D<double>> robot_poses =
       readRobotPosesFromFile(FLAGS_poses_by_node_id_file);
+  LOG(INFO) << "Reading images from rosbag";
   std::unordered_map<
       vtr::FrameId,
       std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>>
@@ -751,6 +757,7 @@ int main(int argc, char **argv) {
           FLAGS_rosbag_file,
           FLAGS_nodes_by_timestamp_file,
           config.camera_info_.camera_topic_to_camera_id_);
+  LOG(INFO) << "Done reading images from rosbag";
 
   std::unordered_map<vtr::CameraId, std::pair<double, double>>
       img_heights_and_widths;
@@ -1432,6 +1439,22 @@ int main(int argc, char **argv) {
                 .feature_based_bb_association_params_.min_observations_,
             gt_trajectory);
       };
+  if ((!config.optimization_factors_enabled_params_
+            .use_visual_features_on_global_ba_) &&
+      (!config.optimization_factors_enabled_params_
+            .use_pose_graph_on_global_ba_)) {
+    LOG(ERROR) << "Must have either visual features or pose graph (or both) "
+                  "for global ba; review/fix your config";
+    exit(1);
+  }
+  if ((!config.optimization_factors_enabled_params_
+      .use_visual_features_on_final_global_ba_) &&
+      (!config.optimization_factors_enabled_params_
+          .use_pose_graph_on_final_global_ba_)) {
+    LOG(ERROR) << "Must have either visual features or pose graph (or both) "
+                  "for final global ba; review/fix your config";
+    exit(1);
+  }
   vtr::OfflineProblemRunner<MainProbData,
                             vtr::ReprojectionErrorFactor,
                             vtr::LongTermObjectMapAndResults<MainLtm>,
@@ -1439,6 +1462,7 @@ int main(int argc, char **argv) {
                             MainPg>
       offline_problem_runner(residual_params,
                              config.limit_traj_eval_params_,
+                             config.pgo_solver_params_,
                              continue_opt_checker,
                              window_provider_func,
                              refresh_residual_checker,
@@ -1448,7 +1472,8 @@ int main(int argc, char **argv) {
                              output_data_extractor,
                              ceres_callback_creator,
                              visualization_callback,
-                             solver_params_provider_func);
+                             solver_params_provider_func,
+                             gba_checker);
 
   //  vtr::SpatialEstimateOnlyResults output_results;
   vtr::LongTermObjectMapAndResults<MainLtm> output_results;

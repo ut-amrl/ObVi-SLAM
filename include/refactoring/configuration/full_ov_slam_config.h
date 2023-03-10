@@ -21,7 +21,7 @@ namespace vslam_types_refactor {
 
 // NOTE: This should be incremented every time the format of the configuration
 // data changes
-const static int kCurrentConfigSchemaVersion = 4;
+const static int kCurrentConfigSchemaVersion = 5;
 
 struct VisualFeatureParams {
   double reprojection_error_std_dev_;
@@ -148,6 +148,9 @@ struct FullOVSLAMConfig {
   pose_graph_optimization::OptimizationSolverParams global_ba_solver_params_;
   pose_graph_optimization::OptimizationSolverParams final_ba_solver_params_;
 
+  pose_graph_optimization::PoseGraphPlusObjectsOptimizationParams
+      pgo_solver_params_;
+
   LongTermMapExtractionTunableParams ltm_tunable_params_;
   pose_graph_optimization::ObjectVisualPoseGraphResidualParams
       ltm_solver_residual_params_;
@@ -190,6 +193,7 @@ struct FullOVSLAMConfig {
            (local_ba_solver_params_ == rhs.local_ba_solver_params_) &&
            (global_ba_solver_params_ == rhs.global_ba_solver_params_) &&
            (final_ba_solver_params_ == rhs.final_ba_solver_params_) &&
+           (pgo_solver_params_ == rhs.pgo_solver_params_) &&
            (ltm_tunable_params_ == rhs.ltm_tunable_params_) &&
            (ltm_solver_residual_params_ == rhs.ltm_solver_residual_params_) &&
            (ltm_solver_params_ == rhs.ltm_solver_params_) &&
