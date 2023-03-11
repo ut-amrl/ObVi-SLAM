@@ -2086,6 +2086,31 @@ int main(int argc, char **argv) {
             input_problem_data, pose_graph, min_frame_id, max_frame_id);
       };
 
+  // TODO move them to configs
+  const double transl_error_mult_for_transl_error = 0.05;
+  const double transl_error_mult_for_rot_error = 0.05;
+  const double rot_error_mult_for_transl_error = 0.05;
+  const double rot_error_mult_for_rot_error = 0.05;
+  std::function<vtr::Covariance<double, 6>(const vtr::Pose3D<double> &)>
+      pose_deviation_cov_creator =
+          [&](const vtr::Pose3D<double> &relative_pose) {
+            Eigen::Matrix<double, 6, 1> std_devs;
+            std_devs.topRows(3) =
+                relative_pose.transl_.cwiseAbs() *
+                    transl_error_mult_for_transl_error +
+                (abs(relative_pose.orientation_.angle()) *
+                 rot_error_mult_for_transl_error * Eigen::Vector3d::Ones());
+            std_devs.bottomRows(3) =
+                (relative_pose.orientation_.axis() *
+                 relative_pose.orientation_.angle())
+                        .cwiseAbs() *
+                    rot_error_mult_for_rot_error +
+                (relative_pose.transl_.norm() *
+                 transl_error_mult_for_rot_error * Eigen::Vector3d::Ones());
+            return vtr::createDiagCovFromStdDevs(std_devs,
+                                                 1e-3);  // min_std = 1e-3
+          };
+
   //  std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>
   //      long_term_map_front_end_data;
   std::unordered_map<vtr::ObjectId, util::EmptyStruct>
@@ -2235,6 +2260,7 @@ int main(int argc, char **argv) {
                                                frame_to_add,
                                                reprojection_error_provider,
                                                visual_feature_frame_data_adder,
+                                               pose_deviation_cov_creator,
                                                bb_retriever,
                                                bb_associator_retriever,
                                                bb_context_retriever);

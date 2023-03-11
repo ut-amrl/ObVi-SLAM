@@ -96,12 +96,25 @@ struct VisualFeaturePoseGraphResidualParams {
   }
 };
 
+struct PoseResidualParams {
+  double rel_pose_huber_loss_param_ = 1.0;
+
+  bool operator==(const PoseResidualParams &rhs) const {
+    return (rel_pose_huber_loss_param_ == rhs.rel_pose_huber_loss_param_);
+  }
+
+  bool operator!=(const PoseResidualParams &rhs) const {
+    return !operator==(rhs);
+  }
+};
+
 struct ObjectVisualPoseGraphResidualParams {
   // NOTE: If this structure is modified, increment the
   // kCurrentConfigSchemaVersion number in FullOVSLAMConfig.h NOTE: If the
   // default values here are modified, make sure any changes are reflected in
   // the config and if necessary, regenerate the config with a new
   // config_version_id_
+  PoseResidualParams pose_residual_params_;
   ObjectResidualParams object_residual_params_;
   VisualFeaturePoseGraphResidualParams visual_residual_params_;
   // TODO maybe make this template so it's flexible to different types of
@@ -111,7 +124,8 @@ struct ObjectVisualPoseGraphResidualParams {
   bool operator==(const ObjectVisualPoseGraphResidualParams &rhs) const {
     return (object_residual_params_ == rhs.object_residual_params_) &&
            (visual_residual_params_ == rhs.visual_residual_params_) &&
-           (long_term_map_params_ == rhs.long_term_map_params_);
+           (long_term_map_params_ == rhs.long_term_map_params_) &&
+           (pose_residual_params_ == rhs.pose_residual_params_);
   }
 
   bool operator!=(const ObjectVisualPoseGraphResidualParams &rhs) const {

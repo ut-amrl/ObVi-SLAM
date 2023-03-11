@@ -1,6 +1,6 @@
 #!/bin/bash
 
-bagname="1676767081"
+bagname="1677097326"
 # CALIB_DIR="/robodata/taijing/object-slam/calibration/husky_zed_resolution_2_scale_0_5/"
 CALIB_DIR="/robodata/taijing/object-slam/calibration/husky_zed_resolution_1_scale_0_5/"
 SLAM_DIR="/home/tiejean/projects/ut_semantic_vslam/"

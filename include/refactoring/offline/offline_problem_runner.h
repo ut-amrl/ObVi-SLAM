@@ -156,11 +156,9 @@ class OfflineProblemRunner {
         optimization_factors_enabled_params.fix_ltm_objects_;
     optimization_scope_params.include_relative_factors_ =
         optimization_factors_enabled_params.include_relative_factors_;
-    optimization_scope_params.include_relative_factors_ =
+    optimization_scope_params.min_low_level_feature_observations_per_frame_ =
         optimization_factors_enabled_params
             .min_low_level_feature_observations_per_frame_;
-    optimization_scope_params.min_low_level_feature_observations_per_frame_ =
-        optimization_factors_enabled_params.include_visual_factors_;
     optimization_scope_params.include_object_factors_ =
         optimization_factors_enabled_params.include_object_factors_;
     optimization_scope_params.use_pom_ =
@@ -385,17 +383,21 @@ class OfflineProblemRunner {
           if (!optim_success) {
             return false;
           }
-          if (!isConsecutivePosesStable_(
-                  pose_graph,
-                  optimization_scope_params.min_frame_id_,
-                  optimization_scope_params.max_frame_id_,
-                  optimization_factors_enabled_params
-                      .consecutive_pose_transl_tol_,
-                  optimization_factors_enabled_params
-                      .consecutive_pose_orient_tol_)) {
-            LOG(WARNING) << "Detecting jumps after optimization. Reverting...";
-            pose_graph->setValuesFromAnotherPoseGraph(pose_graph_copy);
+          if (false) {
+            if (!isConsecutivePosesStable_(
+                    pose_graph,
+                    optimization_scope_params.min_frame_id_,
+                    optimization_scope_params.max_frame_id_,
+                    optimization_factors_enabled_params
+                        .consecutive_pose_transl_tol_,
+                    optimization_factors_enabled_params
+                        .consecutive_pose_orient_tol_)) {
+              LOG(WARNING)
+                  << "Detecting jumps after optimization. Reverting...";
+              pose_graph->setValuesFromAnotherPoseGraph(pose_graph_copy);
+            }
           }
+
           visualization_callback_(
               problem_data,
               pose_graph,

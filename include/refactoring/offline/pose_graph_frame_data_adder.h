@@ -13,6 +13,48 @@
 namespace vslam_types_refactor {
 
 template <typename ProblemDataType>
+void addConsecutiveRelativePoseFactorsForFrame(
+    const ProblemDataType &input_problem_data,
+    const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
+    const FrameId &start_frame_id,
+    const FrameId &frame_to_add,
+    const std::function<Covariance<double, 6>(const Pose3D<double> &)>
+        &pose_deviation_cov_creator) {
+  if (start_frame_id == frame_to_add) {
+    return;
+  }
+  std::unordered_map<FrameId, Pose3D<double>> robot_poses =
+      input_problem_data.getRobotPoseEstimates();
+  Pose3D<double> prev_pose, curr_pose;
+  if (!input_problem_data.getRobotPoseEstimateForFrame(frame_to_add,
+                                                       curr_pose)) {
+    LOG(WARNING) << "Could not find initial pose estimate "
+                    "for robot for frame "
+                 << frame_to_add
+                 << ", not adding relative pose factor for frame "
+                 << frame_to_add;
+    return;
+  }
+  if (!input_problem_data.getRobotPoseEstimateForFrame(frame_to_add - 1,
+                                                       prev_pose)) {
+    LOG(WARNING) << "Could not find initial pose estimate "
+                    "for robot for frame "
+                 << frame_to_add - 1
+                 << ", not adding relative pose factor for frame "
+                 << frame_to_add;
+    return;
+  }
+
+  Pose3D<double> measured_pose_deviation =
+      getPose2RelativeToPose1(curr_pose, prev_pose);
+
+  pose_graph->addPoseFactor(
+      RelPoseFactor(frame_to_add - 1,
+                    frame_to_add,
+                    pose_deviation_cov_creator(measured_pose_deviation)));
+}
+
+template <typename ProblemDataType>
 void addVisualFeatureFactorsForFrame(
     const ProblemDataType &input_problem_data,
     const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
@@ -109,6 +151,8 @@ void addFrameDataAssociatedBoundingBox(
              const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &,
              const FrameId &,
              const FrameId &)> &visual_feature_frame_data_adder,
+    std::function<Covariance<double, 6>(const Pose3D<double> &)>
+        &pose_deviation_cov_creator,
     const std::function<
         bool(const FrameId &,
              std::unordered_map<CameraId, std::vector<RawBoundingBox>> &)>
@@ -169,6 +213,12 @@ void addFrameDataAssociatedBoundingBox(
     }
   }
 
+  addConsecutiveRelativePoseFactorsForFrame(
+      input_problem_data,
+      pose_graph,
+      min_frame_id,
+      frame_to_add,  // same as max_frame_id
+      pose_deviation_cov_creator);
   // Get visual feature factors and the visual features that appear first in
   // this frame
   // addVisualFeatureFactorsForFrame(input_problem_data,
