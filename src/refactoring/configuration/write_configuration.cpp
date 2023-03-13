@@ -133,7 +133,7 @@ int main(int argc, char **argv) {
   std::string config_identifier = FLAGS_config_identifier;
   if (config_identifier.empty()) {
     // TODO INCREMENT IF YOU CHANGE VALUES/STRUCTURE FOR CONFIG
-    int config_version_number = 6;
+    int config_version_number = 7;
 
     config_identifier = std::to_string(config_version_number);
   }
@@ -219,6 +219,16 @@ int main(int argc, char **argv) {
   residual_params.long_term_map_params_.pair_huber_loss_param_ = 1;
 
   configuration.ltm_solver_residual_params_ = residual_params;
+
+  residual_params.relative_pose_factor_huber_loss_ = 1.0;
+  residual_params.relative_pose_cov_params_
+      .transl_error_mult_for_transl_error_ = 0.025;
+  residual_params.relative_pose_cov_params_.transl_error_mult_for_rot_error_ =
+      0.025;
+  residual_params.relative_pose_cov_params_.rot_error_mult_for_transl_error_ =
+      0.025;
+  residual_params.relative_pose_cov_params_.rot_error_mult_for_rot_error_ =
+      0.025;
   configuration.object_visual_pose_graph_residual_params_ = residual_params;
 
   configuration.shape_dimension_priors_ = constructShapeDimPriorConfiguration();
@@ -248,6 +258,10 @@ int main(int argc, char **argv) {
       true;
   optimization_factors_enabled_params.consecutive_pose_transl_tol_ = 1.0;
   optimization_factors_enabled_params.consecutive_pose_orient_tol_ = M_PI;
+
+  optimization_factors_enabled_params
+      .min_low_level_feature_observations_per_frame_ = 50;
+
   optimization_factors_enabled_params.use_pom_ = false;
   optimization_factors_enabled_params.include_visual_factors_ = true;
   //  optimization_factors_enabled_params.fix_poses_ = true;
@@ -257,7 +271,7 @@ int main(int argc, char **argv) {
   optimization_factors_enabled_params.poses_prior_to_window_to_keep_constant_ =
       5;
   // adding larger min_low_level_feature_observations_ for stereo camera
-  optimization_factors_enabled_params.min_low_level_feature_observations_ = 7;
+  optimization_factors_enabled_params.min_low_level_feature_observations_ = 5;
   optimization_factors_enabled_params.min_object_observations_ = 10;
   optimization_factors_enabled_params.use_visual_features_on_global_ba_ = false;
   optimization_factors_enabled_params.use_pose_graph_on_global_ba_ = true;

@@ -32,6 +32,9 @@ class SerializableOptimizationFactorsEnabledParams
     fs << kAllowReversionAfterDectectingJumps
        << allow_reversion_after_dectecting_jumps_int;
 
+    fs << kMinLowLevelFeatureObservationsPerFrame
+       << (int)data_.min_low_level_feature_observations_per_frame_;
+
     fs << kConsecutivePoseTranslTol
        << (double)data_.consecutive_pose_transl_tol_;
     fs << kConsecutivePoseOrientTol
@@ -91,6 +94,8 @@ class SerializableOptimizationFactorsEnabledParams
         node[kAllowReversionAfterDectectingJumps];
     data_.allow_reversion_after_dectecting_jumps_ =
         allow_reversion_after_dectecting_jumps_int != 0;
+    data_.min_low_level_feature_observations_per_frame_ =
+        (int)node[kMinLowLevelFeatureObservationsPerFrame];
 
     data_.consecutive_pose_transl_tol_ =
         (double)node[kConsecutivePoseTranslTol];
@@ -150,6 +155,8 @@ class SerializableOptimizationFactorsEnabledParams
  private:
   inline static const std::string kAllowReversionAfterDectectingJumps =
       "allow_reversion_after_dectecting_jumps";
+  inline static const std::string kMinLowLevelFeatureObservationsPerFrame =
+      "min_low_level_feature_observations_per_frame";
   inline static const std::string kConsecutivePoseTranslTol =
       "consecutive_pose_transl_tol";
   inline static const std::string kConsecutivePoseOrientTol =
@@ -1342,6 +1349,11 @@ class SerializableObjectVisualPoseGraphResidualParams
     fs << kLongTermMapParamsLabel
        << SerializablePairwiseLongTermMapResidualParams(
               data_.long_term_map_params_);
+    fs << kRelativePoseFactorHuberLoss
+       << (double)data_.relative_pose_factor_huber_loss_;
+    fs << kRelativePoseCovParams
+       << SerializableRelativePoseCovarianceOdomModelParams(
+              data_.relative_pose_cov_params_);
     fs << "}";
   }
 
@@ -1355,6 +1367,11 @@ class SerializableObjectVisualPoseGraphResidualParams
     SerializablePairwiseLongTermMapResidualParams ser_long_term_map_params;
     node[kLongTermMapParamsLabel] >> ser_long_term_map_params;
     data_.long_term_map_params_ = ser_long_term_map_params.getEntry();
+    data_.relative_pose_factor_huber_loss_ =
+        (double)node[kRelativePoseFactorHuberLoss];
+    SerializableRelativePoseCovarianceOdomModelParams ser_rel_pose_cov_params;
+    node[kRelativePoseCovParams] >> ser_rel_pose_cov_params;
+    data_.relative_pose_cov_params_ = ser_rel_pose_cov_params.getEntry();
   }
 
  protected:
@@ -1368,6 +1385,10 @@ class SerializableObjectVisualPoseGraphResidualParams
       "visual_residual_params";
   inline static const std::string kLongTermMapParamsLabel =
       "long_term_map_params";
+  inline static const std::string kRelativePoseFactorHuberLoss =
+      "relative_pose_factor_huber_loss";
+  inline static const std::string kRelativePoseCovParams =
+      "relative_pose_cov_params";
 };
 
 static void write(cv::FileStorage &fs,

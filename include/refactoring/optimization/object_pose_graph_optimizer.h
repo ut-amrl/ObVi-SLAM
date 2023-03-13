@@ -147,6 +147,11 @@ class ObjectPoseGraphOptimizer {
         util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
                                      vslam_types_refactor::FeatureFactorId>>>
         objects_to_include;
+    std::unordered_map<
+        vslam_types_refactor::FrameId,
+        util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
+                                     vslam_types_refactor::FeatureFactorId>>>
+        rel_poses_to_include;
 
     bool use_object_only_factors = false;  // POM, shape prior, etc
     if (optimization_scope.include_object_factors_) {
@@ -155,6 +160,8 @@ class ObjectPoseGraphOptimizer {
       }
     }
 
+    bool use_relative_pose_factors =
+        (optimization_scope.min_low_level_feature_observations_per_frame_ > 0);
     bool use_feature_pose_factors = optimization_scope.include_visual_factors_;
     bool use_object_pose_factors = optimization_scope.include_object_factors_;
     bool use_object_param_blocks = optimization_scope.include_object_factors_;
@@ -217,6 +224,62 @@ class ObjectPoseGraphOptimizer {
           optimization_scope.min_low_level_feature_observations_,
           features_to_include,
           required_feature_factors);
+    }
+
+    if (use_relative_pose_factors) {
+      // frame_ids_and_feat_obs_nums: find how many low-level feature
+      // observations we have per frame in features_to_include; Backtrace frame
+      // ids from ReprojectionErrorFactors stored in the pose graph
+      std::unordered_map<vslam_types_refactor::FrameId, size_t>
+          frame_ids_and_feat_obs_nums;
+      for (const auto &feat_id_and_feat_type_and_id : features_to_include) {
+        for (const auto &feat_type_and_id :
+             feat_id_and_feat_type_and_id.second) {
+          vslam_types_refactor::ReprojectionErrorFactor factor;
+          if (!pose_graph->getVisualFeatureFactorByFeatFactorId(
+                  feat_type_and_id, factor)) {
+            continue;
+          }
+          for (const auto &frame_id : factor.getOrderedFrameIds()) {
+            if (frame_ids_and_feat_obs_nums.find(frame_id) ==
+                frame_ids_and_feat_obs_nums.end()) {
+              frame_ids_and_feat_obs_nums[frame_id] = 0;
+            }
+            ++frame_ids_and_feat_obs_nums[frame_id];
+          }
+        }
+      }
+
+      // check if frame satifies the minimum feature observation number
+      // requirements. If not, impose relative pose constraints
+      for (const auto frame_id_and_feat_obs_num : frame_ids_and_feat_obs_nums) {
+        // LOG(INFO) << "frame " << frame_id_and_feat_obs_num.first << " has "
+        //           << frame_id_and_feat_obs_num.second
+        //           << " feature observations";
+        if (frame_id_and_feat_obs_num.second <
+            optimization_scope.min_low_level_feature_observations_per_frame_) {
+          const vslam_types_refactor::FrameId frame_id =
+              frame_id_and_feat_obs_num.first;
+          pose_graph->getFactorInfoByFrameId(frame_id,
+                                             optimization_scope.min_frame_id_,
+                                             optimization_scope.max_frame_id_,
+                                             rel_poses_to_include[frame_id]);
+          LOG(INFO)
+              << "Frame " << frame_id << " only has "
+              << frame_id_and_feat_obs_num.second
+              << " feature observations. Imposing relative pose factor to "
+                 "pose at this frame";
+        }
+      }
+
+      // add rel_pose_to_include to required_feature_factors
+      for (const auto &rel_pose_to_include : rel_poses_to_include) {
+        for (const auto &factor_type_and_factor_id :
+             rel_pose_to_include.second) {
+          required_feature_factors[factor_type_and_factor_id.first].insert(
+              factor_type_and_factor_id.second);
+        }
+      }
     }
 
     if (use_object_param_blocks) {

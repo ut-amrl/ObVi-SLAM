@@ -402,10 +402,10 @@ void visualizationStub(
   bool pgo_opt = false;
   switch (visualization_stage) {
     case vtr::BEFORE_ANY_OPTIMIZATION:
-//      vis_manager->publishTransformsForEachCamera(
-//          input_problem_data.getMaxFrameId(),
-//          input_problem_data.getRobotPoseEstimates(),
-//          input_problem_data.getCameraExtrinsicsByCamera());
+      //      vis_manager->publishTransformsForEachCamera(
+      //          input_problem_data.getMaxFrameId(),
+      //          input_problem_data.getRobotPoseEstimates(),
+      //          input_problem_data.getCameraExtrinsicsByCamera());
 
       sleep(3);
       break;
@@ -555,7 +555,6 @@ void visualizationStub(
                                          vtr::PlotType::GROUND_TRUTH);
       }
 
-
       std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>
           curr_frame_initial_feature_ests;
       for (const auto &cam_and_feats : observed_feats_for_frame) {
@@ -581,12 +580,10 @@ void visualizationStub(
       }
       vis_manager->visualizeFeatureEstimates(curr_frame_est_feature_ests,
                                              vtr::PlotType::ESTIMATED);
-      vis_manager->publishTfsForLatestPose(est_trajectory_vec.back(),
-                                           vtr::PlotType::ESTIMATED,
-                                           extrinsics);
-      vis_manager->publishTfsForLatestPose(init_trajectory_vec.back(),
-                                           vtr::PlotType::INITIAL,
-                                           extrinsics);
+      vis_manager->publishTfsForLatestPose(
+          est_trajectory_vec.back(), vtr::PlotType::ESTIMATED, extrinsics);
+      vis_manager->publishTfsForLatestPose(
+          init_trajectory_vec.back(), vtr::PlotType::INITIAL, extrinsics);
 
       save_to_file_visualizer.boundingBoxFrontEndVisualization(
           images,
@@ -1064,6 +1061,20 @@ int main(int argc, char **argv) {
             input_problem_data, pose_graph, min_frame_id, max_frame_id);
       };
 
+  std::function<vtr::Covariance<double, 6>(const vtr::Pose3D<double> &)>
+      pose_deviation_cov_creator =
+          [&](const vtr::Pose3D<double> &relative_pose) {
+            return generateOdomCov(relative_pose,
+                                   residual_params.relative_pose_cov_params_
+                                       .transl_error_mult_for_transl_error_,
+                                   residual_params.relative_pose_cov_params_
+                                       .transl_error_mult_for_rot_error_,
+                                   residual_params.relative_pose_cov_params_
+                                       .rot_error_mult_for_transl_error_,
+                                   residual_params.relative_pose_cov_params_
+                                       .rot_error_mult_for_rot_error_);
+          };
+
   //  std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>
   //      long_term_map_front_end_data;
   std::unordered_map<vtr::ObjectId, util::EmptyStruct>
@@ -1213,6 +1224,7 @@ int main(int argc, char **argv) {
                                                frame_to_add,
                                                reprojection_error_provider,
                                                visual_feature_frame_data_adder,
+                                               pose_deviation_cov_creator,
                                                bb_retriever,
                                                bb_associator_retriever,
                                                bb_context_retriever);
@@ -1448,9 +1460,9 @@ int main(int argc, char **argv) {
     exit(1);
   }
   if ((!config.optimization_factors_enabled_params_
-      .use_visual_features_on_final_global_ba_) &&
+            .use_visual_features_on_final_global_ba_) &&
       (!config.optimization_factors_enabled_params_
-          .use_pose_graph_on_final_global_ba_)) {
+            .use_pose_graph_on_final_global_ba_)) {
     LOG(ERROR) << "Must have either visual features or pose graph (or both) "
                   "for final global ba; review/fix your config";
     exit(1);
