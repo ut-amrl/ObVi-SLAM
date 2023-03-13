@@ -21,7 +21,7 @@ namespace vslam_types_refactor {
 
 // NOTE: This should be incremented every time the format of the configuration
 // data changes
-const static int kCurrentConfigSchemaVersion = 5;
+const static int kCurrentConfigSchemaVersion = 7;
 
 struct VisualFeatureParams {
   double reprojection_error_std_dev_;

@@ -96,29 +96,6 @@ struct VisualFeaturePoseGraphResidualParams {
   }
 };
 
-struct ObjectVisualPoseGraphResidualParams {
-  // NOTE: If this structure is modified, increment the
-  // kCurrentConfigSchemaVersion number in FullOVSLAMConfig.h NOTE: If the
-  // default values here are modified, make sure any changes are reflected in
-  // the config and if necessary, regenerate the config with a new
-  // config_version_id_
-  ObjectResidualParams object_residual_params_;
-  VisualFeaturePoseGraphResidualParams visual_residual_params_;
-  // TODO maybe make this template so it's flexible to different types of
-  // long-term maps
-  PairwiseLongTermMapResidualParams long_term_map_params_;
-
-  bool operator==(const ObjectVisualPoseGraphResidualParams &rhs) const {
-    return (object_residual_params_ == rhs.object_residual_params_) &&
-           (visual_residual_params_ == rhs.visual_residual_params_) &&
-           (long_term_map_params_ == rhs.long_term_map_params_);
-  }
-
-  bool operator!=(const ObjectVisualPoseGraphResidualParams &rhs) const {
-    return !operator==(rhs);
-  }
-};
-
 struct RelativePoseCovarianceOdomModelParams {
   double transl_error_mult_for_transl_error_;
   double transl_error_mult_for_rot_error_;
@@ -136,6 +113,35 @@ struct RelativePoseCovarianceOdomModelParams {
   }
 
   bool operator!=(const RelativePoseCovarianceOdomModelParams &rhs) const {
+    return !operator==(rhs);
+  }
+};
+
+struct ObjectVisualPoseGraphResidualParams {
+  // NOTE: If this structure is modified, increment the
+  // kCurrentConfigSchemaVersion number in FullOVSLAMConfig.h NOTE: If the
+  // default values here are modified, make sure any changes are reflected in
+  // the config and if necessary, regenerate the config with a new
+  // config_version_id_
+  ObjectResidualParams object_residual_params_;
+  VisualFeaturePoseGraphResidualParams visual_residual_params_;
+  // TODO maybe make this template so it's flexible to different types of
+  // long-term maps
+  PairwiseLongTermMapResidualParams long_term_map_params_;
+
+  double relative_pose_factor_huber_loss_ = 1.0;
+  RelativePoseCovarianceOdomModelParams relative_pose_cov_params_;
+
+  bool operator==(const ObjectVisualPoseGraphResidualParams &rhs) const {
+    return (object_residual_params_ == rhs.object_residual_params_) &&
+           (visual_residual_params_ == rhs.visual_residual_params_) &&
+           (long_term_map_params_ == rhs.long_term_map_params_) &&
+           (relative_pose_factor_huber_loss_ ==
+            rhs.relative_pose_factor_huber_loss_) &&
+           (relative_pose_cov_params_ == rhs.relative_pose_cov_params_);
+  }
+
+  bool operator!=(const ObjectVisualPoseGraphResidualParams &rhs) const {
     return !operator==(rhs);
   }
 };

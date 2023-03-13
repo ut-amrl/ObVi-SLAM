@@ -133,7 +133,7 @@ int main(int argc, char **argv) {
   std::string config_identifier = FLAGS_config_identifier;
   if (config_identifier.empty()) {
     // TODO INCREMENT IF YOU CHANGE VALUES/STRUCTURE FOR CONFIG
-    int config_version_number = 6;
+    int config_version_number = 7;
 
     config_identifier = std::to_string(config_version_number);
   }
@@ -219,6 +219,16 @@ int main(int argc, char **argv) {
   residual_params.long_term_map_params_.pair_huber_loss_param_ = 1;
 
   configuration.ltm_solver_residual_params_ = residual_params;
+
+  residual_params.relative_pose_factor_huber_loss_ = 1.0;
+  residual_params.relative_pose_cov_params_
+      .transl_error_mult_for_transl_error_ = 0.05;
+  residual_params.relative_pose_cov_params_.transl_error_mult_for_rot_error_ =
+      0.05;
+  residual_params.relative_pose_cov_params_.rot_error_mult_for_transl_error_ =
+      0.05;
+  residual_params.relative_pose_cov_params_.rot_error_mult_for_rot_error_ =
+      0.05;
   configuration.object_visual_pose_graph_residual_params_ = residual_params;
 
   configuration.shape_dimension_priors_ = constructShapeDimPriorConfiguration();
