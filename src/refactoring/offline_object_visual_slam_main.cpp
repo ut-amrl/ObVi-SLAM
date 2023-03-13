@@ -2100,26 +2100,15 @@ int main(int argc, char **argv) {
   std::function<vtr::Covariance<double, 6>(const vtr::Pose3D<double> &)>
       pose_deviation_cov_creator =
           [&](const vtr::Pose3D<double> &relative_pose) {
-            Eigen::Matrix<double, 6, 1> std_devs;
-            std_devs.topRows(3) = relative_pose.transl_.cwiseAbs() *
-                                      residual_params.relative_pose_cov_params_
-                                          .transl_error_mult_for_transl_error_ +
-                                  (abs(relative_pose.orientation_.angle()) *
+            return generateOdomCov(relative_pose,
                                    residual_params.relative_pose_cov_params_
-                                       .rot_error_mult_for_transl_error_ *
-                                   Eigen::Vector3d::Ones());
-            std_devs.bottomRows(3) =
-                (relative_pose.orientation_.axis() *
-                 relative_pose.orientation_.angle())
-                        .cwiseAbs() *
-                    residual_params.relative_pose_cov_params_
-                        .rot_error_mult_for_rot_error_ +
-                (relative_pose.transl_.norm() *
-                 residual_params.relative_pose_cov_params_
-                     .transl_error_mult_for_rot_error_ *
-                 Eigen::Vector3d::Ones());
-            return vtr::createDiagCovFromStdDevs(std_devs,
-                                                 1e-3);  // min_std = 1e-3
+                                       .transl_error_mult_for_transl_error_,
+                                   residual_params.relative_pose_cov_params_
+                                       .transl_error_mult_for_rot_error_,
+                                   residual_params.relative_pose_cov_params_
+                                       .rot_error_mult_for_transl_error_,
+                                   residual_params.relative_pose_cov_params_
+                                       .rot_error_mult_for_rot_error_);
           };
 
   //  std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>

@@ -265,7 +265,7 @@ class ObjectPoseGraphOptimizer {
                                              optimization_scope.min_frame_id_,
                                              optimization_scope.max_frame_id_,
                                              rel_poses_to_include[frame_id]);
-          LOG(INFO)
+          LOG(WARNING)
               << "Frame " << frame_id << " only has "
               << frame_id_and_feat_obs_num.second
               << " feature observations. Imposing relative pose factor to "

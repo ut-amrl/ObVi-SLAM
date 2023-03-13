@@ -222,13 +222,13 @@ int main(int argc, char **argv) {
 
   residual_params.relative_pose_factor_huber_loss_ = 1.0;
   residual_params.relative_pose_cov_params_
-      .transl_error_mult_for_transl_error_ = 0.05;
+      .transl_error_mult_for_transl_error_ = 0.01;
   residual_params.relative_pose_cov_params_.transl_error_mult_for_rot_error_ =
-      0.05;
+      0.01;
   residual_params.relative_pose_cov_params_.rot_error_mult_for_transl_error_ =
-      0.05;
+      0.01;
   residual_params.relative_pose_cov_params_.rot_error_mult_for_rot_error_ =
-      0.05;
+      0.01;
   configuration.object_visual_pose_graph_residual_params_ = residual_params;
 
   configuration.shape_dimension_priors_ = constructShapeDimPriorConfiguration();
@@ -249,7 +249,7 @@ int main(int argc, char **argv) {
   configuration.sliding_window_params_.local_ba_window_size_ = 50;
   configuration.sliding_window_params_.global_ba_frequency_ = 30;
 
-  configuration.sparsifier_params_.max_pose_inc_threshold_transl_ = 0.2;
+  configuration.sparsifier_params_.max_pose_inc_threshold_transl_ = 0.15;
   configuration.sparsifier_params_.max_pose_inc_threshold_rot_ = 0.1;
 
   pose_graph_optimizer::OptimizationFactorsEnabledParams
@@ -260,7 +260,7 @@ int main(int argc, char **argv) {
   optimization_factors_enabled_params.consecutive_pose_orient_tol_ = M_PI;
 
   optimization_factors_enabled_params
-      .min_low_level_feature_observations_per_frame_ = 50;
+      .min_low_level_feature_observations_per_frame_ = 75;
 
   optimization_factors_enabled_params.use_pom_ = false;
   optimization_factors_enabled_params.include_visual_factors_ = true;
@@ -271,7 +271,7 @@ int main(int argc, char **argv) {
   optimization_factors_enabled_params.poses_prior_to_window_to_keep_constant_ =
       5;
   // adding larger min_low_level_feature_observations_ for stereo camera
-  optimization_factors_enabled_params.min_low_level_feature_observations_ = 7;
+  optimization_factors_enabled_params.min_low_level_feature_observations_ = 5;
   optimization_factors_enabled_params.min_object_observations_ = 10;
   optimization_factors_enabled_params.use_visual_features_on_global_ba_ = false;
   optimization_factors_enabled_params.use_pose_graph_on_global_ba_ = true;
