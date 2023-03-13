@@ -162,7 +162,7 @@ class ObjectPoseGraphOptimizer {
     }
 
     bool use_relative_pose_factors =
-        optimization_scope.include_relative_factors_;
+        (optimization_scope.min_low_level_feature_observations_per_frame_ > 0);
     bool use_feature_pose_factors = optimization_scope.include_visual_factors_;
     bool use_object_pose_factors = optimization_scope.include_object_factors_;
     bool use_object_param_blocks = optimization_scope.include_object_factors_;
@@ -228,6 +228,9 @@ class ObjectPoseGraphOptimizer {
     }
 
     if (use_relative_pose_factors) {
+      // frame_ids_and_feat_obs_nums: find how many low-level feature
+      // observations we have per frame in features_to_include; Backtrace frame
+      // ids from ReprojectionErrorFactors stored in the pose graph
       std::unordered_map<vslam_types_refactor::FrameId, size_t>
           frame_ids_and_feat_obs_nums;
       for (const auto &feat_id_and_feat_type_and_id : features_to_include) {
@@ -248,6 +251,8 @@ class ObjectPoseGraphOptimizer {
         }
       }
 
+      // check if frame satifies the minimum feature observation number
+      // requirements. If not, impose relative pose constraints
       for (const auto frame_id_and_feat_obs_num : frame_ids_and_feat_obs_nums) {
         // LOG(INFO) << "frame " << frame_id_and_feat_obs_num.first << " has "
         //           << frame_id_and_feat_obs_num.second
@@ -268,6 +273,7 @@ class ObjectPoseGraphOptimizer {
         }
       }
 
+      // add rel_pose_to_include to required_feature_factors
       for (const auto &rel_pose_to_include : rel_poses_to_include) {
         for (const auto &factor_type_and_factor_id :
              rel_pose_to_include.second) {

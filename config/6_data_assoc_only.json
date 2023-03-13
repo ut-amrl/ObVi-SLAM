@@ -1,7 +1,7 @@
 {
     "config": {
         "config_schema_version": 5,
-        "config_version_id": "4",
+        "config_version_id": "6_data_assoc_only",
         "visual_feature_params": {
             "reprojection_error_std_dev": 2.0,
             "min_visual_feature_parallax_pixel_requirement": 5.0,
@@ -12,7 +12,7 @@
         },
         "local_ba_solver_params": {
             "max_num_iterations": 200,
-            "feature_outlier_percentage": 1.0000000000000001e-01,
+            "feature_outlier_percentage": -1.0,
             "allow_non_monotonic_steps": 0,
             "function_tolerance": 9.9999999999999995e-07,
             "gradient_tolerance": 1.0000000000000000e-10,
@@ -22,7 +22,7 @@
         },
         "global_ba_solver_params": {
             "max_num_iterations": 250,
-            "feature_outlier_percentage": 1.0000000000000001e-01,
+            "feature_outlier_percentage": -1.0,
             "allow_non_monotonic_steps": 0,
             "function_tolerance": 9.9999999999999995e-07,
             "gradient_tolerance": 1.0000000000000000e-10,
@@ -32,7 +32,7 @@
         },
         "final_ba_solver_params": {
             "max_num_iterations": 300,
-            "feature_outlier_percentage": 1.0000000000000001e-01,
+            "feature_outlier_percentage": -1.0,
             "allow_non_monotonic_steps": 0,
             "function_tolerance": 9.9999999999999995e-07,
             "gradient_tolerance": 1.0000000000000000e-10,
@@ -43,14 +43,14 @@
         "pgo_solver_params": {
             "relative_pose_factor_huber_loss": 5.0,
             "relative_pose_cov_params": {
-                "transl_error_mult_for_transl_error": 5.0000000000000003e-02,
-                "transl_error_mult_for_rot_error": 5.0000000000000003e-02,
-                "rot_error_mult_for_transl_error": 5.0000000000000003e-02,
-                "rot_error_mult_for_rot_error": 5.0000000000000003e-02
+                "transl_error_mult_for_transl_error": 1.0000000000000001e-01,
+                "transl_error_mult_for_rot_error": 1.0000000000000001e-01,
+                "rot_error_mult_for_transl_error": 1.0000000000000001e-01,
+                "rot_error_mult_for_rot_error": 1.0000000000000001e-01
             },
             "pgo_optimization_solver_params": {
                 "max_num_iterations": 250,
-                "feature_outlier_percentage": 1.0000000000000001e-01,
+                "feature_outlier_percentage": -1.0,
                 "allow_non_monotonic_steps": 0,
                 "function_tolerance": 9.9999999999999995e-07,
                 "gradient_tolerance": 1.0000000000000000e-10,
@@ -60,7 +60,7 @@
             },
             "final_pgo_optimization_solver_params": {
                 "max_num_iterations": 300,
-                "feature_outlier_percentage": 1.0000000000000001e-01,
+                "feature_outlier_percentage": -1.0,
                 "allow_non_monotonic_steps": 0,
                 "function_tolerance": 9.9999999999999995e-07,
                 "gradient_tolerance": 1.0000000000000000e-10,
@@ -87,7 +87,7 @@
         },
         "ltm_solver_params": {
             "max_num_iterations": 300,
-            "feature_outlier_percentage": 1.0000000000000001e-01,
+            "feature_outlier_percentage": -1.0,
             "allow_non_monotonic_steps": 0,
             "function_tolerance": 9.9999999999999995e-07,
             "gradient_tolerance": 1.0000000000000000e-10,
@@ -289,9 +289,9 @@
                 "min_observations_for_local_est": 3,
                 "min_observations": 10,
                 "discard_candidate_after_num_frames": "40",
-                "min_bb_confidence": 2.9999999999999999e-01,
+                "min_bb_confidence": 2.0000000000000001e-01,
                 "required_min_conf_for_initialization": 0.0,
-                "min_overlapping_features_for_match": 2.0,
+                "min_overlapping_features_for_match": 3.0,
                 "feature_validity_window": "20",
                 "pending_obj_estimator_params": {
                     "object_residual_params": {
@@ -301,7 +301,7 @@
                     },
                     "solver_params": {
                         "max_num_iterations": 500,
-                        "feature_outlier_percentage": 1.0000000000000001e-01,
+                        "feature_outlier_percentage": -1.0,
                         "allow_non_monotonic_steps": 0,
                         "function_tolerance": 9.9999999999999995e-07,
                         "gradient_tolerance": 1.0000000000000000e-10,
@@ -310,7 +310,7 @@
                         "max_trust_region_radius": 1.0000000000000000e+16
                     }
                 },
-                "bounding_box_inflation_size": 0.0
+                "bounding_box_inflation_size": 10.0
             }
         },
         "bounding_box_covariance_generator_params": {
@@ -348,18 +348,18 @@
             "consecutive_pose_transl_tol": 1.0,
             "consecutive_pose_orient_tol": 3.1415926535897931e+00,
             "include_object_factors": 1,
-            "include_visual_factors": 1,
-            "fix_poses": 0,
+            "include_visual_factors": 0,
+            "fix_poses": 1,
             "fix_objects": 0,
             "fix_visual_features": 0,
             "fix_ltm_objects": 0,
             "use_pom": 0,
             "poses_prior_to_window_to_keep_constant": 5,
-            "min_object_observations": 1,
+            "min_object_observations": 10,
             "min_low_level_feature_observations": 7,
-            "use_pose_graph_on_global_ba": 0,
-            "use_visual_features_on_global_ba": 1,
-            "use_pose_graph_on_final_global_ba": 0,
+            "use_pose_graph_on_global_ba": 1,
+            "use_visual_features_on_global_ba": 0,
+            "use_pose_graph_on_final_global_ba": 1,
             "use_visual_features_on_final_global_ba": 1
         },
         "object_visual_pose_graph_residual_params": {

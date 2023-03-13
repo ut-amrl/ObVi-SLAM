@@ -18,6 +18,7 @@ struct CurrentOptimizationInfo {
   bool outliers_excluded_opt_;
   bool local_ba_;
   bool global_ba_;
+  bool global_pgo_;
   size_t num_poses_;
   size_t num_objects_;
   size_t num_visual_features_;
@@ -35,9 +36,11 @@ class OptimizationLogger {
 
   void setOptimizationTypeParams(const FrameId &max_frame_id,
                                  const bool &global_ba,
+                                 const bool &global_pgo,
                                  const bool &outliers_excluded) {
     current_opt_info_.max_frame_id_ = max_frame_id;
     current_opt_info_.global_ba_ = global_ba;
+    current_opt_info_.global_pgo_ = global_pgo;
     current_opt_info_.local_ba_ = !global_ba;
     current_opt_info_.outliers_excluded_opt_ = outliers_excluded;
   }
@@ -72,6 +75,7 @@ class OptimizationLogger {
          std::to_string(current_opt_info_.outliers_excluded_opt_ ? 1 : 0),
          std::to_string(current_opt_info_.local_ba_ ? 1 : 0),
          std::to_string(current_opt_info_.global_ba_ ? 1 : 0),
+         std::to_string(current_opt_info_.global_pgo_ ? 1 : 0),
          std::to_string(current_opt_info_.num_poses_),
          std::to_string(current_opt_info_.num_objects_),
          std::to_string(current_opt_info_.num_visual_features_),
@@ -91,6 +95,7 @@ class OptimizationLogger {
                                                      "outliers_excluded?",
                                                      "local_ba?",
                                                      "global_ba?",
+                                                     "global_pgo?",
                                                      "num_poses",
                                                      "num_objects",
                                                      "num_visual_features",

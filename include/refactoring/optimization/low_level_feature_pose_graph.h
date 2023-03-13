@@ -104,15 +104,18 @@ struct ReprojectionErrorFactor {
 struct RelPoseFactor {
   FrameId frame_id_1_;
   FrameId frame_id_2_;
+  Pose3D<double> measured_pose_deviation_;
   Covariance<double, 6> pose_deviation_cov_;
 
   RelPoseFactor() {}
 
   RelPoseFactor(const FrameId &frame_id_1,
                 const FrameId &frame_id_2,
+                const Pose3D<double> &measured_pose_deviation,
                 const Covariance<double, 6> &pose_deviation_cov)
       : frame_id_1_(frame_id_1),
         frame_id_2_(frame_id_2),
+        measured_pose_deviation_(measured_pose_deviation),
         pose_deviation_cov_(pose_deviation_cov) {}
 
   FactorType getFactorType() const { return kPairwiseRobotPoseFactorTypeId; }
@@ -139,7 +142,6 @@ class LowLevelFeaturePoseGraph {
         visual_factor_type_(visual_factor_type),
         min_frame_id_(std::numeric_limits<FrameId>::max()),
         max_frame_id_(std::numeric_limits<FrameId>::min()),
-        min_feature_factor_id_(0),
         max_feature_factor_id_(0),
         max_pose_factor_id_(0) {}
 
@@ -281,22 +283,6 @@ class LowLevelFeaturePoseGraph {
       }
     }
   }
-
-  // virtual size_t getObservationNumByFrameIdAndFactorTypes(
-  //     const FrameId &frame_id,
-  //     const util::BoostHashSet<FactorType> &factor_types) {
-  //   std::vector<std::pair<FactorType, FeatureFactorId>> factor_types_and_ids
-  //   =
-  //       visual_feature_factors_by_frame_.at(frame_id);
-  //   size_t cnt = 0;
-  //   for (const auto &factor_type_and_id : factor_types_and_ids) {
-  //     if (factor_types.find(factor_type_and_id.first) != factor_types.end())
-  //     {
-  //       ++cnt;
-  //     }
-  //   }
-  //   return cnt;
-  // }
 
   virtual void getRobotPoseEstimates(
       std::unordered_map<FrameId, RawPose3d<double>> &robot_pose_estimates)
@@ -458,7 +444,6 @@ class LowLevelFeaturePoseGraph {
   FrameId min_frame_id_;
   FrameId max_frame_id_;
 
-  FeatureFactorId min_feature_factor_id_;
   FeatureFactorId max_feature_factor_id_;
 
   FeatureFactorId max_pose_factor_id_;

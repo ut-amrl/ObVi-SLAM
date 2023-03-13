@@ -19,7 +19,6 @@ struct OptimizationFactorsEnabledParams {
   double consecutive_pose_transl_tol_ = 1.0;
   double consecutive_pose_orient_tol_ = M_PI;
 
-  bool include_relative_factors_ = true;
   size_t min_low_level_feature_observations_per_frame_ = 50;
 
   bool include_object_factors_ = true;
@@ -34,6 +33,24 @@ struct OptimizationFactorsEnabledParams {
   uint32_t min_object_observations_ = 1;
   uint32_t min_low_level_feature_observations_ = 3;
 
+  // These two parameters control what kind of optimization should happen on
+  // global adjustments
+  // At least one must be true. Both can be true.
+  // If use_pose_graph_on_global_ba_ is true, on global adjustment, a pose
+  // graph will be created with relative pose constraints between subsequent
+  // poses based on their relative positions as determined by optimization steps
+  // up to that point. The optimization will optimize over these relative pose
+  // factors and the object-related factors If use_visual_features_on_global_ba_
+  // is true, the optimization will run over all visual features and
+  // object-related factors up to the current node in the trajectory. If both
+  // are true, then the pose graph optimization will be done first, followed by
+  // refinement with visual features
+  bool use_pose_graph_on_global_ba_ = false;
+  bool use_visual_features_on_global_ba_ = false;
+
+  bool use_pose_graph_on_final_global_ba_ = false;
+  bool use_visual_features_on_final_global_ba_ = false;
+
   bool operator==(const OptimizationFactorsEnabledParams &rhs) const {
     return (include_object_factors_ == rhs.include_object_factors_) &&
            (include_visual_factors_ == rhs.include_visual_factors_) &&
@@ -46,7 +63,15 @@ struct OptimizationFactorsEnabledParams {
             rhs.poses_prior_to_window_to_keep_constant_) &&
            (min_object_observations_ == rhs.min_object_observations_) &&
            (min_low_level_feature_observations_ ==
-            rhs.min_low_level_feature_observations_);
+            rhs.min_low_level_feature_observations_) &&
+           (use_pose_graph_on_global_ba_ == rhs.use_pose_graph_on_global_ba_) &&
+           (use_visual_features_on_global_ba_ ==
+            rhs.use_visual_features_on_global_ba_) &&
+           (use_pose_graph_on_final_global_ba_ ==
+            rhs.use_pose_graph_on_final_global_ba_) &&
+           (use_visual_features_on_final_global_ba_ ==
+            rhs.use_visual_features_on_final_global_ba_);
+    ;
   }
 
   bool operator!=(const OptimizationFactorsEnabledParams &rhs) const {
@@ -57,9 +82,7 @@ struct OptimizationFactorsEnabledParams {
 struct OptimizationScopeParams {
   bool allow_reversion_after_dectecting_jumps_;
 
-  // TODO merge them into one variable
-  bool include_relative_factors_;
-  size_t min_low_level_feature_observations_per_frame_ = 50;
+  uint32_t min_low_level_feature_observations_per_frame_ = 50;
 
   bool include_object_factors_;
   bool include_visual_factors_;

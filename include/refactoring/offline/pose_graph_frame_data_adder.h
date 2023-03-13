@@ -51,6 +51,7 @@ void addConsecutiveRelativePoseFactorsForFrame(
   pose_graph->addPoseFactor(
       RelPoseFactor(frame_to_add - 1,
                     frame_to_add,
+                    measured_pose_deviation,
                     pose_deviation_cov_creator(measured_pose_deviation)));
 }
 

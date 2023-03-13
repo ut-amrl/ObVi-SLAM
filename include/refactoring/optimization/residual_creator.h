@@ -265,25 +265,24 @@ bool createRelPoseResidual(
     return false;
   }
 
-  std::optional<RawPose3d<double>> raw_robot_pose1, raw_robot_pose2;
-  raw_robot_pose1 = pose_graph->getRobotPose(factor.frame_id_1_);
-  raw_robot_pose2 = pose_graph->getRobotPose(factor.frame_id_2_);
-  if ((!raw_robot_pose1.has_value()) || (!raw_robot_pose2.has_value())) {
-    LOG(ERROR) << "Could not find robot pose parameter block for frame "
-               << factor.frame_id_1_ << " or " << factor.frame_id_2_
-               << "; not adding to pose graph";
-    return false;
-  }
+  // std::optional<RawPose3d<double>> raw_robot_pose1, raw_robot_pose2;
+  // raw_robot_pose1 = pose_graph->getRobotPose(factor.frame_id_1_);
+  // raw_robot_pose2 = pose_graph->getRobotPose(factor.frame_id_2_);
+  // if ((!raw_robot_pose1.has_value()) || (!raw_robot_pose2.has_value())) {
+  //   LOG(ERROR) << "Could not find robot pose parameter block for frame "
+  //              << factor.frame_id_1_ << " or " << factor.frame_id_2_
+  //              << "; not adding to pose graph";
+  //   return false;
+  // }
+  // vslam_types_refactor::Pose3D<double> measured_pose_deviation =
+  //     vslam_types_refactor::getPose2RelativeToPose1(
+  //         vslam_types_refactor::convertToPose3D(raw_robot_pose1.value()),
+  //         vslam_types_refactor::convertToPose3D(raw_robot_pose2.value()));
 
-  vslam_types_refactor::Pose3D<double> measured_pose_deviation =
-      vslam_types_refactor::getPose2RelativeToPose1(
-          vslam_types_refactor::convertToPose3D(raw_robot_pose1.value()),
-          vslam_types_refactor::convertToPose3D(raw_robot_pose2.value()));
   residual_id = problem->AddResidualBlock(
-      RelativePoseFactor::createRelativePoseFactor(measured_pose_deviation,
-                                                   factor.pose_deviation_cov_),
-      new ceres::HuberLoss(
-          residual_params.pose_residual_params_.rel_pose_huber_loss_param_),
+      RelativePoseFactor::createRelativePoseFactor(
+          factor.measured_pose_deviation_, factor.pose_deviation_cov_),
+      new ceres::HuberLoss(residual_params.relative_pose_factor_huber_loss_),
       robot_pose1_block,
       robot_pose2_block);
 

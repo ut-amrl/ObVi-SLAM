@@ -9,6 +9,7 @@
 #include <refactoring/offline/limit_trajectory_evaluation_params.h>
 #include <refactoring/optimization/object_pose_graph.h>
 #include <refactoring/optimization/object_pose_graph_optimizer.h>
+#include <refactoring/optimization/pose_graph_plus_objects_optimizer.h>
 
 namespace vslam_types_refactor {
 
@@ -18,6 +19,7 @@ enum VisualizationTypeEnum {
   BEFORE_ANY_OPTIMIZATION,
   BEFORE_EACH_OPTIMIZATION,
   AFTER_EACH_OPTIMIZATION,
+  AFTER_PGO_PLUS_OBJ_OPTIMIZATION,
   AFTER_ALL_OPTIMIZATION
 };
 
@@ -38,6 +40,8 @@ class OfflineProblemRunner {
       const pose_graph_optimization::ObjectVisualPoseGraphResidualParams
           &residual_params,
       const LimitTrajectoryEvaluationParams &limit_trajectory_eval_params,
+      const pose_graph_optimization::PoseGraphPlusObjectsOptimizationParams
+          &pgo_solver_params,
       const std::function<bool()> &continue_opt_checker,
       const std::function<FrameId(const FrameId &)> &window_provider_func,
       const std::function<
@@ -78,18 +82,22 @@ class OfflineProblemRunner {
                                const VisualizationTypeEnum &)>
           &visualization_callback,
       const std::function<pose_graph_optimization::OptimizationSolverParams(
-          const FrameId &)> &solver_params_provider_func)
+          const FrameId &)> &solver_params_provider_func,
+      const std::function<bool(const FrameId &)> &gba_checker)
       : residual_params_(residual_params),
         limit_trajectory_eval_params_(limit_trajectory_eval_params),
+        pgo_solver_params_(pgo_solver_params),
         continue_opt_checker_(continue_opt_checker),
         window_provider_func_(window_provider_func),
+        residual_creator_(residual_creator),
         optimizer_(refresh_residual_checker, residual_creator),
         pose_graph_creator_(pose_graph_creator),
         frame_data_adder_(frame_data_adder),
         output_data_extractor_(output_data_extractor),
         ceres_callback_creator_(ceres_callback_creator),
         visualization_callback_(visualization_callback),
-        solver_params_provider_func_(solver_params_provider_func) {}
+        solver_params_provider_func_(solver_params_provider_func),
+        gba_checker_(gba_checker) {}
 
   bool runOptimizationHelper(
       const FrameId start_frame_id,
@@ -146,6 +154,9 @@ class OfflineProblemRunner {
     optimization_scope_params.allow_reversion_after_dectecting_jumps_ =
         optimization_factors_enabled_params
             .allow_reversion_after_dectecting_jumps_;
+    optimization_scope_params.min_low_level_feature_observations_per_frame_ =
+        optimization_factors_enabled_params
+            .min_low_level_feature_observations_per_frame_;
     optimization_scope_params.fix_poses_ =
         optimization_factors_enabled_params.fix_poses_;
     optimization_scope_params.fix_objects_ =
@@ -154,11 +165,6 @@ class OfflineProblemRunner {
         optimization_factors_enabled_params.fix_visual_features_;
     optimization_scope_params.fix_ltm_objects_ =
         optimization_factors_enabled_params.fix_ltm_objects_;
-    optimization_scope_params.include_relative_factors_ =
-        optimization_factors_enabled_params.include_relative_factors_;
-    optimization_scope_params.min_low_level_feature_observations_per_frame_ =
-        optimization_factors_enabled_params
-            .min_low_level_feature_observations_per_frame_;
     optimization_scope_params.include_object_factors_ =
         optimization_factors_enabled_params.include_object_factors_;
     optimization_scope_params.use_pom_ =
@@ -428,8 +434,20 @@ class OfflineProblemRunner {
 
   LimitTrajectoryEvaluationParams limit_trajectory_eval_params_;
 
+  pose_graph_optimization::PoseGraphPlusObjectsOptimizationParams
+      pgo_solver_params_;
+
   std::function<bool()> continue_opt_checker_;
   std::function<FrameId(const FrameId &)> window_provider_func_;
+  std::function<bool(
+      const std::pair<vslam_types_refactor::FactorType,
+                      vslam_types_refactor::FeatureFactorId> &,
+      const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
+      const std::shared_ptr<PoseGraphType> &,
+      ceres::Problem *,
+      ceres::ResidualBlockId &,
+      CachedFactorInfo &)>
+      residual_creator_;
   pose_graph_optimizer::ObjectPoseGraphOptimizer<VisualFeatureFactorType,
                                                  CachedFactorInfo,
                                                  PoseGraphType>
@@ -466,6 +484,8 @@ class OfflineProblemRunner {
   std::function<pose_graph_optimization::OptimizationSolverParams(
       const FrameId &)>
       solver_params_provider_func_;
+
+  std::function<bool(const FrameId &)> gba_checker_;
 
   bool isConsecutivePosesStable_(
       const std::shared_ptr<PoseGraphType> &pose_graph,

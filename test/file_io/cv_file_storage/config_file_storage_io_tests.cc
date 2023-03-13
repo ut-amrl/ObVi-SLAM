@@ -67,6 +67,20 @@ TEST(FullOVSLAMConfigIO, ReadWriteFullOBSLAMConfig) {
   final_ba_solver_params.feature_outlier_percentage = 0;
   orig_config.final_ba_solver_params_ = final_ba_solver_params;
 
+  orig_config.pgo_solver_params_.relative_pose_factor_huber_loss_ = 2.3;
+  orig_config.pgo_solver_params_.pgo_optimization_solver_params_ =
+      global_ba_solver_params;
+  orig_config.pgo_solver_params_.pgo_optimization_solver_params_
+      .max_num_iterations_ = 2234;
+  orig_config.pgo_solver_params_.relative_pose_cov_params_
+      .transl_error_mult_for_transl_error_ = 1.4;
+  orig_config.pgo_solver_params_.relative_pose_cov_params_
+      .transl_error_mult_for_rot_error_ = 2.5;
+  orig_config.pgo_solver_params_.relative_pose_cov_params_
+      .rot_error_mult_for_transl_error_ = 3.6;
+  orig_config.pgo_solver_params_.relative_pose_cov_params_
+      .rot_error_mult_for_rot_error_ = 4.7;
+
   LongTermMapExtractionTunableParams ltm_tunable_params;
   ltm_tunable_params.far_feature_threshold_ = 2.4;
   orig_config.ltm_tunable_params_ = ltm_tunable_params;
@@ -180,6 +194,8 @@ TEST(FullOVSLAMConfigIO, ReadWriteFullOBSLAMConfig) {
   optimization_factors_enabled_params.fix_ltm_objects_ = false;
   optimization_factors_enabled_params.fix_objects_ = true;
   optimization_factors_enabled_params.use_pom_ = false;
+  optimization_factors_enabled_params.use_pose_graph_on_global_ba_ = true;
+  optimization_factors_enabled_params.use_visual_features_on_global_ba_ = false;
   orig_config.optimization_factors_enabled_params_ =
       optimization_factors_enabled_params;
 

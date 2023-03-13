@@ -415,6 +415,12 @@ def runSingleTrajectory(executionConfig):
 
     if (executionConfig.recordVisualizationRosbag):
         os.killpg(os.getpgid(processReturn.pid), signal.SIGTERM)
+        timeStart = time.time()
+        while (not os.path.exists(pendingVisBagName)):
+            if ((time.time() - timeStart) > 10):
+                break
+            time.sleep(0.1)
+
         if (os.path.exists(pendingVisBagName)):
             os.system("mv " + pendingVisBagName + " " + permanentVisBagName)
 

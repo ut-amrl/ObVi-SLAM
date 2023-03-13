@@ -92,10 +92,10 @@ BoundingBoxFrontEndParams generateBoundingBoxFrontEndParams(
   // TODO tune/override
   bb_assoc_front_end_params.min_observations_for_local_est_ = 3;
   bb_assoc_front_end_params.min_observations_ = 10;
-  bb_assoc_front_end_params.min_bb_confidence_ = 0.3;
+  bb_assoc_front_end_params.min_bb_confidence_ = 0.2;
   bb_assoc_front_end_params.required_min_conf_for_initialization_ = 0;
-  bb_assoc_front_end_params.min_overlapping_features_for_match_ = 2;
-  bb_assoc_front_end_params.bounding_box_inflation_size_ = 0;
+  bb_assoc_front_end_params.min_overlapping_features_for_match_ = 3;
+  bb_assoc_front_end_params.bounding_box_inflation_size_ = 10;
   bb_assoc_front_end_params.pending_obj_estimator_params_ =
       pending_obj_estimator_params;
 
@@ -133,7 +133,7 @@ int main(int argc, char **argv) {
   std::string config_identifier = FLAGS_config_identifier;
   if (config_identifier.empty()) {
     // TODO INCREMENT IF YOU CHANGE VALUES/STRUCTURE FOR CONFIG
-    int config_version_number = 4;
+    int config_version_number = 7;
 
     config_identifier = std::to_string(config_version_number);
   }
@@ -189,6 +189,20 @@ int main(int argc, char **argv) {
   configuration.global_ba_solver_params_ = global_ba_solver_params;
   configuration.final_ba_solver_params_ = final_opt_solver_params;
 
+  configuration.pgo_solver_params_.relative_pose_factor_huber_loss_ = 5;
+  configuration.pgo_solver_params_.pgo_optimization_solver_params_ =
+      global_ba_solver_params;
+  configuration.pgo_solver_params_.final_pgo_optimization_solver_params_ =
+      final_opt_solver_params;
+  pose_graph_optimization::RelativePoseCovarianceOdomModelParams
+      relative_pose_cov_params;
+  relative_pose_cov_params.transl_error_mult_for_transl_error_ = 0.1;
+  relative_pose_cov_params.transl_error_mult_for_rot_error_ = 0.1;
+  relative_pose_cov_params.rot_error_mult_for_transl_error_ = 0.1;
+  relative_pose_cov_params.rot_error_mult_for_rot_error_ = 0.1;
+  configuration.pgo_solver_params_.relative_pose_cov_params_ =
+      relative_pose_cov_params;
+
   configuration.ltm_tunable_params_.far_feature_threshold_ = 75;
   configuration.ltm_solver_params_ =
       base_solver_params;  // TODO is this the one we want?
@@ -205,6 +219,16 @@ int main(int argc, char **argv) {
   residual_params.long_term_map_params_.pair_huber_loss_param_ = 1;
 
   configuration.ltm_solver_residual_params_ = residual_params;
+
+  residual_params.relative_pose_factor_huber_loss_ = 1.0;
+  residual_params.relative_pose_cov_params_
+      .transl_error_mult_for_transl_error_ = 0.05;
+  residual_params.relative_pose_cov_params_.transl_error_mult_for_rot_error_ =
+      0.05;
+  residual_params.relative_pose_cov_params_.rot_error_mult_for_transl_error_ =
+      0.05;
+  residual_params.relative_pose_cov_params_.rot_error_mult_for_rot_error_ =
+      0.05;
   configuration.object_visual_pose_graph_residual_params_ = residual_params;
 
   configuration.shape_dimension_priors_ = constructShapeDimPriorConfiguration();
@@ -244,7 +268,13 @@ int main(int argc, char **argv) {
       5;
   // adding larger min_low_level_feature_observations_ for stereo camera
   optimization_factors_enabled_params.min_low_level_feature_observations_ = 7;
-  optimization_factors_enabled_params.min_object_observations_ = 1;
+  optimization_factors_enabled_params.min_object_observations_ = 10;
+  optimization_factors_enabled_params.use_visual_features_on_global_ba_ = false;
+  optimization_factors_enabled_params.use_pose_graph_on_global_ba_ = true;
+  optimization_factors_enabled_params.use_pose_graph_on_final_global_ba_ =
+      optimization_factors_enabled_params.use_pose_graph_on_global_ba_;
+  optimization_factors_enabled_params.use_visual_features_on_final_global_ba_ =
+      true;
 
   configuration.optimization_factors_enabled_params_ =
       optimization_factors_enabled_params;

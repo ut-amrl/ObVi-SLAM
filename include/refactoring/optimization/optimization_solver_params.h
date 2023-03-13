@@ -96,14 +96,23 @@ struct VisualFeaturePoseGraphResidualParams {
   }
 };
 
-struct PoseResidualParams {
-  double rel_pose_huber_loss_param_ = 1.0;
+struct RelativePoseCovarianceOdomModelParams {
+  double transl_error_mult_for_transl_error_;
+  double transl_error_mult_for_rot_error_;
+  double rot_error_mult_for_transl_error_;
+  double rot_error_mult_for_rot_error_;
 
-  bool operator==(const PoseResidualParams &rhs) const {
-    return (rel_pose_huber_loss_param_ == rhs.rel_pose_huber_loss_param_);
+  bool operator==(const RelativePoseCovarianceOdomModelParams &rhs) const {
+    return (transl_error_mult_for_transl_error_ ==
+            rhs.transl_error_mult_for_transl_error_) &&
+           (transl_error_mult_for_rot_error_ ==
+            rhs.transl_error_mult_for_rot_error_) &&
+           (rot_error_mult_for_transl_error_ ==
+            rhs.rot_error_mult_for_transl_error_) &&
+           (rot_error_mult_for_rot_error_ == rhs.rot_error_mult_for_rot_error_);
   }
 
-  bool operator!=(const PoseResidualParams &rhs) const {
+  bool operator!=(const RelativePoseCovarianceOdomModelParams &rhs) const {
     return !operator==(rhs);
   }
 };
@@ -114,21 +123,47 @@ struct ObjectVisualPoseGraphResidualParams {
   // default values here are modified, make sure any changes are reflected in
   // the config and if necessary, regenerate the config with a new
   // config_version_id_
-  PoseResidualParams pose_residual_params_;
   ObjectResidualParams object_residual_params_;
   VisualFeaturePoseGraphResidualParams visual_residual_params_;
   // TODO maybe make this template so it's flexible to different types of
   // long-term maps
   PairwiseLongTermMapResidualParams long_term_map_params_;
 
+  double relative_pose_factor_huber_loss_ = 1.0;
+  RelativePoseCovarianceOdomModelParams relative_pose_cov_params_;
+
   bool operator==(const ObjectVisualPoseGraphResidualParams &rhs) const {
     return (object_residual_params_ == rhs.object_residual_params_) &&
            (visual_residual_params_ == rhs.visual_residual_params_) &&
            (long_term_map_params_ == rhs.long_term_map_params_) &&
-           (pose_residual_params_ == rhs.pose_residual_params_);
+           (relative_pose_factor_huber_loss_ ==
+            rhs.relative_pose_factor_huber_loss_) &&
+           (relative_pose_cov_params_ == rhs.relative_pose_cov_params_);
   }
 
   bool operator!=(const ObjectVisualPoseGraphResidualParams &rhs) const {
+    return !operator==(rhs);
+  }
+};
+
+struct PoseGraphPlusObjectsOptimizationParams {
+  double relative_pose_factor_huber_loss_ = 1.0;
+
+  RelativePoseCovarianceOdomModelParams relative_pose_cov_params_;
+  OptimizationSolverParams pgo_optimization_solver_params_;
+  OptimizationSolverParams final_pgo_optimization_solver_params_;
+
+  bool operator==(const PoseGraphPlusObjectsOptimizationParams &rhs) const {
+    return (relative_pose_factor_huber_loss_ ==
+            rhs.relative_pose_factor_huber_loss_) &&
+           (relative_pose_cov_params_ == rhs.relative_pose_cov_params_) &&
+           (pgo_optimization_solver_params_ ==
+            rhs.pgo_optimization_solver_params_) &&
+           (final_pgo_optimization_solver_params_ ==
+            rhs.final_pgo_optimization_solver_params_);
+  }
+
+  bool operator!=(const PoseGraphPlusObjectsOptimizationParams &rhs) const {
     return !operator==(rhs);
   }
 };

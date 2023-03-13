@@ -1375,12 +1375,13 @@ void visualizationStub(
     const double &near_edge_threshold,
     const size_t &pending_obj_min_obs_threshold,
     const std::optional<std::vector<vtr::Pose3D<double>>> &gt_trajectory) {
+  bool pgo_opt = false;
   switch (visualization_stage) {
     case vtr::BEFORE_ANY_OPTIMIZATION:
-      vis_manager->publishTransformsForEachCamera(
-          input_problem_data.getMaxFrameId(),
-          input_problem_data.getRobotPoseEstimates(),
-          input_problem_data.getCameraExtrinsicsByCamera());
+      //      vis_manager->publishTransformsForEachCamera(
+      //          input_problem_data.getMaxFrameId(),
+      //          input_problem_data.getRobotPoseEstimates(),
+      //          input_problem_data.getCameraExtrinsicsByCamera());
 
       sleep(3);
       break;
@@ -1426,6 +1427,10 @@ void visualizationStub(
                                              feature_before_optim,
                                              optimized_trajectory,
                                              DebugTypeEnum::BEFORE_OPTIM);
+      break;
+    }
+    case vtr::AFTER_PGO_PLUS_OBJ_OPTIMIZATION: {
+      pgo_opt = true;
       break;
     }
     case vtr::AFTER_EACH_OPTIMIZATION: {
@@ -1565,10 +1570,6 @@ void visualizationStub(
         vis_manager->visualizeTrajectory(truncated_gt_traj,
                                          vtr::PlotType::GROUND_TRUTH);
       }
-      vis_manager->publishTfForLatestPose(est_trajectory_vec.back(),
-                                          vtr::PlotType::ESTIMATED);
-      vis_manager->publishTfForLatestPose(init_trajectory_vec.back(),
-                                          vtr::PlotType::INITIAL);
 
       std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>
           curr_frame_initial_feature_ests;
@@ -1595,6 +1596,10 @@ void visualizationStub(
       }
       vis_manager->visualizeFeatureEstimates(curr_frame_est_feature_ests,
                                              vtr::PlotType::ESTIMATED);
+      vis_manager->publishTfsForLatestPose(
+          est_trajectory_vec.back(), vtr::PlotType::ESTIMATED, extrinsics);
+      vis_manager->publishTfsForLatestPose(
+          init_trajectory_vec.back(), vtr::PlotType::INITIAL, extrinsics);
 
       debugger.debugByFrameId(
           max_frame_optimized,
@@ -1626,7 +1631,8 @@ void visualizationStub(
           observed_features,
           img_heights_and_widths,
           min_frame_optimized,
-          max_frame_optimized);
+          max_frame_optimized,
+          pgo_opt);
 
       break;
     }
@@ -1711,7 +1717,8 @@ int main(int argc, char **argv) {
   pose_graph_optimization::ObjectVisualPoseGraphResidualParams residual_params =
       config.object_visual_pose_graph_residual_params_;
 
-  // Read necessary data in from file -----------------------------------------
+  // Read necessary data in from file
+  // -----------------------------------------
   std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
       camera_intrinsics_by_camera =
           readCameraIntrinsicsByCameraFromFile(FLAGS_intrinsics_file);
@@ -1774,6 +1781,7 @@ int main(int argc, char **argv) {
 
   std::unordered_map<vtr::FrameId, vtr::Pose3D<double>> robot_poses =
       readRobotPosesFromFile(FLAGS_poses_by_node_id_file);
+  LOG(INFO) << "Reading images from rosbag";
   std::unordered_map<
       vtr::FrameId,
       std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>>
@@ -1781,6 +1789,7 @@ int main(int argc, char **argv) {
           FLAGS_rosbag_file,
           FLAGS_nodes_by_timestamp_file,
           config.camera_info_.camera_topic_to_camera_id_);
+  LOG(INFO) << "Done reading images from rosbag";
 
   std::unordered_map<vtr::CameraId, std::pair<double, double>>
       img_heights_and_widths;
@@ -1799,7 +1808,8 @@ int main(int argc, char **argv) {
   if (!FLAGS_long_term_map_input.empty()) {
     cv::FileStorage ltm_in_fs(FLAGS_long_term_map_input, cv::FileStorage::READ);
     vtr::SerializableIndependentEllipsoidsLongTermObjectMap<
-        //        std::unordered_map<vtr::ObjectId, vtr::RoshanAggregateBbInfo>,
+        //        std::unordered_map<vtr::ObjectId,
+        //        vtr::RoshanAggregateBbInfo>,
         //        vtr::SerializableMap<vtr::ObjectId,
         //                             vtr::SerializableObjectId,
         //                             vtr::RoshanAggregateBbInfo,
@@ -1874,7 +1884,8 @@ int main(int argc, char **argv) {
   vtr::SaveToFileVisualizer save_to_file_visualizer(
       FLAGS_debug_images_output_directory, save_to_file_visualizer_config);
   //    vtr::RawEllipsoid<double> ellipsoid;
-  //    ellipsoid << -0.164291, 0.41215, -0.0594742, 79.9495, 209.015, 248.223,
+  //    ellipsoid << -0.164291, 0.41215, -0.0594742, 79.9495, 209.015,
+  //    248.223,
   //        0.432929, 0.450756, 2.05777;
   //    vtr::RawPose3d<double> robot_pose;
   //    robot_pose << 0.135177, -0.000860353, 0.0109102, 0.00145096,
@@ -2086,27 +2097,27 @@ int main(int argc, char **argv) {
             input_problem_data, pose_graph, min_frame_id, max_frame_id);
       };
 
-  // TODO move them to configs
-  const double transl_error_mult_for_transl_error = 0.05;
-  const double transl_error_mult_for_rot_error = 0.05;
-  const double rot_error_mult_for_transl_error = 0.05;
-  const double rot_error_mult_for_rot_error = 0.05;
   std::function<vtr::Covariance<double, 6>(const vtr::Pose3D<double> &)>
       pose_deviation_cov_creator =
           [&](const vtr::Pose3D<double> &relative_pose) {
             Eigen::Matrix<double, 6, 1> std_devs;
-            std_devs.topRows(3) =
-                relative_pose.transl_.cwiseAbs() *
-                    transl_error_mult_for_transl_error +
-                (abs(relative_pose.orientation_.angle()) *
-                 rot_error_mult_for_transl_error * Eigen::Vector3d::Ones());
+            std_devs.topRows(3) = relative_pose.transl_.cwiseAbs() *
+                                      residual_params.relative_pose_cov_params_
+                                          .transl_error_mult_for_transl_error_ +
+                                  (abs(relative_pose.orientation_.angle()) *
+                                   residual_params.relative_pose_cov_params_
+                                       .rot_error_mult_for_transl_error_ *
+                                   Eigen::Vector3d::Ones());
             std_devs.bottomRows(3) =
                 (relative_pose.orientation_.axis() *
                  relative_pose.orientation_.angle())
                         .cwiseAbs() *
-                    rot_error_mult_for_rot_error +
+                    residual_params.relative_pose_cov_params_
+                        .rot_error_mult_for_rot_error_ +
                 (relative_pose.transl_.norm() *
-                 transl_error_mult_for_rot_error * Eigen::Vector3d::Ones());
+                 residual_params.relative_pose_cov_params_
+                     .transl_error_mult_for_rot_error_ *
+                 Eigen::Vector3d::Ones());
             return vtr::createDiagCovFromStdDevs(std_devs,
                                                  1e-3);  // min_std = 1e-3
           };
@@ -2151,8 +2162,8 @@ int main(int argc, char **argv) {
 
   //    std::function<std::pair<bool,
   //    std::optional<sensor_msgs::Image::ConstPtr>>(
-  //        const vtr::FrameId &, const vtr::CameraId &, const MainProbData &)>
-  //        bb_context_retriever = [](const vtr::FrameId &frame_id,
+  //        const vtr::FrameId &, const vtr::CameraId &, const MainProbData
+  //        &)> bb_context_retriever = [](const vtr::FrameId &frame_id,
   //                                  const vtr::CameraId &camera_id,
   //                                  const MainProbData &problem_data) {
   //      //            LOG(INFO) << "Getting image for frame " << frame_id
@@ -2501,6 +2512,22 @@ int main(int argc, char **argv) {
                 .feature_based_bb_association_params_.min_observations_,
             gt_trajectory);
       };
+  if ((!config.optimization_factors_enabled_params_
+            .use_visual_features_on_global_ba_) &&
+      (!config.optimization_factors_enabled_params_
+            .use_pose_graph_on_global_ba_)) {
+    LOG(ERROR) << "Must have either visual features or pose graph (or both) "
+                  "for global ba; review/fix your config";
+    exit(1);
+  }
+  if ((!config.optimization_factors_enabled_params_
+            .use_visual_features_on_final_global_ba_) &&
+      (!config.optimization_factors_enabled_params_
+            .use_pose_graph_on_final_global_ba_)) {
+    LOG(ERROR) << "Must have either visual features or pose graph (or both) "
+                  "for final global ba; review/fix your config";
+    exit(1);
+  }
   vtr::OfflineProblemRunner<MainProbData,
                             vtr::ReprojectionErrorFactor,
                             vtr::LongTermObjectMapAndResults<MainLtm>,
@@ -2508,6 +2535,7 @@ int main(int argc, char **argv) {
                             MainPg>
       offline_problem_runner(residual_params,
                              config.limit_traj_eval_params_,
+                             config.pgo_solver_params_,
                              continue_opt_checker,
                              window_provider_func,
                              refresh_residual_checker,
@@ -2517,7 +2545,8 @@ int main(int argc, char **argv) {
                              output_data_extractor,
                              ceres_callback_creator,
                              visualization_callback,
-                             solver_params_provider_func);
+                             solver_params_provider_func,
+                             gba_checker);
 
   //  vtr::SpatialEstimateOnlyResults output_results;
   vtr::LongTermObjectMapAndResults<MainLtm> output_results;
@@ -2554,7 +2583,8 @@ int main(int argc, char **argv) {
     //         output_results.visual_feature_results_.visual_feature_positions_)
     //         {
     //      if (feat_and_pos.second.norm() > 10000) {
-    //        LOG(WARNING) << "High norm for feature " << feat_and_pos.first <<
+    //        LOG(WARNING) << "High norm for feature " << feat_and_pos.first
+    //        <<
     //        ": "
     //                     << feat_and_pos.second.norm();
     //      }
