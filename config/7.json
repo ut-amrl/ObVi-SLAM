@@ -395,7 +395,7 @@
             "max_frame_id": 1
         },
         "sparsifier_params": {
-            "max_pose_inc_threshold_transl": 2.0000000000000001e-01,
+            "max_pose_inc_threshold_transl": 1.4999999999999999e-01,
             "max_pose_inc_threshold_rot": 1.0000000000000001e-01
         }
     }
