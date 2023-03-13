@@ -230,6 +230,65 @@ bool createReprojectionErrorResidual(
 }
 
 template <typename CachedInfo>
+bool createRelPoseResidual(
+    const vslam_types_refactor::FeatureFactorId &factor_id,
+    const std::shared_ptr<
+        vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph>
+        &pose_graph,
+    const pose_graph_optimization::ObjectVisualPoseGraphResidualParams
+        &residual_params,
+    const std::function<
+        bool(const std::pair<vslam_types_refactor::FactorType,
+                             vslam_types_refactor::FeatureFactorId> &,
+             const std::shared_ptr<
+                 vslam_types_refactor::ObjectAndReprojectionFeaturePoseGraph> &,
+             CachedInfo &)> &cached_info_creator,
+    ceres::Problem *problem,
+    ceres::ResidualBlockId &residual_id,
+    CachedInfo &cached_info) {
+  vslam_types_refactor::RelPoseFactor factor;
+  if (!pose_graph->getPoseFactor(factor_id, factor)) {
+    LOG(ERROR) << "Could not find pose factor with id " << factor_id
+               << "; not adding to pose graph";
+    return false;
+  }
+
+  double *robot_pose1_block;
+  double *robot_pose2_block;
+  if ((!pose_graph->getPosePointers(factor.frame_id_1_, &robot_pose1_block)) ||
+      (!pose_graph->getPosePointers(factor.frame_id_2_, &robot_pose2_block))) {
+    LOG(ERROR) << "In using factor with id " << factor_id
+               << " could not find robot pose parameter block for frame "
+               << factor.frame_id_1_ << " or " << factor.frame_id_2_
+               << "; not adding to pose graph";
+    return false;
+  }
+
+  // std::optional<RawPose3d<double>> raw_robot_pose1, raw_robot_pose2;
+  // raw_robot_pose1 = pose_graph->getRobotPose(factor.frame_id_1_);
+  // raw_robot_pose2 = pose_graph->getRobotPose(factor.frame_id_2_);
+  // if ((!raw_robot_pose1.has_value()) || (!raw_robot_pose2.has_value())) {
+  //   LOG(ERROR) << "Could not find robot pose parameter block for frame "
+  //              << factor.frame_id_1_ << " or " << factor.frame_id_2_
+  //              << "; not adding to pose graph";
+  //   return false;
+  // }
+  // vslam_types_refactor::Pose3D<double> measured_pose_deviation =
+  //     vslam_types_refactor::getPose2RelativeToPose1(
+  //         vslam_types_refactor::convertToPose3D(raw_robot_pose1.value()),
+  //         vslam_types_refactor::convertToPose3D(raw_robot_pose2.value()));
+
+  residual_id = problem->AddResidualBlock(
+      RelativePoseFactor::createRelativePoseFactor(
+          factor.measured_pose_deviation_, factor.pose_deviation_cov_),
+      new ceres::HuberLoss(residual_params.relative_pose_factor_huber_loss_),
+      robot_pose1_block,
+      robot_pose2_block);
+
+  return true;
+}
+
+template <typename CachedInfo>
 bool createResidual(
     const std::pair<vslam_types_refactor::FactorType,
                     vslam_types_refactor::FeatureFactorId> &factor_info,
@@ -299,6 +358,14 @@ bool createResidual(
                                           problem,
                                           residual_id,
                                           cached_info);
+  } else if (factor_info.first == kPairwiseRobotPoseFactorTypeId) {
+    return createRelPoseResidual(factor_info.second,
+                                 pose_graph,
+                                 residual_params,
+                                 cached_info_creator,
+                                 problem,
+                                 residual_id,
+                                 cached_info);
   } else {
     LOG(ERROR) << "Unrecognized factor type " << factor_info.first
                << "; not adding residual";

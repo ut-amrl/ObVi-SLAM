@@ -117,6 +117,9 @@ class OfflineProblemRunner {
     optimization_scope_params.allow_reversion_after_dectecting_jumps_ =
         optimization_factors_enabled_params
             .allow_reversion_after_dectecting_jumps_;
+    optimization_scope_params.min_low_level_feature_observations_per_frame_ =
+        optimization_factors_enabled_params
+            .min_low_level_feature_observations_per_frame_;
     optimization_scope_params.fix_poses_ =
         optimization_factors_enabled_params.fix_poses_;
     optimization_scope_params.fix_objects_ =
