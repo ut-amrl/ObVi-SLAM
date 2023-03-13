@@ -19,7 +19,7 @@ struct OptimizationFactorsEnabledParams {
   double consecutive_pose_transl_tol_ = 1.0;
   double consecutive_pose_orient_tol_ = M_PI;
 
-  size_t min_low_level_feature_observations_per_frame_ = 50;
+  uint32_t min_low_level_feature_observations_per_frame_ = 50;
 
   bool include_object_factors_ = true;
   bool include_visual_factors_ = true;
