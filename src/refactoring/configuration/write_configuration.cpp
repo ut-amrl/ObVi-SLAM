@@ -255,9 +255,13 @@ int main(int argc, char **argv) {
   pose_graph_optimizer::OptimizationFactorsEnabledParams
       optimization_factors_enabled_params;
   optimization_factors_enabled_params.allow_reversion_after_dectecting_jumps_ =
-      true;
+      false;
   optimization_factors_enabled_params.consecutive_pose_transl_tol_ = 1.0;
   optimization_factors_enabled_params.consecutive_pose_orient_tol_ = M_PI;
+
+  optimization_factors_enabled_params
+      .min_low_level_feature_observations_per_frame_ = 50;
+
   optimization_factors_enabled_params.use_pom_ = false;
   optimization_factors_enabled_params.include_visual_factors_ = true;
   //  optimization_factors_enabled_params.fix_poses_ = true;
