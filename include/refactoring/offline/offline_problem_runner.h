@@ -315,15 +315,18 @@ class OfflineProblemRunner {
             opt_logger->writeCurrentOptInfo();
           }
         }
-        if (!isConsecutivePosesStable_(pose_graph,
-                                       optimization_scope_params.min_frame_id_,
-                                       optimization_scope_params.max_frame_id_,
-                                       optimization_factors_enabled_params
-                                           .consecutive_pose_transl_tol_,
-                                       optimization_factors_enabled_params
-                                           .consecutive_pose_orient_tol_)) {
-          LOG(WARNING) << "Detecting jumps after optimization. Reverting...";
-          pose_graph->setValuesFromAnotherPoseGraph(pose_graph_copy);
+        if (optimization_scope_params.allow_reversion_after_dectecting_jumps_) {
+          if (!isConsecutivePosesStable_(
+                  pose_graph,
+                  optimization_scope_params.min_frame_id_,
+                  optimization_scope_params.max_frame_id_,
+                  optimization_factors_enabled_params
+                      .consecutive_pose_transl_tol_,
+                  optimization_factors_enabled_params
+                      .consecutive_pose_orient_tol_)) {
+            LOG(WARNING) << "Detecting jumps after optimization. Reverting...";
+            pose_graph->setValuesFromAnotherPoseGraph(pose_graph_copy);
+          }
         }
 
         visualization_callback_(problem_data,
