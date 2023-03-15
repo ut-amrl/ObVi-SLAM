@@ -46,7 +46,7 @@ void addConsecutiveRelativePoseFactorsForFrame(
   }
 
   Pose3D<double> measured_pose_deviation =
-      getPose2RelativeToPose1(curr_pose, prev_pose);
+      getPose2RelativeToPose1(prev_pose, curr_pose);
 
   pose_graph->addPoseFactor(
       RelPoseFactor(frame_to_add - 1,
@@ -213,6 +213,8 @@ void addFrameDataAssociatedBoundingBox(
     }
   }
 
+  // NOTE: relative pose factors that are actually used is determined in the
+  // object_pose_graph_optimizer
   addConsecutiveRelativePoseFactorsForFrame(
       input_problem_data,
       pose_graph,
