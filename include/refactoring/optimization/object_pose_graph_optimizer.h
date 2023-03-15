@@ -161,9 +161,11 @@ class ObjectPoseGraphOptimizer {
       }
     }
 
-    bool use_relative_pose_factors =
-        (optimization_scope.min_low_level_feature_observations_per_frame_ > 0);
     bool use_feature_pose_factors = optimization_scope.include_visual_factors_;
+    bool use_relative_pose_factors =
+        (optimization_scope.min_low_level_feature_observations_per_frame_ >
+         0) &&
+        use_feature_pose_factors;
     bool use_object_pose_factors = optimization_scope.include_object_factors_;
     bool use_object_param_blocks = optimization_scope.include_object_factors_;
     bool fix_object_param_blocks = optimization_scope.fix_objects_;
@@ -233,12 +235,11 @@ class ObjectPoseGraphOptimizer {
       // ids from ReprojectionErrorFactors stored in the pose graph
       std::unordered_map<vslam_types_refactor::FrameId, size_t>
           frame_ids_and_feat_obs_nums;
-      for (const auto &feat_id_and_feat_type_and_id : features_to_include) {
-        for (const auto &feat_type_and_id :
-             feat_id_and_feat_type_and_id.second) {
+      for (const auto &feat_id_and_factor_type_and_id : features_to_include) {
+        for (const auto &factor_type_and_id :
+             feat_id_and_factor_type_and_id.second) {
           vslam_types_refactor::ReprojectionErrorFactor factor;
-          if (!pose_graph->getVisualFeatureFactorByFeatFactorId(
-                  feat_type_and_id, factor)) {
+          if (!pose_graph->getVisualFactor(factor_type_and_id.second, factor)) {
             continue;
           }
           for (const auto &frame_id : factor.getOrderedFrameIds()) {
@@ -253,26 +254,32 @@ class ObjectPoseGraphOptimizer {
 
       // check if frame satifies the minimum feature observation number
       // requirements. If not, impose relative pose constraints
-      for (const auto frame_id_and_feat_obs_num : frame_ids_and_feat_obs_nums) {
-        // LOG(INFO) << "frame " << frame_id_and_feat_obs_num.first << " has "
-        //           << frame_id_and_feat_obs_num.second
-        //           << " feature observations";
-        if (frame_id_and_feat_obs_num.second <
-            optimization_scope.min_low_level_feature_observations_per_frame_) {
-          const vslam_types_refactor::FrameId frame_id =
-              frame_id_and_feat_obs_num.first;
-          pose_graph->getFactorInfoByFrameId(frame_id,
-                                             optimization_scope.min_frame_id_,
-                                             optimization_scope.max_frame_id_,
-                                             rel_poses_to_include[frame_id]);
-          LOG(WARNING)
-              << "Frame " << frame_id << " only has "
-              << frame_id_and_feat_obs_num.second
-              << " feature observations. Imposing relative pose factor to "
-                 "pose at this frame";
+      for (const auto &optimized_frame : optimized_frames) {
+        // 1) For some reason, no feature observations made at optimized_frame.
+        // In this case, we want to impose relative pose constraints anyway 2)
+        // This frame doesn't satisfy minimum observation requirements; Adding
+        // relative pose constraints.
+        if ((frame_ids_and_feat_obs_nums.find(optimized_frame) !=
+             frame_ids_and_feat_obs_nums.end()) &&
+            (frame_ids_and_feat_obs_nums.at(optimized_frame) >=
+             optimization_scope
+                 .min_low_level_feature_observations_per_frame_)) {
+          continue;
         }
+        pose_graph->getPoseFactorInfoByFrameId(
+            optimized_frame,
+            optimization_scope.min_frame_id_,
+            optimization_scope.max_frame_id_,
+            rel_poses_to_include[optimized_frame]);
+        size_t obs_num = 0;
+        if (frame_ids_and_feat_obs_nums.find(optimized_frame) !=
+            frame_ids_and_feat_obs_nums.end()) {
+          obs_num = frame_ids_and_feat_obs_nums.at(optimized_frame);
+        }
+        LOG(INFO) << "Frame " << optimized_frame << " only has " << obs_num
+                  << " feature observations. Imposing relative pose factor to "
+                     "pose at this frame";
       }
-
       // add rel_pose_to_include to required_feature_factors
       for (const auto &rel_pose_to_include : rel_poses_to_include) {
         for (const auto &factor_type_and_factor_id :

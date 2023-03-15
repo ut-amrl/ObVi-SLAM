@@ -269,7 +269,7 @@ class LowLevelFeaturePoseGraph {
    * @param max_frame_id     [in] max frame id of the current time window
    * @param matching_factors [out]
    */
-  virtual void getFactorInfoByFrameId(
+  virtual void getPoseFactorInfoByFrameId(
       const FrameId &frame_id,
       const FrameId &min_frame_id,
       const FrameId &max_frame_id,

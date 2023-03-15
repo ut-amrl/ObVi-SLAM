@@ -222,13 +222,13 @@ int main(int argc, char **argv) {
 
   residual_params.relative_pose_factor_huber_loss_ = 1.0;
   residual_params.relative_pose_cov_params_
-      .transl_error_mult_for_transl_error_ = 0.01;
+      .transl_error_mult_for_transl_error_ = 0.025;
   residual_params.relative_pose_cov_params_.transl_error_mult_for_rot_error_ =
-      0.01;
+      0.025;
   residual_params.relative_pose_cov_params_.rot_error_mult_for_transl_error_ =
-      0.01;
+      0.025;
   residual_params.relative_pose_cov_params_.rot_error_mult_for_rot_error_ =
-      0.01;
+      0.025;
   configuration.object_visual_pose_graph_residual_params_ = residual_params;
 
   configuration.shape_dimension_priors_ = constructShapeDimPriorConfiguration();
@@ -260,7 +260,7 @@ int main(int argc, char **argv) {
   optimization_factors_enabled_params.consecutive_pose_orient_tol_ = M_PI;
 
   optimization_factors_enabled_params
-      .min_low_level_feature_observations_per_frame_ = 75;
+      .min_low_level_feature_observations_per_frame_ = 50;
 
   optimization_factors_enabled_params.use_pom_ = false;
   optimization_factors_enabled_params.include_visual_factors_ = true;

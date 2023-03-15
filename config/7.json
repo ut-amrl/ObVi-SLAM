@@ -352,7 +352,7 @@
         },
         "optimization_factors_enabled_params": {
             "allow_reversion_after_dectecting_jumps": 0,
-            "min_low_level_feature_observations_per_frame": 75,
+            "min_low_level_feature_observations_per_frame": 50,
             "consecutive_pose_transl_tol": 1.0,
             "consecutive_pose_orient_tol": 3.1415926535897931e+00,
             "include_object_factors": 1,
@@ -384,10 +384,10 @@
             },
             "relative_pose_factor_huber_loss": 1.0,
             "relative_pose_cov_params": {
-                "transl_error_mult_for_transl_error": 1.0000000000000000e-02,
-                "transl_error_mult_for_rot_error": 1.0000000000000000e-02,
-                "rot_error_mult_for_transl_error": 1.0000000000000000e-02,
-                "rot_error_mult_for_rot_error": 1.0000000000000000e-02
+                "transl_error_mult_for_transl_error": 2.5000000000000001e-02,
+                "transl_error_mult_for_rot_error": 2.5000000000000001e-02,
+                "rot_error_mult_for_transl_error": 2.5000000000000001e-02,
+                "rot_error_mult_for_rot_error": 2.5000000000000001e-02
             }
         },
         "limit_traj_eval_params": {
@@ -395,7 +395,7 @@
             "max_frame_id": 1
         },
         "sparsifier_params": {
-            "max_pose_inc_threshold_transl": 1.4999999999999999e-01,
+            "max_pose_inc_threshold_transl": 2.0000000000000001e-01,
             "max_pose_inc_threshold_rot": 1.0000000000000001e-01
         }
     }
