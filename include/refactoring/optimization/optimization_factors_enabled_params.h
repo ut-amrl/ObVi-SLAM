@@ -52,7 +52,13 @@ struct OptimizationFactorsEnabledParams {
   bool use_visual_features_on_final_global_ba_ = false;
 
   bool operator==(const OptimizationFactorsEnabledParams &rhs) const {
-    return (include_object_factors_ == rhs.include_object_factors_) &&
+    return (allow_reversion_after_dectecting_jumps_ ==
+            rhs.allow_reversion_after_dectecting_jumps_) &&
+           (consecutive_pose_transl_tol_ == rhs.consecutive_pose_transl_tol_) &&
+           (consecutive_pose_orient_tol_ == rhs.consecutive_pose_orient_tol_) &&
+           (min_low_level_feature_observations_per_frame_ ==
+            rhs.min_low_level_feature_observations_per_frame_) &&
+           (include_object_factors_ == rhs.include_object_factors_) &&
            (include_visual_factors_ == rhs.include_visual_factors_) &&
            (fix_poses_ == rhs.fix_poses_) &&
            (fix_objects_ == rhs.fix_objects_) &&

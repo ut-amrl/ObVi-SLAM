@@ -227,25 +227,6 @@ class LowLevelFeaturePoseGraph {
     return frames;
   }
 
-  virtual bool getVisualFeatureFactorByFeatFactorId(
-      const std::pair<FactorType, FeatureFactorId> &factor_info,
-      VisualFeatureFactorType &factor) const {
-    if (factors_.find(factor_info.second) == factors_.end()) {
-      LOG(ERROR) << "Cannot find feature factor " << factor_info.second
-                 << " in the pose graph.";
-      return false;
-    }
-    const auto &res_factor = factors_.at(factor_info.second);
-    if (factor.getFactorType() != factor_info.first) {
-      LOG(ERROR) << "Visual factor type for this pose graph "
-                 << visual_factor_type_ << " didn't match the requested one "
-                 << factor_info.first;
-      return false;
-    }
-    factor = res_factor;
-    return true;
-  }
-
   virtual void getVisualFeatureFactorIdsBetweenFrameIdsInclusive(
       const FrameId &min_frame_id,
       const FrameId &max_frame_id,
