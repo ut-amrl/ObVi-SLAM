@@ -99,6 +99,11 @@ struct ReprojectionErrorFactor {
   FactorType getFactorType() const { return kReprojectionErrorFactorTypeId; }
 
   std::vector<FrameId> getOrderedFrameIds() const { return {frame_id_}; }
+
+  bool operator==(const ReprojectionErrorFactor &rhs) const {
+    return (frame_id_ == rhs.frame_id_) && (feature_id_ == rhs.feature_id_) &&
+           (camera_id_ == rhs.camera_id_);
+  }
 };
 
 struct RelPoseFactor {

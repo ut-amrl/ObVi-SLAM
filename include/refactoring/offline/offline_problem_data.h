@@ -64,6 +64,17 @@ struct VisionFeatureTrack {
       const std::unordered_map<FrameId, VisionFeature>& feature_observations =
           std::unordered_map<FrameId, VisionFeature>())
       : feature_id_(feature_id), feature_observations_(feature_observations){};
+
+  // strictly less
+  void getFrameIdsLessThanFrameId(const FrameId& frame_id,
+                                  std::vector<FrameId> frame_ids) {
+    for (const auto frame_id_and_vision_feature : feature_observations_) {
+      if (frame_id_and_vision_feature.first < frame_id) {
+        frame_ids.emplace_back(frame_id_and_vision_feature.first);
+      }
+    }
+    std::sort(frame_ids.begin(), frame_ids.end());
+  }
 };
 
 /**
