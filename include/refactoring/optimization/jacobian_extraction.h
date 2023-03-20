@@ -44,7 +44,13 @@ void writeJacobianToFile(const ceres::CRSMatrix &crs_matrix,
 
   // Write contents of cols vector
   std::vector<std::string> cols_strings;
-  for (const int &col : crs_matrix.cols) {
+  std::unordered_map<int, std::unordered_set<size_t>> indices_for_cols;
+  for (size_t col_idx = 0; col_idx < crs_matrix.cols.size(); col_idx++) {
+    int col = crs_matrix.cols[col_idx];
+    if (indices_for_cols.find(col) == indices_for_cols.end()) {
+      indices_for_cols[col] = {};
+    }
+    indices_for_cols[col].insert(col_idx);
     cols_strings.emplace_back(std::to_string(col));
   }
   file_io::writeCommaSeparatedStringsLineToFile(cols_strings, csv_file);
@@ -52,9 +58,42 @@ void writeJacobianToFile(const ceres::CRSMatrix &crs_matrix,
   // Write contents of values vector
   std::vector<std::string> values_strings;
   for (const double &value : crs_matrix.values) {
-    values_strings.emplace_back(std::to_string(value));
+    std::stringstream str_stream;
+    str_stream << value;
+    values_strings.emplace_back(str_stream.str());
+  }
+  std::unordered_set<int> cols_with_0_val;
+  for (size_t val_num = 0; val_num < crs_matrix.values.size(); val_num++) {
+    if (crs_matrix.values.at(val_num) == 0) {
+      LOG(INFO) << "Value at index " << val_num << " was exactly 0";
+      cols_with_0_val.insert(crs_matrix.cols[val_num]);
+    }
   }
   file_io::writeCommaSeparatedStringsLineToFile(values_strings, csv_file);
+
+  std::vector<int> cols_with_only_zeros;
+  for (const int &col_with_zero_val : cols_with_0_val) {
+    std::unordered_set<size_t> indices_for_col =
+        indices_for_cols.at(col_with_zero_val);
+    bool has_non_zero_entry = false;
+    for (const size_t &index_for_col : indices_for_col) {
+      if (crs_matrix.values[index_for_col] != 0) {
+        has_non_zero_entry = true;
+        break;
+      }
+    }
+    LOG(INFO) << "Column " << col_with_zero_val
+              << " does/does not have non-zero entry: " << has_non_zero_entry;
+    if (!has_non_zero_entry) {
+      cols_with_only_zeros.emplace_back(col_with_zero_val);
+    }
+  }
+  std::sort(cols_with_only_zeros.begin(), cols_with_only_zeros.end());
+  LOG(INFO) << "Cols with only zeros, total size: "
+            << cols_with_only_zeros.size();
+  for (const auto &col_with_only_zeros : cols_with_only_zeros) {
+    LOG(INFO) << col_with_only_zeros;
+  }
 }
 
 void writeJacobianMatlabFormatToFile(const ceres::CRSMatrix &crs_matrix,
@@ -104,7 +143,9 @@ void writeJacobianMatlabFormatToFile(const ceres::CRSMatrix &crs_matrix,
   // Write contents of values vector
   std::vector<std::string> values_strings;
   for (const double &value : matlab_vals) {
-    values_strings.emplace_back(std::to_string(value));
+    std::stringstream str_stream;
+    str_stream << value;
+    values_strings.emplace_back(str_stream.str());
   }
   file_io::writeCommaSeparatedStringsLineToFile(values_strings, csv_file);
 }
@@ -208,6 +249,8 @@ void outputJacobianInfo(
                              std::pair<vslam_types_refactor::FactorType,
                                        vslam_types_refactor::FeatureFactorId>>
         &residual_info,
+    const std::unordered_map<ceres::ResidualBlockId, double>
+        &block_ids_and_residuals,
     const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
     const std::function<bool(const FactorType &,
                              const FeatureFactorId &,
@@ -240,6 +283,11 @@ void outputJacobianInfo(
                                        added_features,
                                        generic_factor_info,
                                        new_parameter_blocks);
+    if (block_ids_and_residuals.find(residual_info_entry.first) !=
+        block_ids_and_residuals.end()) {
+      generic_factor_info.final_residual_val_ =
+          block_ids_and_residuals.at(residual_info_entry.first);
+    }
     generic_factor_infos.emplace_back(generic_factor_info);
     for (const ParameterBlockInfo &param_block : new_parameter_blocks) {
       unordered_parameter_block_infos.emplace_back(param_block);

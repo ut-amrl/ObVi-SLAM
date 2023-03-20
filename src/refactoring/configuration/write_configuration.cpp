@@ -133,7 +133,7 @@ int main(int argc, char **argv) {
   std::string config_identifier = FLAGS_config_identifier;
   if (config_identifier.empty()) {
     // TODO INCREMENT IF YOU CHANGE VALUES/STRUCTURE FOR CONFIG
-    int config_version_number = 7;
+    int config_version_number = 8;
 
     config_identifier = std::to_string(config_version_number);
   }
@@ -213,7 +213,7 @@ int main(int argc, char **argv) {
       1;
   residual_params.object_residual_params_
       .shape_dim_prior_factor_huber_loss_param_ = 1;
-  residual_params.object_residual_params_.invalid_ellipsoid_error_val_ = 1e6;
+  residual_params.object_residual_params_.invalid_ellipsoid_error_val_ = 1e3;
   residual_params.visual_residual_params_.reprojection_error_huber_loss_param_ =
       1;
   residual_params.long_term_map_params_.pair_huber_loss_param_ = 1;
