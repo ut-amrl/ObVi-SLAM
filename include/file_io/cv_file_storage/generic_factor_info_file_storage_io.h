@@ -28,6 +28,9 @@ class SerializableGenericFactorInfo
     fs << kFeatureIdLabel
        << SerializableOptional<FeatureId, SerializableFeatureId>(
               data_.feature_id_);
+    fs << kFinalResidualValLabel
+       << SerializableOptional<double, SerializableDouble>(
+              data_.final_residual_val_);
     fs << "}";
   }
 
@@ -49,6 +52,15 @@ class SerializableGenericFactorInfo
     data_.camera_id_ = serializable_camera_id.getEntry();
     data_.obj_id_ = serializable_obj_id.getEntry();
     data_.feature_id_ = serializable_feature_id.getEntry();
+
+    for (const std::string &key : node.keys()) {
+      if (key == kFinalResidualValLabel) {
+        SerializableOptional<double, SerializableDouble> ser_final_residual_val;
+        node[kFinalResidualValLabel] >> ser_final_residual_val;
+        data_.final_residual_val_ = ser_final_residual_val.getEntry();
+        break;
+      }
+    }
   }
 
  protected:
@@ -60,6 +72,7 @@ class SerializableGenericFactorInfo
   inline static const std::string kCameraIdLabel = "cam";
   inline static const std::string kObjIdLabel = "obj";
   inline static const std::string kFeatureIdLabel = "feat";
+  inline static const std::string kFinalResidualValLabel = "final_residual_val";
 };
 
 static void write(cv::FileStorage &fs,
@@ -95,12 +108,11 @@ class SerializableParameterBlockInfo
        << SerializableOptional<ObjectId, SerializableObjectId>(data_.obj_id_);
     fs << kFeatureIdLabel
        << SerializableOptional<FeatureId, SerializableFeatureId>(
-           data_.feature_id_);
+              data_.feature_id_);
     fs << "}";
   }
 
   virtual void read(const cv::FileNode &node) override {
-
     SerializableOptional<FrameId, SerializableFrameId> serializable_frame_id;
     SerializableOptional<ObjectId, SerializableObjectId> serializable_obj_id;
     SerializableOptional<FeatureId, SerializableFeatureId>
@@ -133,7 +145,7 @@ static void write(cv::FileStorage &fs,
 static void read(const cv::FileNode &node,
                  SerializableParameterBlockInfo &data,
                  const SerializableParameterBlockInfo &default_data =
-                 SerializableParameterBlockInfo()) {
+                     SerializableParameterBlockInfo()) {
   if (node.empty()) {
     data = default_data;
   } else {

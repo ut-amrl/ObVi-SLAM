@@ -364,6 +364,8 @@ class ObjectPoseGraphOptimizer {
         // in long term map extraction)
         // TODO this needs to be revisited to include objects with connections
         // to those in the window if we move to a non-independent long term map
+        // TODO should we force these or in ltm extractor, check if there are
+        // any observations and then if not, just take the values from ltm
         if (optimization_scope.force_include_ltm_objs_) {
           LOG(WARNING) << "Forcing ltms to be included";
           objects_with_object_only_factors.insert(ltm_object_ids.begin(),
@@ -552,6 +554,16 @@ class ObjectPoseGraphOptimizer {
           variable_object_param_blocks.insert(observed_obj);
         }
         next_last_optimized_objects = variable_object_param_blocks;
+      }
+      if (optimization_scope.force_include_ltm_objs_) {
+        LOG(INFO) << "Constant objs ";
+        for (const vslam_types_refactor::ObjectId &const_obj : constant_object_param_blocks) {
+          LOG(INFO) << const_obj;
+        }
+        LOG(INFO) << "Variable objs ";
+        for (const vslam_types_refactor::ObjectId &var_obj : variable_object_param_blocks) {
+          LOG(INFO) << var_obj;
+        }
       }
 
       // TODO we could also say that the next_last_optimized_objects is just a

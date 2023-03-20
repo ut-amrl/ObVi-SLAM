@@ -37,7 +37,9 @@ bool runOptimizationForLtmExtraction(
     std::unordered_map<ceres::ResidualBlockId,
                        std::pair<vslam_types_refactor::FactorType,
                                  vslam_types_refactor::FeatureFactorId>>
-        &residual_info) {
+        &residual_info,
+    std::unordered_map<ceres::ResidualBlockId, double>
+        &block_ids_and_residuals) {
   std::pair<FrameId, FrameId> min_and_max_frame_id =
       pose_graph->getMinMaxFrameId();
   std::function<bool(
@@ -152,6 +154,10 @@ bool runOptimizationForLtmExtraction(
                    min_dist_from_viewing_frame);
     }
     if (min_dist_from_viewing_frame > far_feature_threshold) {
+      LOG(INFO) << "Minimum distance from viewing frame for feature "
+                << feat_est.first << " was " << min_dist_from_viewing_frame
+                << " (  more than threshold " << far_feature_threshold
+                << "). Excluding";
       factors_for_bad_feats.insert(factors_for_feat.begin(),
                                    factors_for_feat.end());
     }
@@ -164,8 +170,13 @@ bool runOptimizationForLtmExtraction(
                                            problem,
                                            opt_log,
                                            factors_for_bad_feats);
-  opt_success =
-      optimizer.solveOptimization(problem, solver_params_copy, {}, opt_log);
+  std::shared_ptr<std::unordered_map<ceres::ResidualBlockId, double>>
+      block_ids_and_residuals_ptr = std::make_shared<
+          std::unordered_map<ceres::ResidualBlockId, double>>();
+  opt_success = optimizer.solveOptimization(
+      problem, solver_params_copy, {}, opt_log, block_ids_and_residuals_ptr);
+
+  block_ids_and_residuals = *block_ids_and_residuals_ptr;
 
   if (!opt_success) {
     LOG(ERROR) << "Second round optimization failed during LTM extraction";
@@ -267,6 +278,7 @@ class PairwiseCovarianceLongTermObjectMapExtractor {
                        std::pair<vslam_types_refactor::FactorType,
                                  vslam_types_refactor::FeatureFactorId>>
         residual_info;
+    std::unordered_map<ceres::ResidualBlockId, double> block_ids_and_residuals;
     runOptimizationForLtmExtraction(
         residual_creator_,
         ltm_residual_params_,
@@ -275,11 +287,13 @@ class PairwiseCovarianceLongTermObjectMapExtractor {
         long_term_map_tunable_params_.far_feature_threshold_,
         pose_graph_copy,
         &problem_for_ltm,
-        residual_info);
+        residual_info,
+        block_ids_and_residuals);
 
     if (!jacobian_output_dir.empty()) {
       outputJacobianInfo(jacobian_output_dir,
                          residual_info,
+                         block_ids_and_residuals,
                          pose_graph_copy,
                          long_term_map_obj_retriever_,
                          problem_for_ltm);
@@ -463,6 +477,7 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
                        std::pair<vslam_types_refactor::FactorType,
                                  vslam_types_refactor::FeatureFactorId>>
         residual_info;
+    std::unordered_map<ceres::ResidualBlockId, double> block_ids_and_residuals;
     runOptimizationForLtmExtraction(
         residual_creator_,
         ltm_residual_params_,
@@ -471,11 +486,13 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
         long_term_map_tunable_params_.far_feature_threshold_,
         pose_graph_copy,
         &problem_for_ltm,
-        residual_info);
+        residual_info,
+        block_ids_and_residuals);
 
     if (!jacobian_output_dir.empty()) {
       outputJacobianInfo(jacobian_output_dir,
                          residual_info,
+                         block_ids_and_residuals,
                          pose_graph_copy,
                          long_term_map_obj_retriever_,
                          problem_for_ltm);

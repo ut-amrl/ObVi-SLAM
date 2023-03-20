@@ -9,8 +9,10 @@ lego_loam_out_root_dir=${root_data_dir}lego_loam_out/
 calibration_file_directory=${root_data_dir}calibration/
 results_root_directory=${root_data_dir}ut_vslam_results/
 
-config_file_base_name="3_higher_obj_thresh_lower_conf"
-sequence_file_base_name="20230218_1a_4a"
+#config_file_base_name="3_higher_obj_thresh_lower_conf"
+#sequence_file_base_name="20230218_1a_4a"
+config_file_base_name="4_higher_obj_thresh_lower_conf_two_phase_off"
+sequence_file_base_name="high_res_20230218_1a_7326"
 
 make && python3 src/evaluation/compute_metrics_for_ut_vslam.py \
     --rosbag_file_directory=${rosbag_file_directory} \

@@ -202,6 +202,29 @@ class OfflineProblemRunner {
         }
         if (run_pgo) {
           // TODO Need to run 1 iteration of tracking first
+          LOG(INFO) << "Running tracking before PGO";
+          pose_graph_optimizer::OptimizationScopeParams tracking_params =
+              optimization_scope_params;
+          // TODO do we need more poses than this?
+          tracking_params.min_frame_id_ =
+              next_frame_id -
+              tracking_params.poses_prior_to_window_to_keep_constant_;
+          std::optional<OptimizationLogger> null_logger;
+          optimizer_.buildPoseGraphOptimization(tracking_params,
+                                                residual_params_,
+                                                pose_graph,
+                                                &problem,
+                                                null_logger);
+
+          if (!optimizer_.solveOptimization(&problem,
+                                            solver_params,
+                                            ceres_callbacks,
+                                            null_logger,
+                                            nullptr)) {
+            LOG(INFO) << "Tracking failed";
+          }
+
+          LOG(INFO) << "Running PGO+objs";
           runPgoPlusEllipsoids(next_frame_id,
                                residual_creator_,
                                optimization_scope_params,
@@ -235,12 +258,6 @@ class OfflineProblemRunner {
                                                       opt_logger);
         std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> pose_graph_copy =
             pose_graph->makeDeepCopy();
-        visualization_callback_(
-            problem_data,
-            pose_graph,
-            start_opt_with_frame,
-            next_frame_id,
-            VisualizationTypeEnum::BEFORE_EACH_OPTIMIZATION);
         LOG(INFO) << "Solving optimization";
         std::shared_ptr<std::unordered_map<ceres::ResidualBlockId, double>>
             block_ids_and_residuals = std::make_shared<
