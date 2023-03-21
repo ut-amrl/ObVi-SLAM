@@ -292,7 +292,7 @@ class VisualFeatureFrontend {
             }
           }
         }
-        if (enforce_min_robot_pose_parallax_requirement_) {
+        if (enforce_min_pixel_parallax_requirement_) {
           for (const auto &cam_id_and_pixel1 : cam_ids_and_pixels1) {
             const PixelCoord<double> &pixel1 = cam_id_and_pixel1.second;
             for (const auto &cam_id_and_pixel2 : cam_ids_and_pixels2) {
@@ -307,13 +307,13 @@ class VisualFeatureFrontend {
         }
         bool req_satisfied = false;
         if (enforce_min_robot_pose_parallax_requirement_ &&
-            !enforce_min_robot_pose_parallax_requirement_) {
+            !enforce_min_pixel_parallax_requirement_) {
           req_satisfied = pose_req_satisfied;
         } else if (!enforce_min_robot_pose_parallax_requirement_ &&
-                   enforce_min_robot_pose_parallax_requirement_) {
+                   enforce_min_pixel_parallax_requirement_) {
           req_satisfied = pixel_req_satisfied;
         } else if (enforce_min_robot_pose_parallax_requirement_ &&
-                   enforce_min_robot_pose_parallax_requirement_) {
+                   enforce_min_pixel_parallax_requirement_) {
           req_satisfied = (pose_req_satisfied && pixel_req_satisfied);
         } else {  // !enforce_min_robot_pose_parallax_requirement_ &&
                   // !enforce_min_robot_pose_parallax_requirement_
