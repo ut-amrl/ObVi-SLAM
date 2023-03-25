@@ -133,7 +133,7 @@ int main(int argc, char **argv) {
   std::string config_identifier = FLAGS_config_identifier;
   if (config_identifier.empty()) {
     // TODO INCREMENT IF YOU CHANGE VALUES/STRUCTURE FOR CONFIG
-    int config_version_number = 8;
+    int config_version_number = 9;
 
     config_identifier = std::to_string(config_version_number);
   }
@@ -159,7 +159,7 @@ int main(int argc, char **argv) {
   pose_graph_optimization::OptimizationSolverParams base_solver_params;
   base_solver_params.max_num_iterations_ = 100;
   base_solver_params.feature_outlier_percentage = .1;
-  base_solver_params.allow_non_monotonic_steps_ = false;
+  base_solver_params.allow_non_monotonic_steps_ = true;
   base_solver_params.function_tolerance_ = 1e-6;          // Ceres default
   base_solver_params.gradient_tolerance_ = 1e-10;         // Ceres default
   base_solver_params.parameter_tolerance_ = 1e-8;         // Ceres default
@@ -210,9 +210,9 @@ int main(int argc, char **argv) {
 
   pose_graph_optimization::ObjectVisualPoseGraphResidualParams residual_params;
   residual_params.object_residual_params_.object_observation_huber_loss_param_ =
-      1;
+      0.5;
   residual_params.object_residual_params_
-      .shape_dim_prior_factor_huber_loss_param_ = 1;
+      .shape_dim_prior_factor_huber_loss_param_ = 10;
   residual_params.object_residual_params_.invalid_ellipsoid_error_val_ = 1e3;
   residual_params.visual_residual_params_.reprojection_error_huber_loss_param_ =
       1;

@@ -95,6 +95,7 @@ class BoundingBoxFactor {
     Eigen::Map<Eigen::Matrix<T, 4, 1>> residuals(residuals_ptr);
     residuals =
         sqrt_inf_mat_bounding_box_corners_.template cast<T>() * deviation;
+    CHECK_GT(sqrt_inf_mat_bounding_box_corners_.determinant(), 1e-10);
 
     //    LOG(INFO) << "Residuals " << residuals;
     return true;

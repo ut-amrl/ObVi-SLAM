@@ -4,12 +4,12 @@ root_data_dir=/home/amanda/rosbags/ellipsoid_slam/eer_higher_res/
 rosbag_file_directory=${root_data_dir}original_data/
 results_root_directory=${root_data_dir}ut_vslam_results/
 
-rosbag_base_name="1677097326"
-num_in_sequence="1"
+#rosbag_base_name="1677097326"
+#num_in_sequence="1"
 #num_in_sequence="old_old_1"
 #num_in_sequence="old_1"
-#rosbag_base_name="1676766718"
-#num_in_sequence="0"
+rosbag_base_name="1676766718"
+num_in_sequence="0"
 #num_in_sequence="actual_0"
 sequence_file_base_name="high_res_20230218_1a_7326"
 #config_file_base_name="4_higher_obj_thresh_lower_conf_two_phase_off"

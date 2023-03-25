@@ -662,6 +662,7 @@ class ObjectPoseGraphOptimizer {
     options.initial_trust_region_radius =
         solver_params.initial_trust_region_radius_;
     options.max_trust_region_radius = solver_params.max_trust_region_radius_;
+//    options.minimizer_progress_to_stdout = true;
 
     ceres::Solver::Summary summary;
     ceres::Solve(options, problem, &summary);

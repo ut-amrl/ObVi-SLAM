@@ -27,6 +27,7 @@ class IndependentObjectMapFactor {
         ellipsoid - ellipsoid_mean_.cast<T>();
     Eigen::Map<Eigen::Matrix<T, kEllipsoidParamterizationSize, 1>> residuals(
         residuals_ptr);
+    CHECK_GT(sqrt_inf_mat_.determinant(), 1e-10);
 
     residuals = sqrt_inf_mat_.template cast<T>() * ellipsoid_deviation;
     return true;

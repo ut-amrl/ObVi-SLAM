@@ -23,8 +23,8 @@ const std::string kResidualInfoOrderedForJacobianFile =
 const std::string kSparseJacobianOrderedOutBaseFileName =
     "ordered_sparse_jacobian.csv";
 
-void writeJacobianToFile(const ceres::CRSMatrix &crs_matrix,
-                         const std::string &jacobian_file) {
+std::vector<int> writeJacobianToFile(const ceres::CRSMatrix &crs_matrix,
+                                     const std::string &jacobian_file) {
   std::ofstream csv_file(jacobian_file, std::ios::trunc);
 
   // Write num_rows, num_cols
@@ -94,6 +94,8 @@ void writeJacobianToFile(const ceres::CRSMatrix &crs_matrix,
   for (const auto &col_with_only_zeros : cols_with_only_zeros) {
     LOG(INFO) << col_with_only_zeros;
   }
+
+  return cols_with_only_zeros;
 }
 
 void writeJacobianMatlabFormatToFile(const ceres::CRSMatrix &crs_matrix,
@@ -243,6 +245,258 @@ void generateGenericFactorInfoForFactor(
   }
 }
 
+void displayInfoForSmallJacobian(const ceres::CRSMatrix &jacobian_mat) {
+  int num_nonzero = 0;
+  for (const double &value : jacobian_mat.values) {
+    if (value != 0) {
+      num_nonzero++;
+    }
+  }
+  LOG(INFO) << "Nonzero entries count: " << num_nonzero;
+  LOG(INFO) << "Matrix size: (" << jacobian_mat.num_rows << ", "
+            << jacobian_mat.num_cols << ")";
+  std::stringstream rows_stream;
+  std::stringstream cols_stream;
+  std::stringstream vals_stream;
+
+  for (const int &row : jacobian_mat.rows) {
+    rows_stream << row << ", ";
+  }
+  for (const int &col : jacobian_mat.cols) {
+    cols_stream << col << ", ";
+  }
+  for (const double &val : jacobian_mat.values) {
+    vals_stream << val << ", ";
+  }
+
+  LOG(INFO) << "Rows: " << rows_stream.str();
+  LOG(INFO) << "Cols: " << cols_stream.str();
+  LOG(INFO) << "Vals: " << vals_stream.str();
+}
+
+void validateZeroColumnEntries(
+    const std::vector<int> &all_zero_columns,
+    const std::vector<ParameterBlockInfo> &ordered_parameter_block_infos,
+
+    const std::vector<ceres::ResidualBlockId> &residual_block_ids,
+    const std::vector<GenericFactorInfo> &generic_factor_infos,
+    const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
+    ceres::Problem &problem_for_ltm) {
+  std::unordered_map<ObjectId, std::unordered_set<int>>
+      problem_object_ids_with_cols;
+  std::unordered_map<FrameId, std::unordered_set<int>> problem_frames;
+  std::unordered_map<FeatureId, std::unordered_set<int>> problem_feats;
+
+  size_t current_param_block = 0;
+  size_t current_param_in_block_idx = 0;
+  int param_num = 0;
+  size_t next_all_zero_column = 0;
+  while (param_num <= all_zero_columns.back()) {
+    if (current_param_block >= ordered_parameter_block_infos.size()) {
+      LOG(ERROR) << "Parameter block num greater than total number of "
+                    "parameter blocks "
+                 << ordered_parameter_block_infos.size();
+      LOG(ERROR) << "Occurred with param num " << param_num;
+      exit(1);
+    }
+    ParameterBlockInfo param_block =
+        ordered_parameter_block_infos[current_param_block];
+    if (param_block.frame_id_.has_value()) {
+      if (all_zero_columns[next_all_zero_column] == param_num) {
+        if (problem_frames.find(param_block.frame_id_.value()) ==
+            problem_frames.end()) {
+          problem_frames[param_block.frame_id_.value()] = {};
+        }
+        problem_frames[param_block.frame_id_.value()].insert(
+            all_zero_columns[next_all_zero_column]);
+        next_all_zero_column++;
+      }
+      if (current_param_in_block_idx < 5) {
+        current_param_in_block_idx++;
+      } else if (current_param_in_block_idx == 5) {
+        current_param_in_block_idx = 0;
+        current_param_block++;
+      } else {
+        LOG(ERROR) << "Current param in block index was supposed to be between "
+                      "0 and 5 inclusive but was "
+                   << current_param_in_block_idx;
+        exit(1);
+      }
+    } else if (param_block.obj_id_.has_value()) {
+      if (all_zero_columns[next_all_zero_column] == param_num) {
+        if (problem_object_ids_with_cols.find(param_block.obj_id_.value()) ==
+            problem_object_ids_with_cols.end()) {
+          problem_object_ids_with_cols[param_block.obj_id_.value()] = {};
+        }
+        problem_object_ids_with_cols[param_block.obj_id_.value()].insert(
+            all_zero_columns[next_all_zero_column]);
+        next_all_zero_column++;
+      }
+      if (current_param_in_block_idx < (kEllipsoidParamterizationSize - 1)) {
+        current_param_in_block_idx++;
+      } else if (current_param_in_block_idx ==
+                 (kEllipsoidParamterizationSize - 1)) {
+        current_param_in_block_idx = 0;
+        current_param_block++;
+      } else {
+        LOG(ERROR) << "Current param in block index was supposed to be between "
+                      "0 and "
+                   << (kEllipsoidParamterizationSize - 1)
+                   << " inclusive but was " << current_param_in_block_idx;
+        exit(1);
+      }
+    } else if (param_block.feature_id_.has_value()) {
+      if (all_zero_columns[next_all_zero_column] == param_num) {
+        if (problem_feats.find(param_block.feature_id_.value()) ==
+            problem_feats.end()) {
+          problem_feats[param_block.feature_id_.value()] = {};
+        }
+        problem_feats[param_block.feature_id_.value()].insert(
+            all_zero_columns[next_all_zero_column]);
+        next_all_zero_column++;
+      }
+      if (current_param_in_block_idx < 2) {
+        current_param_in_block_idx++;
+      } else if (current_param_in_block_idx == 2) {
+        current_param_in_block_idx = 0;
+        current_param_block++;
+      } else {
+        LOG(ERROR) << "Current param in block index was supposed to be between "
+                      "0 and 5 inclusive but was "
+                   << current_param_in_block_idx;
+        exit(1);
+      }
+    } else {
+      LOG(ERROR) << "Param block had no id that wasn't empty. Error.";
+      exit(1);
+    }
+    param_num++;
+  }
+
+  std::unordered_map<ObjectId, std::unordered_set<size_t>>
+      associated_factor_infos_for_obj;
+  std::unordered_map<ObjectId, std::unordered_set<size_t>>
+      associated_factor_infos_for_feat;
+  std::unordered_map<ObjectId, std::unordered_set<size_t>>
+      associated_factor_infos_for_frame;
+  for (size_t factor_info_num = 0;
+       factor_info_num < generic_factor_infos.size();
+       factor_info_num++) {
+    GenericFactorInfo factor_info = generic_factor_infos[factor_info_num];
+    if (factor_info.feature_id_.has_value()) {
+      if (associated_factor_infos_for_feat.find(
+              factor_info.feature_id_.value()) ==
+          associated_factor_infos_for_feat.end()) {
+        associated_factor_infos_for_feat[factor_info.feature_id_.value()] = {};
+      }
+      associated_factor_infos_for_feat[factor_info.feature_id_.value()].insert(
+          factor_info_num);
+    }
+    if (factor_info.frame_id_.has_value()) {
+      if (associated_factor_infos_for_frame.find(
+              factor_info.frame_id_.value()) ==
+          associated_factor_infos_for_frame.end()) {
+        associated_factor_infos_for_frame[factor_info.frame_id_.value()] = {};
+      }
+      associated_factor_infos_for_frame[factor_info.frame_id_.value()].insert(
+          factor_info_num);
+    }
+    if (factor_info.obj_id_.has_value()) {
+      if (associated_factor_infos_for_obj.find(factor_info.obj_id_.value()) ==
+          associated_factor_infos_for_obj.end()) {
+        associated_factor_infos_for_obj[factor_info.obj_id_.value()] = {};
+      }
+      associated_factor_infos_for_obj[factor_info.obj_id_.value()].insert(
+          factor_info_num);
+    }
+  }
+
+  LOG(INFO) << "Getting jacobian info for problematic objects";
+  for (const auto &objs_and_problem_cols : problem_object_ids_with_cols) {
+    ObjectId obj = objs_and_problem_cols.first;
+    LOG(INFO) << "Object: " << obj;
+    std::unordered_set<size_t> factor_info_nums =
+        associated_factor_infos_for_obj[obj];
+    for (const size_t &factor_info_num : factor_info_nums) {
+      GenericFactorInfo factor = generic_factor_infos[factor_info_num];
+      if (factor.factor_type_ == kLongTermMapFactorTypeId) {
+        LOG(INFO) << "Long term map factor";
+      } else if (factor.factor_type_ == kShapeDimPriorFactorTypeId) {
+        LOG(INFO) << "Shape dim prior";
+      } else if (factor.factor_type_ == kObjectObservationFactorTypeId) {
+        LOG(INFO) << "Bounding box observation at " << factor.frame_id_.value()
+                  << " with camera " << factor.camera_id_.value();
+      }
+      ceres::Problem::EvaluateOptions options;
+      options.apply_loss_function = true;
+      double *obj_ptr;
+      pose_graph->getObjectParamPointers(obj, &obj_ptr);
+      options.parameter_blocks = {obj_ptr};
+      options.residual_blocks = {residual_block_ids[factor_info_num]};
+      ceres::CRSMatrix jacobian_for_obj_factor;
+      problem_for_ltm.Evaluate(
+          options, nullptr, nullptr, nullptr, &jacobian_for_obj_factor);
+      displayInfoForSmallJacobian(jacobian_for_obj_factor);
+    }
+  }
+
+  LOG(INFO) << "Getting jacobian info for problematic frames";
+  for (const auto &frames_and_problem_cols : problem_frames) {
+    FrameId frame = frames_and_problem_cols.first;
+    LOG(INFO) << "Frame: " << frame;
+    std::unordered_set<size_t> factor_info_nums =
+        associated_factor_infos_for_frame[frame];
+    for (const size_t &factor_info_num : factor_info_nums) {
+      GenericFactorInfo factor = generic_factor_infos[factor_info_num];
+      if (factor.factor_type_ == kReprojectionErrorFactorTypeId) {
+        LOG(INFO) << "Reprojection error of feature "
+                  << factor.feature_id_.value() << " with camera "
+                  << factor.camera_id_.value();
+      } else if (factor.factor_type_ == kObjectObservationFactorTypeId) {
+        LOG(INFO) << "Bounding box observation of obj "
+                  << factor.obj_id_.value() << " with camera "
+                  << factor.camera_id_.value();
+      }
+      ceres::Problem::EvaluateOptions options;
+      options.apply_loss_function = true;
+      double *frame_ptr;
+      pose_graph->getPosePointers(frame, &frame_ptr);
+      options.parameter_blocks = {frame_ptr};
+      options.residual_blocks = {residual_block_ids[factor_info_num]};
+      ceres::CRSMatrix jacobian_for_frame_factor;
+      problem_for_ltm.Evaluate(
+          options, nullptr, nullptr, nullptr, &jacobian_for_frame_factor);
+      displayInfoForSmallJacobian(jacobian_for_frame_factor);
+    }
+  }
+
+  LOG(INFO) << "Getting jacobian info for problematic features";
+  for (const auto &feat_and_problem_cols : problem_feats) {
+    FeatureId feat = feat_and_problem_cols.first;
+    LOG(INFO) << "Feat: " << feat;
+    std::unordered_set<size_t> factor_info_nums =
+        associated_factor_infos_for_feat[feat];
+    for (const size_t &factor_info_num : factor_info_nums) {
+      GenericFactorInfo factor = generic_factor_infos[factor_info_num];
+      if (factor.factor_type_ == kReprojectionErrorFactorTypeId) {
+        LOG(INFO) << "Reprojection error of feature at frame "
+                  << factor.frame_id_.value() << " with camera "
+                  << factor.camera_id_.value();
+      }
+      ceres::Problem::EvaluateOptions options;
+      options.apply_loss_function = true;
+      double *feat_ptr;
+      pose_graph->getFeaturePointers(feat, &feat_ptr);
+      options.parameter_blocks = {feat_ptr};
+      options.residual_blocks = {residual_block_ids[factor_info_num]};
+      ceres::CRSMatrix jacobian_for_feat_factor;
+      problem_for_ltm.Evaluate(
+          options, nullptr, nullptr, nullptr, &jacobian_for_feat_factor);
+      displayInfoForSmallJacobian(jacobian_for_feat_factor);
+    }
+  }
+}
+
 void outputJacobianInfo(
     const std::string &jacobian_output_dir,
     const std::unordered_map<ceres::ResidualBlockId,
@@ -378,7 +632,7 @@ void outputJacobianInfo(
       sparse_jacobian_unordered,
       file_io::ensureDirectoryPathEndsWithSlash(jacobian_output_dir) +
           kSparseJacobianOutBaseFileName);
-  writeJacobianToFile(
+  std::vector<int> all_zero_columns = writeJacobianToFile(
       sparse_jacobian_ordered,
       file_io::ensureDirectoryPathEndsWithSlash(jacobian_output_dir) +
           kSparseJacobianOrderedOutBaseFileName);
@@ -390,6 +644,16 @@ void outputJacobianInfo(
       sparse_jacobian_ordered,
       file_io::ensureDirectoryPathEndsWithSlash(jacobian_output_dir) +
           kSparseJacobianOrderedMatlabOutBaseFileName);
+
+  if (!all_zero_columns.empty()) {
+    // Get jacobian for param blocks corresponding to zero entries one at a time
+    validateZeroColumnEntries(all_zero_columns,
+                              ordered_parameter_block_infos,
+                              residual_block_ids,
+                              generic_factor_infos,
+                              pose_graph,
+                              problem_for_ltm);
+  }
 
   std::string jacobian_residual_file_name =
       file_io::ensureDirectoryPathEndsWithSlash(jacobian_output_dir) +
