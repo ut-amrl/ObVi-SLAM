@@ -625,8 +625,8 @@ class ObjectPoseGraphOptimizer {
       const pose_graph_optimization::OptimizationSolverParams &solver_params,
       const std::vector<std::shared_ptr<ceres::IterationCallback>> callbacks,
       std::optional<vslam_types_refactor::OptimizationLogger> &opt_logger,
-      std::shared_ptr<std::unordered_map<ceres::ResidualBlockId, double>>
-          block_ids_and_residuals_ptr = nullptr) {
+      std::vector<ceres::ResidualBlockId> *residual_block_id_ptrs = nullptr,
+      std::vector<double> *residual_ptrs = nullptr) {
     CHECK(problem != NULL);
     ceres::Solver::Options options;
     // TODO configure options
@@ -655,19 +655,20 @@ class ObjectPoseGraphOptimizer {
     ceres::Solve(options, problem, &summary);
     LOG(INFO) << summary.FullReport();
 
-    if (block_ids_and_residuals_ptr != nullptr) {
-      std::vector<ceres::ResidualBlockId> residual_block_ids;
-      problem->GetResidualBlocks(&residual_block_ids);
+    if (residual_block_id_ptrs != nullptr) {
+      problem->GetResidualBlocks(residual_block_id_ptrs);
+    }
+    if (residual_ptrs != nullptr) {
       ceres::Problem::EvaluateOptions eval_options;
       eval_options.apply_loss_function = false;
-      eval_options.residual_blocks = residual_block_ids;
-      std::vector<double> residuals;
-      problem->Evaluate(eval_options, nullptr, &residuals, nullptr, nullptr);
-      for (size_t i = 0; i < residual_block_ids.size(); ++i) {
-        const ceres::ResidualBlockId &block_id = residual_block_ids[i];
-        const double &residual = residuals[i];
-        block_ids_and_residuals_ptr->insert({block_id, residual});
+      if (residual_block_id_ptrs == nullptr) {
+        std::vector<ceres::ResidualBlockId> residual_block_ids;
+        problem->GetResidualBlocks(&residual_block_ids);
+        eval_options.residual_blocks = residual_block_ids;
+      } else {
+        eval_options.residual_blocks = *residual_block_id_ptrs;
       }
+      problem->Evaluate(eval_options, nullptr, residual_ptrs, nullptr, nullptr);
     }
 
     if ((summary.termination_type == ceres::TerminationType::FAILURE) ||

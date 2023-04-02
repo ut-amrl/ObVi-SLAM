@@ -158,7 +158,7 @@ int main(int argc, char **argv) {
   // overridden later
   pose_graph_optimization::OptimizationSolverParams base_solver_params;
   base_solver_params.max_num_iterations_ = 100;
-  base_solver_params.feature_outlier_percentage = .1;
+  base_solver_params.feature_outlier_percentage_ = .1;
   base_solver_params.allow_non_monotonic_steps_ = false;
   base_solver_params.function_tolerance_ = 1e-6;          // Ceres default
   base_solver_params.gradient_tolerance_ = 1e-10;         // Ceres default

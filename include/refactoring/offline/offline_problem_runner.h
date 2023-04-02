@@ -241,25 +241,96 @@ class OfflineProblemRunner {
             start_opt_with_frame,
             next_frame_id,
             VisualizationTypeEnum::BEFORE_EACH_OPTIMIZATION);
+
         LOG(INFO) << "Solving optimization";
-        std::shared_ptr<std::unordered_map<ceres::ResidualBlockId, double>>
-            block_ids_and_residuals = std::make_shared<
-                std::unordered_map<ceres::ResidualBlockId, double>>();
+        std::vector<ceres::ResidualBlockId> residual_block_ids;
+        std::vector<double> residuals;
         if (!optimizer_.solveOptimization(&problem,
                                           solver_params,
                                           ceres_callbacks,
                                           opt_logger,
-                                          block_ids_and_residuals)) {
+                                          &residual_block_ids,
+                                          &residuals)) {
           // TODO do we want to quit or just silently let this iteration fail?
           LOG(ERROR) << "Phase I Optimization failed at max frame id "
                      << next_frame_id;
           return false;
         }
+
+        // Compute outliers based on residuals
+        bool disable_two_phase_optim = false;
+        std::unordered_map<vslam_types_refactor::FactorType,
+                           std::unordered_map<ceres::ResidualBlockId, double>>
+            factor_types_and_residual_info;
+        size_t residual_idx = 0;
+        for (size_t block_idx = 0; block_idx < residual_block_ids.size();
+             ++block_idx) {
+          const ceres::ResidualBlockId &block_id =
+              residual_block_ids.at(block_idx);
+          // TODO (Taijing) for speed I hardcoded values here
+          // We want to use Cere 2.0+ or have a generic API to get residual
+          // block lengths
+          size_t residual_block_size;
+          if (current_residual_block_info.at(block_id).first ==
+              kReprojectionErrorFactorTypeId) {
+            residual_block_size = 2;
+            // vslam_types_refactor::ReprojectionErrorFactor factor;
+            // pose_graph->getVisualFactor(
+            //     current_residual_block_info.at(block_id).second, factor);
+          } else if (current_residual_block_info.at(block_id).first ==
+                     kObjectObservationFactorTypeId) {
+            residual_block_size = 4;
+          } else if (current_residual_block_info.at(block_id).first ==
+                     kShapeDimPriorFactorTypeId) {
+            residual_block_size = 3;
+          } else if (current_residual_block_info.at(block_id).first ==
+                     kLongTermMapFactorTypeId) {
+            residual_block_size = kEllipsoidParamterizationSize;
+          } else if (current_residual_block_info.at(block_id).first ==
+                     kPairwiseRobotPoseFactorTypeId) {
+            residual_block_size = 6;
+          } else if (current_residual_block_info.at(block_id).first ==
+                     kPairwiseErrorFactorTypeId) {
+            residual_block_size = 1;
+          } else {
+            LOG(ERROR) << "Unknown factor type "
+                       << current_residual_block_info.at(block_id).first
+                       << ". Disabling two phase optimization ...";
+            disable_two_phase_optim = true;
+            break;
+          }
+          double total_residual = 0;
+          for (size_t i = 0; i < residual_block_size; ++i) {
+            // Since we only care about relative magnitude, summing up the
+            // absolute values should be enough here. May need to change this
+            // for new factor types?
+            total_residual += std::fabs(residuals.at(residual_idx));
+            ++residual_idx;
+          }
+          // Only exclude reprojection errors for visual features and bbox
+          // observation errors for objects. Modify this check if you want to
+          // add two-phase optimization support to other factors.
+          if ((current_residual_block_info.at(block_id).first ==
+               kReprojectionErrorFactorTypeId) ||
+              (current_residual_block_info.at(block_id).first ==
+               kObjectObservationFactorTypeId)) {
+            factor_types_and_residual_info
+                [current_residual_block_info.at(block_id).first][block_id] =
+                    total_residual;
+          }
+        }
+        if (residual_idx != residuals.size()) {
+          LOG(ERROR) << "Something is wrong with residual block indexing. "
+                        "Disabling two phase optimization ...";
+          disable_two_phase_optim = true;
+        }
+
         if (opt_logger.has_value()) {
           opt_logger->writeCurrentOptInfo();
         }
         // Phase II
-        if (solver_params.feature_outlier_percentage > 0) {
+        if ((solver_params.feature_outlier_percentage_ > 0) &&
+            (!disable_two_phase_optim)) {
           if (opt_logger.has_value()) {
             opt_logger->setOptimizationTypeParams(
                 next_frame_id, start_opt_with_frame == 0, false, true);
@@ -267,29 +338,44 @@ class OfflineProblemRunner {
           // revert back to the old pose graph for Phase II optim
           pose_graph->setValuesFromAnotherPoseGraph(pose_graph_copy);
           // use map sort block ids by their corresponding residuals
+          std::unordered_map<
+              FactorType,
+              std::map<double, ceres::ResidualBlockId, std::greater<double>>>
+              factor_types_and_ordered_residual_info;
           std::map<double, ceres::ResidualBlockId, std::greater<double>>
               ordered_residuals_and_block_ids;
-          for (const auto &block_id_and_residual : *block_ids_and_residuals) {
-            ordered_residuals_and_block_ids.insert(
-                {block_id_and_residual.second, block_id_and_residual.first});
+          for (const auto &factor_type_and_residual_info :
+               factor_types_and_residual_info) {
+            LOG(INFO) << "Factor type "
+                      << (int)factor_type_and_residual_info.first << " has "
+                      << factor_type_and_residual_info.second.size()
+                      << " factors before outlier exclusion.";
+            for (const auto block_id_and_residual :
+                 factor_type_and_residual_info.second) {
+              factor_types_and_ordered_residual_info
+                  [factor_type_and_residual_info.first]
+                  [block_id_and_residual.second] = block_id_and_residual.first;
+            }
           }
-          // build excluded_feature_factor_types_and_ids
+          // Build excluded_feature_factor_types_and_ids
           util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
               excluded_feature_factor_types_and_ids;
-          size_t n_outliers =
-              (size_t)(ordered_residuals_and_block_ids.size() *
-                       solver_params.feature_outlier_percentage);
-          auto it = ordered_residuals_and_block_ids.begin();
-          for (size_t i = 0; i < n_outliers; ++i) {
-            const ceres::ResidualBlockId &block_id = it->second;
-            if ((current_residual_block_info.at(block_id).first !=
-                 kLongTermMapFactorTypeId) &&
-                (current_residual_block_info.at(block_id).first !=
-                 kShapeDimPriorFactorTypeId)) {
+          // excluding factors with top
+          // solver_params.feature_outlier_percentage_ percents of residuals
+          for (const auto &factor_type_and_ordered_redsidual_info :
+               factor_types_and_ordered_residual_info) {
+            const auto &ordered_residuals_and_block_ids =
+                factor_type_and_ordered_redsidual_info.second;
+            size_t n_outliers =
+                (size_t)(ordered_residuals_and_block_ids.size() *
+                         solver_params.feature_outlier_percentage_);
+            auto it = ordered_residuals_and_block_ids.begin();
+            for (size_t i = 0; i < n_outliers; ++i) {
+              const ceres::ResidualBlockId &block_id = it->second;
               excluded_feature_factor_types_and_ids.insert(
                   current_residual_block_info.at(block_id));
+              ++it;
             }
-            ++it;
           }
 
           optimizer_.buildPoseGraphOptimization(

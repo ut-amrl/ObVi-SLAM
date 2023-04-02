@@ -440,7 +440,7 @@ class SerializableOptimizationSolverParams
   virtual void write(cv::FileStorage &fs) const override {
     fs << "{";
     fs << kMaxNumIterationsLabel << data_.max_num_iterations_;
-    fs << kFeatureOutlierPercentageLabel << data_.feature_outlier_percentage;
+    fs << kFeatureOutlierPercentageLabel << data_.feature_outlier_percentage_;
     int allow_non_monotonic_steps_int =
         data_.allow_non_monotonic_steps_ ? 1 : 0;
     fs << kAllowNonMonotonicStepsLabel << allow_non_monotonic_steps_int;
@@ -454,7 +454,7 @@ class SerializableOptimizationSolverParams
 
   virtual void read(const cv::FileNode &node) override {
     data_.max_num_iterations_ = node[kMaxNumIterationsLabel];
-    data_.feature_outlier_percentage = node[kFeatureOutlierPercentageLabel];
+    data_.feature_outlier_percentage_ = node[kFeatureOutlierPercentageLabel];
     int allow_non_monotonic_steps_int = node[kAllowNonMonotonicStepsLabel];
     data_.allow_non_monotonic_steps_ = allow_non_monotonic_steps_int != 0;
     data_.function_tolerance_ = node[kFunctionToleranceLabel];
