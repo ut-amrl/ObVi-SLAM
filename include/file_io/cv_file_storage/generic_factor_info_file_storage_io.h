@@ -95,12 +95,11 @@ class SerializableParameterBlockInfo
        << SerializableOptional<ObjectId, SerializableObjectId>(data_.obj_id_);
     fs << kFeatureIdLabel
        << SerializableOptional<FeatureId, SerializableFeatureId>(
-           data_.feature_id_);
+              data_.feature_id_);
     fs << "}";
   }
 
   virtual void read(const cv::FileNode &node) override {
-
     SerializableOptional<FrameId, SerializableFrameId> serializable_frame_id;
     SerializableOptional<ObjectId, SerializableObjectId> serializable_obj_id;
     SerializableOptional<FeatureId, SerializableFeatureId>
@@ -133,7 +132,7 @@ static void write(cv::FileStorage &fs,
 static void read(const cv::FileNode &node,
                  SerializableParameterBlockInfo &data,
                  const SerializableParameterBlockInfo &default_data =
-                 SerializableParameterBlockInfo()) {
+                     SerializableParameterBlockInfo()) {
   if (node.empty()) {
     data = default_data;
   } else {

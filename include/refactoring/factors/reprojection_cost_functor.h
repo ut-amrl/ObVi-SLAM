@@ -83,7 +83,8 @@ class ReprojectionCostFunctor {
                                  cam_to_robot_tf_.cast<T>(),
                                  intrinsics_.cast<T>(),
                                  projected_pixel);
-//    LOG(INFO) << "Projected pixel location " << projected_pixel.x() << ", " << projected_pixel.y();
+    //    LOG(INFO) << "Projected pixel location " << projected_pixel.x() << ",
+    //    " << projected_pixel.y();
 
     // Compute the residual.
     residual[0] = (projected_pixel.x() - T(image_feature_.x())) /

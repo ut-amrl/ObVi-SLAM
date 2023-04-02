@@ -332,8 +332,8 @@ class RosVisualization {
 
     // Publish frames for trajectories and cameras and bounding boxes for each
     // trajectory
-//    publishTransformsForEachCamera(
-//        max_frame, initial_trajectory, extrinsics, kInitPrefix);
+    //    publishTransformsForEachCamera(
+    //        max_frame, initial_trajectory, extrinsics, kInitPrefix);
     publishBoundingBoxDataFromTrajectory(
         max_frame,
         initial_trajectory,
@@ -350,8 +350,9 @@ class RosVisualization {
         display_boxes_if_no_image,
         near_edge_threshold);
     if (optimized_trajectory.has_value()) {
-//      publishTransformsForEachCamera(
-//          max_frame, optimized_trajectory.value(), extrinsics, kEstPrefix);
+      //      publishTransformsForEachCamera(
+      //          max_frame, optimized_trajectory.value(), extrinsics,
+      //          kEstPrefix);
       publishBoundingBoxDataFromTrajectory(
           max_frame,
           optimized_trajectory.value(),
@@ -369,8 +370,8 @@ class RosVisualization {
           near_edge_threshold);
     }
     if (gt_trajectory.has_value()) {
-//      publishTransformsForEachCamera(
-//          max_frame, gt_trajectory.value(), extrinsics, kGtPrefix);
+      //      publishTransformsForEachCamera(
+      //          max_frame, gt_trajectory.value(), extrinsics, kGtPrefix);
       publishBoundingBoxDataFromTrajectory(
           max_frame,
           gt_trajectory.value(),
@@ -408,8 +409,8 @@ class RosVisualization {
     for (const auto &frame_and_bbs :
          observed_corner_locations_with_uncertainty) {
       FrameId pose_idx = frame_and_bbs.first;
-//      if (pose_idx != max_frame) {
-              if (pose_idx > max_frame) {
+      //      if (pose_idx != max_frame) {
+      if (pose_idx > max_frame) {
         continue;
       }
 

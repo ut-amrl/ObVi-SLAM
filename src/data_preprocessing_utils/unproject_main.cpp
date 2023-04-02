@@ -345,7 +345,8 @@ std::unordered_map<vtr::FeatureId, vtr::Position3d<double>> EstimatePoints3D(
                    << ". Skipping feature";
       continue;
     }
-    const vtr::CameraIntrinsicsMat<double> intrinsics = intrinsics_map.at(cam_id);
+    const vtr::CameraIntrinsicsMat<double> intrinsics =
+        intrinsics_map.at(cam_id);
     const vtr::CameraExtrinsics<double> extrinsics = extrinsics_map.at(cam_id);
     vtr::Position3d<double> point =
         getWorldFramePos(feature.second.measurement_,
@@ -427,7 +428,8 @@ int main(int argc, char** argv) {
   std::unordered_map<vtr::CameraId, vtr::CameraExtrinsics<double>>
       extrinsics_map;
   vtr::CameraId primary_cam_id;
-  LOG(INFO) << "Loading extrinsics from path" << (calibration_path + kExtrinsicCalibrationPath);
+  LOG(INFO) << "Loading extrinsics from path"
+            << (calibration_path + kExtrinsicCalibrationPath);
   LoadCameraExtrinsics(calibration_path + kExtrinsicCalibrationPath,
                        extrinsics_map,
                        primary_cam_id);
@@ -453,7 +455,8 @@ int main(int argc, char** argv) {
   // intrinsics: project 3D point from camera's baselink frame to 2D measurement
   std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
       intrinsics_map;
-  LOG(INFO) << "Loading intrinsics from path" << (calibration_path + kIntrinsicCalibrationPath);
+  LOG(INFO) << "Loading intrinsics from path"
+            << (calibration_path + kIntrinsicCalibrationPath);
   LoadCameraIntrinsics(calibration_path + kIntrinsicCalibrationPath,
                        intrinsics_map);
 

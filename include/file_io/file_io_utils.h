@@ -56,7 +56,9 @@ void readObjectListFromFileWithHeader(
     objects.emplace_back(object);
   }
   if (first_line) {
-    LOG(ERROR) << "The file was completely empty (and likely doesn't exist). File " << file_name;
+    LOG(ERROR)
+        << "The file was completely empty (and likely doesn't exist). File "
+        << file_name;
     exit(1);
   }
 }
