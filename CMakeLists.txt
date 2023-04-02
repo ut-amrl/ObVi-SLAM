@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.1.0)
+cmake_minimum_required(VERSION 3.11)
 project(ut_vslam)
 
 #set(CMAKE_CXX_STANDARD 11)
@@ -27,7 +27,8 @@ OPTION(GENERATE_SHARED_LIB_UNITTESTS,
         OFF)
 
 find_package(PCL 1.3 REQUIRED)
-find_package(Ceres REQUIRED)
+# find_package(Ceres 1.13.0 EXACT REQUIRED PATHS "/home/tiejean/projects/ceres-solver/Ceres")
+find_package(Ceres 1.14 REQUIRED)
 find_package(OpenCV 4.2 EXACT REQUIRED)
 find_package(Pangolin REQUIRED)
 find_package(Boost COMPONENTS filesystem REQUIRED)
@@ -39,7 +40,9 @@ find_package(Python3 COMPONENTS NumPy)
 #find_package(darknet_ros_msgs)
 #find_package(catkin REQUIRED COMPONENTS darknet_ros_msgs)
 
+# list(APPEND CMAKE_MODULE_PATH "/home/tiejean/projects/ceres-solver/Ceres/lib/cmake/Ceres")
 include_directories(include
+        # /home/tiejean/projects/ceres-solver/include/ceres
         ${CERES_INCLUDE_DIRS}
         ${OpenCV_INCLUDE_DIRS}
         ${Pangolin_INCLUDE_DIRS}
@@ -59,6 +62,8 @@ set(LIBS
         gflags
         cv_bridge
         amrl_shared_lib
+        # Ceres::ceres
+        # /home/tiejean/projects/ceres-solver/Ceres/lib/libceres.so
         ${CERES_LIBRARIES}
         ${OpenCV_LIBS}
         ${PCL_LIBRARIES}
@@ -111,6 +116,9 @@ target_link_libraries(test_det_call ut_vslam ${LIBS})
 
 ROSBUILD_ADD_EXECUTABLE(visualize_jacobian_problem_feats src/refactoring/visualize_jacobian_problem_feats.cpp)
 target_link_libraries(visualize_jacobian_problem_feats ut_vslam ${LIBS})
+
+ROSBUILD_ADD_EXECUTABLE(visualize_vslam_inputs src/refactoring/visualize_vslam_inputs.cpp)
+target_link_libraries(visualize_vslam_inputs ut_vslam ${LIBS})
 
 ROSBUILD_ADD_EXECUTABLE(write_configuration src/refactoring/configuration/write_configuration.cpp)
 target_link_libraries(write_configuration ut_vslam ${LIBS})

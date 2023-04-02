@@ -663,6 +663,10 @@ class ObjectPoseGraphOptimizer {
       eval_options.apply_loss_function = false;
       eval_options.residual_blocks = residual_block_ids;
       std::vector<double> residuals;
+      // for (const auto &block_id : residual_block_ids) {
+      //   problem->EvaluateResidualBlock(
+      //       block_id, false, nullptr, nullptr, nullptr);
+      // }
       problem->Evaluate(eval_options, nullptr, &residuals, nullptr, nullptr);
       for (size_t i = 0; i < residual_block_ids.size(); ++i) {
         const ceres::ResidualBlockId &block_id = residual_block_ids[i];
@@ -679,50 +683,6 @@ class ObjectPoseGraphOptimizer {
     if (opt_logger.has_value()) {
       opt_logger->extractOptimizationTimingResults(summary);
     }
-    return summary.IsSolutionUsable();
-  }
-
-  bool solveOptimization(
-      ceres::Problem *problem,
-      const pose_graph_optimization::OptimizationSolverParams &solver_params,
-      const std::vector<std::shared_ptr<ceres::IterationCallback>> callbacks,
-      std::unordered_map<ceres::ResidualBlockId, double>
-          *block_ids_and_residuals_ptr) {
-    CHECK(problem != NULL);
-    ceres::Solver::Options options;
-    for (const std::shared_ptr<ceres::IterationCallback> &callback_smart_ptr :
-         callbacks) {
-      options.callbacks.emplace_back(callback_smart_ptr.get());
-    }
-    if (!callbacks.empty()) {
-      options.update_state_every_iteration = true;
-    }
-    options.max_num_iterations = solver_params.max_num_iterations_;
-    options.num_threads = 10;
-    options.linear_solver_type = ceres::DENSE_SCHUR;
-    ceres::Solver::Summary summary;
-    ceres::Solve(options, problem, &summary);
-    std::cout << summary.FullReport() << '\n';
-
-    if (block_ids_and_residuals_ptr != nullptr) {
-      std::vector<ceres::ResidualBlockId> residual_block_ids;
-      problem->GetResidualBlocks(&residual_block_ids);
-      ceres::Problem::EvaluateOptions eval_options;
-      eval_options.residual_blocks = residual_block_ids;
-      std::vector<double> residuals;
-      problem->Evaluate(eval_options, nullptr, &residuals, nullptr, nullptr);
-      for (size_t i = 0; i < residual_block_ids.size(); ++i) {
-        const ceres::ResidualBlockId &block_id = residual_block_ids[i];
-        const double &residual = residuals[i];
-        block_ids_and_residuals_ptr->insert({block_id, residual});
-      }
-    }
-
-    if ((summary.termination_type == ceres::TerminationType::FAILURE) ||
-        (summary.termination_type == ceres::TerminationType::USER_FAILURE)) {
-      LOG(ERROR) << "Ceres optimization failed";
-    }
-    LOG(INFO) << "Optimization complete";
     return summary.IsSolutionUsable();
   }
 

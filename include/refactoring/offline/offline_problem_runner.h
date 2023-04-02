@@ -159,6 +159,9 @@ class OfflineProblemRunner {
 
     for (FrameId next_frame_id = 1; next_frame_id <= max_frame_id;
          next_frame_id++) {
+      if (next_frame_id > 67) {
+        exit(0);
+      }
       if (!continue_opt_checker_) {
         LOG(WARNING)
             << "Halted optimization due to continue checker reporting false";
@@ -266,8 +269,113 @@ class OfflineProblemRunner {
         if (opt_logger.has_value()) {
           opt_logger->writeCurrentOptInfo();
         }
+        if (next_frame_id == 67) {
+          std::unordered_map<FeatureId, StructuredVisionFeatureTrack>
+              visual_features = problem_data.getVisualFeatures();
+          std::map<double, ceres::ResidualBlockId, std::greater<double>>
+              ordered_residuals_and_block_ids;
+          for (const auto &block_id_and_residual : *block_ids_and_residuals) {
+            ordered_residuals_and_block_ids.insert(
+                {std::fabs(block_id_and_residual.second),
+                 block_id_and_residual.first});
+          }
+          util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
+              feature_factor_types_and_ids;
+          std::unordered_map<vslam_types_refactor::FeatureId,
+                             ceres::ResidualBlockId>
+              feat_ids_and_block_ids;
+          std::unordered_set<vslam_types_refactor::FeatureId> feature_ids;
+          for (const auto &residual_and_block_id :
+               ordered_residuals_and_block_ids) {
+            const double residual = residual_and_block_id.first;
+            const ceres::ResidualBlockId block_id =
+                residual_and_block_id.second;
+            if (current_residual_block_info.find(block_id) ==
+                current_residual_block_info.end()) {
+              LOG(WARNING) << "Somehow cannot find block " << block_id
+                           << " in current_residual_block_info";
+              continue;
+            }
+            if (current_residual_block_info.at(block_id).first ==
+                kReprojectionErrorFactorTypeId) {
+              vslam_types_refactor::FeatureId feature_id;
+              pose_graph->getFeatureIdForObservationFactor(
+                  current_residual_block_info.at(block_id), feature_id);
+              feat_ids_and_block_ids[feature_id] = block_id;
+            }
+          }
+
+          std::unordered_set<vslam_types_refactor::FeatureId>
+              interested_feature_ids;
+          std::unordered_map<vslam_types_refactor::CameraId,
+                             std::vector<PixelCoord<double>>>
+              cam_ids_and_observations;
+          for (const auto feat_id_and_block_id : feat_ids_and_block_ids) {
+            vslam_types_refactor::FeatureId feat_id =
+                feat_id_and_block_id.first;
+            if (visual_features.find(feat_id) == visual_features.end()) {
+              LOG(INFO) << "Somehow cannot find feature " << feat_id
+                        << " in visual_features...";
+              continue;
+            }
+            vslam_types_refactor::FrameId target_frame_id = next_frame_id;
+            target_frame_id = 67;
+            const std::unordered_map<FrameId, VisionFeature>
+                &frame_ids_and_vision_features =
+                    visual_features.at(feat_id)
+                        .feature_track.feature_observations_;
+            if (frame_ids_and_vision_features.find(target_frame_id) ==
+                frame_ids_and_vision_features.end()) {
+              // std::vector<vslam_types_refactor::FrameId> frame_ids;
+              // for (const auto &frame_id_and_vision_feature :
+              //      frame_ids_and_vision_features) {
+              //   frame_ids.push_back(frame_id_and_vision_feature.first);
+              // }
+              // std::sort(frame_ids.begin(), frame_ids.end());
+              // if (frame_ids.front() < target_frame_id) {
+              //   std::cout << "target_frame_id: " << target_frame_id << " - ";
+              //   for (const auto frame_id : frame_ids) {
+              //     std::cout << frame_id << " ";
+              //   }
+              //   std::cout << std::endl;
+              // }
+              continue;
+            }
+            const std::unordered_map<CameraId, PixelCoord<double>>
+                &cam_ids_and_pixels =
+                    frame_ids_and_vision_features.at(target_frame_id)
+                        .pixel_by_camera_id;
+            for (const auto &cam_id_and_pixel : cam_ids_and_pixels) {
+              cam_ids_and_observations[cam_id_and_pixel.first].push_back(
+                  cam_id_and_pixel.second);
+            }
+            interested_feature_ids.emplace(feat_id);
+          }
+          for (const auto &feat_id : interested_feature_ids) {
+            LOG(INFO) << "feat_id: " << feat_id
+                      << "; residual = " << feat_ids_and_block_ids.at(feat_id);
+          }
+          for (const auto cam_id_and_observations : cam_ids_and_observations) {
+            LOG(INFO) << "camera " << cam_id_and_observations.first << " has "
+                      << cam_id_and_observations.second.size()
+                      << " observations.";
+          }
+          std::ofstream ofile;
+          const std::string filename = "tmp.txt";
+          ofile.open(filename, std::ios::trunc);
+          if (!ofile.is_open()) {
+            LOG(ERROR) << "failed to open " << filename;
+          }
+          for (const auto &feat_id : interested_feature_ids) {
+            ofile << feat_id << std::endl;
+          }
+          ofile.close();
+        }
         // Phase II
-        if (solver_params.feature_outlier_percentage_ > 0) {
+        // if (solver_params.feature_outlier_percentage_ > 0) {
+        if (false) {
+          LOG(INFO) << "block_ids_and_residuals size: "
+                    << block_ids_and_residuals->size();
           if (opt_logger.has_value()) {
             opt_logger->setOptimizationTypeParams(
                 next_frame_id, start_opt_with_frame == 0, false, true);
@@ -279,7 +387,8 @@ class OfflineProblemRunner {
               ordered_residuals_and_block_ids;
           for (const auto &block_id_and_residual : *block_ids_and_residuals) {
             ordered_residuals_and_block_ids.insert(
-                {block_id_and_residual.second, block_id_and_residual.first});
+                {std::fabs(block_id_and_residual.second),
+                 block_id_and_residual.first});
           }
           // build excluded_feature_factor_types_and_ids
           util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
