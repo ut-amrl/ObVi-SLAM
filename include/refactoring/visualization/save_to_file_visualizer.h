@@ -178,23 +178,23 @@ class SaveToFileVisualizer {
               detected_bounding_box,
               config_.bb_assoc_visualizer_config_.bounding_box_inflation_size_);
 
-          displayBoundingBoxOnImage(inflated_bounding_box,
-                                    img_height_and_width,
-                                    pending_inflated_bb_color_,
-                                    cv_ptr,
-                                    std::nullopt,
-                                    std::to_string(num_obs_per_pending_obj.at(pending_obj_id)),
-                                    std::nullopt,
-                                    std::nullopt);
           displayBoundingBoxOnImage(
-              detected_bounding_box,
+              inflated_bounding_box,
               img_height_and_width,
-              pending_bb_color_,
+              pending_inflated_bb_color_,
               cv_ptr,
               std::nullopt,
+              std::to_string(num_obs_per_pending_obj.at(pending_obj_id)),
               std::nullopt,
-              std::to_string(pending_obj_id),
               std::nullopt);
+          displayBoundingBoxOnImage(detected_bounding_box,
+                                    img_height_and_width,
+                                    pending_bb_color_,
+                                    cv_ptr,
+                                    std::nullopt,
+                                    std::nullopt,
+                                    std::to_string(pending_obj_id),
+                                    std::nullopt);
         }
 
         bool display_objs = true;
@@ -247,7 +247,7 @@ class SaveToFileVisualizer {
         if (imgHeight <= kMaxDebugImageHeight) {
           indiv_visualizations.emplace_back(cv_ptr->image);
         } else {
-          double downsample_ratio = ((double) kMaxDebugImageHeight) / imgHeight;
+          double downsample_ratio = ((double)kMaxDebugImageHeight) / imgHeight;
           indiv_visualizations.emplace_back(
               scaleImage(downsample_ratio, cv_ptr->image));
         }

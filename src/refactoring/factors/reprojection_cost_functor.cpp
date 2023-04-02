@@ -13,4 +13,4 @@ ReprojectionCostFunctor::ReprojectionCostFunctor(
       cam_to_robot_tf_(Eigen::Translation3d(extrinsics.transl_) *
                        extrinsics.orientation_) {}
 
-}  // namespace vslam_solver
+}  // namespace vslam_types_refactor

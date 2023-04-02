@@ -45,10 +45,10 @@ std::pair<double, double> getDepthsAtPercentile(
     const sensor_msgs::ImageConstPtr &image,
     ros::Publisher pub,
     ros::Publisher bb_pub) {
-//  LOG(INFO) << "Msg encoding " << image->encoding;
-  cv_bridge::CvImageConstPtr cv_img = cv_bridge::toCvShare(image, sensor_msgs::image_encodings::MONO16);
+  //  LOG(INFO) << "Msg encoding " << image->encoding;
+  cv_bridge::CvImageConstPtr cv_img =
+      cv_bridge::toCvShare(image, sensor_msgs::image_encodings::MONO16);
   pub.publish(image);
-
 
   double min_val;
   double max_val;
@@ -68,47 +68,45 @@ std::pair<double, double> getDepthsAtPercentile(
   cv_img_with_bb.image = basic_img_copy;
   cv_img_with_bb.header = cv_img->header;
   cv_img_with_bb.encoding = cv_img->encoding;
-//  LOG(INFO) << cv_img->encoding;
-
+  //  LOG(INFO) << cv_img->encoding;
 
   bb_pub.publish(cv_img_with_bb);
 
-
-//  LOG(INFO) << "Encoding " << cv_img->encoding;
+  //  LOG(INFO) << "Encoding " << cv_img->encoding;
   cv::Point point;
   point.x = max_x;
   point.y = max_y;
-//  LOG(INFO) << "Depth val: " << cv_img->image.at<uint16_t>(point);
+  //  LOG(INFO) << "Depth val: " << cv_img->image.at<uint16_t>(point);
 
-//  cv::imshow("orig image", cv_img->image);
-//  cv::waitKey(0);
+  //  cv::imshow("orig image", cv_img->image);
+  //  cv::waitKey(0);
 
   LOG(INFO) << "Image width, height: " << image->width << ", " << image->height;
   LOG(INFO) << "Max x,y: " << max_x << ", " << max_y;
 
-  cv::Mat cropped_image =
-      cv_img->image(cv::Range(min_y, std::min((unsigned int) max_y + 1, image->height)), cv::Range(min_x, std::min(image->width, (unsigned int) max_x + 1)));
-//  LOG(INFO) << "Done cropping";
+  cv::Mat cropped_image = cv_img->image(
+      cv::Range(min_y, std::min((unsigned int)max_y + 1, image->height)),
+      cv::Range(min_x, std::min(image->width, (unsigned int)max_x + 1)));
+  //  LOG(INFO) << "Done cropping";
 
   //  cropped_image.convertTo(cropped_image, CV_16U);
 
   std::vector<uint16_t> cropped_as_vec_orig(cropped_image.begin<uint16_t>(),
-                                       cropped_image.end<uint16_t>());
+                                            cropped_image.end<uint16_t>());
 
   std::vector<uint16_t> cropped_as_vec = cropped_as_vec_orig;
-  for (size_t cropped_entry_idx = 0; cropped_entry_idx < cropped_as_vec.size(); cropped_entry_idx++) {
+  for (size_t cropped_entry_idx = 0; cropped_entry_idx < cropped_as_vec.size();
+       cropped_entry_idx++) {
     if (cropped_as_vec[cropped_entry_idx] == 0) {
       cropped_as_vec[cropped_entry_idx] = std::numeric_limits<uint16_t>::max();
     }
   }
 
+  std::sort(cropped_as_vec.begin(), cropped_as_vec.end());
 
-  std::sort(cropped_as_vec.begin(),
-            cropped_as_vec.end());
-
-//  for (const uint16_t &pixel_val : cropped_as_vec) {
-//    LOG(INFO) << pixel_val;
-//  }
+  //  for (const uint16_t &pixel_val : cropped_as_vec) {
+  //    LOG(INFO) << pixel_val;
+  //  }
 
   size_t min_percentile_idx = (cropped_as_vec.size() - 1) * min_percentile;
   size_t max_percentile_idx = (cropped_as_vec.size() - 1) * max_percentile;
@@ -116,29 +114,26 @@ std::pair<double, double> getDepthsAtPercentile(
   uint16_t min_perc_val = cropped_as_vec[min_percentile_idx];
   uint16_t max_perc_val = cropped_as_vec[max_percentile_idx];
 
-//  for (size_t perc_check = 0; perc_check <= 100; perc_check += 5) {
-//    LOG(INFO) << "Pixel value at percentile " << perc_check << " is "
-//              << cropped_as_vec[(cropped_as_vec.size() - 1) *
-//                                (((float)perc_check) / 100.0)];
-//  }
+  //  for (size_t perc_check = 0; perc_check <= 100; perc_check += 5) {
+  //    LOG(INFO) << "Pixel value at percentile " << perc_check << " is "
+  //              << cropped_as_vec[(cropped_as_vec.size() - 1) *
+  //                                (((float)perc_check) / 100.0)];
+  //  }
 
   cv::Mat img_copy = cv_img->image.clone();
-  cv::rectangle(img_copy,
-                cv::Point(min_x, min_y),
-                cv::Point(max_x, max_y),
-                max_val,
-                2);
+  cv::rectangle(
+      img_copy, cv::Point(min_x, min_y), cv::Point(max_x, max_y), max_val, 2);
 
-//  LOG(INFO) << "Min/max perc vals " << min_perc_val << ", " << max_perc_val;
-//  cv::imshow("Depth img", img_copy);
-//  cv::waitKey(0);
+  //  LOG(INFO) << "Min/max perc vals " << min_perc_val << ", " << max_perc_val;
+  //  cv::imshow("Depth img", img_copy);
+  //  cv::waitKey(0);
   //  exit(1);
 
-//  cv_bridge::CvImage bb_img;
-//  bb_img.image = img_copy;
-//  bb_img.header = cv_img->header;
-//  bb_img.encoding = cv_img->encoding;
-//  bb_pub.publish(bb_img.toImageMsg());
+  //  cv_bridge::CvImage bb_img;
+  //  bb_img.image = img_copy;
+  //  bb_img.header = cv_img->header;
+  //  bb_img.encoding = cv_img->encoding;
+  //  bb_pub.publish(bb_img.toImageMsg());
 
   //  cv::Mat hist_out;
   //  int hist_num_bins = 256;  // Is this sufficient
@@ -215,7 +210,7 @@ int main(int argc, char **argv) {
 
   std::vector<file_io::BoundingBoxWithTimestamp> unfiltered_bounding_boxes;
   file_io::readBoundingBoxWithTimestampsFromFile(FLAGS_bounding_boxes_file,
-                                       unfiltered_bounding_boxes);
+                                                 unfiltered_bounding_boxes);
 
   LOG(INFO) << "Read " << unfiltered_bounding_boxes.size()
             << " unfiltered bounding boxes from file";
@@ -239,8 +234,8 @@ int main(int argc, char **argv) {
       bounding_boxes_for_timestamp.emplace_back(candidate_bb);
       bounding_boxes_by_timestamp[timestamp] = bounding_boxes_for_timestamp;
 
-//      LOG(INFO) << "Timestamp from bb " << timestamp.first << ", "
-//                << timestamp.second;
+      //      LOG(INFO) << "Timestamp from bb " << timestamp.first << ", "
+      //                << timestamp.second;
     }
   }
 
@@ -253,7 +248,8 @@ int main(int argc, char **argv) {
 
   ros::Publisher img_publisher =
       n.advertise<sensor_msgs::Image>("depth_img", 10);
-  ros::Publisher bb_img_publisher = n.advertise<sensor_msgs::Image>("bb_img", 10);
+  ros::Publisher bb_img_publisher =
+      n.advertise<sensor_msgs::Image>("bb_img", 10);
 
   rosbag::View view(bag, rosbag::TopicQuery(topics));
 
@@ -288,20 +284,22 @@ int main(int argc, char **argv) {
     }
   }
 
-//  LOG(INFO) << "Closest timestamps to images size "
-//            << closest_img_to_timestamp.size();
-//  for (const auto &timestamp_and_img : closest_img_to_timestamp) {
-//    LOG(INFO) << "Timestamp: " << timestamp_and_img.first.first << ", "
-//              << timestamp_and_img.first.second << ", img timestamp "
-//              << timestamp_and_img.second->header.stamp.sec << ", "
-//              << timestamp_and_img.second->header.stamp.nsec;
-//    LOG(INFO) << "BBs for timestamp "
-//              << bounding_boxes_by_timestamp[timestamp_and_img.first].size();
-//  }
+  //  LOG(INFO) << "Closest timestamps to images size "
+  //            << closest_img_to_timestamp.size();
+  //  for (const auto &timestamp_and_img : closest_img_to_timestamp) {
+  //    LOG(INFO) << "Timestamp: " << timestamp_and_img.first.first << ", "
+  //              << timestamp_and_img.first.second << ", img timestamp "
+  //              << timestamp_and_img.second->header.stamp.sec << ", "
+  //              << timestamp_and_img.second->header.stamp.nsec;
+  //    LOG(INFO) << "BBs for timestamp "
+  //              <<
+  //              bounding_boxes_by_timestamp[timestamp_and_img.first].size();
+  //  }
 
   int count = 0;
   for (const auto &timestamp_and_img : closest_img_to_timestamp) {
-//    LOG(INFO) << "Image timestamp: " << timestamp_and_img.second->header.stamp;
+    //    LOG(INFO) << "Image timestamp: " <<
+    //    timestamp_and_img.second->header.stamp;
     std::vector<file_io::BoundingBoxWithTimestamp>
         bounding_boxes_for_timestamp =
             bounding_boxes_by_timestamp.at(timestamp_and_img.first);
@@ -318,7 +316,9 @@ int main(int argc, char **argv) {
                                 bounding_box.min_pixel_y,
                                 bounding_box.max_pixel_x,
                                 bounding_box.max_pixel_y,
-                                timestamp_and_img.second, img_publisher, bb_img_publisher);
+                                timestamp_and_img.second,
+                                img_publisher,
+                                bb_img_publisher);
       if ((depths_at_percentiles.first >= FLAGS_min_depth_mm) &&
           (depths_at_percentiles.second <= FLAGS_max_depth_mm)) {
         appropriate_depth_bbs.emplace_back(
@@ -345,7 +345,7 @@ int main(int argc, char **argv) {
     }
     count++;
     if (count > 10) {
-//      exit(1);
+      //      exit(1);
     }
   }
 
