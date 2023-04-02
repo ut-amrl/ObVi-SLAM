@@ -4,6 +4,7 @@ import os
 import shutil
 from collections import defaultdict
 from tqdm import tqdm
+import warnings
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-i", "--input", default=None,
@@ -37,9 +38,13 @@ def parse_filenames_dict(input_path: str, output_path: str):
         tokens = filename.split("_")
         try:
             frame_id = int(tokens[0])
+            compared_frame_id = int(tokens[-1].split(".")[0])
         except ValueError as e:
             print("unexpected ValueError when parsing frame_id " +
                   tokens[0], file=sys.stderr)
+        if (compared_frame_id != frame_id-1) and (compared_frame_id != frame_id+1):
+            warnings.warn("Unexpected Filename: " + filename)
+            continue
         try:
             timestamp = float(tokens[2])
         except ValueError as e:
