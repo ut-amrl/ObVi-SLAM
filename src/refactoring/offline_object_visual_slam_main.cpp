@@ -2084,7 +2084,8 @@ int main(int argc, char **argv) {
           .min_visual_feature_parallax_robot_orient_requirement_,
       config.visual_feature_params_.enforce_min_pixel_parallax_requirement_,
       config.visual_feature_params_
-          .enforce_min_robot_pose_parallax_requirement_);
+          .enforce_min_robot_pose_parallax_requirement_,
+      8.0);
   std::function<void(const MainProbData &,
                      const MainPgPtr &,
                      const vtr::FrameId &,

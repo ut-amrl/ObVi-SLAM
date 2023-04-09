@@ -63,7 +63,7 @@ cd $SLAM_DIR
 # rviz_pid=$!
 # sleep 3
 
-make -j8
+# make -j8
 # ./bin/orb_trajectory_sparsifier -input_processed_data_path $VSLAM_IN_DIR --output_processed_data_path $VSLAM_IN_SPARSE_DIR --params_config_file $params_config_file
 # echo "finish sparsifying!"
 # sleep 10
@@ -89,7 +89,7 @@ echo "long_term_map_output_file: "$long_term_map_output_file
 echo "low_level_feats_dir:       "$low_level_feats_dir
 echo "\n"
 
-./bin/visualize_epipolar_error --target_frame_id_1 688 --target_frame_id_2 689 --debug_output_directory "/robodata/taijing/object-slam/vslam/debug/tmp/" --intrinsics_file ${intrinsics_file} \
+./bin/visualize_epipolar_error --target_frame_id_1 586 --target_frame_id_2 589 --debug_output_directory "/robodata/taijing/object-slam/vslam/debug/tmp/" --intrinsics_file ${intrinsics_file} \
     --extrinsics_file ${extrinsics_file} --bounding_boxes_by_node_id_file ${bounding_boxes_by_node_id_file} \
     --poses_by_node_id_file ${poses_by_node_id_file} --nodes_by_timestamp_file ${nodes_by_timestamp_file} \
     --rosbag_file ${rosbag_file} --long_term_map_output ${long_term_map_output_file} \

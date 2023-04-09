@@ -256,6 +256,12 @@ cv_bridge::CvImagePtr getEpipolarErrorBestInlierAndOutlierVisualization(
       outlier_info.epipole_in2, outlier_info.x1_in2_2d, outlier_color, cv_ptr);
   vtr::RosVisualization::drawTinyCircleOnImage(
       outlier_info.p2, outlier_color, cv_ptr);
+
+  for (const auto err_and_epipolar_info : ordered_errs_and_epipolar_info) {
+    LOG(INFO) << "Feature " << err_and_epipolar_info.second.feat_id
+              << " has error " << err_and_epipolar_info.first;
+  }
+
   return cv_ptr;
 }
 
@@ -302,14 +308,6 @@ getEpipolarErrorVisualization(
     const vtr::PixelCoord<double> &pixel_1 =
         feat_ids_and_features2d_1.at(feat_id);
     double epipolar_error;
-    epipolar_error = getNormalizedEpipolarError(intrinsics_1,
-                                                intrinsics_2,
-                                                extrinsics_1,
-                                                extrinsics_2,
-                                                pixel_1,
-                                                pixel_2,
-                                                pose_1,
-                                                pose_2);
     Eigen::Vector2d epipolar_error_vec =
         getNormalizedEpipolarErrorVec(intrinsics_1,
                                       intrinsics_2,

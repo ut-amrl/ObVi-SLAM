@@ -10,40 +10,39 @@
 
 namespace vslam_types_refactor {
 
-// TODO may need to use epipolar projection instead ?
-double getNormalizedEpipolarError(
-    const CameraIntrinsicsMat<double> &intrinsics1,
-    const CameraIntrinsicsMat<double> &intrinsics2,
-    const CameraExtrinsics<double> &extrinsics1,
-    const CameraExtrinsics<double> &extrinsics2,
-    const PixelCoord<double> &feature_pixel1,
-    const PixelCoord<double> &feature_pixel2,
-    const Pose3D<double> &pose1,
-    const Pose3D<double> &pose2) {
-  Eigen::Affine3d cam_to_robot_tf_1 =
-      Eigen::Translation3d(extrinsics1.transl_) * extrinsics1.orientation_;
-  Eigen::Affine3d cam_to_robot_tf_2 =
-      Eigen::Translation3d(extrinsics2.transl_) * extrinsics2.orientation_;
+// double getNormalizedEpipolarError(
+//     const CameraIntrinsicsMat<double> &intrinsics1,
+//     const CameraIntrinsicsMat<double> &intrinsics2,
+//     const CameraExtrinsics<double> &extrinsics1,
+//     const CameraExtrinsics<double> &extrinsics2,
+//     const PixelCoord<double> &feature_pixel1,
+//     const PixelCoord<double> &feature_pixel2,
+//     const Pose3D<double> &pose1,
+//     const Pose3D<double> &pose2) {
+//   Eigen::Affine3d cam_to_robot_tf_1 =
+//       Eigen::Translation3d(extrinsics1.transl_) * extrinsics1.orientation_;
+//   Eigen::Affine3d cam_to_robot_tf_2 =
+//       Eigen::Translation3d(extrinsics2.transl_) * extrinsics2.orientation_;
 
-  Pose3D<double> normalized_pose1(pose1.transl_.normalized(),
-                                  pose1.orientation_);
-  Pose3D<double> normalized_pose2(pose2.transl_.normalized(),
-                                  pose2.orientation_);
-  RawPose3d<double> raw_normalized_pose1, raw_normalized_pose2;
-  convertPoseToArray(normalized_pose1, raw_normalized_pose1);
-  convertPoseToArray(normalized_pose2, raw_normalized_pose2);
-  Eigen::Matrix3d E = CalcEssentialMatrix(raw_normalized_pose1.data(),
-                                          raw_normalized_pose2.data(),
-                                          cam_to_robot_tf_1,
-                                          cam_to_robot_tf_2);
-  Eigen::Vector3d normalized_x1 =
-      intrinsics1.inverse() * pixelToHomogeneous(feature_pixel1);
-  Eigen::Vector3d normalized_x2 =
-      intrinsics2.inverse() * pixelToHomogeneous(feature_pixel2);
-  return std::fabs(normalized_x2.transpose() * E * normalized_x1);
-}
+//   Pose3D<double> normalized_pose1(pose1.transl_.normalized(),
+//                                   pose1.orientation_);
+//   Pose3D<double> normalized_pose2(pose2.transl_.normalized(),
+//                                   pose2.orientation_);
+//   RawPose3d<double> raw_normalized_pose1, raw_normalized_pose2;
+//   convertPoseToArray(normalized_pose1, raw_normalized_pose1);
+//   convertPoseToArray(normalized_pose2, raw_normalized_pose2);
+//   Eigen::Matrix3d E = CalcEssentialMatrix(raw_normalized_pose1.data(),
+//                                           raw_normalized_pose2.data(),
+//                                           cam_to_robot_tf_1,
+//                                           cam_to_robot_tf_2);
+//   Eigen::Vector3d normalized_x1 =
+//       intrinsics1.inverse() * pixelToHomogeneous(feature_pixel1);
+//   Eigen::Vector3d normalized_x2 =
+//       intrinsics2.inverse() * pixelToHomogeneous(feature_pixel2);
+//   return std::fabs(normalized_x2.transpose() * E * normalized_x1);
+// }
 
-// Adapte from CalculateEpipolarErrorVec from IV_SLAM (feature_evaluator.cpp)
+// Adapted from CalculateEpipolarErrorVec from IV_SLAM (feature_evaluator.cpp)
 // https://github.com/ut-amrl/IV_SLAM/blob/main/introspective_ORB_SLAM/src/feature_evaluator.cpp#L2754
 Eigen::Vector2d getNormalizedEpipolarErrorVec(
     const CameraIntrinsicsMat<double> &intrinsics1,
@@ -56,11 +55,6 @@ Eigen::Vector2d getNormalizedEpipolarErrorVec(
     const Pose3D<double> &pose2,
     Eigen::Vector2d *epipole_ptr = nullptr,
     Eigen::Vector2d *x1_in2_2d_ptr = nullptr) {
-  // Eigen::Vector3d normalized_x1 =
-  //     intrinsics1.inverse() * pixelToHomogeneous(feature_pixel1);
-  // Eigen::Vector3d normalized_x2 =
-  //     intrinsics2.inverse() * pixelToHomogeneous(feature_pixel2);
-
   Eigen::Affine3d cam_to_robot_tf_1 =
       Eigen::Translation3d(extrinsics1.transl_) * extrinsics1.orientation_;
   Eigen::Affine3d cam_to_robot_tf_2 =
@@ -72,8 +66,7 @@ Eigen::Vector2d getNormalizedEpipolarErrorVec(
   Eigen::Affine3d cam_current_to_world_2 =
       robot_current_to_world_2 * cam_to_robot_tf_2;
   // not using getPose2RelativeToPose1 to avoid redundant type conversion
-  // overhead
-  // world_to_cam2 * cam1_to_world = cam1_to_cam2
+  // overhead; world_to_cam2 * cam1_to_world = cam1_to_cam2
   Eigen::Affine3d cam1_to_cam2 =
       cam_current_to_world_2.inverse() * cam_current_to_world_1;
 
@@ -109,12 +102,19 @@ Eigen::Vector2d getNormalizedEpipolarErrorVec(
   return x2_epipolar_projection - feature_pixel2;
 }
 
+// TODO need to change ReprojectionErrorFactor to shared_ptrs to avoid redundant
+// data copies
+// TODO need to change it to a class so that variables like inlier_factors_ can
+// be hidden
 struct VisualFeatureCachedInfo {
+  bool is_cache_cleaned_;
   std::map<FrameId, std::vector<ReprojectionErrorFactor>>
       frame_ids_and_reprojection_err_factors_;
   std::map<FrameId, std::optional<Pose3D<double>>> frame_ids_and_poses_;
 
-  VisualFeatureCachedInfo() {}
+  // std::vector<ReprojectionErrorFactor> inlier_factors_;
+
+  VisualFeatureCachedInfo() : is_cache_cleaned_(false) {}
 
   void addFactorsAndRobotPose(
       const FrameId &frame_id,
@@ -167,8 +167,9 @@ class VisualFeatureFrontend {
       const double &min_visual_feature_parallax_pixel_requirement,
       const double &min_visual_feature_parallax_robot_transl_requirement,
       const double &min_visual_feature_parallax_robot_orient_requirement,
-      const bool &enforce_min_pixel_parallax_requirement,
-      const bool &enforce_min_robot_pose_parallax_requirement)
+      const bool enforce_min_pixel_parallax_requirement,
+      const bool enforce_min_robot_pose_parallax_requirement,
+      const double &inlier_epipolar_err_thresh)
       : gba_checker_(gba_checker),
         reprojection_error_provider_(reprojection_error_provider),
         min_visual_feature_parallax_pixel_requirement_(
@@ -180,7 +181,8 @@ class VisualFeatureFrontend {
         enforce_min_pixel_parallax_requirement_(
             enforce_min_pixel_parallax_requirement),
         enforce_min_robot_pose_parallax_requirement_(
-            enforce_min_robot_pose_parallax_requirement) {}
+            enforce_min_robot_pose_parallax_requirement),
+        inlier_epipolar_err_thresh_(inlier_epipolar_err_thresh) {}
 
   /**
    * @brief
@@ -248,8 +250,15 @@ class VisualFeatureFrontend {
             pending_feature_factors_.end()) {
           pending_feature_factors_[feature_id] = VisualFeatureCachedInfo();
         }
-        pending_feature_factors_[feature_id].addFactorsAndRobotPose(
-            max_frame_id, reprojection_error_factors, init_robot_pose);
+        addFactorsAndRobotPoseToCache(input_problem_data,
+                                      pose_graph,
+                                      max_frame_id,
+                                      reprojection_error_factors,
+                                      init_robot_pose,
+                                      pending_feature_factors_[feature_id],
+                                      enforce_epipolar_error_requirement_);
+        // pending_feature_factors_[feature_id].addFactorsAndRobotPose(
+        //     max_frame_id, reprojection_error_factors, init_robot_pose);
         // handling pending poses
         const auto &visual_feature_cache =
             pending_feature_factors_.at(feature_id);
@@ -324,7 +333,145 @@ class VisualFeatureFrontend {
   bool enforce_min_pixel_parallax_requirement_ = true;
   bool enforce_min_robot_pose_parallax_requirement_ = true;
 
+  double inlier_epipolar_err_thresh_ = 8.0;
+  size_t check_pase_n_frames_for_epipolar_err = 5;
+  bool enforce_epipolar_error_requirement_ = true;
+
  private:
+  bool isReprojectionErrorFacotrInlier_(
+      const ProblemDataType &input_problem_data,
+      const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
+      const FrameId &frame_id,
+      const ReprojectionErrorFactor &candidate_factor,
+      const VisualFeatureCachedInfo &cache_info) {
+    double votes = 0.0;
+    double n_voters = 0.0;
+
+    CameraIntrinsicsMat<double> candidate_intrinsics;
+    if (!pose_graph->getIntrinsicsForCamera(candidate_factor.camera_id_,
+                                            candidate_intrinsics)) {
+      LOG(WARNING) << "Failed to find camera intrinsics for camera "
+                   << candidate_factor.camera_id_;
+      return false;
+    }
+    CameraExtrinsics<double> candidate_extrinsics;
+    if (!pose_graph->getExtrinsicsForCamera(candidate_factor.camera_id_,
+                                            candidate_extrinsics)) {
+      LOG(WARNING) << "Failed to find camera extrinsics for camera "
+                   << candidate_factor.camera_id_;
+      return false;
+    }
+    Pose3D<double> candidate_pose;
+    if (!input_problem_data.getRobotPoseEstimateForFrame(
+            candidate_factor.frame_id_, candidate_pose)) {
+      LOG(WARNING) << "Could not find initial pose estimate "
+                      "for robot for frame "
+                   << candidate_factor.frame_id_;
+      return false;
+    }
+    const PixelCoord<double> &candidate_pixel_obs =
+        candidate_factor.feature_pos_;
+
+    for (const auto frame_id_and_factors :
+         cache_info.frame_ids_and_reprojection_err_factors_) {
+      for (const auto &ref_factor : frame_id_and_factors.second) {
+        if (ref_factor == candidate_factor) {
+          continue;
+        }
+        CameraIntrinsicsMat<double> ref_intrinsics;
+        if (!pose_graph->getIntrinsicsForCamera(ref_factor.camera_id_,
+                                                ref_intrinsics)) {
+          LOG(WARNING) << "Failed to find camera intrinsics for camera "
+                       << ref_factor.camera_id_;
+          return false;
+        }
+        CameraExtrinsics<double> ref_extrinsics;
+        if (!pose_graph->getExtrinsicsForCamera(ref_factor.camera_id_,
+                                                ref_extrinsics)) {
+          LOG(WARNING) << "Failed to find camera extrinsics for camera "
+                       << ref_factor.camera_id_;
+          return false;
+        }
+        Pose3D<double> ref_pose;
+        if (!input_problem_data.getRobotPoseEstimateForFrame(
+                ref_factor.frame_id_, ref_pose)) {
+          LOG(WARNING) << "Could not find initial pose estimate "
+                          "for robot for frame "
+                       << ref_factor.frame_id_;
+          return false;
+        }
+        const PixelCoord<double> &ref_pixel_obs = ref_factor.feature_pos_;
+        Eigen::Vector2d epipolar_err_vec =
+            getNormalizedEpipolarErrorVec(ref_intrinsics,
+                                          candidate_intrinsics,
+                                          ref_extrinsics,
+                                          candidate_extrinsics,
+                                          ref_pixel_obs,
+                                          candidate_pixel_obs,
+                                          ref_pose,
+                                          candidate_pose);
+        if (epipolar_err_vec.norm() < inlier_epipolar_err_thresh_) {
+          votes += 1.0;
+        }
+        n_voters += 1.0;
+      }
+      // TODO maybe add this to configuration as well
+      const double inlier_majority_percentage = 0.5;
+      return (votes / n_voters) > inlier_majority_percentage;
+    }
+  }
+
+  void addFactorsAndRobotPoseToCache(
+      const ProblemDataType &input_problem_data,
+      const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
+      const FrameId &frame_id,
+      const std::vector<ReprojectionErrorFactor> &reprojection_err_factors,
+      const std::optional<Pose3D<double>> &robot_pose,
+      VisualFeatureCachedInfo &cache_info,
+      const bool use_epipolar_outlier_rejection = false) {
+    if (!use_epipolar_outlier_rejection) {
+      cache_info.addFactorsAndRobotPose(
+          frame_id, reprojection_err_factors, robot_pose);
+      return;
+    }
+
+    if (cache_info.is_cache_cleaned_) {
+      std::vector<ReprojectionErrorFactor> factors_to_add;
+      for (const auto &factor : reprojection_err_factors) {
+        if (isReprojectionErrorFacotrInlier_(
+                input_problem_data, pose_graph, frame_id, factor, cache_info)) {
+          factors_to_add.push_back(factor);
+        }
+      }
+      if (!factors_to_add.empty()) {
+        cache_info.addFactorsAndRobotPose(frame_id, factors_to_add, robot_pose);
+      }
+    } else {
+      cache_info.addFactorsAndRobotPose(
+          frame_id, reprojection_err_factors, robot_pose);
+      std::map<FrameId, std::vector<ReprojectionErrorFactor>>
+          cleaned_frame_ids_and_factors;
+      for (const auto &frame_id_and_factors :
+           cache_info.frame_ids_and_reprojection_err_factors_) {
+        const FrameId frame_id = frame_id_and_factors.first;
+        for (const auto &factor : frame_id_and_factors.second) {
+          if (isReprojectionErrorFacotrInlier_(input_problem_data,
+                                               pose_graph,
+                                               frame_id,
+                                               factor,
+                                               cache_info)) {
+            cleaned_frame_ids_and_factors[frame_id].push_back(factor);
+          }
+        }
+      }
+      if (!cleaned_frame_ids_and_factors.empty()) {
+        cache_info.frame_ids_and_reprojection_err_factors_ =
+            cleaned_frame_ids_and_factors;
+        cache_info.is_cache_cleaned_ = true;
+      }
+    }
+  }
+
   bool getInitialFeaturePosition_(
       const ProblemDataType &input_problem_data,
       const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
