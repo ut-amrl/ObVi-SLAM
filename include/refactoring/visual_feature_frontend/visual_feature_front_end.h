@@ -10,6 +10,105 @@
 
 namespace vslam_types_refactor {
 
+// TODO may need to use epipolar projection instead ?
+double getNormalizedEpipolarError(
+    const CameraIntrinsicsMat<double> &intrinsics1,
+    const CameraIntrinsicsMat<double> &intrinsics2,
+    const CameraExtrinsics<double> &extrinsics1,
+    const CameraExtrinsics<double> &extrinsics2,
+    const PixelCoord<double> &feature_pixel1,
+    const PixelCoord<double> &feature_pixel2,
+    const Pose3D<double> &pose1,
+    const Pose3D<double> &pose2) {
+  Eigen::Affine3d cam_to_robot_tf_1 =
+      Eigen::Translation3d(extrinsics1.transl_) * extrinsics1.orientation_;
+  Eigen::Affine3d cam_to_robot_tf_2 =
+      Eigen::Translation3d(extrinsics2.transl_) * extrinsics2.orientation_;
+
+  Pose3D<double> normalized_pose1(pose1.transl_.normalized(),
+                                  pose1.orientation_);
+  Pose3D<double> normalized_pose2(pose2.transl_.normalized(),
+                                  pose2.orientation_);
+  RawPose3d<double> raw_normalized_pose1, raw_normalized_pose2;
+  convertPoseToArray(normalized_pose1, raw_normalized_pose1);
+  convertPoseToArray(normalized_pose2, raw_normalized_pose2);
+  Eigen::Matrix3d E = CalcEssentialMatrix(raw_normalized_pose1.data(),
+                                          raw_normalized_pose2.data(),
+                                          cam_to_robot_tf_1,
+                                          cam_to_robot_tf_2);
+  Eigen::Vector3d normalized_x1 =
+      intrinsics1.inverse() * pixelToHomogeneous(feature_pixel1);
+  Eigen::Vector3d normalized_x2 =
+      intrinsics2.inverse() * pixelToHomogeneous(feature_pixel2);
+  return std::fabs(normalized_x2.transpose() * E * normalized_x1);
+}
+
+// Adapte from CalculateEpipolarErrorVec from IV_SLAM (feature_evaluator.cpp)
+// https://github.com/ut-amrl/IV_SLAM/blob/main/introspective_ORB_SLAM/src/feature_evaluator.cpp#L2754
+Eigen::Vector2d getNormalizedEpipolarErrorVec(
+    const CameraIntrinsicsMat<double> &intrinsics1,
+    const CameraIntrinsicsMat<double> &intrinsics2,
+    const CameraExtrinsics<double> &extrinsics1,
+    const CameraExtrinsics<double> &extrinsics2,
+    const PixelCoord<double> &feature_pixel1,
+    const PixelCoord<double> &feature_pixel2,
+    const Pose3D<double> &pose1,
+    const Pose3D<double> &pose2,
+    Eigen::Vector2d *epipole_ptr = nullptr,
+    Eigen::Vector2d *x1_in2_2d_ptr = nullptr) {
+  // Eigen::Vector3d normalized_x1 =
+  //     intrinsics1.inverse() * pixelToHomogeneous(feature_pixel1);
+  // Eigen::Vector3d normalized_x2 =
+  //     intrinsics2.inverse() * pixelToHomogeneous(feature_pixel2);
+
+  Eigen::Affine3d cam_to_robot_tf_1 =
+      Eigen::Translation3d(extrinsics1.transl_) * extrinsics1.orientation_;
+  Eigen::Affine3d cam_to_robot_tf_2 =
+      Eigen::Translation3d(extrinsics2.transl_) * extrinsics2.orientation_;
+  Eigen::Affine3d robot_current_to_world_1 = convertToAffine(pose1);
+  Eigen::Affine3d robot_current_to_world_2 = convertToAffine(pose2);
+  Eigen::Affine3d cam_current_to_world_1 =
+      robot_current_to_world_1 * cam_to_robot_tf_1;
+  Eigen::Affine3d cam_current_to_world_2 =
+      robot_current_to_world_2 * cam_to_robot_tf_2;
+  // not using getPose2RelativeToPose1 to avoid redundant type conversion
+  // overhead
+  // world_to_cam2 * cam1_to_world = cam1_to_cam2
+  Eigen::Affine3d cam1_to_cam2 =
+      cam_current_to_world_2.inverse() * cam_current_to_world_1;
+
+  Eigen::Vector3d c1_in1_3d(0, 0, 0);
+  Eigen::Vector3d c1_in2_3d = cam1_to_cam2 * c1_in1_3d;
+  Eigen::Vector3d homogeneous_epipole = intrinsics2 * c1_in2_3d;
+  Eigen::Vector2d epipole(homogeneous_epipole.x() / homogeneous_epipole.z(),
+                          homogeneous_epipole.y() / homogeneous_epipole.z());
+
+  Eigen::Vector3d normalized_x1 =
+      intrinsics1.inverse() * pixelToHomogeneous(feature_pixel1);
+  Eigen::Vector3d x1_in2_3d = cam1_to_cam2 * normalized_x1;
+  Eigen::Vector3d homogeneous_x1_in2_2d = intrinsics2 * x1_in2_3d;
+  Eigen::Vector2d x1_in2_2d(
+      homogeneous_x1_in2_2d.x() / homogeneous_x1_in2_2d.z(),
+      homogeneous_x1_in2_2d.y() / homogeneous_x1_in2_2d.z());
+
+  // Unit vector of the epipolar line
+  Eigen::Vector2d u_hat = (x1_in2_2d - epipole).normalized();
+
+  // Find the projection vector of feature_pixel2 on the epipolar line
+  Eigen::Vector2d x2_epipolar_projection =
+      epipole + (feature_pixel2 - epipole).dot(u_hat) * u_hat;
+  // Eigen::Vector2d x2_epipolar_projection = epipole + u_hat;
+
+  if (epipole_ptr != nullptr) {
+    *epipole_ptr = epipole;
+  }
+  if (x1_in2_2d_ptr != nullptr) {
+    *x1_in2_2d_ptr = x1_in2_2d;
+  }
+
+  return x2_epipolar_projection - feature_pixel2;
+}
+
 struct VisualFeatureCachedInfo {
   std::map<FrameId, std::vector<ReprojectionErrorFactor>>
       frame_ids_and_reprojection_err_factors_;

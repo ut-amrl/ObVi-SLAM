@@ -120,6 +120,9 @@ target_link_libraries(visualize_jacobian_problem_feats ut_vslam ${LIBS})
 ROSBUILD_ADD_EXECUTABLE(visualize_vslam_inputs src/refactoring/visualize_vslam_inputs.cpp)
 target_link_libraries(visualize_vslam_inputs ut_vslam ${LIBS})
 
+ROSBUILD_ADD_EXECUTABLE(visualize_epipolar_error src/refactoring/visualize_epipolar_error.cpp)
+target_link_libraries(visualize_epipolar_error ut_vslam ${LIBS})
+
 ROSBUILD_ADD_EXECUTABLE(write_configuration src/refactoring/configuration/write_configuration.cpp)
 target_link_libraries(write_configuration ut_vslam ${LIBS})
 

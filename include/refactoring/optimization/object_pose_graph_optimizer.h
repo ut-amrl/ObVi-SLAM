@@ -123,7 +123,7 @@ class ObjectPoseGraphOptimizer {
                      std::pair<vslam_types_refactor::FactorType,
                                vslam_types_refactor::FeatureFactorId>>
   buildPoseGraphOptimization(
-      const OptimizationScopeParams &optimization_scope,
+      const OptimizationScopeParams optimization_scope,
       const pose_graph_optimization::ObjectVisualPoseGraphResidualParams
           &residual_params,
       std::shared_ptr<PoseGraphType> &pose_graph,

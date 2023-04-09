@@ -62,7 +62,8 @@ typedef std::pair<vslam_types_refactor::FactorType,
                   vslam_types_refactor::FeatureFactorId>
     MainFactorInfo;
 
-DEFINE_int32(target_frame_id, -1, "");
+DEFINE_int32(target_frame_id_1, 0, "");
+DEFINE_int32(target_frame_id_2, 1, "");
 DEFINE_string(debug_output_directory,
               "",
               "/robodata/taijing/object-slam/vslam/debug/tmp");
@@ -147,7 +148,7 @@ std_msgs::ColorRGBA ColorRGBA_init(double const r,
   return out;
 }
 
-double alpha = 0.8;
+double alpha = 0.9;
 std_msgs::ColorRGBA obs_color = ColorRGBA_init(0, 1, 0, alpha);
 std_msgs::ColorRGBA init_color = ColorRGBA_init(1, 1, 0, alpha);
 std_msgs::ColorRGBA before_optim_color = ColorRGBA_init(1, 0, 0, alpha);
@@ -173,23 +174,18 @@ void setupOutputDirectory(const std::string &output_dir,
   }
 }
 
-std::tuple<cv_bridge::CvImagePtr, std::map<double, vtr::FeatureId>>
-getFeatureReprojections(
-    const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>
-        &feat_ids_and_features3d,
+cv_bridge::CvImagePtr getEpipolarErrorBestInlierAndOutlierVisualization(
     const std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>
-        &feat_ids_and_features2d,
-    const vtr::Pose3D<double> &pose,
+        &feat_ids_and_features2d_1,
+    const std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>
+        &feat_ids_and_features2d_2,
     const sensor_msgs::Image::ConstPtr &img_msg,
-    const vtr::CameraExtrinsics<double> &extrinsics,
-    const vtr::CameraIntrinsicsMat<double> &intrinsics) {
-  std::function<double(const vtr::PixelCoord<double> &,
-                       const vtr::PixelCoord<double> &)>
-      getResidual = [&](const vtr::PixelCoord<double> &pixel1,
-                        const vtr::PixelCoord<double> &pixel2) {
-        return (pixel1 - pixel2).norm();
-      };
-  std::map<double, vtr::FeatureId> residuals_and_feat_ids;
+    const vtr::Pose3D<double> &pose_1,
+    const vtr::Pose3D<double> &pose_2,
+    const vtr::CameraExtrinsics<double> &extrinsics_1,
+    const vtr::CameraExtrinsics<double> &extrinsics_2,
+    vtr::CameraIntrinsicsMat<double> &intrinsics_1,
+    vtr::CameraIntrinsicsMat<double> &intrinsics_2) {
   cv_bridge::CvImagePtr cv_ptr;
   try {
     cv_ptr = cv_bridge::toCvCopy(img_msg, vtr::kImageEncoding);
@@ -198,243 +194,178 @@ getFeatureReprojections(
     exit(1);
   }
 
-  for (const auto feat_id_and_feature2d : feat_ids_and_features2d) {
-    const vtr::FeatureId feat_id = feat_id_and_feature2d.first;
-    if (feat_ids_and_features3d.find(feat_id) ==
-        feat_ids_and_features3d.end()) {
+  struct EpipolarInfo {
+    vtr::FeatureId feat_id;
+    vtr::PixelCoord<double> p2;
+    vtr::PixelCoord<double> epipole_in2;
+    vtr::PixelCoord<double> x1_in2_2d;
+    EpipolarInfo() {}
+    EpipolarInfo(const vtr::FeatureId &feat_id,
+                 const vtr::PixelCoord<double> p2,
+                 const vtr::PixelCoord<double> epipole_in2,
+                 const vtr::PixelCoord<double> x1_in2_2d)
+        : feat_id(feat_id),
+          p2(p2),
+          epipole_in2(epipole_in2),
+          x1_in2_2d(x1_in2_2d) {}
+  };
+
+  std::map<double, EpipolarInfo, std::greater<double>>
+      ordered_errs_and_epipolar_info;
+  for (const auto &feat_id_and_feature_2 : feat_ids_and_features2d_2) {
+    const vtr::FeatureId feat_id = feat_id_and_feature_2.first;
+    if (feat_ids_and_features2d_1.find(feat_id) ==
+        feat_ids_and_features2d_1.end()) {
       continue;
     }
-    const auto &obs_pixel = feat_id_and_feature2d.second;
-    vtr::PixelCoord<double> projected_pixel = vtr::getProjectedPixelCoord(
-        feat_ids_and_features3d.at(feat_id), pose, extrinsics, intrinsics);
+    const vtr::PixelCoord<double> &pixel_2 = feat_id_and_feature_2.second;
+    const vtr::PixelCoord<double> &pixel_1 =
+        feat_ids_and_features2d_1.at(feat_id);
+    Eigen::Vector2d epipole_in2, x1_in2_2d;
+    Eigen::Vector2d epipolar_error_vec =
+        getNormalizedEpipolarErrorVec(intrinsics_1,
+                                      intrinsics_2,
+                                      extrinsics_1,
+                                      extrinsics_2,
+                                      pixel_1,
+                                      pixel_2,
+                                      pose_1,
+                                      pose_2,
+                                      &epipole_in2,
+                                      &x1_in2_2d);
+    // LOG(INFO) << "Feature " << feat_id << " : err1 = " << epipolar_error
+    //           << ", err2 = " << epipolar_error_vec.norm();
+    double epipolar_error;
+    epipolar_error = epipolar_error_vec.norm();
+    ordered_errs_and_epipolar_info[epipolar_error] =
+        EpipolarInfo(feat_id, pixel_2, epipole_in2, x1_in2_2d);
+  }
+  std_msgs::ColorRGBA inlier_color = ColorRGBA_init(0, 1, 0, alpha);
+  std_msgs::ColorRGBA outlier_color = ColorRGBA_init(1, 0, 0, alpha);
+  // std_msgs::ColorRGBA default_color = ColorRGBA_init(0, 0, 0, alpha);
+  const EpipolarInfo &inlier_info =
+      ordered_errs_and_epipolar_info.rbegin()->second;
+  vtr::RosVisualization::drawLineOnImage(
+      inlier_info.epipole_in2, inlier_info.x1_in2_2d, inlier_color, cv_ptr);
+  vtr::RosVisualization::drawTinyCircleOnImage(
+      inlier_info.p2, inlier_color, cv_ptr);
+
+  const EpipolarInfo &outlier_info =
+      ordered_errs_and_epipolar_info.begin()->second;
+  vtr::RosVisualization::drawLineOnImage(
+      outlier_info.epipole_in2, outlier_info.x1_in2_2d, outlier_color, cv_ptr);
+  vtr::RosVisualization::drawTinyCircleOnImage(
+      outlier_info.p2, outlier_color, cv_ptr);
+  return cv_ptr;
+}
+
+std::tuple<cv_bridge::CvImagePtr, std::map<double, vtr::FeatureId>>
+getEpipolarErrorVisualization(
+    const std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>
+        &feat_ids_and_features2d_1,
+    const std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>
+        &feat_ids_and_features2d_2,
+    const sensor_msgs::Image::ConstPtr &img_msg,
+    const vtr::Pose3D<double> &pose_1,
+    const vtr::Pose3D<double> &pose_2,
+    const vtr::CameraExtrinsics<double> &extrinsics_1,
+    const vtr::CameraExtrinsics<double> &extrinsics_2,
+    vtr::CameraIntrinsicsMat<double> &intrinsics_1,
+    vtr::CameraIntrinsicsMat<double> &intrinsics_2) {
+  cv_bridge::CvImagePtr cv_ptr;
+  try {
+    cv_ptr = cv_bridge::toCvCopy(img_msg, vtr::kImageEncoding);
+  } catch (cv_bridge::Exception &e) {
+    LOG(ERROR) << "cv_bridge exception: " << e.what();
+    exit(1);
+  }
+
+  struct EpipolarInfo {
+    vtr::FeatureId feat_id;
+    vtr::PixelCoord<double> p1;
+    vtr::PixelCoord<double> p2;
+    EpipolarInfo() {}
+    EpipolarInfo(const vtr::FeatureId &feat_id,
+                 const vtr::PixelCoord<double> &p1,
+                 const vtr::PixelCoord<double> &p2)
+        : feat_id(feat_id), p1(p1), p2(p2) {}
+  };
+  std::map<double, EpipolarInfo, std::greater<double>>
+      ordered_errs_and_epipolar_info;
+  for (const auto &feat_id_and_feature_2 : feat_ids_and_features2d_2) {
+    const vtr::FeatureId feat_id = feat_id_and_feature_2.first;
+    if (feat_ids_and_features2d_1.find(feat_id) ==
+        feat_ids_and_features2d_1.end()) {
+      continue;
+    }
+    const vtr::PixelCoord<double> &pixel_2 = feat_id_and_feature_2.second;
+    const vtr::PixelCoord<double> &pixel_1 =
+        feat_ids_and_features2d_1.at(feat_id);
+    double epipolar_error;
+    epipolar_error = getNormalizedEpipolarError(intrinsics_1,
+                                                intrinsics_2,
+                                                extrinsics_1,
+                                                extrinsics_2,
+                                                pixel_1,
+                                                pixel_2,
+                                                pose_1,
+                                                pose_2);
+    Eigen::Vector2d epipolar_error_vec =
+        getNormalizedEpipolarErrorVec(intrinsics_1,
+                                      intrinsics_2,
+                                      extrinsics_1,
+                                      extrinsics_2,
+                                      pixel_1,
+                                      pixel_2,
+                                      pose_1,
+                                      pose_2);
+    LOG(INFO) << "Feature " << feat_id << " : err1 = " << epipolar_error
+              << ", err2 = " << epipolar_error_vec.norm();
+    epipolar_error = epipolar_error_vec.norm();
+    ordered_errs_and_epipolar_info[epipolar_error] =
+        EpipolarInfo(feat_id, pixel_1, pixel_2);
+  }
+  std_msgs::ColorRGBA inlier_color = ColorRGBA_init(0, 1, 0, alpha);
+  std_msgs::ColorRGBA outlier_color = ColorRGBA_init(1, 0, 0, alpha);
+  std_msgs::ColorRGBA default_color = ColorRGBA_init(0, 0, 0, alpha);
+  // double outlier_lbound = 1e-4;
+  // double inlier_ubound = 1e-6;
+  double outlier_lbound = 3;
+  double inlier_ubound = 0.1;
+
+  size_t n_inlier, n_outlier;
+  n_inlier = n_outlier = 0;
+  for (const auto &err_and_epipolar_info : ordered_errs_and_epipolar_info) {
+    const double err = err_and_epipolar_info.first;
+    const EpipolarInfo &epipolar_info = err_and_epipolar_info.second;
+    std_msgs::ColorRGBA color;
+    if (err <= inlier_ubound) {
+      // LOG(INFO) << "Feature " << epipolar_info.feat_id << " has error " <<
+      // err; LOG(INFO) << "err: " << err << ", inlier_ubound: " <<
+      // inlier_ubound;
+      color = inlier_color;
+      ++n_inlier;
+    } else if (err >= outlier_lbound) {
+      color = outlier_color;
+      ++n_outlier;
+    } else {
+      color = default_color;
+    }
     vtr::RosVisualization::drawTinyCircleOnImage(
-        obs_pixel, types_and_ros_colors[DebugTypeEnum::OBSERVED], cv_ptr);
+        epipolar_info.p1, color, cv_ptr);
     vtr::RosVisualization::drawTinyCircleOnImage(
-        projected_pixel,
-        types_and_ros_colors[DebugTypeEnum::INITIALIZED],
-        cv_ptr);
+        epipolar_info.p2, color, cv_ptr);
     vtr::RosVisualization::drawLineOnImage(
-        obs_pixel, projected_pixel, types_and_ros_colors[INITIALIZED], cv_ptr);
-    residuals_and_feat_ids[getResidual(projected_pixel, obs_pixel)] = feat_id;
-  }
-  return std::make_tuple(cv_ptr, residuals_and_feat_ids);
-}
-
-std::unordered_map<
-    vtr::CameraId,
-    std::tuple<cv_bridge::CvImagePtr, std::map<double, vtr::FeatureId>>>
-getFeatureReprojections(
-    const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>
-        &feat_ids_and_features3d,
-    const std::unordered_map<
-        vtr::CameraId,
-        std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>>
-        &cam_ids_and_observations,
-    const vtr::Pose3D<double> &pose,
-    const std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>
-        &cam_ids_and_images,
-    const std::unordered_map<vtr::CameraId, vtr::CameraExtrinsics<double>>
-        &cam_ids_and_extrinsics,
-    const std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
-        &cam_ids_and_intrinsics,
-    const std::vector<vtr::CameraId> &camera_ids) {
-  std::unordered_map<
-      vtr::CameraId,
-      std::tuple<cv_bridge::CvImagePtr, std::map<double, vtr::FeatureId>>>
-      cam_ids_and_debug_info;
-  for (const auto cam_id : camera_ids) {
-    if (cam_ids_and_intrinsics.find(cam_id) == cam_ids_and_intrinsics.end()) {
-      LOG(ERROR) << "Cannot find intrinsics for camera " << cam_id;
-      continue;
-    }
-    if (cam_ids_and_extrinsics.find(cam_id) == cam_ids_and_extrinsics.end()) {
-      LOG(ERROR) << "Cannot find extrinsics for camera " << cam_id;
-      continue;
-    }
-    if (cam_ids_and_images.find(cam_id) == cam_ids_and_images.end()) {
-      LOG(ERROR) << "Cannot find image message for camera " << cam_id;
-      continue;
-    }
-    if (cam_ids_and_observations.find(cam_id) ==
-        cam_ids_and_observations.end()) {
-      LOG(ERROR) << "Cannot find visual feature observations for camera "
-                 << cam_id;
-      continue;
-    }
-    // LOG(INFO) << "before single image getFeatureReprojections";
-    cam_ids_and_debug_info[cam_id] =
-        getFeatureReprojections(feat_ids_and_features3d,
-                                cam_ids_and_observations.at(cam_id),
-                                pose,
-                                cam_ids_and_images.at(cam_id),
-                                cam_ids_and_extrinsics.at(cam_id),
-                                cam_ids_and_intrinsics.at(cam_id));
-    // LOG(INFO) << "after single image getFeatureReprojections";
-  }
-  // LOG(INFO) << "returning from multi image getFeatureReprojections";
-  return cam_ids_and_debug_info;
-}
-
-void debugInitVisualFeaturesByFrameId(
-    const fs::path &root_directory,
-    const vtr::FrameId &frame_id,
-    const std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
-        &cam_ids_and_intrinsics,
-    const std::unordered_map<vtr::CameraId, vtr::CameraExtrinsics<double>>
-        &cam_ids_and_extrinsics,
-    const std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>
-        &cam_ids_and_images,
-    const vtr::Pose3D<double> &pose,
-    const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>
-        &initial_feat_positions,
-    const std::unordered_map<
-        vtr::CameraId,
-        std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>>
-        &cam_ids_and_observations,
-    const std::string &directory_prefix = "frames",
-    const std::vector<vtr::CameraId> &camera_ids = {1, 2}) {
-  std::unordered_map<vtr::CameraId, fs::path> cam_ids_and_output_directories;
-  fs::path output_directory = root_directory / directory_prefix;
-  setupOutputDirectory(output_directory);
-  for (const vtr::CameraId cam_id : camera_ids) {
-    cam_ids_and_output_directories[cam_id] =
-        output_directory / std::to_string(cam_id);
-    setupOutputDirectory(cam_ids_and_output_directories.at(cam_id));
+        epipolar_info.p1, epipolar_info.p2, color, cv_ptr);
   }
 
-  // LOG(INFO) << "before multi images getFeatureReprojections";
-  auto cam_ids_and_debug_info =
-      getFeatureReprojections(initial_feat_positions,
-                              cam_ids_and_observations,
-                              pose,
-                              cam_ids_and_images,
-                              cam_ids_and_extrinsics,
-                              cam_ids_and_intrinsics,
-                              camera_ids);
-  // LOG(INFO) << "after multi images getFeatureReprojections";
-  for (const auto cam_id_and_debug_info : cam_ids_and_debug_info) {
-    const vtr::CameraId cam_id = cam_id_and_debug_info.first;
-    const auto &debug_info = cam_id_and_debug_info.second;
-    const cv_bridge::CvImagePtr &cv_ptr = std::get<0>(debug_info);
-    const std::map<double, vtr::FeatureId> &residuals_and_feat_ids =
-        std::get<1>(debug_info);
-
-    fs::path output_path = cam_ids_and_output_directories.at(cam_id) /
-                           (std::to_string(frame_id) + ".png");
-    cv::imwrite(output_path, cv_ptr->image);
-
-    bool print_residuals = true;
-    if (print_residuals) {
-      for (const auto &residual_and_feat_id : residuals_and_feat_ids) {
-        LOG(INFO) << "Feature " << residual_and_feat_id.second << ": "
-                  << residual_and_feat_id.first;
-      }
-    }
+  std::map<double, vtr::FeatureId> ordered_errors_and_feat_ids;
+  for (const auto &err_and_epipolar_info : ordered_errs_and_epipolar_info) {
+    ordered_errors_and_feat_ids[err_and_epipolar_info.first] =
+        err_and_epipolar_info.second.feat_id;
   }
-}
-
-void debugInitVisualFeaturesByFeatureIds(
-    const fs::path &root_directory,
-    const std::unordered_set<vtr::FeatureId> &target_feat_ids,
-    const std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
-        &cam_ids_and_intrinsics,
-    const std::unordered_map<vtr::CameraId, vtr::CameraExtrinsics<double>>
-        &cam_ids_and_extrinsics,
-    const std::unordered_map<
-        vtr::FrameId,
-        std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>>
-        &frame_ids_and_images,
-    const std::unordered_map<vtr::FrameId, vtr::Pose3D<double>> &poses,
-    const std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>
-        &initial_feat_positions,
-    const std::unordered_map<
-        vtr::FrameId,
-        std::unordered_map<
-            vtr::CameraId,
-            std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>>>
-        &frame_ids_and_observations,
-    const std::string &directory_prefix = "features",
-    const std::vector<vtr::CameraId> &camera_ids = {1, 2}) {
-  std::unordered_map<vtr::CameraId, fs::path> cam_ids_and_output_directories;
-  fs::path output_directory = root_directory / directory_prefix;
-  setupOutputDirectory(output_directory);
-  for (const vtr::CameraId cam_id : camera_ids) {
-    cam_ids_and_output_directories[cam_id] =
-        output_directory / std::to_string(cam_id);
-    setupOutputDirectory(cam_ids_and_output_directories.at(cam_id));
-  }
-
-  for (const auto &frame_id_and_observations : frame_ids_and_observations) {
-    // LOG(INFO) << "start one iteration";
-    const vtr::FrameId frame_id = frame_id_and_observations.first;
-    const auto &cam_ids_and_observations = frame_id_and_observations.second;
-    if (frame_ids_and_images.find(frame_id) == frame_ids_and_images.end()) {
-      LOG(ERROR) << "Cannot find images for frame " << frame_id;
-      continue;
-    }
-    const auto &cam_ids_and_images = frame_ids_and_images.at(frame_id);
-    if (poses.find(frame_id) == poses.end()) {
-      LOG(ERROR) << "Cannot find pose for frame " << frame_id;
-      continue;
-    }
-    const auto &pose = poses.at(frame_id);
-    if (frame_ids_and_observations.find(frame_id) ==
-        frame_ids_and_observations.end()) {
-      LOG(ERROR) << "Cannot find observations for frame " << frame_id;
-      continue;
-    }
-    const auto &feat_ids_and_observations =
-        frame_ids_and_observations.at(frame_id);
-
-    // LOG(INFO) << "before building target_cam_ids_and_observations";
-    std::unordered_map<
-        vtr::CameraId,
-        std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>>
-        target_cam_ids_and_observations;
-    for (const auto &cam_id_and_observations : cam_ids_and_observations) {
-      const vtr::CameraId cam_id = cam_id_and_observations.first;
-      const auto &feat_ids_and_pixels = cam_id_and_observations.second;
-      for (const auto feat_id_and_pixel : feat_ids_and_pixels) {
-        if (target_feat_ids.find(feat_id_and_pixel.first) !=
-            target_feat_ids.end()) {
-          target_cam_ids_and_observations[cam_id][feat_id_and_pixel.first] =
-              feat_id_and_pixel.second;
-        }
-      }
-    }
-
-    // LOG(INFO) << "before deciding visualization";
-    bool visualize = false;
-    if (target_cam_ids_and_observations.size() != 0) {
-      for (const vtr::CameraId cam_id : camera_ids) {
-        visualize |= (target_cam_ids_and_observations.at(cam_id).size() != 0);
-      }
-    }
-    // LOG(INFO) << "before visualization";
-    if (visualize) {
-      // LOG(INFO) << "visualizing... Before getFeatureReprojections";
-      std::unordered_map<
-          vtr::CameraId,
-          std::tuple<cv_bridge::CvImagePtr, std::map<double, vtr::FeatureId>>>
-          ret = getFeatureReprojections(initial_feat_positions,
-                                        target_cam_ids_and_observations,
-                                        pose,
-                                        cam_ids_and_images,
-                                        cam_ids_and_extrinsics,
-                                        cam_ids_and_intrinsics,
-                                        camera_ids);
-      // LOG(INFO) << "visualizing... After getFeatureReprojections";
-      for (const auto &cam_id_and_debug_info : ret) {
-        const vtr::CameraId cam_id = cam_id_and_debug_info.first;
-        const cv_bridge::CvImagePtr cv_ptr =
-            std::get<0>(cam_id_and_debug_info.second);
-        fs::path output_path = cam_ids_and_output_directories.at(cam_id) /
-                               (std::to_string(frame_id) + ".png");
-        cv::imwrite(output_path, cv_ptr->image);
-      }
-      // LOG(INFO) << "saving images";
-    }
-  }
+  LOG(INFO) << "n_inlier: " << n_inlier << ", n_outlier: " << n_outlier;
+  return std::make_tuple(cv_ptr, ordered_errors_and_feat_ids);
 }
 
 std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
@@ -738,33 +669,65 @@ int main(int argc, char **argv) {
     }
   }
 
-  // LOG(INFO) << "Ready to debug";
-  // if (FLAGS_target_frame_id >= 0) {
-  //   LOG(INFO) << "Before debugInitVisualFeaturesByFrameId";
-  //   debugInitVisualFeaturesByFrameId(
-  //       FLAGS_debug_output_directory,
-  //       FLAGS_target_frame_id,
-  //       camera_intrinsics_by_camera,
-  //       camera_extrinsics_by_camera,
-  //       images.at(FLAGS_target_frame_id),
-  //       robot_poses.at(FLAGS_target_frame_id),
-  //       initial_feat_positions,
-  //       low_level_features_map.at(FLAGS_target_frame_id));
-  //   LOG(INFO) << "After debugInitVisualFeaturesByFrameId";
-  // } else {
-  //   std::unordered_set<vtr::FeatureId> abnormal_feat_ids;
-  //   abnormal_feat_ids = {53376, 52731, 53688, 55719, 53022, 46146};
-  //   LOG(INFO) << "Before debugInitVisualFeaturesByFeatureIds";
-  //   debugInitVisualFeaturesByFeatureIds(FLAGS_debug_output_directory,
-  //                                       abnormal_feat_ids,
-  //                                       camera_intrinsics_by_camera,
-  //                                       camera_extrinsics_by_camera,
-  //                                       images,
-  //                                       robot_poses,
-  //                                       initial_feat_positions,
-  //                                       low_level_features_map);
-  //   LOG(INFO) << "After debugInitVisualFeaturesByFeatureIds";
-  // }
+  vtr::CameraId cam_id_1 = 1;
+  vtr::CameraId cam_id_2 = 1;
 
-  // Visualize Epipolar Error
+  auto summary =
+      getEpipolarErrorBestInlierAndOutlierVisualization(
+          low_level_features_map.at(FLAGS_target_frame_id_1).at(cam_id_1),
+          low_level_features_map.at(FLAGS_target_frame_id_2).at(cam_id_2),
+          images.at(FLAGS_target_frame_id_1).at(cam_id_1),
+          robot_poses.at(FLAGS_target_frame_id_1),
+          robot_poses.at(FLAGS_target_frame_id_2),
+          camera_extrinsics_by_camera.at(cam_id_1),
+          camera_extrinsics_by_camera.at(cam_id_2),
+          camera_intrinsics_by_camera.at(cam_id_1),
+          camera_intrinsics_by_camera.at(cam_id_2))
+          ->image;
+
+  // auto ret_1 = getEpipolarErrorVisualization(
+  //     low_level_features_map.at(FLAGS_target_frame_id_1).at(cam_id_1),
+  //     low_level_features_map.at(FLAGS_target_frame_id_2).at(cam_id_2),
+  //     images.at(FLAGS_target_frame_id_1).at(cam_id_1),
+  //     robot_poses.at(FLAGS_target_frame_id_1),
+  //     robot_poses.at(FLAGS_target_frame_id_2),
+  //     camera_extrinsics_by_camera.at(cam_id_1),
+  //     camera_extrinsics_by_camera.at(cam_id_2),
+  //     camera_intrinsics_by_camera.at(cam_id_1),
+  //     camera_intrinsics_by_camera.at(cam_id_2));
+  // auto cv_ptr_1 = std::get<0>(ret_1);
+  // auto errs_and_feat_ids_1 = std::get<1>(ret_1);
+
+  // auto ret_2 = getEpipolarErrorVisualization(
+  //     low_level_features_map.at(FLAGS_target_frame_id_1).at(cam_id_1),
+  //     low_level_features_map.at(FLAGS_target_frame_id_2).at(cam_id_2),
+  //     images.at(FLAGS_target_frame_id_2).at(cam_id_2),
+  //     robot_poses.at(FLAGS_target_frame_id_1),
+  //     robot_poses.at(FLAGS_target_frame_id_2),
+  //     camera_extrinsics_by_camera.at(cam_id_1),
+  //     camera_extrinsics_by_camera.at(cam_id_2),
+  //     camera_intrinsics_by_camera.at(cam_id_1),
+  //     camera_intrinsics_by_camera.at(cam_id_2));
+  // auto cv_ptr_2 = std::get<0>(ret_2);
+  // auto errs_and_feat_ids_2 = std::get<1>(ret_2);
+
+  // util::BoostHashMap<vtr::FrameId, cv::Mat> ids_and_visualizations = {
+  //     {vtr::FrameId(FLAGS_target_frame_id_1), cv_ptr_1->image},
+  //     {vtr::FrameId(FLAGS_target_frame_id_2), cv_ptr_2->image}};
+  // cv::Mat summary = vtr::generateMosaic(ids_and_visualizations);
+
+  std::string directory_perfix = "epipolar";
+  fs::path output_directory =
+      fs::path(FLAGS_debug_output_directory) / directory_perfix;
+  setupOutputDirectory(output_directory);
+  std::string filename = std::to_string((int)FLAGS_target_frame_id_1) + "_" +
+                         std::to_string((int)FLAGS_target_frame_id_2) + ".png";
+  fs::path output_path = output_directory / filename;
+  LOG(INFO) << "Writing to path " << output_path;
+  cv::imwrite(output_path, summary);
+  // for (const auto err_and_feat_id : errs_and_feat_ids) {
+  //   LOG(INFO) << "Feature " << err_and_feat_id.second << " has epipolar error
+  //   "
+  //             << err_and_feat_id.first;
+  // }
 }
