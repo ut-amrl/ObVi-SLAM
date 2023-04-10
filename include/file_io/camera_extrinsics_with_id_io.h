@@ -28,18 +28,24 @@ struct CameraExtrinsicsWithId {
 void readCameraExtrinsicsWithIdLine(
     const std::vector<std::string> &entries_in_file_line,
     CameraExtrinsicsWithId &camera_extrinsics_with_id) {
-
   size_t list_idx = 0;
   std::istringstream stream_cam_id(entries_in_file_line[list_idx++]);
   stream_cam_id >> camera_extrinsics_with_id.camera_id;
 
-  camera_extrinsics_with_id.transl_x = std::stod(entries_in_file_line[list_idx++]);
-  camera_extrinsics_with_id.transl_y = std::stod(entries_in_file_line[list_idx++]);
-  camera_extrinsics_with_id.transl_z = std::stod(entries_in_file_line[list_idx++]);
-  camera_extrinsics_with_id.quat_x = std::stod(entries_in_file_line[list_idx++]);
-  camera_extrinsics_with_id.quat_y = std::stod(entries_in_file_line[list_idx++]);
-  camera_extrinsics_with_id.quat_z = std::stod(entries_in_file_line[list_idx++]);
-  camera_extrinsics_with_id.quat_w = std::stod(entries_in_file_line[list_idx++]);
+  camera_extrinsics_with_id.transl_x =
+      std::stod(entries_in_file_line[list_idx++]);
+  camera_extrinsics_with_id.transl_y =
+      std::stod(entries_in_file_line[list_idx++]);
+  camera_extrinsics_with_id.transl_z =
+      std::stod(entries_in_file_line[list_idx++]);
+  camera_extrinsics_with_id.quat_x =
+      std::stod(entries_in_file_line[list_idx++]);
+  camera_extrinsics_with_id.quat_y =
+      std::stod(entries_in_file_line[list_idx++]);
+  camera_extrinsics_with_id.quat_z =
+      std::stod(entries_in_file_line[list_idx++]);
+  camera_extrinsics_with_id.quat_w =
+      std::stod(entries_in_file_line[list_idx++]);
 }
 
 void readCameraExtrinsicsWithIdsFromFile(
@@ -66,10 +72,8 @@ std::vector<std::string> convertCameraExtrinsicsWithIdToStringList(
 
 void writeCameraExtrinsicsWithIdsToFile(
     const std::string &file_name,
-    const std::vector<CameraExtrinsicsWithId>
-    &camera_extrinsics_with_ids) {
-  std::function<std::vector<std::string>(
-      const CameraExtrinsicsWithId &)>
+    const std::vector<CameraExtrinsicsWithId> &camera_extrinsics_with_ids) {
+  std::function<std::vector<std::string>(const CameraExtrinsicsWithId &)>
       object_to_str_list_converter = convertCameraExtrinsicsWithIdToStringList;
   file_io::writeObjectsToFile(file_name,
                               {"camera_id",

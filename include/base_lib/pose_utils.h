@@ -38,9 +38,9 @@ inline bool posesSame(const pose::Pose2d &p1, const pose::Pose2d &p2) {
 }
 
 inline bool posesAlmostSame(const pose::Pose2d &p1,
-                     const pose::Pose2d &p2,
-                     const double &transl_tol,
-                     const double &angle_tol) {
+                            const pose::Pose2d &p2,
+                            const double &transl_tol,
+                            const double &angle_tol) {
   pose::Pose2d rel_pose = pose::getPoseOfObj1RelToObj2(p1, p2);
 
   if (rel_pose.first.norm() > transl_tol) {
@@ -49,9 +49,10 @@ inline bool posesAlmostSame(const pose::Pose2d &p1,
   return abs(rel_pose.second) <= angle_tol;
 }
 
-inline pose::Pose2d interpolatePoses(const std::pair<Timestamp, pose::Pose2d> &pose_1,
-                              const std::pair<Timestamp, pose::Pose2d> &pose_2,
-                              const Timestamp &target_time) {
+inline pose::Pose2d interpolatePoses(
+    const std::pair<Timestamp, pose::Pose2d> &pose_1,
+    const std::pair<Timestamp, pose::Pose2d> &pose_2,
+    const Timestamp &target_time) {
   pose::Pose2d rel_pose =
       pose::getPoseOfObj1RelToObj2(pose_2.second, pose_1.second);
 

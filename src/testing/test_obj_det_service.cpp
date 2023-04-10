@@ -11,6 +11,7 @@
 #include <rosbag/view.h>
 #include <sensor_msgs/CompressedImage.h>
 #include <sensor_msgs/Image.h>
+
 #include <opencv2/highgui.hpp>
 
 DEFINE_string(rosbag_file,
@@ -76,8 +77,8 @@ int main(int argc, char **argv) {
       ros::Time image_stamp;
 
       try {
-        cv_ptr = cv_bridge::toCvCopy(curr_img,
-                                     sensor_msgs::image_encodings::BGR8);
+        cv_ptr =
+            cv_bridge::toCvCopy(curr_img, sensor_msgs::image_encodings::BGR8);
         cv_ptr->header.frame_id = "img";
         image_stamp = ros::Time::now();
         cv_ptr->header.stamp = image_stamp;
@@ -89,12 +90,11 @@ int main(int argc, char **argv) {
       for (size_t bb_idx = 0;
            bb_idx < obj_det_srv_call.response.bounding_boxes.bboxes.size();
            bb_idx++) {
-        amrl_msgs::BBox2DMsg bb = obj_det_srv_call.response.bounding_boxes.bboxes[bb_idx];
+        amrl_msgs::BBox2DMsg bb =
+            obj_det_srv_call.response.bounding_boxes.bboxes[bb_idx];
         cv::rectangle(cv_ptr->image,
-                      cv::Point(bb.xyxy[0],
-                                bb.xyxy[1]),
-                      cv::Point(bb.xyxy[2],
-                                bb.xyxy[3]),
+                      cv::Point(bb.xyxy[0], bb.xyxy[1]),
+                      cv::Point(bb.xyxy[2], bb.xyxy[3]),
                       color,
                       3);
       }

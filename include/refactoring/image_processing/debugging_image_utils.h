@@ -6,9 +6,9 @@
 #define UT_VSLAM_DEBUGGING_IMAGE_UTILS_H
 
 #include <cv_bridge/cv_bridge.h>
+#include <refactoring/types/vslam_obj_opt_types_refactor.h>
 #include <std_msgs/ColorRGBA.h>
 #include <util/random.h>
-#include <refactoring/types/vslam_obj_opt_types_refactor.h>
 
 #include <opencv2/highgui.hpp>
 #include <string>

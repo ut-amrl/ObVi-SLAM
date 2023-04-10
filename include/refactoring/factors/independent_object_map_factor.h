@@ -47,7 +47,6 @@ class IndependentObjectMapFactor {
   }
 
  private:
-
   RawEllipsoid<double> ellipsoid_mean_;
 
   Eigen::Matrix<double,

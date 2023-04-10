@@ -31,8 +31,8 @@ void readTimestampLine(const std::vector<std::string> &entries_in_file_line,
   timestamp = std::make_pair(seconds, nano_seconds);
 }
 
-void readTimestampsFromFile(
-    const std::string &file_name, std::vector<pose::Timestamp> &timestamps) {
+void readTimestampsFromFile(const std::string &file_name,
+                            std::vector<pose::Timestamp> &timestamps) {
   std::function<void(const std::vector<std::string> &, pose::Timestamp &)>
       object_from_line_reader = readTimestampLine;
   file_io::readObjectListFromFileWithHeader(

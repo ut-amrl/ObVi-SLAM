@@ -91,7 +91,8 @@ void readBoundingBoxWithNodeIdLine(
   cam_id_stream >> bounding_box.camera_id;
 
   if (entries_in_file_line.size() > list_idx) {
-    bounding_box.detection_confidence = std::stod(entries_in_file_line[list_idx++]);
+    bounding_box.detection_confidence =
+        std::stod(entries_in_file_line[list_idx++]);
   } else {
     bounding_box.detection_confidence = kDefaultBbWithNodeIdConfidence;
   }
@@ -188,7 +189,8 @@ void readBoundingBoxWithNodeIdAndIdLine(
   cam_id_stream >> bounding_box.camera_id;
 
   if (entries_in_file_line.size() > list_idx) {
-    bounding_box.detection_confidence = std::stod(entries_in_file_line[list_idx++]);
+    bounding_box.detection_confidence =
+        std::stod(entries_in_file_line[list_idx++]);
   } else {
     bounding_box.detection_confidence = kDefaultBbWithNodeIdConfidence;
   }
