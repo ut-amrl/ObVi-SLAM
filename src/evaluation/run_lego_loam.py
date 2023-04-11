@@ -42,6 +42,7 @@ class CodaOusterParserScriptConstants:
     codaConfigArgName = "--config "
     codaBagNameArgName = "--bag_name "
     codaBagDirArgName = "--bag_dir "
+    codaOutDirArgName = "--out_dir "
 
     @staticmethod
     def generateLegoLoamPosesFile(lego_loam_out_root_dir, rosbag_base_name):
@@ -50,7 +51,6 @@ class CodaOusterParserScriptConstants:
         outputFileForPoses = outputDirForBag + LegoLoamRelatedConstants.legoLoamPosesDirName + \
                              LegoLoamRelatedConstants.legoLoamPosesFileName
         return outputFileForPoses
-
 
 def runLegoLoamSingleTrajectory(legoLoamExecutionInfo):
     outputDirForBag = FileStructureUtils.ensureDirectoryEndsWithSlash(
@@ -88,9 +88,29 @@ def runLegoLoamSingleTrajectory(legoLoamExecutionInfo):
 
         codaCmd = "python3 " + codaScriptLocation + CodaOusterParserScriptConstants.codaConfigArgName + \
                   codaConfigLocation + CodaOusterParserScriptConstants.codaBagNameArgName + bagNameWithExt + " " + \
-                  CodaOusterParserScriptConstants.codaBagDirArgName + legoLoamExecutionInfo.rosbag_file_directory
+                  CodaOusterParserScriptConstants.codaBagDirArgName + legoLoamExecutionInfo.rosbag_file_directory + " " + \
+                  CodaOusterParserScriptConstants.codaOutDirArgName + legoLoamExecutionInfo.lego_loam_out_root_dir
         print("Running command to parse ouster packets")
         print(codaCmd)
+
+        # codaCmdArgs = []
+        # codaCmdArgs.append("python3")
+        # codaCmdArgs.append(codaScriptLocation.strip())
+        # codaCmdArgs.append(CodaOusterParserScriptConstants.codaConfigArgName.strip())
+        # codaCmdArgs.append(codaConfigLocation.strip())
+        # codaCmdArgs.append(CodaOusterParserScriptConstants.codaBagNameArgName.strip())
+        # codaCmdArgs.append(bagNameWithExt.strip())
+        # codaCmdArgs.append(CodaOusterParserScriptConstants.codaBagDirArgName.strip())
+        # codaCmdArgs.append(legoLoamExecutionInfo.rosbag_file_directory.strip())
+        # codaCmdArgs.append(CodaOusterParserScriptConstants.codaOutDirArgName.strip())
+        # codaCmdArgs.append(legoLoamExecutionInfo.lego_loam_out_root_dir.strip())
+        # def launchNewSessionAndChangeDir(work_dir):
+        #     os.setsid()
+        #     os.chdir(work_dir)
+        # codaProcessReturn = subprocess.Popen(codaCmdArgs, preexec_fn=launchNewSessionAndChangeDir(codaRepoDir))
+        # print("codaCmdArgs: \n", codaCmdArgs)
+        # print("codaCmd: \n", codaCmd)
+
         os.system(codaCmd)
         time.sleep(3)
 
