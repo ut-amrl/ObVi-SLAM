@@ -74,7 +74,10 @@ refineInitialEstimateForPendingObjects(
               obs.bounding_box_corners_,
               intrinsics,
               extrinsics,
-              obs.bounding_box_corners_covariance_),
+              obs.bounding_box_corners_covariance_,
+              std::nullopt,
+              std::nullopt,
+              std::nullopt),
           new ceres::HuberLoss(estimator_params.object_residual_params_
                                    .object_observation_huber_loss_param_),
           ellipsoid_ptr,

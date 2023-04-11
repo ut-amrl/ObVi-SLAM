@@ -60,6 +60,10 @@ struct Pose3D {
   Pose3D(const Position3d<NumType> &transl,
          const Orientation3D<NumType> &orientation)
       : transl_(transl), orientation_(orientation) {}
+
+  bool operator==(const Pose3D<NumType> &rhs) const {
+    return (transl_ == rhs.transl_) && (orientation_ == rhs.orientation_);
+  }
 };
 
 template <typename NumType>
@@ -85,6 +89,10 @@ template <typename NumType>
 std::size_t hash_value(const PixelCoord<NumType> &px) {
   boost::hash<std::pair<NumType, NumType>> hasher;
   return hasher(std::make_pair(px(0), px(1)));
+}
+
+inline bool operator==(Orientation3D<double> a, Orientation3D<double> b) {
+  return (a.angle() == b.angle()) && (a.axis() == b.axis());
 }
 
 }  // namespace vslam_types_refactor

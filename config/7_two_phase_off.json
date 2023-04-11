@@ -1,6 +1,6 @@
 {
     "config": {
-        "config_schema_version": 5,
+        "config_schema_version": 6,
         "config_version_id": "7_two_phase_off",
         "visual_feature_params": {
             "reprojection_error_std_dev": 2.0,
@@ -76,13 +76,20 @@
             "object_residual_params": {
                 "object_observation_huber_loss_param": 1.0,
                 "shape_dim_prior_factor_huber_loss_param": 1.0,
-                "invalid_ellipsoid_error_val": 1000.0
+                "invalid_ellipsoid_error_val": 1000000.0
             },
             "visual_residual_params": {
                 "reprojection_error_huber_loss_param": 1.0
             },
             "long_term_map_params": {
                 "pair_huber_loss_param": 1.0
+            },
+            "relative_pose_factor_huber_loss": 1.0,
+            "relative_pose_cov_params": {
+                "transl_error_mult_for_transl_error": 1.2648080533535912e-321,
+                "transl_error_mult_for_rot_error": 8.3991159793011913e-323,
+                "rot_error_mult_for_transl_error": 0.0,
+                "rot_error_mult_for_rot_error": 0.0
             }
         },
         "ltm_solver_params": {
@@ -297,7 +304,7 @@
                     "object_residual_params": {
                         "object_observation_huber_loss_param": 1.0,
                         "shape_dim_prior_factor_huber_loss_param": 1.0,
-                        "invalid_ellipsoid_error_val": 1000.0
+                        "invalid_ellipsoid_error_val": 1000000.0
                     },
                     "solver_params": {
                         "max_num_iterations": 500,
@@ -345,6 +352,7 @@
         },
         "optimization_factors_enabled_params": {
             "allow_reversion_after_dectecting_jumps": 1,
+            "min_low_level_feature_observations_per_frame": 50,
             "consecutive_pose_transl_tol": 1.0,
             "consecutive_pose_orient_tol": 3.1415926535897931e+00,
             "include_object_factors": 1,
@@ -356,7 +364,7 @@
             "use_pom": 0,
             "poses_prior_to_window_to_keep_constant": 5,
             "min_object_observations": 10,
-            "min_low_level_feature_observations": 7,
+            "min_low_level_feature_observations": 5,
             "use_pose_graph_on_global_ba": 1,
             "use_visual_features_on_global_ba": 0,
             "use_pose_graph_on_final_global_ba": 1,
@@ -366,13 +374,20 @@
             "object_residual_params": {
                 "object_observation_huber_loss_param": 1.0,
                 "shape_dim_prior_factor_huber_loss_param": 1.0,
-                "invalid_ellipsoid_error_val": 1000.0
+                "invalid_ellipsoid_error_val": 1000000.0
             },
             "visual_residual_params": {
                 "reprojection_error_huber_loss_param": 1.0
             },
             "long_term_map_params": {
                 "pair_huber_loss_param": 1.0
+            },
+            "relative_pose_factor_huber_loss": 1.0,
+            "relative_pose_cov_params": {
+                "transl_error_mult_for_transl_error": 2.5000000000000001e-02,
+                "transl_error_mult_for_rot_error": 2.5000000000000001e-02,
+                "rot_error_mult_for_transl_error": 2.5000000000000001e-02,
+                "rot_error_mult_for_rot_error": 2.5000000000000001e-02
             }
         },
         "limit_traj_eval_params": {

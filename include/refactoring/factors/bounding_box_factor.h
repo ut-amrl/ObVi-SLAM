@@ -36,7 +36,11 @@ class BoundingBoxFactor {
       const vslam_types_refactor::CameraExtrinsics<double> &extrinsics,
       const vslam_types_refactor::BbCorners<double> &corner_pixel_locations,
       const vslam_types_refactor::Covariance<double, 4>
-          &corner_detections_covariance);
+          &corner_detections_covariance,
+      const std::optional<ObjectId> &obj_id,
+      const std::optional<FrameId> &frame_id,
+      const std::optional<CameraId> &camera_id,
+      const bool &debug = false);
 
   /**
    * Compute the residual for the bounding box observation.
@@ -84,6 +88,14 @@ class BoundingBoxFactor {
       residuals_ptr[3] = T(invalid_ellipse_error_);
       return true;
     }
+    if (debug_) {
+      if (obj_id_.has_value() && frame_id_.has_value() &&
+          camera_id_.has_value()) {
+        LOG(INFO) << "Corners for obj id " << obj_id_.value()
+                  << " at frame/cam " << frame_id_.value() << "/"
+                  << camera_id_.value() << ": " << corner_results;
+      }
+    }
 
     Eigen::Matrix<T, 4, 1> deviation =
         corner_results - corner_detections_.template cast<T>();
@@ -92,10 +104,26 @@ class BoundingBoxFactor {
     //        LOG(INFO) << "Sqrt inf mat bounding box "
     //                  << sqrt_inf_mat_bounding_box_corners_;
 
+    if (debug_) {
+      if (obj_id_.has_value() && frame_id_.has_value() &&
+          camera_id_.has_value()) {
+        LOG(INFO) << "Deviation for obj id " << obj_id_.value()
+                  << " at frame/cam " << frame_id_.value() << "/"
+                  << camera_id_.value() << ": " << deviation;
+      }
+    }
     Eigen::Map<Eigen::Matrix<T, 4, 1>> residuals(residuals_ptr);
     residuals =
         sqrt_inf_mat_bounding_box_corners_.template cast<T>() * deviation;
     CHECK_GT(sqrt_inf_mat_bounding_box_corners_.determinant(), 1e-10);
+//    if (debug_) {
+      if (obj_id_.has_value() && frame_id_.has_value() &&
+          camera_id_.has_value()) {
+        LOG(INFO) << "Residuals for obj id " << obj_id_.value()
+                  << " at frame/cam " << frame_id_.value() << "/"
+                  << camera_id_.value() << ": " << residuals;
+      }
+//    }
 
     //    LOG(INFO) << "Residuals " << residuals;
     return true;
@@ -123,12 +151,20 @@ class BoundingBoxFactor {
           &camera_intrinsics,
       const vslam_types_refactor::CameraExtrinsics<double> &camera_extrinsics,
       const vslam_types_refactor::Covariance<double, 4>
-          &bounding_box_covariance) {
+          &bounding_box_covariance,
+      const std::optional<ObjectId> &obj_id,
+      const std::optional<FrameId> &frame_id,
+      const std::optional<CameraId> &cam_id,
+      const bool &debug = false) {
     BoundingBoxFactor *factor = new BoundingBoxFactor(invalid_ellipse_error,
                                                       camera_intrinsics,
                                                       camera_extrinsics,
                                                       object_detection,
-                                                      bounding_box_covariance);
+                                                      bounding_box_covariance,
+                                                      obj_id,
+                                                      frame_id,
+                                                      cam_id,
+                                                      debug);
     return new ceres::AutoDiffCostFunction<BoundingBoxFactor,
                                            4,
                                            kEllipsoidParamterizationSize,
@@ -162,6 +198,14 @@ class BoundingBoxFactor {
    * of extrinsics, which provide the camera's pose in the robot frame).
    */
   Eigen::Affine3d robot_to_cam_tf_;
+
+  std::optional<ObjectId> obj_id_;
+
+  std::optional<FrameId> frame_id_;
+
+  std::optional<CameraId> camera_id_;
+
+  bool debug_;
 };
 }  // namespace vslam_types_refactor
 

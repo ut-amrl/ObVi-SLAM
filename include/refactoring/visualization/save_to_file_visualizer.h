@@ -8,6 +8,7 @@
 #include <base_lib/basic_utils.h>
 #include <file_io/file_access_utils.h>
 #include <refactoring/types/vslam_obj_opt_types_refactor.h>
+#include <util/random.h>
 
 namespace vslam_types_refactor {
 

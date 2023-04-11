@@ -1,5 +1,6 @@
 import os
 
+
 class FileStructureConstants:
     intrinsicsBaseName = "camera_matrix.txt"
     extrinsicsBaseName = "extrinsics.txt"
@@ -17,6 +18,7 @@ class FileStructureConstants:
     visualizationRosbagRootDirBaseName = "visualization_rosbags"
     logsRootDirBaseName = "logs"
     postprocessingDirBaseName = "postprocessing"
+    checkpointsDirBaseName = "checkpoints"
 
     longTermMapFileBaseName = "long_term_map.json"
     visualFeatureResultsFileBaseName = "visual_feature_results.json"
@@ -82,6 +84,13 @@ class FileStructureUtils:
                                                           dirForBagResults, create=True):
         return FileStructureUtils.getAndOptionallyCreateConfigSpecificResultsDirectory(
             resultsBaseDir, FileStructureConstants.ellipsoidDebuggingRootDirBaseName, sequenceBaseName, configBaseName,
+            dirForBagResults, create)
+
+    @staticmethod
+    def getAndOptionallyCreateCheckpointsDirectory(resultsBaseDir, sequenceBaseName, configBaseName,
+                                                   dirForBagResults, create=True):
+        return FileStructureUtils.getAndOptionallyCreateConfigSpecificResultsDirectory(
+            resultsBaseDir, FileStructureConstants.checkpointsDirBaseName, sequenceBaseName, configBaseName,
             dirForBagResults, create)
 
     @staticmethod

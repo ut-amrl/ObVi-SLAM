@@ -81,6 +81,15 @@ static void read(const cv::FileNode &node,
   }
 }
 
+template<typename NumType>
+using SerializableObjectDim = SerializableEigenMat<NumType, 3, 1>;
+
+template<typename NumType>
+using SerializableBbCorners = SerializableEigenMat<NumType, 4, 1>;
+
+template<typename NumType>
+using SerializableRawEllipsoid = SerializableEigenMat<NumType, kEllipsoidParamterizationSize, 1>;
+
 }  // namespace vslam_types_refactor
 
 #endif  // UT_VSLAM_VSLAM_OBJ_TYPES_FILE_STORAGE_IO_H

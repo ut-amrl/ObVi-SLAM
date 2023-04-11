@@ -1,7 +1,7 @@
 {
     "config": {
         "config_schema_version": 6,
-        "config_version_id": "7_two_phase_off_first_25",
+        "config_version_id": "8_two_phase_off_first_25",
         "visual_feature_params": {
             "reprojection_error_std_dev": 2.0,
             "min_visual_feature_parallax_pixel_requirement": 5.0,
@@ -76,7 +76,7 @@
             "object_residual_params": {
                 "object_observation_huber_loss_param": 1.0,
                 "shape_dim_prior_factor_huber_loss_param": 1.0,
-                "invalid_ellipsoid_error_val": 1000000.0
+                "invalid_ellipsoid_error_val": 1000.0
             },
             "visual_residual_params": {
                 "reprojection_error_huber_loss_param": 1.0
@@ -86,10 +86,10 @@
             },
             "relative_pose_factor_huber_loss": 1.0,
             "relative_pose_cov_params": {
-                "transl_error_mult_for_transl_error": 1.2648080533535912e-321,
-                "transl_error_mult_for_rot_error": 8.3991159793011913e-323,
-                "rot_error_mult_for_transl_error": 0.0,
-                "rot_error_mult_for_rot_error": 0.0
+                "transl_error_mult_for_transl_error": 6.9527439742482904e-310,
+                "transl_error_mult_for_rot_error": 6.9387275916363210e-310,
+                "rot_error_mult_for_transl_error": 6.9387277272197918e-310,
+                "rot_error_mult_for_rot_error": 6.9387280496419928e-310
             }
         },
         "ltm_solver_params": {
@@ -304,7 +304,7 @@
                     "object_residual_params": {
                         "object_observation_huber_loss_param": 1.0,
                         "shape_dim_prior_factor_huber_loss_param": 1.0,
-                        "invalid_ellipsoid_error_val": 1000000.0
+                        "invalid_ellipsoid_error_val": 1000.0
                     },
                     "solver_params": {
                         "max_num_iterations": 500,
@@ -374,7 +374,7 @@
             "object_residual_params": {
                 "object_observation_huber_loss_param": 1.0,
                 "shape_dim_prior_factor_huber_loss_param": 1.0,
-                "invalid_ellipsoid_error_val": 1000000.0
+                "invalid_ellipsoid_error_val": 1000.0
             },
             "visual_residual_params": {
                 "reprojection_error_huber_loss_param": 1.0

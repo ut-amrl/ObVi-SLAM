@@ -23,6 +23,7 @@ bool runOptimizationForLtmExtraction(
                         vslam_types_refactor::FeatureFactorId> &,
         const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
         const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &,
+        const bool &,
         ceres::Problem *,
         ceres::ResidualBlockId &,
         util::EmptyStruct &)> &residual_creator,
@@ -74,107 +75,135 @@ bool runOptimizationForLtmExtraction(
   ltm_optimization_scope_params.max_frame_id_ = min_and_max_frame_id.second;
   ltm_optimization_scope_params.force_include_ltm_objs_ = true;
 
+  std::function<bool(
+      const std::pair<vslam_types_refactor::FactorType,
+                      vslam_types_refactor::FeatureFactorId> &,
+      const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
+      const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &,
+      ceres::Problem *,
+      ceres::ResidualBlockId &,
+      util::EmptyStruct &)>
+      debug_residual_creator =
+          [&](const std::pair<vslam_types_refactor::FactorType,
+                              vslam_types_refactor::FeatureFactorId> &factor_id,
+              const pose_graph_optimization::ObjectVisualPoseGraphResidualParams
+                  &solver_residual_params,
+              const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph>
+                  &pose_graph,
+              ceres::Problem *problem,
+              ceres::ResidualBlockId &residual_id,
+              util::EmptyStruct &cached_info) {
+            return residual_creator(factor_id,
+                                    solver_residual_params,
+                                    pose_graph,
+                                    true,
+                                    problem,
+                                    residual_id,
+                                    cached_info);
+          };
+
   pose_graph_optimizer::ObjectPoseGraphOptimizer<
       ReprojectionErrorFactor,
       util::EmptyStruct,
       ObjectAndReprojectionFeaturePoseGraph>
-      optimizer(refresh_residual_checker, residual_creator);
+      optimizer(refresh_residual_checker, debug_residual_creator);
 
   std::optional<OptimizationLogger> opt_log;
-  optimizer.buildPoseGraphOptimization(ltm_optimization_scope_params,
+  residual_info = optimizer.buildPoseGraphOptimization(ltm_optimization_scope_params,
                                        residual_params,
                                        pose_graph,
                                        problem,
                                        opt_log);
 
+  std::shared_ptr<std::unordered_map<ceres::ResidualBlockId, double>>
+      block_ids_and_residuals_ptr = std::make_shared<
+      std::unordered_map<ceres::ResidualBlockId, double>>();
+
   bool opt_success =
-      optimizer.solveOptimization(problem, solver_params, {}, opt_log);
+      optimizer.solveOptimization(problem, solver_params, {}, opt_log, block_ids_and_residuals_ptr);
   if (!opt_success) {
     LOG(ERROR) << "Optimization failed during LTM extraction";
     return false;
   }
-
-  // Run the optimization again and effectively just remove the bad features
-  // TODO How does this affect covariance?
-  pose_graph_optimization::OptimizationSolverParams solver_params_copy =
-      solver_params;
-  solver_params_copy.max_num_iterations_ = 0;
-
-  util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
-      factors_for_bad_feats;
-  std::unordered_map<FeatureId, Position3d<double>> feature_estimates;
-  pose_graph->getVisualFeatureEstimates(feature_estimates);
-
-  std::unordered_map<FrameId, RawPose3d<double>> before_filter_estimates_raw;
-  pose_graph->getRobotPoseEstimates(before_filter_estimates_raw);
-  std::unordered_map<FrameId, Pose3D<double>> before_filter_estimates;
-  for (const auto &raw_est : before_filter_estimates_raw) {
-    before_filter_estimates[raw_est.first] = convertToPose3D(raw_est.second);
-  }
-
-  for (const auto &feat_est : feature_estimates) {
-    double min_dist_from_viewing_frame = std::numeric_limits<double>::max();
-
-    util::BoostHashSet<std::pair<FactorType, FeatureFactorId>> factors_for_feat;
-    pose_graph->getFactorsForFeature(feat_est.first, factors_for_feat);
-    for (const std::pair<FactorType, FeatureFactorId> &factor :
-         factors_for_feat) {
-      if (factor.first != kReprojectionErrorFactorTypeId) {
-        LOG(WARNING) << "Unexpected factor type for visual feature "
-                     << factor.first;
-        continue;
-      }
-      ReprojectionErrorFactor reprojection_factor;
-      if (!pose_graph->getVisualFactor(factor.second, reprojection_factor)) {
-        LOG(ERROR) << "Could not find visual factor with id " << factor.second;
-        continue;
-      }
-
-      if (before_filter_estimates.find(reprojection_factor.frame_id_) ==
-          before_filter_estimates.end()) {
-        LOG(ERROR) << "Could not find pose estimate for frame "
-                   << reprojection_factor.frame_id_;
-        continue;
-      }
-
-      Pose3D<double> relative_pose =
-          before_filter_estimates.at(reprojection_factor.frame_id_);
-      Pose3D<double> extrinsics;
-      if (!pose_graph->getExtrinsicsForCamera(reprojection_factor.camera_id_,
-                                              extrinsics)) {
-        LOG(WARNING) << "Could not find extrinsics for camera "
-                     << reprojection_factor.camera_id_
-                     << "; falling back to robot pose";
-      } else {
-        relative_pose = combinePoses(relative_pose, extrinsics);
-      }
-
-      min_dist_from_viewing_frame =
-          std::min((relative_pose.transl_ - feat_est.second).norm(),
-                   min_dist_from_viewing_frame);
-    }
-    if (min_dist_from_viewing_frame > far_feature_threshold) {
-      LOG(INFO) << "Minimum distance from viewing frame for feature "
-                << feat_est.first << " was " << min_dist_from_viewing_frame
-                << " (  more than threshold " << far_feature_threshold
-                << "). Excluding";
-      factors_for_bad_feats.insert(factors_for_feat.begin(),
-                                   factors_for_feat.end());
-    }
-  }
-
-  residual_info =
-      optimizer.buildPoseGraphOptimization(ltm_optimization_scope_params,
-                                           residual_params,
-                                           pose_graph,
-                                           problem,
-                                           opt_log,
-                                           factors_for_bad_feats);
-  std::shared_ptr<std::unordered_map<ceres::ResidualBlockId, double>>
-      block_ids_and_residuals_ptr = std::make_shared<
-          std::unordered_map<ceres::ResidualBlockId, double>>();
-  opt_success = optimizer.solveOptimization(
-      problem, solver_params_copy, {}, opt_log, block_ids_and_residuals_ptr);
+//
+//  // Run the optimization again and effectively just remove the bad features
+//  // TODO How does this affect covariance?
+//  pose_graph_optimization::OptimizationSolverParams solver_params_copy =
+//      solver_params;
+//  solver_params_copy.max_num_iterations_ = 0;
+//
+//  util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
+//      factors_for_bad_feats;
+//  std::unordered_map<FeatureId, Position3d<double>> feature_estimates;
+//  pose_graph->getVisualFeatureEstimates(feature_estimates);
+//
+//  std::unordered_map<FrameId, RawPose3d<double>> before_filter_estimates_raw;
+//  pose_graph->getRobotPoseEstimates(before_filter_estimates_raw);
+//  std::unordered_map<FrameId, Pose3D<double>> before_filter_estimates;
+//  for (const auto &raw_est : before_filter_estimates_raw) {
+//    before_filter_estimates[raw_est.first] = convertToPose3D(raw_est.second);
+//  }
+//
+//  for (const auto &feat_est : feature_estimates) {
+//    double min_dist_from_viewing_frame = std::numeric_limits<double>::max();
+//
+//    util::BoostHashSet<std::pair<FactorType, FeatureFactorId>> factors_for_feat;
+//    pose_graph->getFactorsForFeature(feat_est.first, factors_for_feat);
+//    for (const std::pair<FactorType, FeatureFactorId> &factor :
+//         factors_for_feat) {
+//      if (factor.first != kReprojectionErrorFactorTypeId) {
+//        LOG(WARNING) << "Unexpected factor type for visual feature "
+//                     << factor.first;
+//        continue;
+//      }
+//      ReprojectionErrorFactor reprojection_factor;
+//      if (!pose_graph->getVisualFactor(factor.second, reprojection_factor)) {
+//        LOG(ERROR) << "Could not find visual factor with id " << factor.second;
+//        continue;
+//      }
+//
+//      if (before_filter_estimates.find(reprojection_factor.frame_id_) ==
+//          before_filter_estimates.end()) {
+//        LOG(ERROR) << "Could not find pose estimate for frame "
+//                   << reprojection_factor.frame_id_;
+//        continue;
+//      }
+//
+//      Pose3D<double> relative_pose =
+//          before_filter_estimates.at(reprojection_factor.frame_id_);
+//      Pose3D<double> extrinsics;
+//      if (!pose_graph->getExtrinsicsForCamera(reprojection_factor.camera_id_,
+//                                              extrinsics)) {
+//        LOG(WARNING) << "Could not find extrinsics for camera "
+//                     << reprojection_factor.camera_id_
+//                     << "; falling back to robot pose";
+//      } else {
+//        relative_pose = combinePoses(relative_pose, extrinsics);
+//      }
+//
+//      min_dist_from_viewing_frame =
+//          std::min((relative_pose.transl_ - feat_est.second).norm(),
+//                   min_dist_from_viewing_frame);
+//    }
+//    if (min_dist_from_viewing_frame > far_feature_threshold) {
+//      LOG(INFO) << "Minimum distance from viewing frame for feature "
+//                << feat_est.first << " was " << min_dist_from_viewing_frame
+//                << " (  more than threshold " << far_feature_threshold
+//                << "). Excluding";
+//      factors_for_bad_feats.insert(factors_for_feat.begin(),
+//                                   factors_for_feat.end());
+//    }
+//  }
+//
+//  residual_info =
+//      optimizer.buildPoseGraphOptimization(ltm_optimization_scope_params,
+//                                           residual_params,
+//                                           pose_graph,
+//                                           problem,
+//                                           opt_log,
+//                                           factors_for_bad_feats);
+//  opt_success = optimizer.solveOptimization(
+//      problem, solver_params_copy, {}, opt_log, block_ids_and_residuals_ptr);
 
   block_ids_and_residuals = *block_ids_and_residuals_ptr;
 
@@ -223,6 +252,7 @@ class PairwiseCovarianceLongTermObjectMapExtractor {
                           vslam_types_refactor::FeatureFactorId> &,
           const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
           const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &,
+          const bool &,
           ceres::Problem *,
           ceres::ResidualBlockId &,
           util::EmptyStruct &)> &residual_creator,
@@ -395,6 +425,7 @@ class PairwiseCovarianceLongTermObjectMapExtractor {
                       vslam_types_refactor::FeatureFactorId> &,
       const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
       const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &,
+      const bool &,
       ceres::Problem *,
       ceres::ResidualBlockId &,
       util::EmptyStruct &)>
@@ -423,6 +454,7 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
                           vslam_types_refactor::FeatureFactorId> &,
           const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
           const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &,
+          const bool &,
           ceres::Problem *,
           ceres::ResidualBlockId &,
           util::EmptyStruct &)> &residual_creator,
@@ -577,6 +609,7 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
                       vslam_types_refactor::FeatureFactorId> &,
       const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
       const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &,
+      const bool &,
       ceres::Problem *,
       ceres::ResidualBlockId &,
       util::EmptyStruct &)>

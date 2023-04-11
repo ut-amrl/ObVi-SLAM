@@ -32,7 +32,8 @@ bool createObjectObservationResidual(
              CachedInfo &)> &cached_info_creator,
     ceres::Problem *problem,
     ceres::ResidualBlockId &residual_id,
-    CachedInfo &cached_info) {
+    CachedInfo &cached_info,
+    const bool &debug = false) {
   // Get the factor
   ObjectObservationFactor factor;
   if (!pose_graph->getObjectObservationFactor(factor_id, factor)) {
@@ -89,7 +90,11 @@ bool createObjectObservationResidual(
           factor.bounding_box_corners_,
           intrinsics,
           extrinsics,
-          factor.bounding_box_corners_covariance_),
+          factor.bounding_box_corners_covariance_,
+          factor.object_id_,
+          factor.frame_id_,
+          factor.camera_id_,
+          debug),
       new ceres::HuberLoss(residual_params.object_residual_params_
                                .object_observation_huber_loss_param_),
       ellipsoid_param_block,
@@ -320,7 +325,8 @@ bool createResidual(
         CachedInfo &)> &long_term_map_residual_creator,
     ceres::Problem *problem,
     ceres::ResidualBlockId &residual_id,
-    CachedInfo &cached_info) {
+    CachedInfo &cached_info,
+    const bool &debug = false) {
   if (factor_info.first == kPairwiseErrorFactorTypeId) {
     LOG(ERROR) << "Pairwise error observation type not supported with a "
                   "reprojection error factor graph";
@@ -332,7 +338,8 @@ bool createResidual(
                                            cached_info_creator,
                                            problem,
                                            residual_id,
-                                           cached_info);
+                                           cached_info,
+                                           debug);
 
   } else if (factor_info.first == kReprojectionErrorFactorTypeId) {
     return createReprojectionErrorResidual(factor_info.second,

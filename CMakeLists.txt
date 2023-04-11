@@ -123,6 +123,8 @@ target_link_libraries(utvslam_out_to_poses_by_timestamp ut_vslam ${LIBS})
 ROSBUILD_ADD_EXECUTABLE(debug_jacobian_hessian_diagonal src/debugging_utils/debug_jacobian_hessian_diagonal.cpp)
 target_link_libraries(debug_jacobian_hessian_diagonal ut_vslam ${LIBS})
 
+ROSBUILD_ADD_EXECUTABLE(ltm_extraction_only src/refactoring/ltm_extraction_only.cpp)
+target_link_libraries(ltm_extraction_only ut_vslam ${LIBS})
 
 IF (GENERATE_UNITTESTS)
     MESSAGE("Adding test executable")
@@ -130,7 +132,8 @@ IF (GENERATE_UNITTESTS)
             CACHE STRING "Name of compiled unit test executable")
     ADD_EXECUTABLE(${UT_VSLAM_UNITTEST_NAME}
             test/file_io/cv_file_storage/config_file_storage_io_tests.cc
-            test/file_io/cv_file_storage/sequence_file_storage_io_tests.cc)
+            test/file_io/cv_file_storage/sequence_file_storage_io_tests.cc
+            test/file_io/cv_file_storage/object_and_reprojection_feature_pose_graph_file_storage_io_tests.cc)
     TARGET_LINK_LIBRARIES(${UT_VSLAM_UNITTEST_NAME}
             gtest
             gtest_main

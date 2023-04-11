@@ -175,6 +175,9 @@ void generateGenericFactorInfoForFactor(
     generic_factor_info.frame_id_ = factor.frame_id_;
     generic_factor_info.camera_id_ = factor.camera_id_;
     generic_factor_info.obj_id_ = factor.object_id_;
+    if (factor.object_id_ == 45) {
+      LOG(INFO) << "Adding observation factor for object " << factor.object_id_;
+    }
 
     if (added_objects.find(factor.object_id_) == added_objects.end()) {
       ParameterBlockInfo param_block;
@@ -437,7 +440,43 @@ void validateZeroColumnEntries(
       problem_for_ltm.Evaluate(
           options, nullptr, nullptr, nullptr, &jacobian_for_obj_factor);
       displayInfoForSmallJacobian(jacobian_for_obj_factor);
+
+      options.apply_loss_function = false;
+      ceres::CRSMatrix jacobian_for_frame_factor_no_loss;
+      problem_for_ltm.Evaluate(
+          options, nullptr, nullptr, nullptr, &jacobian_for_frame_factor_no_loss);
+      displayInfoForSmallJacobian(jacobian_for_frame_factor_no_loss);
     }
+  }
+  ObjectId obj = 40;
+  std::unordered_set<size_t> factor_info_nums =
+      associated_factor_infos_for_obj[obj];
+  for (const size_t &factor_info_num : factor_info_nums) {
+    GenericFactorInfo factor = generic_factor_infos[factor_info_num];
+    if (factor.factor_type_ == kLongTermMapFactorTypeId) {
+      LOG(INFO) << "Long term map factor";
+    } else if (factor.factor_type_ == kShapeDimPriorFactorTypeId) {
+      LOG(INFO) << "Shape dim prior";
+    } else if (factor.factor_type_ == kObjectObservationFactorTypeId) {
+      LOG(INFO) << "Bounding box observation at " << factor.frame_id_.value()
+                << " with camera " << factor.camera_id_.value();
+    }
+    ceres::Problem::EvaluateOptions options;
+    options.apply_loss_function = true;
+    double *obj_ptr;
+    pose_graph->getObjectParamPointers(obj, &obj_ptr);
+    options.parameter_blocks = {obj_ptr};
+    options.residual_blocks = {residual_block_ids[factor_info_num]};
+    ceres::CRSMatrix jacobian_for_obj_factor;
+    problem_for_ltm.Evaluate(
+        options, nullptr, nullptr, nullptr, &jacobian_for_obj_factor);
+    displayInfoForSmallJacobian(jacobian_for_obj_factor);
+
+    options.apply_loss_function = false;
+    ceres::CRSMatrix jacobian_for_frame_factor_no_loss;
+    problem_for_ltm.Evaluate(
+        options, nullptr, nullptr, nullptr, &jacobian_for_frame_factor_no_loss);
+    displayInfoForSmallJacobian(jacobian_for_frame_factor_no_loss);
   }
 
   LOG(INFO) << "Getting jacobian info for problematic frames";
@@ -467,6 +506,12 @@ void validateZeroColumnEntries(
       problem_for_ltm.Evaluate(
           options, nullptr, nullptr, nullptr, &jacobian_for_frame_factor);
       displayInfoForSmallJacobian(jacobian_for_frame_factor);
+
+      options.apply_loss_function = false;
+      ceres::CRSMatrix jacobian_for_frame_factor_no_loss;
+      problem_for_ltm.Evaluate(
+          options, nullptr, nullptr, nullptr, &jacobian_for_frame_factor_no_loss);
+      displayInfoForSmallJacobian(jacobian_for_frame_factor_no_loss);
     }
   }
 
