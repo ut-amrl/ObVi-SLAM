@@ -116,14 +116,14 @@ class BoundingBoxFactor {
     residuals =
         sqrt_inf_mat_bounding_box_corners_.template cast<T>() * deviation;
     CHECK_GT(sqrt_inf_mat_bounding_box_corners_.determinant(), 1e-10);
-//    if (debug_) {
+    if (debug_) {
       if (obj_id_.has_value() && frame_id_.has_value() &&
           camera_id_.has_value()) {
         LOG(INFO) << "Residuals for obj id " << obj_id_.value()
                   << " at frame/cam " << frame_id_.value() << "/"
                   << camera_id_.value() << ": " << residuals;
       }
-//    }
+    }
 
     //    LOG(INFO) << "Residuals " << residuals;
     return true;

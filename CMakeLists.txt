@@ -126,6 +126,9 @@ target_link_libraries(debug_jacobian_hessian_diagonal ut_vslam ${LIBS})
 ROSBUILD_ADD_EXECUTABLE(ltm_extraction_only src/refactoring/ltm_extraction_only.cpp)
 target_link_libraries(ltm_extraction_only ut_vslam ${LIBS})
 
+ROSBUILD_ADD_EXECUTABLE(display_ltm src/refactoring/display_ltm.cpp)
+target_link_libraries(display_ltm ut_vslam ${LIBS})
+
 IF (GENERATE_UNITTESTS)
     MESSAGE("Adding test executable")
     SET(UT_VSLAM_UNITTEST_NAME "ut_vslam_tests"

@@ -459,18 +459,36 @@ void visualizationStub(
       optimized_ellipsoid_color.g = 1;
       vis_manager->visualizeEllipsoids(
           optimized_ellipsoid_estimates_with_classes, vtr::ESTIMATED);
-      std::unordered_map<vtr::ObjectId,
-                         std::pair<std::string, vtr::EllipsoidState<double>>>
+      std::unordered_map<
+          vtr::ObjectId,
+          std::pair<
+              std::string,
+              std::pair<
+                  vtr::EllipsoidState<double>,
+                  vtr::Covariance<double, vtr::kEllipsoidParamterizationSize>>>>
           ltm_ellipsoids;
       if (input_problem_data.getLongTermObjectMap() != nullptr) {
         vtr::EllipsoidResults ellipsoids_in_map;
         input_problem_data.getLongTermObjectMap()->getEllipsoidResults(
             ellipsoids_in_map);
+
+        // TODO do this outside of visualization loop
+        std::unordered_map<
+            vtr::ObjectId,
+            vtr::Covariance<double, vtr::kEllipsoidParamterizationSize>>
+            ellipsoid_covariances = input_problem_data.getLongTermObjectMap()
+                                        ->getEllipsoidCovariances();
         for (const auto &ltm_ellipsoid : ellipsoids_in_map.ellipsoids_) {
-          ltm_ellipsoids[ltm_ellipsoid.first] = ltm_ellipsoid.second;
+          ltm_ellipsoids[ltm_ellipsoid.first] = std::make_pair(
+              ltm_ellipsoid.second.first,
+              std::make_pair(ltm_ellipsoid.second.second,
+                             ellipsoid_covariances.at(ltm_ellipsoid.first)));
         }
       }
-      vis_manager->visualizeEllipsoids(ltm_ellipsoids, vtr::INITIAL, false);
+      //      vis_manager->visualizeEllipsoids(ltm_ellipsoids, vtr::INITIAL,
+      //      false);
+
+      vis_manager->publishLongTermMap(ltm_ellipsoids);
 
       std::vector<size_t> num_obs_per_pending_obj;
       for (const auto &pending_obj_obs : *bounding_boxes_for_pending_object) {
@@ -587,15 +605,16 @@ void visualizationStub(
       vis_manager->visualizeFeatureEstimates(curr_frame_initial_feature_ests,
                                              vtr::PlotType::INITIAL);
       std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>
-          curr_frame_est_feature_ests;
-      for (const auto &cam_and_feats : observed_feats_for_frame) {
-        for (const auto &feats_for_cam : cam_and_feats.second) {
-          if (feature_ests.find(feats_for_cam.first) != feature_ests.end()) {
-            curr_frame_est_feature_ests[feats_for_cam.first] =
-                feature_ests.at(feats_for_cam.first);
-          }
-        }
-      }
+          curr_frame_est_feature_ests = feature_ests;
+      //      for (const auto &cam_and_feats : observed_feats_for_frame) {
+      //        for (const auto &feats_for_cam : cam_and_feats.second) {
+      //          if (feature_ests.find(feats_for_cam.first) !=
+      //          feature_ests.end()) {
+      //            curr_frame_est_feature_ests[feats_for_cam.first] =
+      //                feature_ests.at(feats_for_cam.first);
+      //          }
+      //        }
+      //      }
       vis_manager->visualizeFeatureEstimates(curr_frame_est_feature_ests,
                                              vtr::PlotType::ESTIMATED);
       vis_manager->publishTfsForLatestPose(

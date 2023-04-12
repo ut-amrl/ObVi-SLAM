@@ -15,6 +15,7 @@
 #include <refactoring/optimization/residual_creator.h>
 #include <refactoring/output_problem_data.h>
 #include <refactoring/output_problem_data_extraction.h>
+#include <refactoring/visualization/ros_visualization.h>
 #include <ros/ros.h>
 #include <sensor_msgs/Image.h>
 
@@ -319,12 +320,40 @@ int main(int argc, char **argv) {
 
   cv::FileStorage ltm_out_fs(FLAGS_long_term_map_output,
                              cv::FileStorage::WRITE);
-  ltm_out_fs
-      << "long_term_map"
-      << vtr::SerializableIndependentEllipsoidsLongTermObjectMap<
-             util::EmptyStruct,
-             vtr::SerializableEmptyStruct>(output_results.long_term_map_);
+  ltm_out_fs << "long_term_map"
+             << vtr::SerializableIndependentEllipsoidsLongTermObjectMap<
+                    util::EmptyStruct,
+                    vtr::SerializableEmptyStruct>(
+                    output_results.long_term_map_);
   ltm_out_fs.release();
+
+  std::shared_ptr<vtr::RosVisualization> vis_manager =
+      std::make_shared<vtr::RosVisualization>(
+          node_handle, "", "");
+
+  std::unordered_map<
+      vtr::ObjectId,
+      std::pair<std::string,
+                std::pair<vtr::EllipsoidState<double>,
+                          vtr::Covariance<double,
+                                          vtr::kEllipsoidParamterizationSize>>>>
+      ltm_ellipsoids;
+  vtr::EllipsoidResults ellipsoids_in_map;
+  output_results.long_term_map_.getEllipsoidResults(ellipsoids_in_map);
+
+  std::unordered_map<
+      vtr::ObjectId,
+      vtr::Covariance<double, vtr::kEllipsoidParamterizationSize>>
+      ellipsoid_covariances =
+          output_results.long_term_map_.getEllipsoidCovariances();
+  for (const auto &ltm_ellipsoid : ellipsoids_in_map.ellipsoids_) {
+    ltm_ellipsoids[ltm_ellipsoid.first] = std::make_pair(
+        ltm_ellipsoid.second.first,
+        std::make_pair(ltm_ellipsoid.second.second,
+                       ellipsoid_covariances.at(ltm_ellipsoid.first)));
+  }
+
+  vis_manager->publishLongTermMap(ltm_ellipsoids);
 
   return 0;
 }
