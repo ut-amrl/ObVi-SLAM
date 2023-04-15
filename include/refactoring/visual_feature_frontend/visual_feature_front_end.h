@@ -334,8 +334,8 @@ class VisualFeatureFrontend {
   bool enforce_min_robot_pose_parallax_requirement_ = true;
 
   double inlier_epipolar_err_thresh_ = 8.0;
-  size_t check_pase_n_frames_for_epipolar_err = 5;
-  bool enforce_epipolar_error_requirement_ = true;
+  size_t check_pase_n_frames_for_epipolar_err_ = 5;
+  bool enforce_epipolar_error_requirement_ = false;
 
  private:
   bool isReprojectionErrorFacotrInlier_(

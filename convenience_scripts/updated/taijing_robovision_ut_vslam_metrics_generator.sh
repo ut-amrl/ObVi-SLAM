@@ -1,17 +1,18 @@
 #!/bin/bash
 
-root_data_dir=/home/amanda/rosbags/ellipsoid_slam/eer_higher_res/
-calibration_file_directory=/robodata/taijing/object-slam/calibration/husky_zed_resolution_1_scale_0_5/
+root_data_dir=/robodata/taijing/object-slam/oslam/
 config_file_directory=/home/tiejean/projects/ut_semantic_vslam/config/
-orb_slam_out_directory=${root_data_dir}orb_out/
-rosbag_file_directory=/robodata/taijing/object-slam/
-orb_post_process_base_directory=${root_data_dir}vslam_in_sparse/
-results_root_directory=${root_data_dir}vslam_out/
 trajectory_sequence_file_directory=/home/tiejean/projects/ut_semantic_vslam/sequences/
+
+calibration_file_directory=${root_data_dir}calibration/
+rosbag_file_directory=${root_data_dir}original_data/
+orb_slam_out_directory=${root_data_dir}orb_out/
+orb_post_process_base_directory=${root_data_dir}orb_post_process/
+results_root_directory=${root_data_dir}ut_vslam_results/
 lego_loam_out_root_dir=${root_data_dir}lego_loam_out/
 
 sequence_file_base_name="high_res_20230218_1a_7326"
-config_file_base_name="7"
+config_file_base_name="7_expt_object"
 
 python3 src/evaluation/compute_metrics_for_ut_vslam.py \
     --rosbag_file_directory=${rosbag_file_directory} \
