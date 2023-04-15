@@ -20,13 +20,14 @@ lego_loam_out_root_dir=${root_data_dir}lego_loam_out/
 sequence_file_base_name="taijing_20230218_1a"
 
 cd $YOLO_DIR
-(python3 detect_ros.py --weights $yolo_weight --img 960 --conf 0.01) &
+# (python3 detect_ros.py --weights $yolo_weight --img 960 --conf 0.01 --device 2) &
 yolo_pid=$!
 sleep 5
 
 cd $SLAM_DIR
 
-config_file_base_name="7"
+# config_file_base_name="7"
+config_file_base_name="7_epipolar"
 python3 src/evaluation/ltm_trajectory_sequence_executor.py \
     --config_file_directory ${config_file_directory} \
     --orb_slam_out_directory ${orb_slam_out_directory} \

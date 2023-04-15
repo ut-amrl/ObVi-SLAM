@@ -217,6 +217,15 @@ class VisualFeatureFrontend {
       if (added_feature_ids_.find(feature_id) != added_feature_ids_.end()) {
         is_feature_added_to_pose_graph = true;
       }
+      bool is_initialized_feature_in_pending_cache = false;
+      if (pending_feature_factors_for_initialized_features_.find(feature_id) !=
+          pending_feature_factors_for_initialized_features_.end()) {
+        is_initialized_feature_in_pending_cache = true;
+        CHECK(is_initialized_feature_in_pending_cache &&
+              is_feature_added_to_pose_graph)
+            << "Feature " << feature_id
+            << "should already be added to the pose graph!";
+      }
       std::vector<ReprojectionErrorFactor> reprojection_error_factors;
       for (const auto &obs_by_camera : feature.pixel_by_camera_id) {
         ReprojectionErrorFactor vis_factor;
@@ -232,31 +241,84 @@ class VisualFeatureFrontend {
                                          vis_factor.camera_id_);
         reprojection_error_factors.push_back(vis_factor);
       }
-      if (is_feature_added_to_pose_graph) {
+
+      std::optional<Pose3D<double>> init_robot_pose;
+      Pose3D<double> init_pose_est;
+      std::optional<RawPose3d<double>> curr_pose_est_raw =
+          pose_graph->getRobotPose(max_frame_id);
+      if (input_problem_data.getRobotPoseEstimateForFrame(max_frame_id,
+                                                          init_pose_est)) {
+        init_robot_pose = std::make_optional(init_pose_est);
+      }
+      if (is_initialized_feature_in_pending_cache) {
+        addFactorsAndRobotPoseToCache_(
+            input_problem_data,
+            pose_graph,
+            max_frame_id,
+            reprojection_error_factors,
+            init_robot_pose,
+            pending_feature_factors_for_initialized_features_[feature_id],
+            enforce_epipolar_error_requirement_);
+        // Don't need to check if feature_id is in
+        // pending_feature_factors_for_initialized_features_ as it's handled by
+        // the is_initialized_feature_in_pending_cache flag
+        const auto &visual_feature_cache =
+            pending_feature_factors_for_initialized_features_.at(feature_id);
+        if (visual_feature_cache.is_cache_cleaned_) {
+          for (const auto &frame_id_and_factors :
+               visual_feature_cache.frame_ids_and_reprojection_err_factors_) {
+            for (const auto &factor : frame_id_and_factors.second) {
+              pose_graph->addVisualFactor(factor);
+            }
+          }
+        }
+        // This should be safe as we're not iterating through
+        // pending_feature_factors_for_initialized_features_ in this loop
+        pending_feature_factors_for_initialized_features_.erase(feature_id);
+      } else if (is_feature_added_to_pose_graph) {
         for (const auto &vis_factor : reprojection_error_factors) {
-          pose_graph->addVisualFactor(vis_factor);
+          std::map<FrameId, std::vector<ReprojectionErrorFactor>>
+              frame_ids_and_factors;
+          if (isReporjectionErrorFactorInlierInPoseGraph_(
+                  input_problem_data,
+                  pose_graph,
+                  vis_factor,
+                  frame_ids_and_factors)) {
+            pose_graph->addVisualFactor(vis_factor);
+          } else if (frame_ids_and_factors.empty()) {
+            // If frame_ids_and_factors is empty, that means we cannot find this
+            // feature in the past check_pase_n_frames_for_epipolar_err_ frames
+            // in the pose graph. Thus, we add this feature to
+            // pending_feature_factors_for_initialized_features_
+            if (pending_feature_factors_for_initialized_features_.find(
+                    feature_id) ==
+                pending_feature_factors_for_initialized_features_.end()) {
+              pending_feature_factors_for_initialized_features_[feature_id] =
+                  VisualFeatureCachedInfo();
+            }
+            addFactorsAndRobotPoseToCache_(
+                input_problem_data,
+                pose_graph,
+                max_frame_id,
+                reprojection_error_factors,
+                init_robot_pose,
+                pending_feature_factors_for_initialized_features_[feature_id],
+                enforce_epipolar_error_requirement_);
+          }
         }
       } else {
         // add reprojection factors and initial poses to pendding list
-        std::optional<Pose3D<double>> init_robot_pose;
-        Pose3D<double> init_pose_est;
-        std::optional<RawPose3d<double>> curr_pose_est_raw =
-            pose_graph->getRobotPose(max_frame_id);
-        if (input_problem_data.getRobotPoseEstimateForFrame(max_frame_id,
-                                                            init_pose_est)) {
-          init_robot_pose = std::make_optional(init_pose_est);
-        }
         if (pending_feature_factors_.find(feature_id) ==
             pending_feature_factors_.end()) {
           pending_feature_factors_[feature_id] = VisualFeatureCachedInfo();
         }
-        addFactorsAndRobotPoseToCache(input_problem_data,
-                                      pose_graph,
-                                      max_frame_id,
-                                      reprojection_error_factors,
-                                      init_robot_pose,
-                                      pending_feature_factors_[feature_id],
-                                      enforce_epipolar_error_requirement_);
+        addFactorsAndRobotPoseToCache_(input_problem_data,
+                                       pose_graph,
+                                       max_frame_id,
+                                       reprojection_error_factors,
+                                       init_robot_pose,
+                                       pending_feature_factors_[feature_id],
+                                       enforce_epipolar_error_requirement_);
         // pending_feature_factors_[feature_id].addFactorsAndRobotPose(
         //     max_frame_id, reprojection_error_factors, init_robot_pose);
         // handling pending poses
@@ -326,6 +388,11 @@ class VisualFeatureFrontend {
   std::unordered_set<FeatureId> added_feature_ids_;
   std::unordered_map<FeatureId, VisualFeatureCachedInfo>
       pending_feature_factors_;
+  // store initialized features in another cache so that the related changes are
+  // isolate from feature initialization to reduce impacts of potential bugs, if
+  // any
+  std::unordered_map<FeatureId, VisualFeatureCachedInfo>
+      pending_feature_factors_for_initialized_features_;
 
   double min_visual_feature_parallax_pixel_requirement_ = 5;
   double min_visual_feature_parallax_robot_transl_requirement_ = 0.1;
@@ -335,15 +402,40 @@ class VisualFeatureFrontend {
 
   double inlier_epipolar_err_thresh_ = 8.0;
   size_t check_pase_n_frames_for_epipolar_err_ = 5;
-  bool enforce_epipolar_error_requirement_ = false;
+  bool enforce_epipolar_error_requirement_ = true;
 
  private:
+  void getFactorsByFeatureIdFromPoseGraph_(
+      const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
+      const FeatureId feature_id,
+      const FrameId candidate_frame_id,
+      std::map<FrameId, std::vector<ReprojectionErrorFactor>>
+          &frame_ids_and_factors) {
+    util::BoostHashSet<std::pair<FactorType, FeatureFactorId>> matching_factors;
+    pose_graph->getFactorsForFeature(feature_id, matching_factors);
+    std::vector<FeatureFactorId> matching_factor_ids;
+    for (const auto &matching_factor : matching_factors) {
+      if (matching_factor.first == kReprojectionErrorFactorTypeId) {
+        matching_factor_ids.push_back(matching_factor.second);
+      }
+    }
+    const FrameId min_frame_id =
+        candidate_frame_id - check_pase_n_frames_for_epipolar_err_;
+    for (const auto factor_id : matching_factor_ids) {
+      ReprojectionErrorFactor factor;
+      pose_graph->getVisualFactor(factor_id, factor);
+      if (factor.frame_id_ > min_frame_id) {
+        frame_ids_and_factors[factor.frame_id_].push_back(factor);
+      }
+    }
+  }
+
   bool isReprojectionErrorFacotrInlier_(
       const ProblemDataType &input_problem_data,
       const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
-      const FrameId &frame_id,
       const ReprojectionErrorFactor &candidate_factor,
-      const VisualFeatureCachedInfo &cache_info) {
+      const std::map<FrameId, std::vector<ReprojectionErrorFactor>>
+          &frame_ids_and_factors) {
     double votes = 0.0;
     double n_voters = 0.0;
 
@@ -372,8 +464,7 @@ class VisualFeatureFrontend {
     const PixelCoord<double> &candidate_pixel_obs =
         candidate_factor.feature_pos_;
 
-    for (const auto frame_id_and_factors :
-         cache_info.frame_ids_and_reprojection_err_factors_) {
+    for (const auto frame_id_and_factors : frame_ids_and_factors) {
       for (const auto &ref_factor : frame_id_and_factors.second) {
         if (ref_factor == candidate_factor) {
           continue;
@@ -421,7 +512,38 @@ class VisualFeatureFrontend {
     }
   }
 
-  void addFactorsAndRobotPoseToCache(
+  bool isReporjectionErrorFactorInlierInPoseGraph_(
+      const ProblemDataType &input_problem_data,
+      const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
+      const ReprojectionErrorFactor &candidate_factor,
+      std::map<FrameId, std::vector<ReprojectionErrorFactor>>
+          &frame_ids_and_factors) {
+    getFactorsByFeatureIdFromPoseGraph_(pose_graph,
+                                        candidate_factor.feature_id_,
+                                        candidate_factor.frame_id_,
+                                        frame_ids_and_factors);
+    if (!frame_ids_and_factors.empty()) {
+      return isReprojectionErrorFacotrInlier_(input_problem_data,
+                                              pose_graph,
+                                              candidate_factor,
+                                              frame_ids_and_factors);
+    }
+    return false;
+  }
+
+  bool isReprojectionErrorFacotrInlierInCache_(
+      const ProblemDataType &input_problem_data,
+      const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
+      const ReprojectionErrorFactor &candidate_factor,
+      const VisualFeatureCachedInfo &cache_info) {
+    return isReprojectionErrorFacotrInlier_(
+        input_problem_data,
+        pose_graph,
+        candidate_factor,
+        cache_info.frame_ids_and_reprojection_err_factors_);
+  }
+
+  void addFactorsAndRobotPoseToCache_(
       const ProblemDataType &input_problem_data,
       const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
       const FrameId &frame_id,
@@ -438,8 +560,8 @@ class VisualFeatureFrontend {
     if (cache_info.is_cache_cleaned_) {
       std::vector<ReprojectionErrorFactor> factors_to_add;
       for (const auto &factor : reprojection_err_factors) {
-        if (isReprojectionErrorFacotrInlier_(
-                input_problem_data, pose_graph, frame_id, factor, cache_info)) {
+        if (isReprojectionErrorFacotrInlierInCache_(
+                input_problem_data, pose_graph, factor, cache_info)) {
           factors_to_add.push_back(factor);
         }
       }
@@ -455,11 +577,8 @@ class VisualFeatureFrontend {
            cache_info.frame_ids_and_reprojection_err_factors_) {
         const FrameId frame_id = frame_id_and_factors.first;
         for (const auto &factor : frame_id_and_factors.second) {
-          if (isReprojectionErrorFacotrInlier_(input_problem_data,
-                                               pose_graph,
-                                               frame_id,
-                                               factor,
-                                               cache_info)) {
+          if (isReprojectionErrorFacotrInlierInCache_(
+                  input_problem_data, pose_graph, factor, cache_info)) {
             cleaned_frame_ids_and_factors[frame_id].push_back(factor);
           }
         }
