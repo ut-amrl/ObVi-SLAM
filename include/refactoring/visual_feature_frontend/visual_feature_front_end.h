@@ -104,15 +104,11 @@ Eigen::Vector2d getNormalizedEpipolarErrorVec(
 
 // TODO need to change ReprojectionErrorFactor to shared_ptrs to avoid redundant
 // data copies
-// TODO need to change it to a class so that variables like inlier_factors_ can
-// be hidden
 struct VisualFeatureCachedInfo {
   bool is_cache_cleaned_;
   std::map<FrameId, std::vector<ReprojectionErrorFactor>>
       frame_ids_and_reprojection_err_factors_;
   std::map<FrameId, std::optional<Pose3D<double>>> frame_ids_and_poses_;
-
-  // std::vector<ReprojectionErrorFactor> inlier_factors_;
 
   VisualFeatureCachedInfo() : is_cache_cleaned_(false) {}
 
@@ -257,6 +253,7 @@ class VisualFeatureFrontend {
         init_robot_pose = std::make_optional(init_pose_est);
       }
       if (is_initialized_feature_in_pending_cache) {
+        // LOG(INFO) << "Case 1";
         addFactorsAndRobotPoseToCache_(
             input_problem_data,
             pose_graph,
@@ -302,6 +299,7 @@ class VisualFeatureFrontend {
               pending_feature_factors_for_initialized_features_[feature_id] =
                   VisualFeatureCachedInfo();
             }
+            // LOG(INFO) << "Case 2";
             addFactorsAndRobotPoseToCache_(
                 input_problem_data,
                 pose_graph,
@@ -318,6 +316,7 @@ class VisualFeatureFrontend {
             pending_feature_factors_.end()) {
           pending_feature_factors_[feature_id] = VisualFeatureCachedInfo();
         }
+        // LOG(INFO) << "Case 3";
         addFactorsAndRobotPoseToCache_(input_problem_data,
                                        pose_graph,
                                        max_frame_id,
@@ -512,8 +511,12 @@ class VisualFeatureFrontend {
         }
         n_voters += 1.0;
       }
-      // TODO maybe add this to configuration as well
-      const double inlier_majority_percentage = 0.5;
+      // Having a value slightly lower than .5 to make sure we break tie
+      // correctly. For example, if we have factor F1, F2 and F3, and F2 is the
+      // outlier. When we're checking on F1, votes = 1 and n_voters = 2, and F1
+      // has score .5. The same holds for F3. We want to make sure F1 and F3 are
+      // included in this case.
+      const double inlier_majority_percentage = 0.49;
       return (votes / n_voters) > inlier_majority_percentage;
     }
   }
@@ -549,6 +552,9 @@ class VisualFeatureFrontend {
         cache_info.frame_ids_and_reprojection_err_factors_);
   }
 
+  // TODO Currently, when checking features residing in cache, we don't filter
+  // features using check_past_n_frames_for_epipolar_err_ to be more consertive
+  // on features we're rejecting. Need to fix this later.
   void addFactorsAndRobotPoseToCache_(
       const ProblemDataType &input_problem_data,
       const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
@@ -562,6 +568,46 @@ class VisualFeatureFrontend {
           frame_id, reprojection_err_factors, robot_pose);
       return;
     }
+
+    // if (cache_info.is_cache_cleaned_ &&
+    //     (cache_info.frame_ids_and_reprojection_err_factors_.empty() ||
+    //      cache_info.frame_ids_and_poses_.empty())) {
+    //   LOG(ERROR) << "Empty cache cannot set the is_cache_cleaned_ flag. "
+    //                 "Something went wrong...";
+    //   return;
+    // }
+    // const FrameId min_frame_id =
+    //     frame_id - check_past_n_frames_for_epipolar_err_;
+    // std::vector<FrameId> frame_ids_to_delete;
+    // for (const auto &frame_id_and_factors :
+    //      cache_info.frame_ids_and_reprojection_err_factors_) {
+    //   if (frame_id_and_factors.first < min_frame_id) {
+    //     frame_ids_to_delete.push_back(frame_id_and_factors.first);
+    //   } else {
+    //     break;
+    //   }
+    // }
+    // for (const FrameId frame_id : frame_ids_to_delete) {
+    //   cache_info.frame_ids_and_reprojection_err_factors_.erase(frame_id);
+    //   if (cache_info.frame_ids_and_poses_.find(frame_id) ==
+    //       cache_info.frame_ids_and_poses_.end()) {
+    //     LOG(ERROR) << "Found frame id " << frame_id
+    //                << " in the visual frontend cache but could not find the "
+    //                   "corresponding pose";
+    //     continue;
+    //   }
+    //   cache_info.frame_ids_and_poses_.erase(frame_id);
+    // }
+    // if (cache_info.frame_ids_and_reprojection_err_factors_.size() !=
+    //     cache_info.frame_ids_and_poses_.size()) {
+    //   LOG(ERROR) << "The size of observations and the one of poses need to be
+    //   "
+    //                 "the same!";
+    //   return;
+    // }
+    // if (cache_info.frame_ids_and_reprojection_err_factors_.empty()) {
+    //   cache_info.is_cache_cleaned_ = false;
+    // }
 
     if (cache_info.is_cache_cleaned_) {
       std::vector<ReprojectionErrorFactor> factors_to_add;

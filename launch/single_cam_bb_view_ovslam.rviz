@@ -9,13 +9,14 @@ Panels:
         - /TF1/Tree1
         - /EstFeats11
         - /EstBbs11
+        - /EstBbsImg11
         - /EstBbs21
         - /AllBbs21
         - /Marker1
         - /Marker2
         - /GtPose1
       Splitter Ratio: 0.5
-    Tree Height: 151
+    Tree Height: 814
   - Class: rviz/Selection
     Name: Selection
   - Class: rviz/Tool Properties
@@ -76,7 +77,7 @@ Visualization Manager:
       Update Interval: 0
       Value: false
     - Class: rviz/Camera
-      Enabled: true
+      Enabled: false
       Image Rendering: background and overlay
       Image Topic: /init_/latest/cam_1_feats/image_raw
       Name: InitFeats1
@@ -84,12 +85,13 @@ Visualization Manager:
       Queue Size: 2
       Transport Hint: raw
       Unreliable: false
-      Value: true
+      Value: false
       Visibility:
         AllBbs1: true
         AllBbs2: true
         EstBbs1: true
         EstBbs2: true
+        EstBbsImg1: true
         EstEllipsoids: true
         EstFeats1: true
         EstFeats2: true
@@ -105,7 +107,7 @@ Visualization Manager:
         Value: true
       Zoom Factor: 1
     - Class: rviz/Camera
-      Enabled: true
+      Enabled: false
       Image Rendering: background and overlay
       Image Topic: /init_/latest/cam_2_feats/image_raw
       Name: InitFeats2
@@ -113,12 +115,13 @@ Visualization Manager:
       Queue Size: 2
       Transport Hint: raw
       Unreliable: false
-      Value: true
+      Value: false
       Visibility:
         AllBbs1: true
         AllBbs2: true
         EstBbs1: true
         EstBbs2: true
+        EstBbsImg1: true
         EstEllipsoids: true
         EstFeats1: true
         EstFeats2: true
@@ -142,7 +145,7 @@ Visualization Manager:
       Queue Size: 100
       Value: true
     - Class: rviz/Camera
-      Enabled: true
+      Enabled: false
       Image Rendering: background and overlay
       Image Topic: /est_/latest/cam_1_feats/image_raw
       Name: EstFeats1
@@ -150,12 +153,13 @@ Visualization Manager:
       Queue Size: 2
       Transport Hint: raw
       Unreliable: false
-      Value: true
+      Value: false
       Visibility:
         AllBbs1: true
         AllBbs2: true
         EstBbs1: true
         EstBbs2: true
+        EstBbsImg1: true
         EstEllipsoids: true
         EstFeats2: true
         EstFeatureCloud: true
@@ -171,7 +175,7 @@ Visualization Manager:
         Value: true
       Zoom Factor: 1
     - Class: rviz/Camera
-      Enabled: true
+      Enabled: false
       Image Rendering: background and overlay
       Image Topic: /est_/latest/cam_2_feats/image_raw
       Name: EstFeats2
@@ -179,12 +183,13 @@ Visualization Manager:
       Queue Size: 2
       Transport Hint: raw
       Unreliable: false
-      Value: true
+      Value: false
       Visibility:
         AllBbs1: true
         AllBbs2: true
         EstBbs1: true
         EstBbs2: true
+        EstBbsImg1: true
         EstEllipsoids: true
         EstFeats1: true
         EstFeatureCloud: true
@@ -211,7 +216,7 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: RGB8
       Decay Time: 0
-      Enabled: true
+      Enabled: false
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Min Color: 0; 0; 0
@@ -226,7 +231,7 @@ Visualization Manager:
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: true
+      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -239,7 +244,7 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: RGB8
       Decay Time: 0
-      Enabled: true
+      Enabled: false
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Min Color: 0; 0; 0
@@ -254,7 +259,7 @@ Visualization Manager:
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: true
+      Value: false
     - Class: rviz/Marker
       Enabled: true
       Marker Topic: /est_pose
@@ -264,15 +269,15 @@ Visualization Manager:
       Queue Size: 1000
       Value: true
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /init_pose
       Name: InitPose
       Namespaces:
         {}
       Queue Size: 1000
-      Value: true
+      Value: false
     - Class: rviz/Camera
-      Enabled: true
+      Enabled: false
       Image Rendering: background and overlay
       Image Topic: /est_/latest/cam_1_bb/image_raw
       Name: EstBbs1
@@ -280,11 +285,12 @@ Visualization Manager:
       Queue Size: 2
       Transport Hint: raw
       Unreliable: false
-      Value: true
+      Value: false
       Visibility:
         AllBbs1: true
         AllBbs2: true
         EstBbs2: true
+        EstBbsImg1: true
         EstEllipsoids: true
         EstFeats1: true
         EstFeats2: true
@@ -300,8 +306,20 @@ Visualization Manager:
         TF: true
         Value: true
       Zoom Factor: 1
-    - Class: rviz/Camera
+    - Class: rviz/Image
       Enabled: true
+      Image Topic: /est_/latest/cam_1_bb/image_raw
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: EstBbsImg1
+      Normalize Range: true
+      Queue Size: 2
+      Transport Hint: raw
+      Unreliable: false
+      Value: true
+    - Class: rviz/Camera
+      Enabled: false
       Image Rendering: background and overlay
       Image Topic: /est_/latest/cam_2_bb/image_raw
       Name: EstBbs2
@@ -309,11 +327,12 @@ Visualization Manager:
       Queue Size: 2
       Transport Hint: raw
       Unreliable: false
-      Value: true
+      Value: false
       Visibility:
         AllBbs1: true
         AllBbs2: true
         EstBbs1: true
+        EstBbsImg1: true
         EstEllipsoids: true
         EstFeats1: true
         EstFeats2: true
@@ -330,7 +349,7 @@ Visualization Manager:
         Value: true
       Zoom Factor: 1
     - Class: rviz/Camera
-      Enabled: true
+      Enabled: false
       Image Rendering: background and overlay
       Image Topic: /all_observed_bbs/latest/cam_1_bb/image_raw
       Name: AllBbs1
@@ -338,11 +357,12 @@ Visualization Manager:
       Queue Size: 2
       Transport Hint: raw
       Unreliable: false
-      Value: true
+      Value: false
       Visibility:
         AllBbs2: true
         EstBbs1: true
         EstBbs2: true
+        EstBbsImg1: true
         EstEllipsoids: true
         EstFeats1: true
         EstFeats2: true
@@ -359,7 +379,7 @@ Visualization Manager:
         Value: true
       Zoom Factor: 1
     - Class: rviz/Camera
-      Enabled: true
+      Enabled: false
       Image Rendering: background and overlay
       Image Topic: /all_observed_bbs/latest/cam_2_bb/image_raw
       Name: AllBbs2
@@ -367,11 +387,12 @@ Visualization Manager:
       Queue Size: 2
       Transport Hint: raw
       Unreliable: false
-      Value: true
+      Value: false
       Visibility:
         AllBbs1: true
         EstBbs1: true
         EstBbs2: true
+        EstBbsImg1: true
         EstEllipsoids: true
         EstFeats1: true
         EstFeats2: true
@@ -388,17 +409,17 @@ Visualization Manager:
         Value: true
       Zoom Factor: 1
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /pending_ellipsoids
-      Name: PendingEllipsoids
+      Name: Marker
       Namespaces:
         {}
       Queue Size: 1000
-      Value: true
+      Value: false
     - Class: rviz/Marker
       Enabled: true
       Marker Topic: /init_ellipsoids
-      Name: LongTermMap
+      Name: Marker
       Namespaces:
         {}
       Queue Size: 1000
@@ -439,7 +460,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 21.59466552734375
+      Distance: 54.10202407836914
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -449,39 +470,41 @@ Visualization Manager:
       Focal Point:
         X: -4.303472995758057
         Y: 4.018791198730469
-        Z: 0.7308717966079712
+        Z: 0.7295122146606445
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.23479849100112915
+      Pitch: 0.40979844331741333
       Target Frame: est_slam_base_link
-      Yaw: 0.2741045653820038
+      Yaw: 0.03410465642809868
     Saved: ~
 Window Geometry:
   AllBbs1:
-    collapsed: false
+    collapsed: true
   AllBbs2:
-    collapsed: false
+    collapsed: true
   Displays:
-    collapsed: false
+    collapsed: true
   EstBbs1:
     collapsed: false
   EstBbs2:
+    collapsed: false
+  EstBbsImg1:
     collapsed: false
   EstFeats1:
     collapsed: false
   EstFeats2:
     collapsed: false
   Height: 1043
-  Hide Left Dock: false
+  Hide Left Dock: true
   Hide Right Dock: false
   InitFeats1:
     collapsed: false
   InitFeats2:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd0000000400000000000001ca000002cdfc020000000bfb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003d00000122000000c900fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb000000140049006e006900740046006500610074007300310100000165000000c00000001600fffffffb000000140049006e00690074004600650061007400730032010000022b000000df0000001600fffffffb0000000800540069006d00650200000f00000003f1000004f5000001e000000001000001bb000002cdfc0200000005fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073010000003d00000114000000a400fffffffb000000120045007300740046006500610074007300310100000157000000e10000001600fffffffb00000012004500730074004600650061007400730032010000023e000000cc0000001600fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e1000001970000000300000780000000e6fc0100000007fb0000000e0041006c006c00420062007300310100000000000001b60000006800fffffffb0000000e0041006c006c004200620073003201000001bc000002070000006800fffffffb0000000e004500730074004200620073003101000003c9000001f00000006b00fffffffb0000000e004500730074004200620073003201000005bf000001c10000006b00fffffffb0000000e00450073007400420062007300310100000447000001750000000000000000fb0000000e004500730074004200620073003201000005c2000001be0000000000000000fb0000000800540069006d00650100000000000004500000000000000000000003ef000002cd00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000400000000000001ca000003b9fc0200000011fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073000000003d000003b9000000c900fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb000000140049006e0069007400460065006100740073003100000001ef0000011b0000000000000000fb000000140049006e00690074004600650061007400730032000000022b000000df0000000000000000fb0000000800540069006d006502000002c100000438000004f5000001e0fb0000000e0041006c006c0042006200730032000000031a000000640000000000000000fb000000140049006e00690074004600650061007400730032000000023c000001ba0000001600fffffffb00000012004500730074004600650061007400730032000000012e000000730000000000000000fb0000000e0041006c006c00420062007300310000000384000000720000000000000000fb00000012004500730074004600650061007400730031000000021f000000730000000000000000fb000000140049006e0069007400460065006100740073003100000003be000000380000001600ffffff0000000100000357000003b9fc0200000008fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073010000003d000000ef000000a400fffffffb0000000e004500730074004200620073003100000000e70000014d0000000000000000fb000000140045007300740042006200730049006d006700310100000132000002c40000001600fffffffb0000000e004500730074004200620073003100000001cf000002270000001600fffffffb0000001200450073007400460065006100740073003100000002f2000000b90000001600fffffffb00000012004500730074004600650061007400730032000000039f000000570000001600fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e1000001970000000300000780000000e6fc0100000005fb0000000e0041006c006c004200620073003100000000000000025c0000006800fffffffb0000000e0041006c006c004200620073003200000001bc000002070000006800fffffffb0000000e004500730074004200620073003200000003f30000038d0000000000000000fb0000000e004500730074004200620073003200000005c2000001be0000006b00fffffffb0000000800540069006d0065010000000000000450000000000000000000000423000003b900000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:

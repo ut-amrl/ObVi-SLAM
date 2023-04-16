@@ -28,7 +28,7 @@ cd $SLAM_DIR
 
 # config_file_base_name="7"
 # config_file_base_name="7_epipolar"
-config_file_base_name="8_no_two_phase"
+config_file_base_name="8_replication_20230416"
 python3 src/evaluation/ltm_trajectory_sequence_executor.py \
     --config_file_directory ${config_file_directory} \
     --orb_slam_out_directory ${orb_slam_out_directory} \

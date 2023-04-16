@@ -335,8 +335,7 @@ class OfflineProblemRunner {
           opt_logger->writeCurrentOptInfo();
         }
         // Phase II
-        if ((solver_params.feature_outlier_percentage_ > 0) &&
-            (!disable_two_phase_optim)) {
+        if (solver_params.feature_outlier_percentage_ > 0) {
           if (opt_logger.has_value()) {
             opt_logger->setOptimizationTypeParams(
                 next_frame_id, start_opt_with_frame == 0, false, true);
