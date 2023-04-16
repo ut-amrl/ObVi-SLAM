@@ -104,14 +104,19 @@ Eigen::Vector2d getNormalizedEpipolarErrorVec(
 
 // TODO need to change ReprojectionErrorFactor to shared_ptrs to avoid redundant
 // data copies
+// TODO need to change it to a class so that variables like inlier_factors_ can
+// be hidden
 struct VisualFeatureCachedInfo {
   bool is_cache_cleaned_;
   std::map<FrameId, std::vector<ReprojectionErrorFactor>>
       frame_ids_and_reprojection_err_factors_;
   std::map<FrameId, std::optional<Pose3D<double>>> frame_ids_and_poses_;
 
+  // std::vector<ReprojectionErrorFactor> inlier_factors_;
+
   VisualFeatureCachedInfo() : is_cache_cleaned_(false) {}
 
+  // TODO
   void addFactorsAndRobotPose(
       const FrameId &frame_id,
       const std::vector<ReprojectionErrorFactor> &reprojection_err_factors,
@@ -166,7 +171,7 @@ class VisualFeatureFrontend {
       const bool enforce_min_pixel_parallax_requirement,
       const bool enforce_min_robot_pose_parallax_requirement,
       const double &inlier_epipolar_err_thresh,
-      const size_t check_past_n_frames_for_epipolar_err,
+      const size_t check_pase_n_frames_for_epipolar_err,
       const bool enforce_epipolar_error_requirement)
       : gba_checker_(gba_checker),
         reprojection_error_provider_(reprojection_error_provider),
@@ -181,8 +186,8 @@ class VisualFeatureFrontend {
         enforce_min_robot_pose_parallax_requirement_(
             enforce_min_robot_pose_parallax_requirement),
         inlier_epipolar_err_thresh_(inlier_epipolar_err_thresh),
-        check_past_n_frames_for_epipolar_err_(
-            check_past_n_frames_for_epipolar_err),
+        check_pase_n_frames_for_epipolar_err_(
+            check_pase_n_frames_for_epipolar_err),
         enforce_epipolar_error_requirement_(
             enforce_epipolar_error_requirement) {}
 
@@ -289,7 +294,7 @@ class VisualFeatureFrontend {
             pose_graph->addVisualFactor(vis_factor);
           } else if (frame_ids_and_factors.empty()) {
             // If frame_ids_and_factors is empty, that means we cannot find this
-            // feature in the past check_past_n_frames_for_epipolar_err_ frames
+            // feature in the past check_pase_n_frames_for_epipolar_err_ frames
             // in the pose graph. Thus, we add this feature to
             // pending_feature_factors_for_initialized_features_
             if (pending_feature_factors_for_initialized_features_.find(
@@ -403,7 +408,7 @@ class VisualFeatureFrontend {
   bool enforce_min_robot_pose_parallax_requirement_ = true;
 
   double inlier_epipolar_err_thresh_ = 8.0;
-  size_t check_past_n_frames_for_epipolar_err_ = 5;
+  size_t check_pase_n_frames_for_epipolar_err_ = 5;
   bool enforce_epipolar_error_requirement_ = true;
 
  private:
@@ -422,7 +427,7 @@ class VisualFeatureFrontend {
       }
     }
     const FrameId min_frame_id =
-        candidate_frame_id - check_past_n_frames_for_epipolar_err_;
+        candidate_frame_id - check_pase_n_frames_for_epipolar_err_;
     for (const auto factor_id : matching_factor_ids) {
       ReprojectionErrorFactor factor;
       pose_graph->getVisualFactor(factor_id, factor);
@@ -508,12 +513,8 @@ class VisualFeatureFrontend {
         }
         n_voters += 1.0;
       }
-      // Having a value slightly lower than .5 to make sure we break tie
-      // correctly. For example, if we have factor F1, F2 and F3, and F2 is the
-      // outlier. When we're checking on F1, votes = 1 and n_voters = 2, and F1
-      // has score .5. The same holds for F3. We want to make sure F1 and F3 are
-      // included in this case.
-      const double inlier_majority_percentage = 0.49;
+      // TODO maybe add this to configuration as well
+      const double inlier_majority_percentage = 0.5;
       return (votes / n_voters) > inlier_majority_percentage;
     }
   }
@@ -549,9 +550,8 @@ class VisualFeatureFrontend {
         cache_info.frame_ids_and_reprojection_err_factors_);
   }
 
-  // TODO Currently, when checking features residing in cache, we don't filter
-  // features using check_past_n_frames_for_epipolar_err_ to be more consertive
-  // on features we're rejecting. (Taijing) Need to fix this in a future PR.
+  // TODO need to add checks on check_pase_n_frames_for_epipolar_err_ when
+  // adding to cache
   void addFactorsAndRobotPoseToCache_(
       const ProblemDataType &input_problem_data,
       const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
@@ -565,46 +565,6 @@ class VisualFeatureFrontend {
           frame_id, reprojection_err_factors, robot_pose);
       return;
     }
-
-    // if (cache_info.is_cache_cleaned_ &&
-    //     (cache_info.frame_ids_and_reprojection_err_factors_.empty() ||
-    //      cache_info.frame_ids_and_poses_.empty())) {
-    //   LOG(ERROR) << "Empty cache cannot set the is_cache_cleaned_ flag. "
-    //                 "Something went wrong...";
-    //   return;
-    // }
-    // const FrameId min_frame_id =
-    //     frame_id - check_past_n_frames_for_epipolar_err_;
-    // std::vector<FrameId> frame_ids_to_delete;
-    // for (const auto &frame_id_and_factors :
-    //      cache_info.frame_ids_and_reprojection_err_factors_) {
-    //   if (frame_id_and_factors.first < min_frame_id) {
-    //     frame_ids_to_delete.push_back(frame_id_and_factors.first);
-    //   } else {
-    //     break;
-    //   }
-    // }
-    // for (const FrameId frame_id : frame_ids_to_delete) {
-    //   cache_info.frame_ids_and_reprojection_err_factors_.erase(frame_id);
-    //   if (cache_info.frame_ids_and_poses_.find(frame_id) ==
-    //       cache_info.frame_ids_and_poses_.end()) {
-    //     LOG(ERROR) << "Found frame id " << frame_id
-    //                << " in the visual frontend cache but could not find the "
-    //                   "corresponding pose";
-    //     continue;
-    //   }
-    //   cache_info.frame_ids_and_poses_.erase(frame_id);
-    // }
-    // if (cache_info.frame_ids_and_reprojection_err_factors_.size() !=
-    //     cache_info.frame_ids_and_poses_.size()) {
-    //   LOG(ERROR) << "The size of observations and the one of poses need to be
-    //   "
-    //                 "the same!";
-    //   return;
-    // }
-    // if (cache_info.frame_ids_and_reprojection_err_factors_.empty()) {
-    //   cache_info.is_cache_cleaned_ = false;
-    // }
 
     if (cache_info.is_cache_cleaned_) {
       std::vector<ReprojectionErrorFactor> factors_to_add;
