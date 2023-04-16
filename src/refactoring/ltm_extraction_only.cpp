@@ -59,6 +59,16 @@ DEFINE_string(input_checkpoints_dir,
               "",
               "Directory to read checkpoints from. If not specified, "
               "optimization should start from the beginning.");
+DEFINE_int64(min_frame_id, -1, "Minimum frame id to use in ltm_optimization");
+DEFINE_int64(max_frame_id, -1, "Maximum frame id to use in ltm_optimization");
+struct CostFunctor {
+  template <typename T>
+  bool operator()(const T *const x, T *residual) const {
+    residual[0] = 10.0 - x[0];
+    LOG(INFO) << residual[0];
+    return true;
+  }
+};
 
 int main(int argc, char **argv) {
   google::InitGoogleLogging(argv[0]);
@@ -93,6 +103,15 @@ int main(int argc, char **argv) {
     LOG(ERROR) << "No input checkpoints directory provided. Need this to "
                   "extract long-term map";
     exit(1);
+  }
+
+  std::optional<std::pair<vtr::FrameId, vtr::FrameId>> min_max_frame_id;
+  if ((FLAGS_min_frame_id >= 0) && (FLAGS_max_frame_id >= 0)) {
+    min_max_frame_id = std::make_pair(FLAGS_min_frame_id, FLAGS_max_frame_id);
+    LOG(INFO) << "Setting min/max frame to " << FLAGS_min_frame_id << ", "
+              << FLAGS_max_frame_id;
+  } else {
+    LOG(INFO) << "No min/max frame id";
   }
 
   LOG(INFO) << "Prefix: " << param_prefix;
@@ -217,6 +236,7 @@ int main(int argc, char **argv) {
                                        problem,
                                        residual_id,
                                        cached_info,
+                                       min_max_frame_id,
                                        debug);
           };
 
@@ -305,6 +325,7 @@ int main(int argc, char **argv) {
                           ltm_optimization_factors_enabled_params,
                           front_end_map_data_extractor,
                           FLAGS_ltm_opt_jacobian_info_directory,
+                          min_max_frame_id,
                           ltm_extractor_out);
                     };
             vtr::extractLongTermObjectMapAndResults(
@@ -328,8 +349,7 @@ int main(int argc, char **argv) {
   ltm_out_fs.release();
 
   std::shared_ptr<vtr::RosVisualization> vis_manager =
-      std::make_shared<vtr::RosVisualization>(
-          node_handle, "", "");
+      std::make_shared<vtr::RosVisualization>(node_handle, "", "");
 
   std::unordered_map<
       vtr::ObjectId,

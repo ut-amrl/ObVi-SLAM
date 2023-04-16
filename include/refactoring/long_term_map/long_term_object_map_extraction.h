@@ -33,6 +33,7 @@ bool runOptimizationForLtmExtraction(
     const pose_graph_optimizer::OptimizationFactorsEnabledParams
         &optimization_factor_configuration,
     const double &far_feature_threshold,
+    const std::optional<std::pair<FrameId, FrameId>> &override_min_max_frame_id,
     std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
     ceres::Problem *problem,
     std::unordered_map<ceres::ResidualBlockId,
@@ -71,8 +72,14 @@ bool runOptimizationForLtmExtraction(
       optimization_factor_configuration.use_pom_;
   ltm_optimization_scope_params.factor_types_to_exclude = {
       kShapeDimPriorFactorTypeId};
-  ltm_optimization_scope_params.min_frame_id_ = min_and_max_frame_id.first;
-  ltm_optimization_scope_params.max_frame_id_ = min_and_max_frame_id.second;
+  if (override_min_max_frame_id.has_value()) {
+    ltm_optimization_scope_params.min_frame_id_ = std::max(override_min_max_frame_id.value().first, min_and_max_frame_id.first);
+    ltm_optimization_scope_params.max_frame_id_ = std::min(
+        override_min_max_frame_id.value().second, min_and_max_frame_id.second);
+  } else {
+    ltm_optimization_scope_params.min_frame_id_ = min_and_max_frame_id.first;
+    ltm_optimization_scope_params.max_frame_id_ = min_and_max_frame_id.second;
+  }
   ltm_optimization_scope_params.force_include_ltm_objs_ = true;
 
   std::function<bool(
@@ -296,6 +303,7 @@ class PairwiseCovarianceLongTermObjectMapExtractor {
       const std::function<bool(std::unordered_map<ObjectId, FrontEndObjMapData>
                                    &)> front_end_map_data_extractor,
       const std::string &jacobian_output_dir,
+      const std::optional<std::pair<FrameId, FrameId>> &override_min_max_frame_id,
       IndependentEllipsoidsLongTermObjectMap<FrontEndObjMapData>
           &long_term_obj_map) {
     EllipsoidResults prev_run_ellipsoid_results;
@@ -315,6 +323,7 @@ class PairwiseCovarianceLongTermObjectMapExtractor {
         ltm_solver_params_,
         optimization_factor_configuration,
         long_term_map_tunable_params_.far_feature_threshold_,
+        override_min_max_frame_id,
         pose_graph_copy,
         &problem_for_ltm,
         residual_info,
@@ -498,6 +507,7 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
       const std::function<bool(std::unordered_map<ObjectId, FrontEndObjMapData>
                                    &)> front_end_map_data_extractor,
       const std::string &jacobian_output_dir,
+      const std::optional<std::pair<FrameId, FrameId>> &override_min_max_frame_id,
       IndependentEllipsoidsLongTermObjectMap<FrontEndObjMapData>
           &long_term_obj_map) {
     EllipsoidResults prev_run_ellipsoid_results;
@@ -516,6 +526,7 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
         ltm_solver_params_,
         optimization_factor_configuration,
         long_term_map_tunable_params_.far_feature_threshold_,
+        override_min_max_frame_id,
         pose_graph_copy,
         &problem_for_ltm,
         residual_info,

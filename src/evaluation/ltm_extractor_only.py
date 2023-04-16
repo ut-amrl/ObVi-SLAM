@@ -8,7 +8,8 @@ class LtmExtractorExecutionConfig:
 
     def __init__(self,
                  configFileDirectory, sequenceFilesDirectory, resultsRootDirectory, configFileBaseName,
-                 sequenceFileBaseName, numberInSequence, outputJacobianDebugInfo=True, logToFile=False):
+                 sequenceFileBaseName, numberInSequence, outputJacobianDebugInfo=True, logToFile=False,
+                 min_frame_id=None, max_frame_id=None):
         self.configFileDirectory = configFileDirectory
         self.sequenceFilesDirectory = sequenceFilesDirectory
         self.resultsRootDirectory = resultsRootDirectory
@@ -17,6 +18,8 @@ class LtmExtractorExecutionConfig:
         self.outputJacobianDebugInfo = outputJacobianDebugInfo
         self.logToFile = logToFile
         self.numberInSequence = numberInSequence
+        self.min_frame_id = min_frame_id
+        self.max_frame_id = max_frame_id
 
 
 class LtmExtractorParamConstants:
@@ -27,12 +30,15 @@ class LtmExtractorParamConstants:
     paramsConfigFile = "params_config_file"
     logsDirectory = "logs_directory"
     input_checkpoints_dir = "input_checkpoints_dir"
+    min_frame_id = "min_frame_id"
+    max_frame_id = "max_frame_id"
 
 
 class LtmExtractorArgs:
 
     def __init__(self, param_prefix, long_term_map_input, long_term_map_output, ltm_opt_jacobian_info_directory,
-                 params_config_file, logs_directory, input_checkpoints_dir):
+                 params_config_file, logs_directory, input_checkpoints_dir,
+                 min_frame_id, max_frame_id):
         self.param_prefix = param_prefix
         self.long_term_map_input = long_term_map_input
         self.long_term_map_output = long_term_map_output
@@ -40,13 +46,15 @@ class LtmExtractorArgs:
         self.params_config_file = params_config_file
         self.logs_directory = logs_directory
         self.input_checkpoints_dir = input_checkpoints_dir
+        self.min_frame_id = min_frame_id
+        self.max_frame_id = max_frame_id
 
 
 class LtmExtractorSpecificTrajectoryConfig:
     def __init__(self,
                  configFileDirectory, resultsRootDirectory, configFileBaseName,
                  sequenceFileBaseName, rosbagBaseName, resultsForBagDirPrefix, longTermMapBagDir,
-                 outputJacobianDebugInfo=True, logToFile=False):
+                 outputJacobianDebugInfo=True, logToFile=False, min_frame_id=None, max_frame_id=None):
         self.configFileDirectory = configFileDirectory
         self.resultsRootDirectory = resultsRootDirectory
         self.configFileBaseName = configFileBaseName
@@ -56,6 +64,8 @@ class LtmExtractorSpecificTrajectoryConfig:
         self.longTermMapBagDir = longTermMapBagDir
         self.outputJacobianDebugInfo = outputJacobianDebugInfo
         self.logToFile = logToFile
+        self.min_frame_id = min_frame_id
+        self.max_frame_id = max_frame_id
 
 
 def generateLtmExtractorArgsFromExecutionConfig(executionConfig):
@@ -91,8 +101,11 @@ def generateLtmExtractorArgsFromExecutionConfig(executionConfig):
             executionConfig.configFileBaseName,
             bag_results_dir_name)
 
+    frameStr = ""
+    if ((executionConfig.min_frame_id is not None) and (executionConfig.max_frame_id is not None)):
+        frameStr = str(executionConfig.min_frame_id) + "_" + str(executionConfig.max_frame_id) + "_"
     longTermMapOutputFile = FileStructureUtils.ensureDirectoryEndsWithSlash(
-        utVslamResultsDir) + FileStructureConstants.longTermMapFileBaseName
+        utVslamResultsDir) + "test_" + frameStr + FileStructureConstants.longTermMapFileBaseName
 
     longTermMapInputFile = None
     if (executionConfig.longTermMapBagDir is not None):
@@ -108,9 +121,12 @@ def generateLtmExtractorArgsFromExecutionConfig(executionConfig):
                                ltm_opt_jacobian_info_directory=jacobianDebuggingDir,
                                params_config_file=fullConfigFileName,
                                logs_directory=fileLogDir,
-                               input_checkpoints_dir=checkpointsDir)
+                               input_checkpoints_dir=checkpointsDir,
+                               min_frame_id=executionConfig.min_frame_id,
+                               max_frame_id=executionConfig.max_frame_id)
 
     return ltmArgs
+
 
 def runLtmExtractorFromArgs(ltmArgs):
     argsString = ""
@@ -128,11 +144,16 @@ def runLtmExtractorFromArgs(ltmArgs):
                                            ltmArgs.logs_directory)
     argsString += createCommandStrAddition(LtmExtractorParamConstants.input_checkpoints_dir,
                                            ltmArgs.input_checkpoints_dir)
+    argsString += createCommandStrAddition(LtmExtractorParamConstants.min_frame_id,
+                                           ltmArgs.min_frame_id)
+    argsString += createCommandStrAddition(LtmExtractorParamConstants.max_frame_id,
+                                           ltmArgs.max_frame_id)
 
     cmdToRun = "./bin/ltm_extraction_only " + argsString
     print("Running command: ")
     print(cmdToRun)
     os.system(cmdToRun)
+
 
 def runLtmExtractor(executionConfig):
     rosbagsSequence = readTrajectorySequence(executionConfig.sequenceFilesDirectory,
@@ -153,7 +174,9 @@ def runLtmExtractor(executionConfig):
                 resultsForBagDirPrefix=bagPrefix,
                 longTermMapBagDir=prevTrajectoryIdentifier,
                 outputJacobianDebugInfo=executionConfig.outputJacobianDebugInfo,
-                logToFile=executionConfig.logToFile)
+                logToFile=executionConfig.logToFile,
+                min_frame_id=executionConfig.min_frame_id,
+                max_frame_id=executionConfig.max_frame_id)
             ltmArgs = generateLtmExtractorArgsFromExecutionConfig(specificConfig)
             runLtmExtractorFromArgs(ltmArgs)
             break
@@ -183,6 +206,14 @@ def ltmExtractorArgParse():
                         required=True,
                         type=int,
                         help=CmdLineArgConstants.numberInSequenceHelp)
+    parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.minFrameIdBaseArgName),
+                        required=False,
+                        type=int,
+                        help=CmdLineArgConstants.minFrameIdHelp)
+    parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.maxFrameIdBaseArgName),
+                        required=False,
+                        type=int,
+                        help=CmdLineArgConstants.maxFrameIdHelp)
 
     # Boolean arguments
     parser.add_argument(
@@ -213,7 +244,9 @@ def ltmExtractorArgParse():
         numberInSequence=args_dict[CmdLineArgConstants.numberInSequenceBaseArgName],
         outputJacobianDebugInfo=args_dict[
             CmdLineArgConstants.outputJacobianDebugInfoBaseArgName],
-        logToFile=args_dict[CmdLineArgConstants.logToFileBaseArgName])
+        logToFile=args_dict[CmdLineArgConstants.logToFileBaseArgName],
+        min_frame_id=args_dict[CmdLineArgConstants.minFrameIdBaseArgName],
+        max_frame_id=args_dict[CmdLineArgConstants.maxFrameIdBaseArgName])
 
 
 if __name__ == "__main__":

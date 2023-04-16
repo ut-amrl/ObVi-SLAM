@@ -14,7 +14,7 @@
 #include <vector>
 
 namespace file_io {
-void writeCommaSeparatedStringsLineToFile(
+inline void writeCommaSeparatedStringsLineToFile(
     const std::vector<std::string> &strings, std::ofstream &file_stream) {
   for (size_t i = 0; i < strings.size(); i++) {
     file_stream << strings[i];
@@ -26,7 +26,7 @@ void writeCommaSeparatedStringsLineToFile(
   }
 }
 
-std::vector<std::string> parseCommaSeparatedStrings(const std::string &str) {
+inline std::vector<std::string> parseCommaSeparatedStrings(const std::string &str) {
   std::vector<std::string> strs;
   std::stringstream ss(str);
 

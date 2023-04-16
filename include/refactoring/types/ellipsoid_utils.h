@@ -105,7 +105,8 @@ bool getCornerLocationsVector(
     const T *robot_pose,
     const Eigen::Transform<T, 3, Eigen::Affine> &robot_to_cam_tf,
     const Eigen::Matrix<T, 3, 3> &intrinsics,
-    Eigen::Matrix<T, 4, 1> &corner_results) {
+    Eigen::Matrix<T, 4, 1> &corner_results,
+    T &pos_x) {
   Eigen::Transform<T, 3, Eigen::Affine> robot_to_world_current =
       PoseArrayToAffine(&(robot_pose[3]), &(robot_pose[0]));
   //    LOG(INFO) << "Robot pose " << robot_to_world_current.matrix();
@@ -117,6 +118,10 @@ bool getCornerLocationsVector(
       robot_to_cam_tf * robot_to_world_current.inverse();
   Eigen::Transform<T, 3, Eigen::AffineCompact> world_to_camera_compact =
       world_to_camera;
+  Eigen::Matrix<T, 3, 1> ellipsoid_center_world(ellipsoid[0], ellipsoid[1], ellipsoid[2]);
+  Eigen::Matrix<T, 3, 1> ellipsoid_center_cam = world_to_camera_compact * ellipsoid_center_world;
+  pos_x = ellipsoid_center_cam.x();
+
   Eigen::Matrix<T, 4, 4> ellipsoid_dual_rep =
       createDualRepresentationForEllipsoid(ellipsoid);
 
@@ -181,11 +186,12 @@ BbCornerPair<NumType> getCornerLocationsPair(
   Transform6Dof<NumType> robot_to_cam_tf =
       convertToAffine(cam_extrinsics).inverse();
 
+  NumType pos_x;
   getCornerLocationsVector(ellipsoid_pose_ptr,
                            robot_pose_ptr,
                            robot_to_cam_tf,
                            cam_intrinsics,
-                           corner_locations_raw);
+                           corner_locations_raw, pos_x);
   return cornerLocationsVectorToPair<NumType>(corner_locations_raw);
 }
 

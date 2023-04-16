@@ -75,17 +75,36 @@ class BoundingBoxFactor {
     // about)
 
     Eigen::Matrix<T, 4, 1> corner_results;
+    T ellipsoid_center_x;
     bool valid_case =
         getCornerLocationsVector<T>(ellipsoid,
                                     robot_pose,
                                     robot_to_cam_tf_.cast<T>(),
                                     camera_intrinsics_mat_.cast<T>(),
-                                    corner_results);
+                                    corner_results,
+                                    ellipsoid_center_x);
+
+    T dim_x = ellipsoid[kEllipsoidPoseParameterizationSize] / T(2);
+    T dim_y = ellipsoid[kEllipsoidPoseParameterizationSize + 1] / T(2);
+    T boundary_var;
+    if (dim_x > dim_y) {
+      boundary_var = T(1) / (dim_x + ellipsoid_center_x);
+    } else {
+      boundary_var = T(1) / (dim_y + ellipsoid_center_x);
+    }
+
     if (!valid_case) {
-      residuals_ptr[0] = T(invalid_ellipse_error_);
-      residuals_ptr[1] = T(invalid_ellipse_error_);
-      residuals_ptr[2] = T(invalid_ellipse_error_);
-      residuals_ptr[3] = T(invalid_ellipse_error_);
+      residuals_ptr[0] = T(invalid_ellipse_error_) + boundary_var;
+      residuals_ptr[1] = T(invalid_ellipse_error_) + boundary_var;
+      residuals_ptr[2] = T(invalid_ellipse_error_) + boundary_var;
+      residuals_ptr[3] = T(invalid_ellipse_error_) + boundary_var;
+      if (obj_id_.has_value() && frame_id_.has_value() &&
+          camera_id_.has_value()) {
+        Eigen::Map<Eigen::Matrix<T, 4, 1>> residuals(residuals_ptr);
+        LOG(INFO) << "Residuals for obj id " << obj_id_.value()
+                  << " at frame/cam " << frame_id_.value() << "/"
+                  << camera_id_.value() << " (invalid case): " << residuals;
+      }
       return true;
     }
     if (debug_) {

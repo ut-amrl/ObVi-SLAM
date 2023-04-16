@@ -33,6 +33,7 @@ bool createObjectObservationResidual(
     ceres::Problem *problem,
     ceres::ResidualBlockId &residual_id,
     CachedInfo &cached_info,
+    const std::optional<std::pair<FrameId, FrameId>> &min_max_frame,
     const bool &debug = false) {
   // Get the factor
   ObjectObservationFactor factor;
@@ -40,6 +41,18 @@ bool createObjectObservationResidual(
     LOG(ERROR) << "Could not find object observation factor with id "
                << factor_id << "; not adding to pose graph";
     return false;
+  }
+
+  if (min_max_frame.has_value()) {
+    FrameId min_frame = min_max_frame->first;
+    FrameId max_frame = min_max_frame->second;
+
+    if (factor.frame_id_ < min_frame) {
+      return true;
+    }
+    if (factor.frame_id_ > max_frame) {
+      return true;
+    }
   }
 
   CameraExtrinsics<double> extrinsics;
@@ -84,6 +97,9 @@ bool createObjectObservationResidual(
     return false;
   }
 
+  if (factor.object_id_ == 45) {
+    LOG(INFO) << "Adding residual for object 45";
+  }
   residual_id = problem->AddResidualBlock(
       BoundingBoxFactor::createBoundingBoxFactor(
           residual_params.object_residual_params_.invalid_ellipsoid_error_val_,
@@ -170,13 +186,26 @@ bool createReprojectionErrorResidual(
              CachedInfo &)> &cached_info_creator,
     ceres::Problem *problem,
     ceres::ResidualBlockId &residual_id,
-    CachedInfo &cached_info) {
+    CachedInfo &cached_info,
+    const std::optional<std::pair<FrameId, FrameId>> &min_max_frame) {
   // Get the factor
   ReprojectionErrorFactor factor;
   if (!pose_graph->getVisualFactor(factor_id, factor)) {
     LOG(ERROR) << "Could not find visual feature factor with id " << factor_id
                << "; not adding to pose graph";
     return false;
+  }
+
+  if (min_max_frame.has_value()) {
+    FrameId min_frame = min_max_frame->first;
+    FrameId max_frame = min_max_frame->second;
+
+    if (factor.frame_id_ < min_frame) {
+      return true;
+    }
+    if (factor.frame_id_ > max_frame) {
+      return true;
+    }
   }
 
   CameraExtrinsics<double> extrinsics;
@@ -250,12 +279,32 @@ bool createRelPoseResidual(
              CachedInfo &)> &cached_info_creator,
     ceres::Problem *problem,
     ceres::ResidualBlockId &residual_id,
-    CachedInfo &cached_info) {
+    CachedInfo &cached_info,
+    const std::optional<std::pair<FrameId, FrameId>> &min_max_frame) {
+
   vslam_types_refactor::RelPoseFactor factor;
   if (!pose_graph->getPoseFactor(factor_id, factor)) {
     LOG(ERROR) << "Could not find pose factor with id " << factor_id
                << "; not adding to pose graph";
     return false;
+  }
+
+  if (min_max_frame.has_value()) {
+    FrameId min_frame = min_max_frame->first;
+    FrameId max_frame = min_max_frame->second;
+
+    if (factor.frame_id_1_ < min_frame) {
+      return true;
+    }
+    if (factor.frame_id_2_ < min_frame) {
+      return true;
+    }
+    if (factor.frame_id_1_ > max_frame) {
+      return true;
+    }
+    if (factor.frame_id_2_ > max_frame) {
+      return true;
+    }
   }
 
   double *robot_pose1_block;
@@ -326,6 +375,7 @@ bool createResidual(
     ceres::Problem *problem,
     ceres::ResidualBlockId &residual_id,
     CachedInfo &cached_info,
+    const std::optional<std::pair<FrameId, FrameId>> &min_max_frame,
     const bool &debug = false) {
   if (factor_info.first == kPairwiseErrorFactorTypeId) {
     LOG(ERROR) << "Pairwise error observation type not supported with a "
@@ -339,6 +389,7 @@ bool createResidual(
                                            problem,
                                            residual_id,
                                            cached_info,
+                                           min_max_frame,
                                            debug);
 
   } else if (factor_info.first == kReprojectionErrorFactorTypeId) {
@@ -348,7 +399,8 @@ bool createResidual(
                                            cached_info_creator,
                                            problem,
                                            residual_id,
-                                           cached_info);
+                                           cached_info,
+                                           min_max_frame);
   } else if (factor_info.first == kShapeDimPriorFactorTypeId) {
     return createObjectShapeDimPriorResidual(factor_info.second,
                                              pose_graph,
@@ -372,7 +424,8 @@ bool createResidual(
                                  cached_info_creator,
                                  problem,
                                  residual_id,
-                                 cached_info);
+                                 cached_info,
+                                 min_max_frame);
   } else {
     LOG(ERROR) << "Unrecognized factor type " << factor_info.first
                << "; not adding residual";

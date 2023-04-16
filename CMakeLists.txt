@@ -77,6 +77,7 @@ add_library(ut_vslam
         src/refactoring/factors/relative_pose_factor.cpp
         src/refactoring/factors/reprojection_cost_functor.cpp
         src/refactoring/factors/shape_prior_factor.cpp
+        src/refactoring/optimization/jacobian_extraction.cpp
         src/refactoring/types/vslam_obj_opt_types_refactor.cpp
         src/refactoring/visual_feature_processing/orb_output_low_level_feature_reader.cpp
         src/types/timestamped_data_to_frames_utils.cpp
@@ -128,6 +129,9 @@ target_link_libraries(ltm_extraction_only ut_vslam ${LIBS})
 
 ROSBUILD_ADD_EXECUTABLE(display_ltm src/refactoring/display_ltm.cpp)
 target_link_libraries(display_ltm ut_vslam ${LIBS})
+
+ROSBUILD_ADD_EXECUTABLE(test_ceres src/refactoring/test_ceres.cpp)
+target_link_libraries(test_ceres ut_vslam ${LIBS})
 
 IF (GENERATE_UNITTESTS)
     MESSAGE("Adding test executable")

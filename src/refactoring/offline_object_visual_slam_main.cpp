@@ -1042,6 +1042,7 @@ int main(int argc, char **argv) {
                                        problem,
                                        residual_id,
                                        cached_info,
+                                       std::nullopt,
                                        debug);
           };
   std::function<bool(
@@ -1402,6 +1403,7 @@ int main(int argc, char **argv) {
                           ltm_optimization_factors_enabled_params,
                           front_end_map_data_extractor,
                           FLAGS_ltm_opt_jacobian_info_directory,
+                          std::nullopt,
                           ltm_extractor_out);
                     };
             vtr::extractLongTermObjectMapAndResults(
