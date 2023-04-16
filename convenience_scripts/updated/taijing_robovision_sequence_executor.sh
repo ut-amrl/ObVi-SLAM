@@ -27,7 +27,8 @@ sleep 5
 cd $SLAM_DIR
 
 # config_file_base_name="7"
-config_file_base_name="7_epipolar"
+# config_file_base_name="7_epipolar"
+config_file_base_name="8_no_two_phase"
 python3 src/evaluation/ltm_trajectory_sequence_executor.py \
     --config_file_directory ${config_file_directory} \
     --orb_slam_out_directory ${orb_slam_out_directory} \
@@ -40,77 +41,5 @@ python3 src/evaluation/ltm_trajectory_sequence_executor.py \
     --sequence_file_base_name ${sequence_file_base_name} \
     --lego_loam_out_root_dir ${lego_loam_out_root_dir} \
     --output_bb_assoc --record_viz_rosbag --log_to_file
-
-# config_file_base_name="6_no_two_phase"
-# python3 src/evaluation/ltm_trajectory_sequence_executor.py \
-#     --config_file_directory ${config_file_directory} \
-#     --orb_slam_out_directory ${orb_slam_out_directory} \
-#     --rosbag_file_directory ${rosbag_file_directory} \
-#     --orb_post_process_base_directory ${orb_post_process_base_directory} \
-#     --calibration_file_directory ${calibration_file_directory} \
-#     --trajectory_sequence_file_directory ${trajectory_sequence_file_directory} \
-#     --results_root_directory ${results_root_directory} \
-#     --config_file_base_name ${config_file_base_name} \
-#     --sequence_file_base_name ${sequence_file_base_name} \
-#     --lego_loam_out_root_dir ${lego_loam_out_root_dir} \
-#     --output_bb_assoc --record_viz_rosbag --log_to_file
-
-# config_file_base_name="6_no_two_phase_no_object"
-# python3 src/evaluation/ltm_trajectory_sequence_executor.py \
-#     --config_file_directory ${config_file_directory} \
-#     --orb_slam_out_directory ${orb_slam_out_directory} \
-#     --rosbag_file_directory ${rosbag_file_directory} \
-#     --orb_post_process_base_directory ${orb_post_process_base_directory} \
-#     --calibration_file_directory ${calibration_file_directory} \
-#     --trajectory_sequence_file_directory ${trajectory_sequence_file_directory} \
-#     --results_root_directory ${results_root_directory} \
-#     --config_file_base_name ${config_file_base_name} \
-#     --sequence_file_base_name ${sequence_file_base_name} \
-#     --lego_loam_out_root_dir ${lego_loam_out_root_dir} \
-#     --output_bb_assoc --record_viz_rosbag --log_to_file
-
-# config_file_base_name="6_no_object"
-# python3 src/evaluation/ltm_trajectory_sequence_executor.py \
-#     --config_file_directory ${config_file_directory} \
-#     --orb_slam_out_directory ${orb_slam_out_directory} \
-#     --rosbag_file_directory ${rosbag_file_directory} \
-#     --orb_post_process_base_directory ${orb_post_process_base_directory} \
-#     --calibration_file_directory ${calibration_file_directory} \
-#     --trajectory_sequence_file_directory ${trajectory_sequence_file_directory} \
-#     --results_root_directory ${results_root_directory} \
-#     --config_file_base_name ${config_file_base_name} \
-#     --sequence_file_base_name ${sequence_file_base_name} \
-#     --lego_loam_out_root_dir ${lego_loam_out_root_dir} \
-#     --output_bb_assoc --record_viz_rosbag --log_to_file
-
-# config_file_base_name="7_expt_object"
-# python3 src/evaluation/ltm_trajectory_sequence_executor.py \
-#     --config_file_directory ${config_file_directory} \
-#     --orb_slam_out_directory ${orb_slam_out_directory} \
-#     --rosbag_file_directory ${rosbag_file_directory} \
-#     --orb_post_process_base_directory ${orb_post_process_base_directory} \
-#     --calibration_file_directory ${calibration_file_directory} \
-#     --trajectory_sequence_file_directory ${trajectory_sequence_file_directory} \
-#     --results_root_directory ${results_root_directory} \
-#     --config_file_base_name ${config_file_base_name} \
-#     --sequence_file_base_name ${sequence_file_base_name} \
-#     --lego_loam_out_root_dir ${lego_loam_out_root_dir} \
-#     --output_bb_assoc --record_viz_rosbag --log_to_file
-#     --force_run_orb_post_process
-
-# config_file_base_name="7_expt_no_object"
-# python3 src/evaluation/ltm_trajectory_sequence_executor.py \
-#     --config_file_directory ${config_file_directory} \
-#     --orb_slam_out_directory ${orb_slam_out_directory} \
-#     --rosbag_file_directory ${rosbag_file_directory} \
-#     --orb_post_process_base_directory ${orb_post_process_base_directory} \
-#     --calibration_file_directory ${calibration_file_directory} \
-#     --trajectory_sequence_file_directory ${trajectory_sequence_file_directory} \
-#     --results_root_directory ${results_root_directory} \
-#     --config_file_base_name ${config_file_base_name} \
-#     --sequence_file_base_name ${sequence_file_base_name} \
-#     --lego_loam_out_root_dir ${lego_loam_out_root_dir} \
-#     --output_bb_assoc --record_viz_rosbag --log_to_file
-    # --force_run_orb_post_process
 
 kill -9 $yolo_pid

@@ -2085,7 +2085,9 @@ int main(int argc, char **argv) {
       config.visual_feature_params_.enforce_min_pixel_parallax_requirement_,
       config.visual_feature_params_
           .enforce_min_robot_pose_parallax_requirement_,
-      8.0);
+      config.visual_feature_params_.inlier_epipolar_err_thresh_,
+      config.visual_feature_params_.check_past_n_frames_for_epipolar_err_,
+      config.visual_feature_params_.enforce_epipolar_error_requirement_);
   std::function<void(const MainProbData &,
                      const MainPgPtr &,
                      const vtr::FrameId &,

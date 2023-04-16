@@ -169,7 +169,9 @@ class VisualFeatureFrontend {
       const double &min_visual_feature_parallax_robot_orient_requirement,
       const bool enforce_min_pixel_parallax_requirement,
       const bool enforce_min_robot_pose_parallax_requirement,
-      const double &inlier_epipolar_err_thresh)
+      const double &inlier_epipolar_err_thresh,
+      const size_t check_past_n_frames_for_epipolar_err,
+      const bool enforce_epipolar_error_requirement)
       : gba_checker_(gba_checker),
         reprojection_error_provider_(reprojection_error_provider),
         min_visual_feature_parallax_pixel_requirement_(
@@ -182,7 +184,11 @@ class VisualFeatureFrontend {
             enforce_min_pixel_parallax_requirement),
         enforce_min_robot_pose_parallax_requirement_(
             enforce_min_robot_pose_parallax_requirement),
-        inlier_epipolar_err_thresh_(inlier_epipolar_err_thresh) {}
+        inlier_epipolar_err_thresh_(inlier_epipolar_err_thresh),
+        check_past_n_frames_for_epipolar_err_(
+            check_past_n_frames_for_epipolar_err),
+        enforce_epipolar_error_requirement_(
+            enforce_epipolar_error_requirement) {}
 
   /**
    * @brief
@@ -287,7 +293,7 @@ class VisualFeatureFrontend {
             pose_graph->addVisualFactor(vis_factor);
           } else if (frame_ids_and_factors.empty()) {
             // If frame_ids_and_factors is empty, that means we cannot find this
-            // feature in the past check_pase_n_frames_for_epipolar_err_ frames
+            // feature in the past check_past_n_frames_for_epipolar_err_ frames
             // in the pose graph. Thus, we add this feature to
             // pending_feature_factors_for_initialized_features_
             if (pending_feature_factors_for_initialized_features_.find(
@@ -401,7 +407,7 @@ class VisualFeatureFrontend {
   bool enforce_min_robot_pose_parallax_requirement_ = true;
 
   double inlier_epipolar_err_thresh_ = 8.0;
-  size_t check_pase_n_frames_for_epipolar_err_ = 5;
+  size_t check_past_n_frames_for_epipolar_err_ = 5;
   bool enforce_epipolar_error_requirement_ = true;
 
  private:
@@ -420,7 +426,7 @@ class VisualFeatureFrontend {
       }
     }
     const FrameId min_frame_id =
-        candidate_frame_id - check_pase_n_frames_for_epipolar_err_;
+        candidate_frame_id - check_past_n_frames_for_epipolar_err_;
     for (const auto factor_id : matching_factor_ids) {
       ReprojectionErrorFactor factor;
       pose_graph->getVisualFactor(factor_id, factor);
