@@ -304,7 +304,8 @@ class OfflineProblemRunner {
             // Since we only care about relative magnitude, summing up the
             // absolute values should be enough here. May need to change this
             // for new factor types?
-            total_residual += std::fabs(residuals.at(residual_idx));
+            total_residual +=
+                (residuals.at(residual_idx) * residuals.at(residual_idx));
             ++residual_idx;
           }
           // Only exclude reprojection errors for visual features and bbox
