@@ -1,7 +1,7 @@
 #!/bin/bash
 
 root_data_dir=/robodata/taijing/object-slam/oslam/
-config_file_directory=/home/tiejean/projects/ut_semantic_vslam/config/
+config_file_directory=/home/tiejean/projects/ut_semantic_vslam/config/taijing/
 trajectory_sequence_file_directory=/home/tiejean/projects/ut_semantic_vslam/sequences/
 
 calibration_file_directory=${root_data_dir}calibration/
@@ -14,7 +14,7 @@ lego_loam_out_root_dir=${root_data_dir}lego_loam_out/
 sequence_file_base_name="taijing_20230218_1a"
 # config_file_base_name="7"
 # config_file_base_name="7_epipolar"
-config_file_base_name="8_no_two_phase"
+config_file_base_name="8_replication"
 
 python3 src/evaluation/compute_metrics_for_ut_vslam.py \
     --rosbag_file_directory=${rosbag_file_directory} \
