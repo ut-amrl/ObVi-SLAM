@@ -485,8 +485,6 @@ void visualizationStub(
                              ellipsoid_covariances.at(ltm_ellipsoid.first)));
         }
       }
-      //      vis_manager->visualizeEllipsoids(ltm_ellipsoids, vtr::INITIAL,
-      //      false);
 
       vis_manager->publishLongTermMap(ltm_ellipsoids);
 
@@ -605,16 +603,15 @@ void visualizationStub(
       vis_manager->visualizeFeatureEstimates(curr_frame_initial_feature_ests,
                                              vtr::PlotType::INITIAL);
       std::unordered_map<vtr::FeatureId, vtr::Position3d<double>>
-          curr_frame_est_feature_ests = feature_ests;
-      //      for (const auto &cam_and_feats : observed_feats_for_frame) {
-      //        for (const auto &feats_for_cam : cam_and_feats.second) {
-      //          if (feature_ests.find(feats_for_cam.first) !=
-      //          feature_ests.end()) {
-      //            curr_frame_est_feature_ests[feats_for_cam.first] =
-      //                feature_ests.at(feats_for_cam.first);
-      //          }
-      //        }
-      //      }
+          curr_frame_est_feature_ests;
+      for (const auto &cam_and_feats : observed_feats_for_frame) {
+        for (const auto &feats_for_cam : cam_and_feats.second) {
+          if (feature_ests.find(feats_for_cam.first) != feature_ests.end()) {
+            curr_frame_est_feature_ests[feats_for_cam.first] =
+                feature_ests.at(feats_for_cam.first);
+          }
+        }
+      }
       vis_manager->visualizeFeatureEstimates(curr_frame_est_feature_ests,
                                              vtr::PlotType::ESTIMATED);
       vis_manager->publishTfsForLatestPose(

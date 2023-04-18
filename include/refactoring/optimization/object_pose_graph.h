@@ -210,7 +210,8 @@ struct ObjOnlyPoseGraphState {
             rhs.object_only_factors_by_object_);
   }
 
-  // TODO how to get long term factors in state?
+  // Not including long-term map factors in state -- have to load
+  // long-term map for long-term map factors
 };
 
 struct ObjectAndReprojectionFeaturePoseGraphState {
@@ -686,7 +687,9 @@ class ObjAndLowLevelFeaturePoseGraph
       ellipsoid_estimates_[ellipsoid_est.first] =
           EllipsoidEstimateNode(ellipsoid_est.second);
     }
-    // TODO ltm?
+
+    // Long term map factors not included in state -- need to separately load
+    // long-term map
   }
 
   void getState(ObjOnlyPoseGraphState &pose_graph_state) {
@@ -719,7 +722,9 @@ class ObjAndLowLevelFeaturePoseGraph
       pose_graph_state.ellipsoid_estimates_[ellipsoid_est.first] =
           RawEllipsoid<double>(*(ellipsoid_est.second.ellipsoid_));
     }
-    // TODO ltm?
+
+    // Long term map factors not included in state -- need to separately load
+    // long-term map
   }
 
  protected:

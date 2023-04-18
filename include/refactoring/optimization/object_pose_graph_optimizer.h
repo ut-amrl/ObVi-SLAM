@@ -130,9 +130,7 @@ class ObjectPoseGraphOptimizer {
       std::optional<vslam_types_refactor::OptimizationLogger> &opt_logger,
       const util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
                                          vslam_types_refactor::FeatureFactorId>>
-          &excluded_feature_factor_types_and_ids = {},
-      const std::unordered_set<vslam_types_refactor::FeatureId>
-          &features_to_set_constant = {}) {
+          &excluded_feature_factor_types_and_ids = {}) {
     // Check for invalid combinations of scope and reject
     CHECK(checkInvalidOptimizationScopeParams(optimization_scope));
 
@@ -484,12 +482,16 @@ class ObjectPoseGraphOptimizer {
         next_last_optimized_features;
     if (use_visual_feature_param_blocks) {
       //      LOG(INFO) << "Setting variability of feature param blocks";
-      std::unordered_set<vslam_types_refactor::FeatureId>
-          constant_feature_param_blocks;
-      std::unordered_set<vslam_types_refactor::FeatureId>
-          variable_feature_param_blocks;
+      bool set_constant;
+      if (fix_visual_feature_param_blocks) {
+        // Fix all remaining visual feature param blocks
+        set_constant = true;
+      } else {
+        // Set all others not-constant (if were set constant)
+        set_constant = false;
+      }
       for (const vslam_types_refactor::FeatureId &last_opt :
-          last_optimized_features_) {
+           last_optimized_features_) {
         if (features_to_include.find(last_opt) == features_to_include.end()) {
           features_to_remove.insert(last_opt);
         }
@@ -497,32 +499,8 @@ class ObjectPoseGraphOptimizer {
       for (const auto &feature : features_to_include) {
         next_last_optimized_features.insert(feature.first);
       }
-      if (fix_visual_feature_param_blocks) {
-        // Fix all remaining visual feature param blocks
-        constant_feature_param_blocks = next_last_optimized_features;
-      } else {
-        if (features_to_set_constant.empty()) {
-          // Set all others not-constant (if were set constant)
-          variable_feature_param_blocks = next_last_optimized_features;
-        } else {
-          for (const auto &feature : next_last_optimized_features) {
-            if (features_to_set_constant.find(feature) != features_to_set_constant.end()) {
-              constant_feature_param_blocks.insert(feature);
-            } else {
-              variable_feature_param_blocks.insert(feature);
-            }
-          }
-        }
-      }
-
-      setVariabilityForParamBlocks(variable_feature_param_blocks,
-                                   false,
-                                   kFeatureTypeStr,
-                                   getParamBlockForFeature<PoseGraphType>,
-                                   pose_graph,
-                                   problem);
-      setVariabilityForParamBlocks(constant_feature_param_blocks,
-                                   true,
+      setVariabilityForParamBlocks(next_last_optimized_features,
+                                   set_constant,
                                    kFeatureTypeStr,
                                    getParamBlockForFeature<PoseGraphType>,
                                    pose_graph,
@@ -576,18 +554,6 @@ class ObjectPoseGraphOptimizer {
           variable_object_param_blocks.insert(observed_obj);
         }
         next_last_optimized_objects = variable_object_param_blocks;
-      }
-      if (optimization_scope.force_include_ltm_objs_) {
-        LOG(INFO) << "Constant objs ";
-        for (const vslam_types_refactor::ObjectId &const_obj :
-             constant_object_param_blocks) {
-          LOG(INFO) << const_obj;
-        }
-        LOG(INFO) << "Variable objs ";
-        for (const vslam_types_refactor::ObjectId &var_obj :
-             variable_object_param_blocks) {
-          LOG(INFO) << var_obj;
-        }
       }
 
       // TODO we could also say that the next_last_optimized_objects is just a

@@ -64,6 +64,11 @@ class RosVisualization {
     pending_obj_color_.g = 250.0 / 255;
     pending_obj_color_.b = 224.0 / 255;
 
+    ltm_obj_color_.a = 1.0;
+    ltm_obj_color_.r = 0;
+    ltm_obj_color_.g = 0;
+    ltm_obj_color_.b = 0;
+
     color_for_plot_type_[GROUND_TRUTH] = ground_truth_bounding_box_color_;
     color_for_plot_type_[ESTIMATED] =
         predicted_bounding_box_from_optimized_color_;
@@ -1279,7 +1284,10 @@ class RosVisualization {
       ltm_ellipsoids[obj_info.first] =
           std::make_pair(obj_info.second.first, obj_info.second.second.first);
     }
-    visualizeEllipsoids(ltm_ellipsoids, INITIAL, false);
+    std::string topic =
+        createTopicForPlotTypeAndBase(INITIAL, kEllipsoidTopicSuffix);
+    LOG(INFO) << "Publishing ellipsoids for plot type " << topic;
+    visualizeEllipsoids(ltm_ellipsoids, topic, ltm_obj_color_, false);
 
     int next_marker = ltm_ellipsoids.size();
     for (const auto &obj_info : initial_ests_and_cov) {
@@ -1326,6 +1334,8 @@ class RosVisualization {
   std_msgs::ColorRGBA residual_feature_color_;
 
   std_msgs::ColorRGBA pending_obj_color_;
+
+  std_msgs::ColorRGBA ltm_obj_color_;
 
   std::unordered_map<PlotType, std_msgs::ColorRGBA> color_for_plot_type_;
   std::unordered_map<PlotType, std::string> prefixes_for_plot_type_;
@@ -1458,14 +1468,16 @@ class RosVisualization {
   }
 
   void visualizeCovCircleForObj(const Position3d<double> &center,
-                               const Eigen::Vector2d &unscaled_axis_lengths,
-                               const double &ellipsoid_yaw,
-                               const int &uncertainty_mult,
-                               const std_msgs::ColorRGBA &color,
-                               const int &marker_num) {
+                                const Eigen::Vector2d &unscaled_axis_lengths,
+                                const double &ellipsoid_yaw,
+                                const int &uncertainty_mult,
+                                const std_msgs::ColorRGBA &color,
+                                const int &marker_num) {
     visualization_msgs::Marker marker;
-    marker.scale.x = std::min(10.0, unscaled_axis_lengths.x() * uncertainty_mult);
-    marker.scale.y = std::min(10.0, unscaled_axis_lengths.y() * uncertainty_mult);
+    marker.scale.x =
+        std::min(10.0, unscaled_axis_lengths.x() * uncertainty_mult);
+    marker.scale.y =
+        std::min(10.0, unscaled_axis_lengths.y() * uncertainty_mult);
     marker.scale.z = 0.005 - uncertainty_mult * 0.001;
 
     marker.pose.position.x = center.x();

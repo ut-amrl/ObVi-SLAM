@@ -97,9 +97,6 @@ bool createObjectObservationResidual(
     return false;
   }
 
-  if (factor.object_id_ == 45) {
-    LOG(INFO) << "Adding residual for object 45";
-  }
   residual_id = problem->AddResidualBlock(
       BoundingBoxFactor::createBoundingBoxFactor(
           residual_params.object_residual_params_.invalid_ellipsoid_error_val_,
