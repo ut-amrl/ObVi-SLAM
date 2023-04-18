@@ -79,18 +79,6 @@ bool runOptimizationForLtmExtraction(
       optimizer(refresh_residual_checker, residual_creator);
 
   std::optional<OptimizationLogger> opt_log;
-  optimizer.buildPoseGraphOptimization(ltm_optimization_scope_params,
-                                       residual_params,
-                                       pose_graph,
-                                       problem,
-                                       opt_log);
-
-  bool opt_success =
-      optimizer.solveOptimization(problem, solver_params, {}, opt_log);
-  if (!opt_success) {
-    LOG(ERROR) << "Optimization failed during LTM extraction";
-    return false;
-  }
 
   // Run the optimization again and effectively just remove the bad features
   // TODO How does this affect covariance?
@@ -152,6 +140,10 @@ bool runOptimizationForLtmExtraction(
                    min_dist_from_viewing_frame);
     }
     if (min_dist_from_viewing_frame > far_feature_threshold) {
+      LOG(INFO) << "Minimum distance from viewing frame for feature "
+                << feat_est.first << " was " << min_dist_from_viewing_frame
+                << " (more than threshold " << far_feature_threshold
+                << "). Excluding";
       factors_for_bad_feats.insert(factors_for_feat.begin(),
                                    factors_for_feat.end());
     }
@@ -164,8 +156,12 @@ bool runOptimizationForLtmExtraction(
                                            problem,
                                            opt_log,
                                            factors_for_bad_feats);
-  opt_success =
-      optimizer.solveOptimization(problem, solver_params_copy, {}, opt_log);
+
+  std::shared_ptr<std::unordered_map<ceres::ResidualBlockId, double>>
+      block_ids_and_residuals_ptr = std::make_shared<
+          std::unordered_map<ceres::ResidualBlockId, double>>();
+  bool opt_success = optimizer.solveOptimization(
+      problem, solver_params_copy, {}, opt_log, block_ids_and_residuals_ptr);
 
   if (!opt_success) {
     LOG(ERROR) << "Second round optimization failed during LTM extraction";
