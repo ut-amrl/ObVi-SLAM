@@ -7,14 +7,14 @@
             "min_visual_feature_parallax_pixel_requirement": 5.0,
             "min_visual_feature_parallax_robot_transl_requirement": 1.0000000000000001e-01,
             "min_visual_feature_parallax_robot_orient_requirement": 5.0000000000000003e-02,
-            "enforce_min_pixel_parallax_requirement": 1,
+            "enforce_min_pixel_parallax_requirement": 0,
             "enforce_min_robot_pose_parallax_requirement": 0,
             "inlier_epipolar_err_thresh": 8.0,
             "check_past_n_frames_for_epipolar_err": 5,
             "enforce_epipolar_error_requirement_": 1
         },
         "local_ba_solver_params": {
-            "max_num_iterations": 200,
+            "max_num_iterations": 30,
             "feature_outlier_percentage": 1.0000000000000001e-01,
             "allow_non_monotonic_steps": 0,
             "function_tolerance": 9.9999999999999995e-07,
@@ -24,7 +24,7 @@
             "max_trust_region_radius": 10000.0
         },
         "global_ba_solver_params": {
-            "max_num_iterations": 250,
+            "max_num_iterations": 30,
             "feature_outlier_percentage": 1.0000000000000001e-01,
             "allow_non_monotonic_steps": 0,
             "function_tolerance": 9.9999999999999995e-07,

@@ -17,7 +17,8 @@ results_root_directory=${root_data_dir}ut_vslam_results/
 lego_loam_out_root_dir=${root_data_dir}lego_loam_out/
 
 # sequence_file_base_name="high_res_20230218_1a_7326"
-sequence_file_base_name="taijing_20230218_1a"
+# sequence_file_base_name="taijing_20230218_1a"
+sequence_file_base_name="taijing_7326"
 
 cd $YOLO_DIR
 # (python3 detect_ros.py --weights $yolo_weight --img 960 --conf 0.01 --device 2) &
@@ -26,9 +27,7 @@ sleep 5
 
 cd $SLAM_DIR
 
-# config_file_base_name="7"
-# config_file_base_name="7_epipolar"
-config_file_base_name="8_replication"
+config_file_base_name="9_no_two_phase_no_essential_matrix"
 python3 src/evaluation/ltm_trajectory_sequence_executor.py \
     --config_file_directory ${config_file_directory} \
     --orb_slam_out_directory ${orb_slam_out_directory} \
