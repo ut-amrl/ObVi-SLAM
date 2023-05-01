@@ -28,7 +28,7 @@ OPTION(GENERATE_SHARED_LIB_UNITTESTS,
 
 find_package(PCL 1.3 REQUIRED)
 # find_package(Ceres 1.13.0 EXACT REQUIRED PATHS "/home/tiejean/projects/ceres-solver/Ceres")
-find_package(Ceres 1.14 REQUIRED)
+find_package(Ceres REQUIRED)
 find_package(OpenCV 4.2 EXACT REQUIRED)
 find_package(Pangolin REQUIRED)
 find_package(Boost COMPONENTS filesystem REQUIRED)
@@ -136,6 +136,9 @@ target_link_libraries(trajectory_metrics_generator ut_vslam ${LIBS})
 ROSBUILD_ADD_EXECUTABLE(utvslam_out_to_poses_by_timestamp src/evaluation/trajectory_formatting/utvslam_out_to_poses_by_timestamp.cpp)
 target_link_libraries(utvslam_out_to_poses_by_timestamp ut_vslam ${LIBS})
 
+
+ROSBUILD_ADD_EXECUTABLE(os_slam_data_generator src/evaluation/oa_slam/oa_slam_data_generator.cpp)
+target_link_libraries(os_slam_data_generator ut_vslam ${LIBS})
 
 IF (GENERATE_UNITTESTS)
     MESSAGE("Adding test executable")
