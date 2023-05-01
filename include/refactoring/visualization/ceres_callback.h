@@ -338,7 +338,7 @@ class CeresCallback : public ceres::IterationCallback {
         max_frame_id_(max_frame_id),
         vis_manager_(vis_manager),
         logger_(CeresCallbackLogger(
-            "/robodata/taijing/object-slam/vslam/debug/ceres/")) {}
+            "/home/tiejean/Documents/mnt/oslam/vslam_debug/ceres/")) {}
 
   ~CeresCallback() override = default;
 

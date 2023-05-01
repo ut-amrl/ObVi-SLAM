@@ -90,7 +90,7 @@ DEFINE_string(low_level_feats_dir,
               "",
               "Directory that contains low level features");
 DEFINE_string(vslam_debugger_directory,
-              "/robodata/taijing/object-slam/vslam/debug/1668019589/",
+              "/home/tiejean/Documents/mnt/oslam/vslam_debug/logs",
               "Output root directory for debugger");
 DEFINE_string(bb_associations_out_file,
               "",
@@ -1601,24 +1601,28 @@ void visualizationStub(
       vis_manager->publishTfsForLatestPose(
           init_trajectory_vec.back(), vtr::PlotType::INITIAL, extrinsics);
 
+      std::cout << "Before debugByFrameId" << std::endl;
       debugger.debugByFrameId(
           max_frame_optimized,
           input_problem_data.getRobotPoseEstimates().at(max_frame_optimized),
           initial_feat_positions,
           init_trajectory_vec,
           DebugTypeEnum::INITIALIZED);
+      std::cout << "After debugByFrameId 1" << std::endl;
       debugger.debugByFrameId(max_frame_optimized,
                               optimized_trajectory.at(max_frame_optimized),
                               feature_ests,
                               est_trajectory_vec,
                               DebugTypeEnum::AFTER_OPTIM);
-      debugger.logOutputsByFrameId(max_frame_optimized);
+      std::cout << "After debugByFrameId 2" << std::endl;
       debugger.debugOptimizationRunByFrameId(min_frame_optimized,
                                              max_frame_optimized,
                                              feature_ests,
                                              optimized_trajectory,
                                              DebugTypeEnum::AFTER_OPTIM);
+      std::cout << "After debugOptimizationRunByFrameId" << std::endl;
       debugger.debugFeatureFlowsByFrameId(max_frame_optimized);
+      std::cout << "After debugFeatureFlowsByFrameId" << std::endl;
 
       save_to_file_visualizer.boundingBoxFrontEndVisualization(
           images,
