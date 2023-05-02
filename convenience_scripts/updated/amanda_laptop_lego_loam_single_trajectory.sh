@@ -7,14 +7,25 @@ rosbag_file_directory=${root_data_dir}original_data/
 lego_loam_out_root_dir=${root_data_dir}lego_loam_out/
 coda_parser_repo_root_dir=/home/amanda/workspaces/amrl_libs/coda
 
+velodyne_branch=writeToFile
+
 #rosbag_base_name="1669743059"
-rosbag_base_name=1677097326
+#rosbag_base_name=1677097326
+rosbag_base_name=1676767833
 #rosbag_base_name="1668019589"
 
 # NOTE: Before running this
 # Activate conda environment (conda activate coda)
 # Source catkin setup for legoloam, but use the version that doesn't overwrite previous config: source ~/catkin_ws/devel/setup.sh --extend
 # Make sure that the appropriate version of lego loam is built
+
+cwd=$(pwd)
+cd /home/amanda/catkin_ws/src/LeGO-LOAM-1
+git checkout ${velodyne_branch}
+cd ../../
+catkin_make -j1
+source devel/setup.sh --extend
+cd ${cwd}
 
 python3 src/evaluation/run_lego_loam.py \
     --lego_loam_out_root_dir ${lego_loam_out_root_dir} \
