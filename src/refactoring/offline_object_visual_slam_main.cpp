@@ -5,6 +5,7 @@
 #include <file_io/camera_intrinsics_with_id_io.h>
 #include <file_io/cv_file_storage/config_file_storage_io.h>
 #include <file_io/cv_file_storage/long_term_object_map_file_storage_io.h>
+#include <file_io/cv_file_storage/object_and_reprojection_feature_pose_graph_file_storage_io.h>
 #include <file_io/cv_file_storage/output_problem_data_file_storage_io.h>
 #include <file_io/cv_file_storage/roshan_bounding_box_front_end_file_storage_io.h>
 #include <file_io/cv_file_storage/vslam_basic_types_file_storage_io.h>
@@ -110,6 +111,15 @@ DEFINE_string(ground_truth_extrinsics_file,
               "File containing the "
               "extrinsics that relate the ground truth trajectory frame to the"
               " frame that is estimated here.");
+DEFINE_string(
+    output_checkpoints_dir,
+    "",
+    "Directory to output checkpoints to. If not specified, none are saved");
+// TODO use this
+DEFINE_string(input_checkpoints_dir,
+              "",
+              "Directory to read checkpoints from. If not specified, "
+              "optimization should start from the beginning.");
 
 std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
 readCameraIntrinsicsByCameraFromFile(const std::string &file_name) {
@@ -449,18 +459,34 @@ void visualizationStub(
       optimized_ellipsoid_color.g = 1;
       vis_manager->visualizeEllipsoids(
           optimized_ellipsoid_estimates_with_classes, vtr::ESTIMATED);
-      std::unordered_map<vtr::ObjectId,
-                         std::pair<std::string, vtr::EllipsoidState<double>>>
+      std::unordered_map<
+          vtr::ObjectId,
+          std::pair<
+              std::string,
+              std::pair<
+                  vtr::EllipsoidState<double>,
+                  vtr::Covariance<double, vtr::kEllipsoidParamterizationSize>>>>
           ltm_ellipsoids;
       if (input_problem_data.getLongTermObjectMap() != nullptr) {
         vtr::EllipsoidResults ellipsoids_in_map;
         input_problem_data.getLongTermObjectMap()->getEllipsoidResults(
             ellipsoids_in_map);
+
+        // TODO do this outside of visualization loop
+        std::unordered_map<
+            vtr::ObjectId,
+            vtr::Covariance<double, vtr::kEllipsoidParamterizationSize>>
+            ellipsoid_covariances = input_problem_data.getLongTermObjectMap()
+                                        ->getEllipsoidCovariances();
         for (const auto &ltm_ellipsoid : ellipsoids_in_map.ellipsoids_) {
-          ltm_ellipsoids[ltm_ellipsoid.first] = ltm_ellipsoid.second;
+          ltm_ellipsoids[ltm_ellipsoid.first] = std::make_pair(
+              ltm_ellipsoid.second.first,
+              std::make_pair(ltm_ellipsoid.second.second,
+                             ellipsoid_covariances.at(ltm_ellipsoid.first)));
         }
       }
-      vis_manager->visualizeEllipsoids(ltm_ellipsoids, vtr::INITIAL, false);
+
+      vis_manager->publishLongTermMap(ltm_ellipsoids);
 
       std::vector<size_t> num_obs_per_pending_obj;
       for (const auto &pending_obj_obs : *bounding_boxes_for_pending_object) {
@@ -481,6 +507,14 @@ void visualizationStub(
           vtr::CameraId,
           std::unordered_map<vtr::FeatureId, vtr::PixelCoord<double>>>
           observed_feats_for_frame = observed_features.at(max_frame_optimized);
+      if (images.find(max_frame_optimized) == images.end()) {
+        LOG(INFO) << "No images for frame " << max_frame_optimized;
+      }
+      if (optimized_trajectory.find(max_frame_optimized) ==
+          optimized_trajectory.end()) {
+        LOG(INFO) << "No opt trajectory for frame " << max_frame_optimized;
+      }
+
       publishLowLevelFeaturesLatestImages(
           vis_manager,
           extrinsics,
@@ -984,6 +1018,7 @@ int main(int argc, char **argv) {
       const MainFactorInfo &,
       const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
       const MainPgPtr &,
+      const bool &,
       ceres::Problem *,
       ceres::ResidualBlockId &,
       util::EmptyStruct &)>
@@ -992,6 +1027,7 @@ int main(int argc, char **argv) {
               const pose_graph_optimization::ObjectVisualPoseGraphResidualParams
                   &solver_residual_params,
               const MainPgPtr &pose_graph,
+              const bool &debug,
               ceres::Problem *problem,
               ceres::ResidualBlockId &residual_id,
               util::EmptyStruct &cached_info) {
@@ -1002,7 +1038,32 @@ int main(int argc, char **argv) {
                                        long_term_map_residual_creator_func,
                                        problem,
                                        residual_id,
-                                       cached_info);
+                                       cached_info,
+                                       std::nullopt,
+                                       debug);
+          };
+  std::function<bool(
+      const MainFactorInfo &,
+      const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
+      const MainPgPtr &,
+      ceres::Problem *,
+      ceres::ResidualBlockId &,
+      util::EmptyStruct &)>
+      non_debug_residual_creator =
+          [&](const MainFactorInfo &factor_id,
+              const pose_graph_optimization::ObjectVisualPoseGraphResidualParams
+                  &solver_residual_params,
+              const MainPgPtr &pose_graph,
+              ceres::Problem *problem,
+              ceres::ResidualBlockId &residual_id,
+              util::EmptyStruct &cached_info) {
+            return residual_creator(factor_id,
+                                    solver_residual_params,
+                                    pose_graph,
+                                    false,
+                                    problem,
+                                    residual_id,
+                                    cached_info);
           };
 
   std::function<bool(
@@ -1293,6 +1354,15 @@ int main(int argc, char **argv) {
               const pose_graph_optimizer::OptimizationFactorsEnabledParams
                   &optimization_factors_enabled_params,
               vtr::LongTermObjectMapAndResults<MainLtm> &output_problem_data) {
+            if (!FLAGS_output_checkpoints_dir.empty()) {
+              // Write pose graph state to file
+              vtr::outputPoseGraphToFile(
+                  pose_graph,
+                  file_io::ensureDirectoryPathEndsWithSlash(
+                      FLAGS_output_checkpoints_dir) +
+                      vtr::kLtmCheckpointOutputFileBaseName +
+                      file_io::kJsonExtension);
+            }
             //                    std::function<bool(
             //                        std::unordered_map<vtr::ObjectId,
             //                        vtr::RoshanAggregateBbInfo> &)>
@@ -1330,6 +1400,7 @@ int main(int argc, char **argv) {
                           ltm_optimization_factors_enabled_params,
                           front_end_map_data_extractor,
                           FLAGS_ltm_opt_jacobian_info_directory,
+                          std::nullopt,
                           ltm_extractor_out);
                     };
             vtr::extractLongTermObjectMapAndResults(
@@ -1467,6 +1538,7 @@ int main(int argc, char **argv) {
                   "for final global ba; review/fix your config";
     exit(1);
   }
+
   vtr::OfflineProblemRunner<MainProbData,
                             vtr::ReprojectionErrorFactor,
                             vtr::LongTermObjectMapAndResults<MainLtm>,
@@ -1478,7 +1550,7 @@ int main(int argc, char **argv) {
                              continue_opt_checker,
                              window_provider_func,
                              refresh_residual_checker,
-                             residual_creator,
+                             non_debug_residual_creator,
                              pose_graph_creator,
                              frame_data_adder,
                              output_data_extractor,

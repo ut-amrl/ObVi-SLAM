@@ -64,6 +64,11 @@ class RosVisualization {
     pending_obj_color_.g = 250.0 / 255;
     pending_obj_color_.b = 224.0 / 255;
 
+    ltm_obj_color_.a = 1.0;
+    ltm_obj_color_.r = 0;
+    ltm_obj_color_.g = 0;
+    ltm_obj_color_.b = 0;
+
     color_for_plot_type_[GROUND_TRUTH] = ground_truth_bounding_box_color_;
     color_for_plot_type_[ESTIMATED] =
         predicted_bounding_box_from_optimized_color_;
@@ -1265,6 +1270,31 @@ class RosVisualization {
                  next_frustum_marker_num_++);
   }
 
+  void publishLongTermMap(
+      const std::unordered_map<
+          ObjectId,
+          std::pair<
+              std::string,
+              std::pair<EllipsoidState<double>,
+                        Covariance<double, kEllipsoidParamterizationSize>>>>
+          &initial_ests_and_cov) {
+    std::unordered_map<ObjectId, std::pair<std::string, EllipsoidState<double>>>
+        ltm_ellipsoids;
+    for (const auto &obj_info : initial_ests_and_cov) {
+      ltm_ellipsoids[obj_info.first] =
+          std::make_pair(obj_info.second.first, obj_info.second.second.first);
+    }
+    std::string topic =
+        createTopicForPlotTypeAndBase(INITIAL, kEllipsoidTopicSuffix);
+    LOG(INFO) << "Publishing ellipsoids for plot type " << topic;
+    visualizeEllipsoids(ltm_ellipsoids, topic, ltm_obj_color_, false);
+
+    int next_marker = ltm_ellipsoids.size();
+    for (const auto &obj_info : initial_ests_and_cov) {
+      next_marker = visualizeCovForObj(obj_info.second.second, next_marker);
+    }
+  }
+
  private:
   const static uint32_t kEllipsoidMarkerPubQueueSize = 1000;
   const static uint32_t kRobotPoseMarkerPubQueueSize = 7000;
@@ -1304,6 +1334,8 @@ class RosVisualization {
   std_msgs::ColorRGBA residual_feature_color_;
 
   std_msgs::ColorRGBA pending_obj_color_;
+
+  std_msgs::ColorRGBA ltm_obj_color_;
 
   std::unordered_map<PlotType, std_msgs::ColorRGBA> color_for_plot_type_;
   std::unordered_map<PlotType, std::string> prefixes_for_plot_type_;
@@ -1406,6 +1438,69 @@ class RosVisualization {
     //    ros::Duration(2).sleep();
     marker_pub.publish(marker_msg);
     ros::Duration(0.05).sleep();
+  }
+
+  int visualizeCovForObj(
+      const std::pair<EllipsoidState<double>,
+                      Covariance<double, kEllipsoidParamterizationSize>>
+          &ellipsoid_cov_info,
+      const int &next_marker) {
+    Covariance<double, 2> x_y_cov =
+        ellipsoid_cov_info.second.topLeftCorner<2, 2>();
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix2d> eigen_solver(x_y_cov);
+    Eigen::Vector2d unscaled_axis_lengths =
+        eigen_solver.eigenvalues().array().sqrt().matrix();
+    Eigen::Matrix2d eigVecs = eigen_solver.eigenvectors();
+    double eigvec21 = eigVecs(1, 0);
+    double eigvec11 = eigVecs(0, 0);
+    double yaw = atan2(eigvec21, eigvec11);
+    Position3d<double> center =
+        ellipsoid_cov_info.first.pose_.transl_ -
+        Eigen::Vector3d(0, 0, ellipsoid_cov_info.first.dimensions_.z() / 2);
+    for (int i = 3; i >= 1; i--) {
+      std_msgs::ColorRGBA color;
+      color.a = 1;
+      color.r = color.b = color.g = (50.0 + i * 60) / 255.0;
+      visualizeCovCircleForObj(
+          center, unscaled_axis_lengths, yaw, i, color, next_marker - 1 + i);
+    }
+    return next_marker + 3;
+  }
+
+  void visualizeCovCircleForObj(const Position3d<double> &center,
+                                const Eigen::Vector2d &unscaled_axis_lengths,
+                                const double &ellipsoid_yaw,
+                                const int &uncertainty_mult,
+                                const std_msgs::ColorRGBA &color,
+                                const int &marker_num) {
+    visualization_msgs::Marker marker;
+    marker.scale.x =
+        std::min(10.0, unscaled_axis_lengths.x() * uncertainty_mult);
+    marker.scale.y =
+        std::min(10.0, unscaled_axis_lengths.y() * uncertainty_mult);
+    marker.scale.z = 0.005 - uncertainty_mult * 0.001;
+
+    marker.pose.position.x = center.x();
+    marker.pose.position.y = center.y();
+    marker.pose.position.z = center.z();
+
+    Eigen::Quaterniond ellipsoid_quat(
+        Eigen::AngleAxisd(ellipsoid_yaw, Eigen::Vector3d::UnitZ()));
+
+    marker.pose.orientation.x = ellipsoid_quat.x();
+    marker.pose.orientation.y = ellipsoid_quat.y();
+    marker.pose.orientation.z = ellipsoid_quat.z();
+    marker.pose.orientation.w = ellipsoid_quat.w();
+
+    marker.id = marker_num;
+
+    marker.type = visualization_msgs::Marker::Type::CYLINDER;
+
+    marker.color = color;
+    ros::Publisher pub = getOrCreateVisMarkerPublisherAndClearPrevious(
+        createTopicForPlotTypeAndBase(INITIAL, kEllipsoidTopicSuffix),
+        kEllipsoidMarkerPubQueueSize);
+    publishMarker(marker, pub);
   }
 
   void publishEllipsoid(const EllipsoidState<double> &ellipsoid,

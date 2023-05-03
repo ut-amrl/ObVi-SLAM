@@ -96,9 +96,28 @@ struct ReprojectionErrorFactor {
   PixelCoord<double> feature_pos_;
   double reprojection_error_std_dev_;
 
+  ReprojectionErrorFactor() = default;
+  ReprojectionErrorFactor(const FrameId &frame_id,
+                          const FeatureId &feature_id,
+                          const CameraId &camera_id,
+                          const PixelCoord<double> &feature_pos,
+                          const double &reprojection_error_std_dev)
+      : frame_id_(frame_id),
+        feature_id_(feature_id),
+        camera_id_(camera_id),
+        feature_pos_(feature_pos),
+        reprojection_error_std_dev_(reprojection_error_std_dev) {}
+
   FactorType getFactorType() const { return kReprojectionErrorFactorTypeId; }
 
   std::vector<FrameId> getOrderedFrameIds() const { return {frame_id_}; }
+
+  bool operator==(const ReprojectionErrorFactor &rhs) const {
+    return (frame_id_ == rhs.frame_id_) && (feature_id_ == rhs.feature_id_) &&
+           (camera_id_ == rhs.camera_id_) &&
+           (feature_pos_ == rhs.feature_pos_) &&
+           (reprojection_error_std_dev_ == rhs.reprojection_error_std_dev_);
+  }
 };
 
 struct RelPoseFactor {
@@ -125,6 +144,95 @@ struct RelPoseFactor {
       return {frame_id_1_, frame_id_2_};
     }
     return {frame_id_2_, frame_id_1_};
+  }
+
+  bool operator==(const RelPoseFactor &rhs) const {
+    return (frame_id_1_ == rhs.frame_id_1_) &&
+           (frame_id_2_ == rhs.frame_id_2_) &&
+           (measured_pose_deviation_ == rhs.measured_pose_deviation_) &&
+           (pose_deviation_cov_ == rhs.pose_deviation_cov_);
+  }
+};
+
+template <typename VisualFeatureFactorType>
+struct LowLevelFeaturePoseGraphState {
+  /**
+   * Extrinsics for each camera.
+   */
+  std::unordered_map<CameraId, CameraExtrinsics<double>>
+      camera_extrinsics_by_camera_;
+
+  /**
+   * Intrinsics for each camera.
+   */
+  std::unordered_map<CameraId, CameraIntrinsicsMat<double>>
+      camera_intrinsics_by_camera_;
+  FactorType visual_factor_type_;
+  FrameId min_frame_id_;
+  FrameId max_frame_id_;
+
+  FeatureFactorId max_feature_factor_id_;
+
+  FeatureFactorId max_pose_factor_id_;
+
+  std::unordered_map<FrameId, RawPose3d<double>> robot_poses_;
+
+  std::unordered_map<FrameId,
+                     util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>
+      pose_factors_by_frame_;
+
+  // For factors involving multiple frames, the value will be stored for each
+  // associated frame id
+  std::unordered_map<FrameId,
+                     std::vector<std::pair<FactorType, FeatureFactorId>>>
+      visual_feature_factors_by_frame_;
+
+  std::unordered_map<FeatureId,
+                     util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>
+      visual_factors_by_feature_;
+
+  // TODO takes in generic pose factors
+  std::unordered_map<FeatureFactorId, RelPoseFactor> pose_factors_;
+
+  std::unordered_map<FeatureFactorId, VisualFeatureFactorType> factors_;
+
+  std::unordered_map<FeatureId, FrameId> last_observed_frame_by_feature_;
+
+  std::unordered_map<FeatureId, FrameId> first_observed_frame_by_feature_;
+
+  bool operator==(
+      const LowLevelFeaturePoseGraphState<VisualFeatureFactorType> &rhs) const {
+    return (camera_extrinsics_by_camera_ == rhs.camera_extrinsics_by_camera_) &&
+           (camera_intrinsics_by_camera_ == rhs.camera_intrinsics_by_camera_) &&
+           (visual_factor_type_ == rhs.visual_factor_type_) &&
+           (min_frame_id_ == rhs.min_frame_id_) &&
+           (max_frame_id_ == rhs.max_frame_id_) &&
+           (max_feature_factor_id_ == rhs.max_feature_factor_id_) &&
+           (max_pose_factor_id_ == rhs.max_pose_factor_id_) &&
+           (robot_poses_ == rhs.robot_poses_) &&
+           (pose_factors_by_frame_ == rhs.pose_factors_by_frame_) &&
+           (visual_feature_factors_by_frame_ ==
+            rhs.visual_feature_factors_by_frame_) &&
+           (visual_factors_by_feature_ == rhs.visual_factors_by_feature_) &&
+           (pose_factors_ == rhs.pose_factors_) && (factors_ == rhs.factors_) &&
+           (last_observed_frame_by_feature_ ==
+            rhs.last_observed_frame_by_feature_) &&
+           (first_observed_frame_by_feature_ ==
+            rhs.first_observed_frame_by_feature_);
+  }
+};
+
+struct ReprojectionLowLevelFeaturePoseGraphState {
+  LowLevelFeaturePoseGraphState<ReprojectionErrorFactor> low_level_pg_state_;
+  FeatureId min_feature_id_;
+  FeatureId max_feature_id_;
+  std::unordered_map<FeatureId, Position3d<double>> feature_positions_;
+
+  bool operator==(const ReprojectionLowLevelFeaturePoseGraphState &rhs) const {
+    return (low_level_pg_state_ == rhs.low_level_pg_state_) &&
+           (min_feature_id_ == rhs.min_feature_id_) &&
+           (max_feature_id_ == rhs.max_feature_id_) &&
+           (feature_positions_ == rhs.feature_positions_);
   }
 };
 
@@ -409,7 +517,66 @@ class LowLevelFeaturePoseGraph {
     robot_poses = robot_poses_;
   }
 
+  void initializeFromState(
+      const LowLevelFeaturePoseGraphState<VisualFeatureFactorType>
+          &pose_graph_state) {
+    camera_extrinsics_by_camera_ =
+        pose_graph_state.camera_extrinsics_by_camera_;
+    camera_intrinsics_by_camera_ =
+        pose_graph_state.camera_intrinsics_by_camera_;
+    visual_factor_type_ = pose_graph_state.visual_factor_type_;
+    min_frame_id_ = pose_graph_state.min_frame_id_;
+    max_frame_id_ = pose_graph_state.max_frame_id_;
+    max_feature_factor_id_ = pose_graph_state.max_feature_factor_id_;
+    max_pose_factor_id_ = pose_graph_state.max_pose_factor_id_;
+    pose_factors_by_frame_ = pose_graph_state.pose_factors_by_frame_;
+    visual_feature_factors_by_frame_ =
+        pose_graph_state.visual_feature_factors_by_frame_;
+    visual_factors_by_feature_ = pose_graph_state.visual_factors_by_feature_;
+    pose_factors_ = pose_graph_state.pose_factors_;
+    factors_ = pose_graph_state.factors_;
+    last_observed_frame_by_feature_ =
+        pose_graph_state.last_observed_frame_by_feature_;
+    first_observed_frame_by_feature_ =
+        pose_graph_state.first_observed_frame_by_feature_;
+
+    for (const auto &robot_pose : pose_graph_state.robot_poses_) {
+      RawPose3d<double> pose(robot_pose.second);
+      robot_poses_[robot_pose.first] = RobotPoseNode(pose);
+    }
+  }
+
+  void getState(LowLevelFeaturePoseGraphState<VisualFeatureFactorType>
+                    &pose_graph_state) {
+    pose_graph_state.camera_extrinsics_by_camera_ =
+        camera_extrinsics_by_camera_;
+    pose_graph_state.camera_intrinsics_by_camera_ =
+        camera_intrinsics_by_camera_;
+    pose_graph_state.visual_factor_type_ = visual_factor_type_;
+    pose_graph_state.min_frame_id_ = min_frame_id_;
+    pose_graph_state.max_frame_id_ = max_frame_id_;
+    pose_graph_state.max_feature_factor_id_ = max_feature_factor_id_;
+    pose_graph_state.max_pose_factor_id_ = max_pose_factor_id_;
+    pose_graph_state.pose_factors_by_frame_ = pose_factors_by_frame_;
+    pose_graph_state.visual_feature_factors_by_frame_ =
+        visual_feature_factors_by_frame_;
+    pose_graph_state.visual_factors_by_feature_ = visual_factors_by_feature_;
+    pose_graph_state.pose_factors_ = pose_factors_;
+    pose_graph_state.factors_ = factors_;
+    pose_graph_state.last_observed_frame_by_feature_ =
+        last_observed_frame_by_feature_;
+    pose_graph_state.first_observed_frame_by_feature_ =
+        first_observed_frame_by_feature_;
+
+    for (const auto &robot_pose : robot_poses_) {
+      pose_graph_state.robot_poses_[robot_pose.first] =
+          RawPose3d<double>(*(robot_pose.second.pose_));
+    }
+  }
+
  protected:
+  LowLevelFeaturePoseGraph<VisualFeatureFactorType>() = default;
+
   /**
    * Extrinsics for each camera.
    */
@@ -505,7 +672,33 @@ class ReprojectionLowLevelFeaturePoseGraph
     feature_positions = feature_positions_;
   }
 
+  void getState(ReprojectionLowLevelFeaturePoseGraphState &pose_graph_state) {
+    LowLevelFeaturePoseGraph<ReprojectionErrorFactor>::getState(
+        pose_graph_state.low_level_pg_state_);
+    pose_graph_state.min_feature_id_ = min_feature_id_;
+    pose_graph_state.max_feature_id_ = max_feature_id_;
+    for (const auto &feature_pos : feature_positions_) {
+      pose_graph_state.feature_positions_[feature_pos.first] =
+          Position3d<double>(*(feature_pos.second.position_));
+    }
+  }
+
+  void initializeFromState(
+      const ReprojectionLowLevelFeaturePoseGraphState &pose_graph_state) {
+    LowLevelFeaturePoseGraph<ReprojectionErrorFactor>::initializeFromState(
+        pose_graph_state.low_level_pg_state_);
+    min_feature_id_ = pose_graph_state.min_feature_id_;
+    max_feature_id_ = pose_graph_state.max_feature_id_;
+    for (const auto &feature_pos : pose_graph_state.feature_positions_) {
+      feature_positions_[feature_pos.first] =
+          VisualFeatureNode(feature_pos.second);
+    }
+  }
+
  protected:
+  ReprojectionLowLevelFeaturePoseGraph()
+      : LowLevelFeaturePoseGraph<ReprojectionErrorFactor>() {}
+
   FeatureId min_feature_id_;
   FeatureId max_feature_id_;
   std::unordered_map<FeatureId, VisualFeatureNode> feature_positions_;

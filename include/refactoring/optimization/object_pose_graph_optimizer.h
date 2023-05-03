@@ -364,6 +364,8 @@ class ObjectPoseGraphOptimizer {
         // in long term map extraction)
         // TODO this needs to be revisited to include objects with connections
         // to those in the window if we move to a non-independent long term map
+        // TODO should we force these or in ltm extractor, check if there are
+        // any observations and then if not, just take the values from ltm
         if (optimization_scope.force_include_ltm_objs_) {
           LOG(WARNING) << "Forcing ltms to be included";
           objects_with_object_only_factors.insert(ltm_object_ids.begin(),
@@ -650,6 +652,7 @@ class ObjectPoseGraphOptimizer {
     options.initial_trust_region_radius =
         solver_params.initial_trust_region_radius_;
     options.max_trust_region_radius = solver_params.max_trust_region_radius_;
+    //    options.minimizer_progress_to_stdout = true;
 
     ceres::Solver::Summary summary;
     ceres::Solve(options, problem, &summary);

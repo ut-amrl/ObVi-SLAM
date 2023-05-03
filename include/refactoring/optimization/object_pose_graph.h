@@ -96,7 +96,31 @@ struct ObjectObservationFactor {
 
   double detection_confidence_;
 
+  ObjectObservationFactor() = default;
+  ObjectObservationFactor(
+      const FrameId &frame_id,
+      const CameraId &camera_id,
+      const ObjectId &object_id,
+      const BbCorners<double> &bounding_box_corners,
+      const Covariance<double, 4> &bounding_box_corners_covariance,
+      const double &detection_confidence)
+      : frame_id_(frame_id),
+        camera_id_(camera_id),
+        object_id_(object_id),
+        bounding_box_corners_(bounding_box_corners),
+        bounding_box_corners_covariance_(bounding_box_corners_covariance),
+        detection_confidence_(detection_confidence) {}
+
   // TODO should semantic class go in here?
+
+  bool operator==(const ObjectObservationFactor &rhs) const {
+    return (frame_id_ == rhs.frame_id_) && (camera_id_ == rhs.camera_id_) &&
+           (object_id_ == rhs.object_id_) &&
+           (bounding_box_corners_ == rhs.bounding_box_corners_) &&
+           (bounding_box_corners_covariance_ ==
+            rhs.bounding_box_corners_covariance_) &&
+           (detection_confidence_ == rhs.detection_confidence_);
+  }
 };
 
 struct ShapeDimPriorFactor {
@@ -113,6 +137,93 @@ struct ShapeDimPriorFactor {
       : object_id_(object_id),
         mean_shape_dim_(mean_shape_dim),
         shape_dim_cov_(shape_dim_cov) {}
+
+  bool operator==(const ShapeDimPriorFactor &rhs) const {
+    return (object_id_ == rhs.object_id_) &&
+           (mean_shape_dim_ == rhs.mean_shape_dim_) &&
+           (shape_dim_cov_ == rhs.shape_dim_cov_);
+  }
+};
+
+struct ObjOnlyPoseGraphState {
+  std::unordered_map<std::string,
+                     std::pair<ObjectDim<double>, Covariance<double, 3>>>
+      mean_and_cov_by_semantic_class_;
+
+  ObjectId min_object_id_;
+  ObjectId max_object_id_;
+
+  std::unordered_map<ObjectId, RawEllipsoid<double>> ellipsoid_estimates_;
+  std::unordered_map<ObjectId, std::string> semantic_class_for_object_;
+  std::unordered_map<ObjectId, FrameId> last_observed_frame_by_object_;
+  std::unordered_map<ObjectId, FrameId> first_observed_frame_by_object_;
+
+  FeatureFactorId min_object_observation_factor_;
+  FeatureFactorId max_object_observation_factor_;
+
+  FeatureFactorId min_obj_specific_factor_;
+  FeatureFactorId max_obj_specific_factor_;
+
+  std::unordered_set<ObjectId> long_term_map_object_ids_;
+
+  std::unordered_map<FeatureFactorId, ObjectObservationFactor>
+      object_observation_factors_;
+  std::unordered_map<FeatureFactorId, ShapeDimPriorFactor>
+      shape_dim_prior_factors_;
+
+  std::unordered_map<FrameId,
+                     util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>
+      observation_factors_by_frame_;
+
+  std::unordered_map<ObjectId,
+                     util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>
+      observation_factors_by_object_;
+  std::unordered_map<ObjectId,
+                     util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>
+      object_only_factors_by_object_;
+
+  bool operator==(const ObjOnlyPoseGraphState &rhs) const {
+    return (mean_and_cov_by_semantic_class_ ==
+            rhs.mean_and_cov_by_semantic_class_) &&
+           (min_object_id_ == rhs.min_object_id_) &&
+           (max_object_id_ == rhs.max_object_id_) &&
+           (ellipsoid_estimates_ == rhs.ellipsoid_estimates_) &&
+           (semantic_class_for_object_ == rhs.semantic_class_for_object_) &&
+           (last_observed_frame_by_object_ ==
+            rhs.last_observed_frame_by_object_) &&
+           (first_observed_frame_by_object_ ==
+            rhs.first_observed_frame_by_object_) &&
+           (min_object_observation_factor_ ==
+            rhs.min_object_observation_factor_) &&
+           (max_object_observation_factor_ ==
+            rhs.max_object_observation_factor_) &&
+           (min_obj_specific_factor_ == rhs.min_obj_specific_factor_) &&
+           (max_obj_specific_factor_ == rhs.max_obj_specific_factor_) &&
+           (long_term_map_object_ids_ == rhs.long_term_map_object_ids_) &&
+           (object_observation_factors_ == rhs.object_observation_factors_) &&
+           (shape_dim_prior_factors_ == rhs.shape_dim_prior_factors_) &&
+           (observation_factors_by_frame_ ==
+            rhs.observation_factors_by_frame_) &&
+           (observation_factors_by_object_ ==
+            rhs.observation_factors_by_object_) &&
+           (object_only_factors_by_object_ ==
+            rhs.object_only_factors_by_object_);
+  }
+
+  // Not including long-term map factors in state -- have to load
+  // long-term map for long-term map factors
+};
+
+struct ObjectAndReprojectionFeaturePoseGraphState {
+  ReprojectionLowLevelFeaturePoseGraphState
+      reprojection_low_level_feature_pose_graph_state_;
+  ObjOnlyPoseGraphState obj_only_pose_graph_state_;
+
+  bool operator==(const ObjectAndReprojectionFeaturePoseGraphState &rhs) const {
+    return (reprojection_low_level_feature_pose_graph_state_ ==
+            rhs.reprojection_low_level_feature_pose_graph_state_) &&
+           (obj_only_pose_graph_state_ == rhs.obj_only_pose_graph_state_);
+  }
 };
 
 // TODO consider making generic to other object representations
@@ -546,7 +657,85 @@ class ObjAndLowLevelFeaturePoseGraph
     ellipsoid_estimates = ellipsoid_estimates_;
   }
 
+  void initializeFromState(const ObjOnlyPoseGraphState &pose_graph_state) {
+    mean_and_cov_by_semantic_class_ =
+        pose_graph_state.mean_and_cov_by_semantic_class_;
+    min_object_id_ = pose_graph_state.min_object_id_;
+    max_object_id_ = pose_graph_state.max_object_id_;
+    semantic_class_for_object_ = pose_graph_state.semantic_class_for_object_;
+    last_observed_frame_by_object_ =
+        pose_graph_state.last_observed_frame_by_object_;
+    first_observed_frame_by_object_ =
+        pose_graph_state.first_observed_frame_by_object_;
+    min_object_observation_factor_ =
+        pose_graph_state.min_object_observation_factor_;
+    max_object_observation_factor_ =
+        pose_graph_state.max_object_observation_factor_;
+    min_obj_specific_factor_ = pose_graph_state.min_obj_specific_factor_;
+    max_obj_specific_factor_ = pose_graph_state.max_obj_specific_factor_;
+    long_term_map_object_ids_ = pose_graph_state.long_term_map_object_ids_;
+    object_observation_factors_ = pose_graph_state.object_observation_factors_;
+    shape_dim_prior_factors_ = pose_graph_state.shape_dim_prior_factors_;
+    observation_factors_by_frame_ =
+        pose_graph_state.observation_factors_by_frame_;
+    observation_factors_by_object_ =
+        pose_graph_state.observation_factors_by_object_;
+    object_only_factors_by_object_ =
+        pose_graph_state.object_only_factors_by_object_;
+
+    for (const auto &ellipsoid_est : pose_graph_state.ellipsoid_estimates_) {
+      ellipsoid_estimates_[ellipsoid_est.first] =
+          EllipsoidEstimateNode(ellipsoid_est.second);
+    }
+
+    // Long term map factors not included in state -- need to separately load
+    // long-term map
+  }
+
+  void getState(ObjOnlyPoseGraphState &pose_graph_state) {
+    pose_graph_state.mean_and_cov_by_semantic_class_ =
+        mean_and_cov_by_semantic_class_;
+    pose_graph_state.min_object_id_ = min_object_id_;
+    pose_graph_state.max_object_id_ = max_object_id_;
+    pose_graph_state.semantic_class_for_object_ = semantic_class_for_object_;
+    pose_graph_state.last_observed_frame_by_object_ =
+        last_observed_frame_by_object_;
+    pose_graph_state.first_observed_frame_by_object_ =
+        first_observed_frame_by_object_;
+    pose_graph_state.min_object_observation_factor_ =
+        min_object_observation_factor_;
+    pose_graph_state.max_object_observation_factor_ =
+        max_object_observation_factor_;
+    pose_graph_state.min_obj_specific_factor_ = min_obj_specific_factor_;
+    pose_graph_state.max_obj_specific_factor_ = max_obj_specific_factor_;
+    pose_graph_state.long_term_map_object_ids_ = long_term_map_object_ids_;
+    pose_graph_state.object_observation_factors_ = object_observation_factors_;
+    pose_graph_state.shape_dim_prior_factors_ = shape_dim_prior_factors_;
+    pose_graph_state.observation_factors_by_frame_ =
+        observation_factors_by_frame_;
+    pose_graph_state.observation_factors_by_object_ =
+        observation_factors_by_object_;
+    pose_graph_state.object_only_factors_by_object_ =
+        object_only_factors_by_object_;
+
+    for (const auto &ellipsoid_est : ellipsoid_estimates_) {
+      pose_graph_state.ellipsoid_estimates_[ellipsoid_est.first] =
+          RawEllipsoid<double>(*(ellipsoid_est.second.ellipsoid_));
+    }
+
+    // Long term map factors not included in state -- need to separately load
+    // long-term map
+  }
+
  protected:
+  ObjAndLowLevelFeaturePoseGraph(
+      const std::function<
+          bool(const std::unordered_set<ObjectId> &,
+               util::BoostHashMap<std::pair<FactorType, FeatureFactorId>,
+                                  std::unordered_set<ObjectId>> &)>
+          &long_term_map_factor_provider)
+      : long_term_map_factor_provider_(long_term_map_factor_provider) {}
+
   std::unordered_map<std::string,
                      std::pair<ObjectDim<double>, Covariance<double, 3>>>
       mean_and_cov_by_semantic_class_;
@@ -693,7 +882,49 @@ class ObjectAndReprojectionFeaturePoseGraph
     return copy;
   }
 
+  void initializeFromState(
+      const ObjectAndReprojectionFeaturePoseGraphState &pose_graph_state) {
+    ReprojectionLowLevelFeaturePoseGraph::initializeFromState(
+        pose_graph_state.reprojection_low_level_feature_pose_graph_state_);
+    ObjAndLowLevelFeaturePoseGraph<ReprojectionErrorFactor>::
+        initializeFromState(pose_graph_state.obj_only_pose_graph_state_);
+  }
+
+  void getState(ObjectAndReprojectionFeaturePoseGraphState &pose_graph_state) {
+    ReprojectionLowLevelFeaturePoseGraph::getState(
+        pose_graph_state.reprojection_low_level_feature_pose_graph_state_);
+    ObjAndLowLevelFeaturePoseGraph<ReprojectionErrorFactor>::getState(
+        pose_graph_state.obj_only_pose_graph_state_);
+  }
+
+  static std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph>
+  createObjectAndReprojectionFeaturePoseGraphFromState(
+      const ObjectAndReprojectionFeaturePoseGraphState &pose_graph_state,
+      const std::function<
+          bool(const std::unordered_set<ObjectId> &,
+               util::BoostHashMap<std::pair<FactorType, FeatureFactorId>,
+                                  std::unordered_set<ObjectId>> &)>
+          &long_term_map_factor_provider) {
+    ObjectAndReprojectionFeaturePoseGraph orig_pose_graph(long_term_map_factor_provider);
+    orig_pose_graph.initializeFromState(pose_graph_state);
+
+    // Make a pointer with the shallow-copy constructor because dumb c++ won't
+    // allow shared_ptrs with private/protected constructors
+    return std::make_shared<ObjectAndReprojectionFeaturePoseGraph>(orig_pose_graph);
+  }
+
  protected:
+  ObjectAndReprojectionFeaturePoseGraph(
+      const std::function<
+          bool(const std::unordered_set<ObjectId> &,
+               util::BoostHashMap<std::pair<FactorType, FeatureFactorId>,
+                                  std::unordered_set<ObjectId>> &)>
+          &long_term_map_factor_provider)
+      : ReprojectionLowLevelFeaturePoseGraph(),
+        LowLevelFeaturePoseGraph<ReprojectionErrorFactor>(),
+        ObjAndLowLevelFeaturePoseGraph<ReprojectionErrorFactor>(
+            long_term_map_factor_provider) {}
+
  private:
 };
 

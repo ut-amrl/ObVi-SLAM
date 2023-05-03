@@ -3,6 +3,7 @@ from cmd_line_arg_utils import *
 from file_structure_utils import *
 from trajectory_sequence import *
 
+
 class TrajectorySequenceExecutionConfig:
 
     def __init__(self,
@@ -11,7 +12,8 @@ class TrajectorySequenceExecutionConfig:
                  sequenceFilesDirectory, resultsRootDirectory, configFileBaseName,
                  sequenceFileBaseName, lego_loam_root_dir,
                  forceRunOrbSlamPostProcess=False, outputEllipsoidDebugInfo=True, outputJacobianDebugInfo=True,
-                 outputBbAssocInfo=True, runRviz=False, recordVisualizationRosbag=False, logToFile=False, forceRerunInterpolator=False):
+                 outputBbAssocInfo=True, runRviz=False, recordVisualizationRosbag=False, logToFile=False,
+                 forceRerunInterpolator=False, outputCheckpoints=False, readCheckpoints=False):
         self.configFileDirectory = configFileDirectory
         self.orbSlamOutDirectory = orbSlamOutDirectory
         self.rosbagDirectory = rosbagDirectory
@@ -30,7 +32,8 @@ class TrajectorySequenceExecutionConfig:
         self.recordVisualizationRosbag = recordVisualizationRosbag
         self.logToFile = logToFile
         self.forceRerunInterpolator = forceRerunInterpolator
-
+        self.outputCheckpoints = outputCheckpoints
+        self.readCheckpoints = readCheckpoints
 
 
 def runTrajectorySequence(sequenceExecutionConfig):
@@ -62,10 +65,11 @@ def runTrajectorySequence(sequenceExecutionConfig):
             runRviz=sequenceExecutionConfig.runRviz,
             recordVisualizationRosbag=sequenceExecutionConfig.recordVisualizationRosbag,
             logToFile=sequenceExecutionConfig.logToFile,
-            forceRerunInterpolator=sequenceExecutionConfig.forceRerunInterpolator)
+            forceRerunInterpolator=sequenceExecutionConfig.forceRerunInterpolator,
+            outputCheckpoints=sequenceExecutionConfig.outputCheckpoints,
+            readCheckpoints=sequenceExecutionConfig.readCheckpoints)
         runSingleTrajectory(trajectoryExecutionConfig)
         prevTrajectoryIdentifier = bagPrefix + bagName
-
 
 
 def trajectorySequenceArgParse():
@@ -160,8 +164,8 @@ def trajectorySequenceArgParse():
         action='store_true',
         help=CmdLineArgConstants.logToFileHelp)
     parser.add_argument('--no-' + CmdLineArgConstants.logToFileBaseArgName,
-                    dest=CmdLineArgConstants.logToFileBaseArgName, action='store_false',
-                    help="Opposite of " + CmdLineArgConstants.logToFileBaseArgName)
+                        dest=CmdLineArgConstants.logToFileBaseArgName, action='store_false',
+                        help="Opposite of " + CmdLineArgConstants.logToFileBaseArgName)
     parser.add_argument(
         CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.forceRerunInterpolatorBaseArgName),
         default=False,
@@ -170,6 +174,24 @@ def trajectorySequenceArgParse():
     parser.add_argument('--no-' + CmdLineArgConstants.forceRerunInterpolatorBaseArgName,
                         dest=CmdLineArgConstants.forceRerunInterpolatorBaseArgName, action='store_false',
                         help="Opposite of " + CmdLineArgConstants.forceRerunInterpolatorBaseArgName)
+    parser.add_argument(
+        CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.outputCheckpointsBaseArgName),
+        default=False,
+        action='store_true',
+        help=CmdLineArgConstants.outputCheckpointsHelp)
+    parser.add_argument('--no-' + CmdLineArgConstants.outputCheckpointsBaseArgName,
+                        dest=CmdLineArgConstants.outputCheckpointsBaseArgName, action='store_false',
+                        help="Opposite of " + CmdLineArgConstants.outputCheckpointsBaseArgName)
+
+    parser.add_argument(
+        CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.readCheckpointsBaseArgName),
+        default=False,
+        action='store_true',
+        help=CmdLineArgConstants.readFromCheckpointsHelp)
+    parser.add_argument('--no-' + CmdLineArgConstants.readCheckpointsBaseArgName,
+                        dest=CmdLineArgConstants.readCheckpointsBaseArgName, action='store_false',
+                        help="Opposite of " + CmdLineArgConstants.readCheckpointsBaseArgName)
+
     args_dict = vars(parser.parse_args())
 
     return TrajectorySequenceExecutionConfig(
@@ -195,7 +217,9 @@ def trajectorySequenceArgParse():
         runRviz=args_dict[CmdLineArgConstants.runRvizBaseArgName],
         recordVisualizationRosbag=args_dict[CmdLineArgConstants.recordVisualizationRosbagBaseArgName],
         logToFile=args_dict[CmdLineArgConstants.logToFileBaseArgName],
-        forceRerunInterpolator=args_dict[CmdLineArgConstants.forceRerunInterpolatorBaseArgName])
+        forceRerunInterpolator=args_dict[CmdLineArgConstants.forceRerunInterpolatorBaseArgName],
+        outputCheckpoints=args_dict[CmdLineArgConstants.outputCheckpointsBaseArgName],
+        readCheckpoints=args_dict[CmdLineArgConstants.readCheckpointsBaseArgName])
 
 
 if __name__ == "__main__":

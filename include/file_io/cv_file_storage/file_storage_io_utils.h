@@ -238,6 +238,104 @@ static void read(
   }
 }
 
+template <typename EntryType, typename SerializableEntryType>
+class SerializableUnorderedSet
+    : public FileStorageSerializable<std::unordered_set<EntryType>> {
+ public:
+  SerializableUnorderedSet() : FileStorageSerializable<std::unordered_set<EntryType>>() {}
+  SerializableUnorderedSet(const std::unordered_set<EntryType> &data)
+      : FileStorageSerializable<std::unordered_set<EntryType>>(data) {}
+
+  virtual void write(cv::FileStorage &fs) const override {
+    fs << "[";
+    for (const EntryType &entry : data_) {
+      fs << SerializableEntryType(entry);
+    }
+    fs << "]";
+  }
+
+  virtual void read(const cv::FileNode &node) override {
+    for (cv::FileNodeIterator it = node.begin(); it != node.end(); it++) {
+      SerializableEntryType serializable_entry;
+      cv::FileNode entry = *it;
+      entry >> serializable_entry;
+      data_.insert(serializable_entry.getEntry());
+    }
+  }
+
+ protected:
+  using FileStorageSerializable<std::unordered_set<EntryType>>::data_;
+};
+
+template <typename EntryType, typename SerializableEntryType>
+static void write(
+    cv::FileStorage &fs,
+    const std::string &,
+    const SerializableUnorderedSet<EntryType, SerializableEntryType> &data) {
+  data.write(fs);
+}
+template <typename EntryType, typename SerializableEntryType>
+static void read(
+    const cv::FileNode &node,
+    SerializableUnorderedSet<EntryType, SerializableEntryType> &data,
+    const SerializableUnorderedSet<EntryType, SerializableEntryType> &default_data =
+    SerializableUnorderedSet<EntryType, SerializableEntryType>()) {
+  if (node.empty()) {
+    data = default_data;
+  } else {
+    data.read(node);
+  }
+}
+
+template <typename EntryType, typename SerializableEntryType>
+class SerializableBoostHashSet
+    : public FileStorageSerializable<util::BoostHashSet<EntryType>> {
+ public:
+  SerializableBoostHashSet() : FileStorageSerializable<util::BoostHashSet<EntryType>>() {}
+  SerializableBoostHashSet(const util::BoostHashSet<EntryType> &data)
+      : FileStorageSerializable<util::BoostHashSet<EntryType>>(data) {}
+
+  virtual void write(cv::FileStorage &fs) const override {
+    fs << "[";
+    for (const EntryType &entry : data_) {
+      fs << SerializableEntryType(entry);
+    }
+    fs << "]";
+  }
+
+  virtual void read(const cv::FileNode &node) override {
+    for (cv::FileNodeIterator it = node.begin(); it != node.end(); it++) {
+      SerializableEntryType serializable_entry;
+      cv::FileNode entry = *it;
+      entry >> serializable_entry;
+      data_.insert(serializable_entry.getEntry());
+    }
+  }
+
+ protected:
+  using FileStorageSerializable<util::BoostHashSet<EntryType>>::data_;
+};
+
+template <typename EntryType, typename SerializableEntryType>
+static void write(
+    cv::FileStorage &fs,
+    const std::string &,
+    const SerializableBoostHashSet<EntryType, SerializableEntryType> &data) {
+  data.write(fs);
+}
+template <typename EntryType, typename SerializableEntryType>
+static void read(
+    const cv::FileNode &node,
+    SerializableBoostHashSet<EntryType, SerializableEntryType> &data,
+    const SerializableBoostHashSet<EntryType, SerializableEntryType> &default_data =
+    SerializableBoostHashSet<EntryType, SerializableEntryType>()) {
+  if (node.empty()) {
+    data = default_data;
+  } else {
+    data.read(node);
+  }
+}
+
 class SerializableEmptyStruct
     : public FileStorageSerializable<util::EmptyStruct> {
  public:
@@ -434,6 +532,38 @@ static void read(const cv::FileNode &node,
     data.read(node);
   }
 }
+
+class SerializableString : public FileStorageSerializable<std::string> {
+ public:
+  SerializableString() : FileStorageSerializable<std::string>() {}
+  SerializableString(const std::string &data)
+      : FileStorageSerializable<std::string>(data) {}
+
+  virtual void write(cv::FileStorage &fs) const override { fs << data_; }
+
+  virtual void read(const cv::FileNode &node) override { node >> data_; }
+
+ protected:
+  using FileStorageSerializable<std::string>::data_;
+};
+
+static void write(cv::FileStorage &fs,
+                  const std::string &,
+                  const SerializableString &data) {
+  data.write(fs);
+}
+
+static void read(
+    const cv::FileNode &node,
+    SerializableString &data,
+    const SerializableString &default_data = SerializableString()) {
+  if (node.empty()) {
+    data = default_data;
+  } else {
+    data.read(node);
+  }
+}
+
 
 }  // namespace vslam_types_refactor
 

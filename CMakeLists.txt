@@ -77,6 +77,7 @@ add_library(ut_vslam
         src/refactoring/factors/relative_pose_factor.cpp
         src/refactoring/factors/reprojection_cost_functor.cpp
         src/refactoring/factors/shape_prior_factor.cpp
+        src/refactoring/optimization/jacobian_extraction.cpp
         src/refactoring/types/vslam_obj_opt_types_refactor.cpp
         src/refactoring/visual_feature_processing/orb_output_low_level_feature_reader.cpp
         src/types/timestamped_data_to_frames_utils.cpp
@@ -120,6 +121,14 @@ target_link_libraries(trajectory_metrics_generator ut_vslam ${LIBS})
 ROSBUILD_ADD_EXECUTABLE(utvslam_out_to_poses_by_timestamp src/evaluation/trajectory_formatting/utvslam_out_to_poses_by_timestamp.cpp)
 target_link_libraries(utvslam_out_to_poses_by_timestamp ut_vslam ${LIBS})
 
+ROSBUILD_ADD_EXECUTABLE(debug_jacobian_hessian_diagonal src/debugging_utils/debug_jacobian_hessian_diagonal.cpp)
+target_link_libraries(debug_jacobian_hessian_diagonal ut_vslam ${LIBS})
+
+ROSBUILD_ADD_EXECUTABLE(ltm_extraction_only src/refactoring/ltm_extraction_only.cpp)
+target_link_libraries(ltm_extraction_only ut_vslam ${LIBS})
+
+ROSBUILD_ADD_EXECUTABLE(display_ltm src/refactoring/display_ltm.cpp)
+target_link_libraries(display_ltm ut_vslam ${LIBS})
 
 IF (GENERATE_UNITTESTS)
     MESSAGE("Adding test executable")
@@ -127,7 +136,8 @@ IF (GENERATE_UNITTESTS)
             CACHE STRING "Name of compiled unit test executable")
     ADD_EXECUTABLE(${UT_VSLAM_UNITTEST_NAME}
             test/file_io/cv_file_storage/config_file_storage_io_tests.cc
-            test/file_io/cv_file_storage/sequence_file_storage_io_tests.cc)
+            test/file_io/cv_file_storage/sequence_file_storage_io_tests.cc
+            test/file_io/cv_file_storage/object_and_reprojection_feature_pose_graph_file_storage_io_tests.cc)
     TARGET_LINK_LIBRARIES(${UT_VSLAM_UNITTEST_NAME}
             gtest
             gtest_main

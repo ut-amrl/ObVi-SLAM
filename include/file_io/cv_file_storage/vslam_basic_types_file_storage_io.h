@@ -244,6 +244,21 @@ static void read(const cv::FileNode &node,
     data.read(node);
   }
 }
+
+template <typename NumType, int CovDim>
+using SerializableCovariance = SerializableEigenMat<NumType, CovDim, CovDim>;
+
+template <typename NumType>
+using SerializableCameraIntrinsicsMat = SerializableEigenMat<NumType, 3, 3>;
+
+template <typename NumType>
+using SerializablePosition3d = SerializableEigenMat<NumType, 3, 1>;
+
+template <typename NumType>
+using SerializableCameraExtrinsics = SerializablePose3D<NumType>;
+
+template <typename NumType>
+using SerializableRawPose3d = SerializableEigenMat<NumType, 6, 1>;
 }  // namespace vslam_types_refactor
 
 #endif  // UT_VSLAM_VSLAM_BASIC_TYPES_FILE_STORAGE_IO_H

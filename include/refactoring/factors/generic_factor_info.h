@@ -24,6 +24,7 @@ struct GenericFactorInfo {
   std::optional<CameraId> camera_id_;
   std::optional<ObjectId> obj_id_;
   std::optional<FeatureId> feature_id_;
+  std::optional<double> final_residual_val_;
 
   GenericFactorInfo() = default;
 
@@ -31,12 +32,14 @@ struct GenericFactorInfo {
                     const std::optional<FrameId> &frame_id,
                     const std::optional<CameraId> &camera_id,
                     const std::optional<ObjectId> &obj_id,
-                    const std::optional<FeatureId> &feature_id)
+                    const std::optional<FeatureId> &feature_id,
+                    const std::optional<double> &final_residual_val)
       : factor_type_(factor_type),
         frame_id_(frame_id),
         camera_id_(camera_id),
         obj_id_(obj_id),
-        feature_id_(feature_id) {}
+        feature_id_(feature_id),
+        final_residual_val_(final_residual_val){}
 };
 }  // namespace vslam_types_refactor
 

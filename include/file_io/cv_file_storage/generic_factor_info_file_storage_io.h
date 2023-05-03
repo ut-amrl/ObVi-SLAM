@@ -5,7 +5,11 @@
 #ifndef UT_VSLAM_GENERIC_FACTOR_INFO_FILE_STORAGE_IO_H
 #define UT_VSLAM_GENERIC_FACTOR_INFO_FILE_STORAGE_IO_H
 
+#include <file_io/cv_file_storage/file_storage_io_utils.h>
+#include <file_io/cv_file_storage/vslam_basic_types_file_storage_io.h>
+#include <file_io/cv_file_storage/vslam_obj_types_file_storage_io.h>
 #include <refactoring/factors/generic_factor_info.h>
+
 namespace vslam_types_refactor {
 class SerializableGenericFactorInfo
     : public FileStorageSerializable<GenericFactorInfo> {
@@ -28,6 +32,9 @@ class SerializableGenericFactorInfo
     fs << kFeatureIdLabel
        << SerializableOptional<FeatureId, SerializableFeatureId>(
               data_.feature_id_);
+    fs << kFinalResidualValLabel
+       << SerializableOptional<double, SerializableDouble>(
+              data_.final_residual_val_);
     fs << "}";
   }
 
@@ -49,6 +56,15 @@ class SerializableGenericFactorInfo
     data_.camera_id_ = serializable_camera_id.getEntry();
     data_.obj_id_ = serializable_obj_id.getEntry();
     data_.feature_id_ = serializable_feature_id.getEntry();
+
+    for (const std::string &key : node.keys()) {
+      if (key == kFinalResidualValLabel) {
+        SerializableOptional<double, SerializableDouble> ser_final_residual_val;
+        node[kFinalResidualValLabel] >> ser_final_residual_val;
+        data_.final_residual_val_ = ser_final_residual_val.getEntry();
+        break;
+      }
+    }
   }
 
  protected:
@@ -60,6 +76,7 @@ class SerializableGenericFactorInfo
   inline static const std::string kCameraIdLabel = "cam";
   inline static const std::string kObjIdLabel = "obj";
   inline static const std::string kFeatureIdLabel = "feat";
+  inline static const std::string kFinalResidualValLabel = "final_residual_val";
 };
 
 static void write(cv::FileStorage &fs,

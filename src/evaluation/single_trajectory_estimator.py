@@ -30,6 +30,8 @@ class SingleTrajectoryExecutableParamConstants:
     logsDirectory = "logs_directory"
     ground_truth_trajectory_file = "ground_truth_trajectory_file"
     ground_truth_extrinsics_file = "ground_truth_extrinsics_file"
+    output_checkpoints_dir = "output_checkpoints_dir"
+    input_checkpoints_dir = "input_checkpoints_dir"
 
 
 class SingleTrajectoryExecutionConfig:
@@ -41,7 +43,7 @@ class SingleTrajectoryExecutionConfig:
                  lego_loam_root_dir,
                  forceRunOrbSlamPostProcess=False, outputEllipsoidDebugInfo=True, outputJacobianDebugInfo=True,
                  outputBbAssocInfo=True, runRviz=False, recordVisualizationRosbag=False, logToFile=False,
-                 forceRerunInterpolator=False):
+                 forceRerunInterpolator=False, outputCheckpoints=False, readCheckpoints=False):
         self.configFileDirectory = configFileDirectory
         self.orbSlamOutDirectory = orbSlamOutDirectory
         self.rosbagDirectory = rosbagDirectory
@@ -62,6 +64,8 @@ class SingleTrajectoryExecutionConfig:
         self.recordVisualizationRosbag = recordVisualizationRosbag
         self.logToFile = logToFile
         self.forceRerunInterpolator = forceRerunInterpolator
+        self.outputCheckpoints = outputCheckpoints
+        self.readCheckpoints = readCheckpoints
 
 
 class OfflineRunnerArgs:
@@ -70,7 +74,7 @@ class OfflineRunnerArgs:
                  rosbag_file, long_term_map_input, long_term_map_output, low_level_feats_dir, bb_associations_out_file,
                  ltm_opt_jacobian_info_directory, visual_feature_results_file, debug_images_output_directory,
                  params_config_file, ellipsoids_results_file, robot_poses_results_file, logs_directory, gt_poses_file,
-                 gt_extrinsics_file,
+                 gt_extrinsics_file, output_checkpoints_dir, input_checkpoints_dir,
                  bounding_boxes_by_node_id_file=None):
         self.param_prefix = param_prefix
         self.intrinsics_file = intrinsics_file
@@ -92,6 +96,8 @@ class OfflineRunnerArgs:
         self.bounding_boxes_by_node_id_file = bounding_boxes_by_node_id_file
         self.gt_poses_file = gt_poses_file
         self.gt_extrinsics_file = gt_extrinsics_file
+        self.output_checkpoints_dir = output_checkpoints_dir
+        self.input_checkpoints_dir = input_checkpoints_dir
 
 
 def runOrbPostProcess(orbDataDirForBag, unsparsifiedUtVslamInDir, sparsifiedUtVslamInDir, calibrationDir,
@@ -243,6 +249,17 @@ def generateOfflineRunnerArgsFromExecutionConfigAndPreprocessOrbDataIfNecessary(
             utVslamOutRootDir, executionConfig.sequenceFileBaseName, executionConfig.configFileBaseName,
             bag_results_dir_name)
 
+    outputCheckpointsDir = None
+    inputCheckpointsDir = None
+    if (executionConfig.outputCheckpoints or executionConfig.readCheckpoints):
+        checkpointsDir = FileStructureUtils.getAndOptionallyCreateCheckpointsDirectory(
+            utVslamOutRootDir, executionConfig.sequenceFileBaseName, executionConfig.configFileBaseName,
+            bag_results_dir_name)
+        if (executionConfig.outputCheckpoints):
+            outputCheckpointsDir = checkpointsDir
+        if (executionConfig.readCheckpoints):
+            inputCheckpointsDir = checkpointsDir
+
     bbAssociationsFile = None
     if (executionConfig.outputBbAssocInfo):
         bbAssociationsFile = FileStructureUtils.ensureDirectoryEndsWithSlash(
@@ -297,7 +314,9 @@ def generateOfflineRunnerArgsFromExecutionConfigAndPreprocessOrbDataIfNecessary(
                                     robot_poses_results_file=robotPoseResultsFile,
                                     logs_directory=fileLogDir,
                                     gt_poses_file=gt_poses_file,
-                                    gt_extrinsics_file=gt_extrinsics_file)
+                                    gt_extrinsics_file=gt_extrinsics_file,
+                                    output_checkpoints_dir=outputCheckpointsDir,
+                                    input_checkpoints_dir=inputCheckpointsDir)
     return (param_prefix, offlineArgs)
 
 
@@ -342,6 +361,10 @@ def runTrajectoryFromOfflineArgs(offlineArgs):
                                            offlineArgs.gt_poses_file)
     argsString += createCommandStrAddition(SingleTrajectoryExecutableParamConstants.ground_truth_extrinsics_file,
                                            offlineArgs.gt_extrinsics_file)
+    argsString += createCommandStrAddition(SingleTrajectoryExecutableParamConstants.output_checkpoints_dir,
+                                           offlineArgs.output_checkpoints_dir)
+    argsString += createCommandStrAddition(SingleTrajectoryExecutableParamConstants.input_checkpoints_dir,
+                                           offlineArgs.input_checkpoints_dir)
 
     cmdToRun = "./bin/offline_object_visual_slam_main " + argsString
     print("Running command: ")
@@ -534,6 +557,25 @@ def singleTrajectoryArgParse():
     parser.add_argument('--no-' + CmdLineArgConstants.forceRerunInterpolatorBaseArgName,
                         dest=CmdLineArgConstants.forceRerunInterpolatorBaseArgName, action='store_false',
                         help="Opposite of " + CmdLineArgConstants.forceRerunInterpolatorBaseArgName)
+
+    parser.add_argument(
+        CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.outputCheckpointsBaseArgName),
+        default=False,
+        action='store_true',
+        help=CmdLineArgConstants.outputCheckpointsHelp)
+    parser.add_argument('--no-' + CmdLineArgConstants.outputCheckpointsBaseArgName,
+                        dest=CmdLineArgConstants.outputCheckpointsBaseArgName, action='store_false',
+                        help="Opposite of " + CmdLineArgConstants.outputCheckpointsBaseArgName)
+
+    parser.add_argument(
+        CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.readCheckpointsBaseArgName),
+        default=False,
+        action='store_true',
+        help=CmdLineArgConstants.readFromCheckpointsHelp)
+    parser.add_argument('--no-' + CmdLineArgConstants.readCheckpointsBaseArgName,
+                        dest=CmdLineArgConstants.readCheckpointsBaseArgName, action='store_false',
+                        help="Opposite of " + CmdLineArgConstants.readCheckpointsBaseArgName)
+
     args_dict = vars(parser.parse_args())
 
     return SingleTrajectoryExecutionConfig(
@@ -561,7 +603,9 @@ def singleTrajectoryArgParse():
         runRviz=args_dict[CmdLineArgConstants.runRvizBaseArgName],
         recordVisualizationRosbag=args_dict[CmdLineArgConstants.recordVisualizationRosbagBaseArgName],
         logToFile=args_dict[CmdLineArgConstants.logToFileBaseArgName],
-        forceRerunInterpolator=args_dict[CmdLineArgConstants.forceRerunInterpolatorBaseArgName])
+        forceRerunInterpolator=args_dict[CmdLineArgConstants.forceRerunInterpolatorBaseArgName],
+        outputCheckpoints=args_dict[CmdLineArgConstants.outputCheckpointsBaseArgName],
+        readCheckpoints=args_dict[CmdLineArgConstants.readCheckpointsBaseArgName])
 
 
 if __name__ == "__main__":

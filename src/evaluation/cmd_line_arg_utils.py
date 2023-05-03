@@ -11,6 +11,9 @@ class CmdLineArgConstants:
     rosbagBaseNameBaseArgName = 'rosbag_base_name'
     resultsForBagDirPrefixBaseArgName = 'results_for_bag_dir_prefix'
     longTermMapBagDirBaseArgName = 'long_term_map_bag_dir_arg_name'
+    numberInSequenceBaseArgName = 'number_in_sequence_arg_name'
+    minFrameIdBaseArgName = "min_frame_id"
+    maxFrameIdBaseArgName = "max_frame_id"
 
     # Boolean arg names
     forceRunOrbSlamPostProcessBaseArgName = 'force_run_orb_post_process'
@@ -20,6 +23,8 @@ class CmdLineArgConstants:
     runRvizBaseArgName = 'run_rviz'
     recordVisualizationRosbagBaseArgName = 'record_viz_rosbag'
     logToFileBaseArgName = 'log_to_file'
+    outputCheckpointsBaseArgName = 'output_checkpoints'
+    readCheckpointsBaseArgName = 'read_checkpoints'
 
     configFileDirectoryHelp = \
         "Directory where config files are stored"
@@ -64,6 +69,9 @@ class CmdLineArgConstants:
     longTermMapBagDirHelp = \
         "If specified, this will be the directory (under the sequence then config directories) that will contain the" \
         " long term map that should be used as input for this trajectory"
+    numberInSequenceHelp = "Number of the trajectory in the sequence to look at (0-indexed)"
+    minFrameIdHelp = "Minimum frame id to use"
+    maxFrameIdHelp = "Maximum frame id to use"
 
     forceRunOrbSlamPostProcessHelp = "Force running the orb slam post processor even if there is data there"
     outputEllipsoidDebugInfoHelp = "Output the ellipsoid debug data to file while running"
@@ -72,6 +80,10 @@ class CmdLineArgConstants:
     runRvizHelp = "Start the rviz visualization while optimizing a trajectory"
     recordVisualizationRosbagHelp = "Record a rosbag containing the debug visualization messages"
     logToFileHelp = "True if the process should log to file, false if only to standard error"
+    outputCheckpointsHelp = "True if data needed to resume optimization mid-way through should be output as the process " \
+                            "is running, false if the optimization should "
+    readFromCheckpointsHelp = "True if the optimization should resume from current checkpoints if available, false if" \
+                              " the optimization should start from the beginning"
 
     # Constants specific to running lego loam--------------------------------
     legoLoamOutRootDirBaseArgName = 'lego_loam_out_root_dir'
@@ -125,6 +137,9 @@ class CmdLineArgConstants:
 
 
 def createCommandStrAddition(argumentName, argumentValue):
-    if ((argumentValue is None) or (len(argumentValue) == 0)):
+    if ((argumentValue is None) or ((type(argumentValue) == 'str') and (len(argumentValue) == 0))):
         return ""
-    return CmdLineArgConstants.prefixWithDashDash(argumentName) + " " + argumentValue + " "
+    argStr = argumentValue
+    if (type(argumentValue) != 'str'):
+        argStr = str(argumentValue)
+    return CmdLineArgConstants.prefixWithDashDash(argumentName) + " " + argStr + " "

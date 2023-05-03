@@ -43,7 +43,7 @@ else
   roslaunch launch/ovslam_rviz.launch topics_prefix:=${topicPrefix} underscore_based_prefix:=${underscore_based_prefix} &
 fi
 
-rosbag play --clock -r 20 ${rosbag_name}
+rosbag play --clock -r 20 ${rosbag_name} --pause --pause-topics ${topicPrefix}/est_ellipsoids
 
 
 #suffix_removed_string

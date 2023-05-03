@@ -23,6 +23,7 @@ bool runOptimizationForLtmExtraction(
                         vslam_types_refactor::FeatureFactorId> &,
         const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
         const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &,
+        const bool &,
         ceres::Problem *,
         ceres::ResidualBlockId &,
         util::EmptyStruct &)> &residual_creator,
@@ -32,12 +33,15 @@ bool runOptimizationForLtmExtraction(
     const pose_graph_optimizer::OptimizationFactorsEnabledParams
         &optimization_factor_configuration,
     const double &far_feature_threshold,
+    const std::optional<std::pair<FrameId, FrameId>> &override_min_max_frame_id,
     std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
     ceres::Problem *problem,
     std::unordered_map<ceres::ResidualBlockId,
                        std::pair<vslam_types_refactor::FactorType,
                                  vslam_types_refactor::FeatureFactorId>>
-        &residual_info) {
+        &residual_info,
+    std::unordered_map<ceres::ResidualBlockId, double>
+        &block_ids_and_residuals) {
   std::pair<FrameId, FrameId> min_and_max_frame_id =
       pose_graph->getMinMaxFrameId();
   std::function<bool(
@@ -68,15 +72,49 @@ bool runOptimizationForLtmExtraction(
       optimization_factor_configuration.use_pom_;
   ltm_optimization_scope_params.factor_types_to_exclude = {
       kShapeDimPriorFactorTypeId};
-  ltm_optimization_scope_params.min_frame_id_ = min_and_max_frame_id.first;
-  ltm_optimization_scope_params.max_frame_id_ = min_and_max_frame_id.second;
+  if (override_min_max_frame_id.has_value()) {
+    ltm_optimization_scope_params.min_frame_id_ = std::max(
+        override_min_max_frame_id.value().first, min_and_max_frame_id.first);
+    ltm_optimization_scope_params.max_frame_id_ = std::min(
+        override_min_max_frame_id.value().second, min_and_max_frame_id.second);
+  } else {
+    ltm_optimization_scope_params.min_frame_id_ = min_and_max_frame_id.first;
+    ltm_optimization_scope_params.max_frame_id_ = min_and_max_frame_id.second;
+  }
   ltm_optimization_scope_params.force_include_ltm_objs_ = true;
+
+  std::function<bool(
+      const std::pair<vslam_types_refactor::FactorType,
+                      vslam_types_refactor::FeatureFactorId> &,
+      const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
+      const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &,
+      ceres::Problem *,
+      ceres::ResidualBlockId &,
+      util::EmptyStruct &)>
+      debug_residual_creator =
+          [&](const std::pair<vslam_types_refactor::FactorType,
+                              vslam_types_refactor::FeatureFactorId> &factor_id,
+              const pose_graph_optimization::ObjectVisualPoseGraphResidualParams
+                  &solver_residual_params,
+              const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph>
+                  &pose_graph,
+              ceres::Problem *problem,
+              ceres::ResidualBlockId &residual_id,
+              util::EmptyStruct &cached_info) {
+            return residual_creator(factor_id,
+                                    solver_residual_params,
+                                    pose_graph,
+                                    true,
+                                    problem,
+                                    residual_id,
+                                    cached_info);
+          };
 
   pose_graph_optimizer::ObjectPoseGraphOptimizer<
       ReprojectionErrorFactor,
       util::EmptyStruct,
       ObjectAndReprojectionFeaturePoseGraph>
-      optimizer(refresh_residual_checker, residual_creator);
+      optimizer(refresh_residual_checker, debug_residual_creator);
 
   std::optional<OptimizationLogger> opt_log;
 
@@ -163,6 +201,8 @@ bool runOptimizationForLtmExtraction(
   bool opt_success = optimizer.solveOptimization(
       problem, solver_params_copy, {}, opt_log, block_ids_and_residuals_ptr);
 
+  block_ids_and_residuals = *block_ids_and_residuals_ptr;
+
   if (!opt_success) {
     LOG(ERROR) << "Second round optimization failed during LTM extraction";
     return false;
@@ -208,6 +248,7 @@ class PairwiseCovarianceLongTermObjectMapExtractor {
                           vslam_types_refactor::FeatureFactorId> &,
           const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
           const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &,
+          const bool &,
           ceres::Problem *,
           ceres::ResidualBlockId &,
           util::EmptyStruct &)> &residual_creator,
@@ -251,6 +292,8 @@ class PairwiseCovarianceLongTermObjectMapExtractor {
       const std::function<bool(std::unordered_map<ObjectId, FrontEndObjMapData>
                                    &)> front_end_map_data_extractor,
       const std::string &jacobian_output_dir,
+      const std::optional<std::pair<FrameId, FrameId>>
+          &override_min_max_frame_id,
       IndependentEllipsoidsLongTermObjectMap<FrontEndObjMapData>
           &long_term_obj_map) {
     EllipsoidResults prev_run_ellipsoid_results;
@@ -263,19 +306,23 @@ class PairwiseCovarianceLongTermObjectMapExtractor {
                        std::pair<vslam_types_refactor::FactorType,
                                  vslam_types_refactor::FeatureFactorId>>
         residual_info;
+    std::unordered_map<ceres::ResidualBlockId, double> block_ids_and_residuals;
     runOptimizationForLtmExtraction(
         residual_creator_,
         ltm_residual_params_,
         ltm_solver_params_,
         optimization_factor_configuration,
         long_term_map_tunable_params_.far_feature_threshold_,
+        override_min_max_frame_id,
         pose_graph_copy,
         &problem_for_ltm,
-        residual_info);
+        residual_info,
+        block_ids_and_residuals);
 
     if (!jacobian_output_dir.empty()) {
       outputJacobianInfo(jacobian_output_dir,
                          residual_info,
+                         block_ids_and_residuals,
                          pose_graph_copy,
                          long_term_map_obj_retriever_,
                          problem_for_ltm);
@@ -377,6 +424,7 @@ class PairwiseCovarianceLongTermObjectMapExtractor {
                       vslam_types_refactor::FeatureFactorId> &,
       const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
       const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &,
+      const bool &,
       ceres::Problem *,
       ceres::ResidualBlockId &,
       util::EmptyStruct &)>
@@ -405,6 +453,7 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
                           vslam_types_refactor::FeatureFactorId> &,
           const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
           const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &,
+          const bool &,
           ceres::Problem *,
           ceres::ResidualBlockId &,
           util::EmptyStruct &)> &residual_creator,
@@ -448,6 +497,8 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
       const std::function<bool(std::unordered_map<ObjectId, FrontEndObjMapData>
                                    &)> front_end_map_data_extractor,
       const std::string &jacobian_output_dir,
+      const std::optional<std::pair<FrameId, FrameId>>
+          &override_min_max_frame_id,
       IndependentEllipsoidsLongTermObjectMap<FrontEndObjMapData>
           &long_term_obj_map) {
     EllipsoidResults prev_run_ellipsoid_results;
@@ -459,19 +510,23 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
                        std::pair<vslam_types_refactor::FactorType,
                                  vslam_types_refactor::FeatureFactorId>>
         residual_info;
+    std::unordered_map<ceres::ResidualBlockId, double> block_ids_and_residuals;
     runOptimizationForLtmExtraction(
         residual_creator_,
         ltm_residual_params_,
         ltm_solver_params_,
         optimization_factor_configuration,
         long_term_map_tunable_params_.far_feature_threshold_,
+        override_min_max_frame_id,
         pose_graph_copy,
         &problem_for_ltm,
-        residual_info);
+        residual_info,
+        block_ids_and_residuals);
 
     if (!jacobian_output_dir.empty()) {
       outputJacobianInfo(jacobian_output_dir,
                          residual_info,
+                         block_ids_and_residuals,
                          pose_graph_copy,
                          long_term_map_obj_retriever_,
                          problem_for_ltm);
@@ -556,6 +611,7 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
                       vslam_types_refactor::FeatureFactorId> &,
       const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
       const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &,
+      const bool &,
       ceres::Problem *,
       ceres::ResidualBlockId &,
       util::EmptyStruct &)>
