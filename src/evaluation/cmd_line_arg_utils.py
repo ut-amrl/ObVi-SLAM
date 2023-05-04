@@ -137,7 +137,7 @@ class CmdLineArgConstants:
 
 
 def createCommandStrAddition(argumentName, argumentValue):
-    if ((argumentValue is None) or ((type(argumentValue) == 'str') and (len(argumentValue) == 0))):
+    if ((argumentValue is None) or (isinstance(argumentValue, str) and (len(argumentValue) == 0))):
         return ""
     argStr = argumentValue
     if (type(argumentValue) != 'str'):

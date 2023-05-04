@@ -35,6 +35,100 @@ ATEResults combineSingleTrajectoryResults(
       rmse_transl_err, rmse_rot_err, total_valid_poses, total_invalid_poses);
 }
 
+// Assumes we've already transformed to baselink (though probably shouldn't
+// matter...?) Also assumes we've already interpolated/aligned timestamps
+Pose3D<double> findAlignmentTransformation(
+    const std::vector<std::optional<Pose3D<double>>> &est_traj,
+    const std::vector<Pose3D<double>> &gt_traj,
+    const bool &adjust_translation) {
+  // Using algorithm 1 with scale=1 from
+  // https://rpg.ifi.uzh.ch/docs/IROS18_Zhang.pdf
+  //  A Tutorial on Quantitative Trajectory Evaluation
+  //  for Visual(-Inertial) Odometry
+  //  Zichao Zhang, Davide Scaramuzza
+  Position3d<double> mean_pos_est = Eigen::Vector3d::Zero();
+  Position3d<double> mean_pos_gt = Eigen::Vector3d::Zero();
+
+  CHECK_EQ(est_traj.size(), gt_traj.size());
+
+  Covariance<double, 3> traj_cov = Eigen::Matrix3d::Zero();
+  size_t non_lost_poses = 0;
+  for (size_t pose_idx = 0; pose_idx < gt_traj.size(); pose_idx++) {
+    if (!est_traj.at(pose_idx).has_value()) {
+      continue;
+    }
+    non_lost_poses++;
+    if (adjust_translation) {
+      mean_pos_est += est_traj.at(pose_idx).value().transl_;
+      mean_pos_gt += gt_traj.at(pose_idx).transl_;
+    }
+  }
+  mean_pos_est = mean_pos_est / non_lost_poses;
+  mean_pos_gt = mean_pos_gt / non_lost_poses;
+
+  non_lost_poses = 0;
+  for (size_t pose_idx = 0; pose_idx < gt_traj.size(); pose_idx++) {
+    if (!est_traj.at(pose_idx).has_value()) {
+      continue;
+    }
+
+    non_lost_poses++;
+    Position3d<double> gt_deviation =
+        gt_traj.at(pose_idx).transl_ - mean_pos_gt;
+    Position3d<double> est_deviation =
+        est_traj.at(pose_idx).value().transl_ - mean_pos_est;
+
+    traj_cov += (gt_deviation * (est_deviation.transpose()));
+  }
+  traj_cov = traj_cov / non_lost_poses;
+
+  Eigen::JacobiSVD<Eigen::Matrix<double, 3, 3>> svd;
+  svd.compute(traj_cov, Eigen::ComputeFullU | Eigen::ComputeFullV);
+
+  Eigen::Matrix3d uMat = svd.matrixU();
+  Eigen::Matrix3d vMat = svd.matrixV();
+
+  Eigen::Matrix3d wMat = Eigen::Matrix3d::Zero();
+  wMat(0, 0) = 1;
+  wMat(1, 1) = 1;
+  if (uMat.determinant() * vMat.determinant() < 0) {
+    wMat(2, 2) = -1;
+  } else {
+    wMat(2, 2) = 1;
+  }
+
+  Eigen::Matrix3d rotMat = uMat * wMat * vMat.transpose();
+
+  Position3d<double> transl = Eigen::Vector3d::Zero();
+  if (adjust_translation) {
+    transl = mean_pos_gt - (rotMat * mean_pos_est);
+  }
+
+  return Pose3D<double>(transl,
+                        Eigen::AngleAxis<double>(Eigen::Quaterniond(rotMat)));
+}
+
+// Assumes we've already transformed to baselink (though probably shouldn't
+// matter...?) Also assumes we've already interpolated/aligned timestamps
+void alignWithGroundTruth(
+    const std::vector<Pose3D<double>> &gt_traj,
+    const std::vector<std::optional<Pose3D<double>>> &unaligned_est_traj,
+    std::vector<std::optional<Pose3D<double>>> &aligned_est_traj,
+    const bool &adjust_translation) {
+  Pose3D<double> aligning_transform = findAlignmentTransformation(
+      unaligned_est_traj, gt_traj, adjust_translation);
+
+  for (const std::optional<Pose3D<double>> &unaligned_entry :
+       unaligned_est_traj) {
+    if (!unaligned_entry.has_value()) {
+      aligned_est_traj.emplace_back(unaligned_entry);
+      continue;
+    }
+    aligned_est_traj.emplace_back(
+        combinePoses(aligning_transform, unaligned_entry.value()));
+  }
+}
+
 ATEResults generateATEforRotAndTranslForSyncedAlignedTrajectories(
     const std::vector<std::optional<Pose3D<double>>> &est_traj,
     const std::vector<Pose3D<double>> &gt_traj) {

@@ -18,7 +18,7 @@ namespace vslam_types_refactor {
 // TODO want to move this to metrics class?
 struct RawWaypointConsistencyResults {
   std::unordered_map<WaypointId, std::vector<std::vector<double>>>
-      centroid_deviations_by_waypoint_by_trajectory_  ;
+      centroid_deviations_by_waypoint_by_trajectory_;
   std::unordered_map<WaypointId, std::vector<std::vector<double>>>
       orientation_deviations_by_waypoint_by_trajectory_;
   // TODO how to handle lost nodes
@@ -26,6 +26,21 @@ struct RawWaypointConsistencyResults {
 
 ATEResults combineSingleTrajectoryResults(
     const std::vector<ATEResults> &single_traj_results);
+
+// Assumes we've already transformed to baselink (though probably shouldn't
+// matter...?) Also assumes we've already interpolated/aligned timestamps
+Pose3D<double> findAlignmentTransformation(
+    const std::vector<std::optional<Pose3D<double>>> &est_traj,
+    const std::vector<Pose3D<double>> &gt_traj,
+    const bool &adjust_translation = true);
+
+// Assumes we've already transformed to baselink (though probably shouldn't
+// matter...?) Also assumes we've already interpolated/aligned timestamps
+void alignWithGroundTruth(
+    const std::vector<Pose3D<double>> &gt_traj,
+    const std::vector<std::optional<Pose3D<double>>> &unaligned_est_traj,
+    std::vector<std::optional<Pose3D<double>>> &aligned_est_traj,
+    const bool &adjust_translation = true);
 
 // TODO do we need to find transform that minimizes dist first or should we
 // assume they're aligned

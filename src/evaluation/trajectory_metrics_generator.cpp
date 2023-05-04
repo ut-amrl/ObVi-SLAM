@@ -128,9 +128,13 @@ FullSequenceMetrics computeMetrics(
       comparison_pose_only.emplace_back(comparison_entry.second);
     }
 
+    std::vector<std::optional<Pose3D<double>>> aligned_comparison_pose;
+    alignWithGroundTruth(
+        gt_pose_only, comparison_pose_only, aligned_comparison_pose);
+
     ATEResults traj_ate_results =
         generateATEforRotAndTranslForSyncedAlignedTrajectories(
-            comparison_pose_only, gt_pose_only);
+            aligned_comparison_pose, gt_pose_only);
     TrajectoryMetrics single_traj_metrics;
     single_traj_metrics.ate_results_ = traj_ate_results;
     single_traj_ate_results.emplace_back(traj_ate_results);
@@ -275,6 +279,7 @@ int main(int argc, char **argv) {
       gt_traj_path_suffix =
           file_io::ensureDirectoryPathEndsWithSlash(gt_traj_path_suffix);
     }
+
     std::string comparison_traj_full_path =
         file_io::ensureDirectoryPathEndsWithSlash(
             file_io::ensureDirectoryPathEndsWithSlash(
