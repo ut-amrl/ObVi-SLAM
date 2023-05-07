@@ -1,6 +1,13 @@
 {
-  "seq_id": "1669743059_only",
-  "sequence": [
-    "1669743059"
-  ]
+  "sequence_info": {
+    "seq_id": "1669743059_only",
+    "sequence": [
+      {
+        "bag_base_name": "1669743059",
+        "waypoint_file_base_name": {
+          "has_v": 0
+        }
+      }
+    ]
+  }
 }

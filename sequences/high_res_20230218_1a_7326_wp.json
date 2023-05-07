@@ -1,0 +1,21 @@
+{
+    "sequence_info": {
+        "seq_id": "high_res_20230218_1a_7326_wp",
+        "sequence": [
+            {
+                "bag_base_name": "1676766718",
+                "waypoint_file_base_name": {
+                    "has_v": 1,
+                    "v": "waypoint_stamps_v1_1676766718"
+                }
+            },
+            {
+                "bag_base_name": "1677097326",
+                "waypoint_file_base_name": {
+                    "has_v": 1,
+                    "v": "waypoint_stamps_v1_1677097326"
+                }
+            }
+        ]
+    }
+}

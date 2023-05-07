@@ -29,9 +29,12 @@ class FileStructureConstants:
 
     finalTrajectoryFileBaseName = "trajectory.csv"
 
+    waypointsTimestampFilePrefix = "waypoint_stamps_v"
+
     # File extensions
     jsonExtension = ".json"
     bagSuffix = ".bag"
+    csvExtension = ".csv"
 
 
 class FileStructureUtils:
@@ -106,3 +109,19 @@ class FileStructureUtils:
         return FileStructureUtils.getAndOptionallyCreateConfigSpecificResultsDirectory(
             resultsBaseDir, FileStructureConstants.logsRootDirBaseName, sequenceBaseName, configBaseName,
             dirForBagResults, create)
+
+    @staticmethod
+    def createRosbagFileName(rosbagFileDirectory, rosbagBaseName):
+        return FileStructureUtils.ensureDirectoryEndsWithSlash(
+            rosbagFileDirectory) + rosbagBaseName + FileStructureConstants.bagSuffix
+
+    @staticmethod
+    def createWaypointTimestampsFileName(originalDataDir, rosbagBaseName, waypointsFileVersion):
+        return FileStructureUtils.ensureDirectoryEndsWithSlash(
+            originalDataDir) + FileStructureConstants.waypointsTimestampFilePrefix + waypointsFileVersion + \
+               rosbagBaseName + FileStructureConstants.csvExtension
+
+    @staticmethod
+    def createWaypointTimestampsFileName(originalDataDir, waypointFileBaseName):
+        return FileStructureUtils.ensureDirectoryEndsWithSlash(
+            originalDataDir) + waypointFileBaseName + FileStructureConstants.csvExtension
