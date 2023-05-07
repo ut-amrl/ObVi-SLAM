@@ -72,6 +72,22 @@ void writeTimestampAndWaypointInfosToFile(
       object_to_str_list_converter);
 }
 
+void readWaypointInfosFromFile(
+    const std::string &waypoint_file_name,
+    std::vector<vslam_types_refactor::WaypointInfo> &waypoint_infos) {
+  std::vector<TimestampAndWaypointInfo> raw_infos;
+  readTimestampAndWaypointInfosFromFile(waypoint_file_name, raw_infos);
+
+  for (const TimestampAndWaypointInfo &raw_info : raw_infos) {
+    vslam_types_refactor::WaypointInfo waypoint_info;
+    waypoint_info.waypoint_timestamp_ =
+        std::make_pair(raw_info.seconds_, raw_info.nano_seconds_);
+    waypoint_info.reversed_ = raw_info.reversed_;
+    waypoint_info.waypoint_id_ = raw_info.waypoint_id_;
+    waypoint_infos.emplace_back(waypoint_info);
+  }
+}
+
 }  // namespace file_io
 
 #endif  // UT_VSLAM_TIMESTAMP_AND_WAYPOINT_IO_H

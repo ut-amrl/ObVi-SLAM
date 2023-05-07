@@ -9,6 +9,7 @@
 #include <file_io/file_access_utils.h>
 #include <file_io/pose_3d_io.h>
 #include <file_io/pose_3d_with_timestamp_io.h>
+#include <file_io/timestamp_and_waypoint_io.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 #include <refactoring/types/vslam_basic_types_refactor.h>
@@ -67,7 +68,9 @@ DEFINE_string(
     "If specified, sequence_file must not be specified (else sequence_file "
     "parameter must be present). If specified, the trajectory in this "
     "subdirectory under the comparison_alg_traj_est_dir will be evaluated");
-
+DEFINE_string(waypoints_files_directory,
+              "",
+              "Directory where the waypoints files are stored");
 DEFINE_string(metrics_out_file,
               "",
               "Name of the file to which to output metrics data to.");
@@ -245,6 +248,7 @@ int main(int argc, char **argv) {
   }
 
   std::vector<std::string> indiv_traj_dir_base_names;
+  std::vector<std::optional<std::string>> waypoint_file_base_names;
   if (!FLAGS_sequence_file.empty()) {
     SequenceInfo sequence_info;
     readSequenceInfo(FLAGS_sequence_file, sequence_info);
@@ -259,6 +263,9 @@ int main(int argc, char **argv) {
           (std::to_string(bag_idx) + "_" +
            sequence_info.bag_base_names_and_waypoint_files[bag_idx]
                .bag_base_name_));
+      waypoint_file_base_names.emplace_back(
+          sequence_info.bag_base_names_and_waypoint_files[bag_idx]
+              .optional_waypoint_file_base_name_);
     }
   } else {
     indiv_traj_dir_base_names.emplace_back(
@@ -438,12 +445,31 @@ int main(int argc, char **argv) {
         interp_gt_traj_rel_bl_origin_start);
   }
 
-  // TODO Read this if provided
   std::vector<std::vector<WaypointInfo>> waypoint_info_by_trajectory;
-  bool waypoints_not_provided = true;  // TODO set
+  bool waypoints_not_provided = true;
+  if ((!FLAGS_sequence_file.empty()) &&
+      (!FLAGS_waypoints_files_directory.empty())) {
+    waypoints_not_provided = false;
+  }
   if (waypoints_not_provided) {
     waypoint_info_by_trajectory.resize(
         comparison_trajectories_rel_baselink.size());
+  } else {
+    for (const std::optional<std::string> &waypoint_file_base_name :
+         waypoint_file_base_names) {
+      if (waypoint_file_base_name.has_value()) {
+        std::string full_waypoint_file_name =
+            file_io::ensureDirectoryPathEndsWithSlash(
+                FLAGS_waypoints_files_directory) +
+            waypoint_file_base_name.value() + file_io::kCsvExtension;
+        std::vector<WaypointInfo> waypoint_info_for_traj;
+        file_io::readWaypointInfosFromFile(full_waypoint_file_name,
+                                           waypoint_info_for_traj);
+        waypoint_info_by_trajectory.emplace_back(waypoint_info_for_traj);
+      } else {
+        waypoint_info_by_trajectory.emplace_back((std::vector<WaypointInfo>){});
+      }
+    }
   }
   FullSequenceMetrics full_metrics =
       computeMetrics(comparison_trajectories_rel_baselink,

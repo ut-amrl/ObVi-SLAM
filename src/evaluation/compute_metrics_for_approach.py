@@ -43,12 +43,13 @@ class TrajectoryMetricsGeneratorParamConstants:
     gt_dir_suffix = "gt_dir_suffix"
     sequence_file = "sequence_file"
     metrics_out_file = "metrics_out_file"
+    waypoints_files_directory = "waypoints_files_directory"
 
 
 class TrajectoryMetricsGeneratorConfig:
     def __init__(self, interpolated_gt_traj_dir, lego_loam_frame_to_bl_extrinsics, comparison_alg_traj_est_dir,
                  comparison_alg_to_bl_extrinsics, trajectory_results_dir_suffix, gt_dir_suffix, sequence_file,
-                 metrics_out_file):
+                 metrics_out_file, waypoints_files_directory):
         self.interpolated_gt_traj_dir = interpolated_gt_traj_dir
         self.lego_loam_frame_to_bl_extrinsics = lego_loam_frame_to_bl_extrinsics
         self.comparison_alg_traj_est_dir = comparison_alg_traj_est_dir
@@ -57,6 +58,7 @@ class TrajectoryMetricsGeneratorConfig:
         self.gt_dir_suffix = gt_dir_suffix
         self.sequence_file = sequence_file
         self.metrics_out_file = metrics_out_file
+        self.waypoints_files_directory = waypoints_files_directory
 
 
 def runMetricsGeneratorWithGeneratorConfig(generator_config):
@@ -80,6 +82,8 @@ def runMetricsGeneratorWithGeneratorConfig(generator_config):
                                            generator_config.sequence_file)
     argsString += createCommandStrAddition(TrajectoryMetricsGeneratorParamConstants.metrics_out_file,
                                            generator_config.metrics_out_file)
+    argsString += createCommandStrAddition(TrajectoryMetricsGeneratorParamConstants.waypoints_files_directory,
+                                           generator_config.waypoints_files_directory)
 
     cmdToRun = "./bin/trajectory_metrics_generator " + argsString
     print("Running command: ")
@@ -147,7 +151,8 @@ def generateMetricsForApproach(metrics_for_approach_config):
         sequence_file=generateSequenceFilePath(metrics_for_approach_config.sequence_dir,
                                                metrics_for_approach_config.sequence_file_base_name),
         lego_loam_frame_to_bl_extrinsics=metrics_for_approach_config.lego_loam_frame_to_bl_extrinsics,
-        comparison_alg_to_bl_extrinsics=metrics_for_approach_config.comparison_alg_to_bl_extrinsics)
+        comparison_alg_to_bl_extrinsics=metrics_for_approach_config.comparison_alg_to_bl_extrinsics,
+        waypoints_files_directory=metrics_for_approach_config.rosbag_dir)
     runMetricsGeneratorWithGeneratorConfig(metrics_generator_config)
 
 
