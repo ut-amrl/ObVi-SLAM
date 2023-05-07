@@ -131,6 +131,16 @@ class CmdLineArgConstants:
     forceReformatUTVSLAMOutputHelp = "Force rerun the trajectory formatter that converts from JSON with trajectories " \
                                      "by frame to a csv with trajectories stored by timestamp"
 
+    # Waypoint extraction
+    waypointTopicTriggerBaseArgName = "waypoint_topic_trigger"
+    waypointTopicTriggerHelp = "Topic on which waypoint stops are recorded"
+    cameraTopicsFileBaseArgName = "camera_topics_file"
+    cameraTopicsFileHelp = "File that contains the camera topics to use for waypoint extraction"
+    waypointFileVersionBaseArgName = "waypoint_file_version"
+    waypointFileVersionHelp = "version string for the waypoints file"
+    forceWaypointFileRegenerationBaseArgName = 'force_waypoint_file_regeneration'
+    forceWaypointFileRegenerationHelp = "Force run the waypoint extractor even if there is already a waypoints file"
+
     @staticmethod
     def prefixWithDashDash(argName):
         return '--' + argName

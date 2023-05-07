@@ -248,15 +248,17 @@ int main(int argc, char **argv) {
   if (!FLAGS_sequence_file.empty()) {
     SequenceInfo sequence_info;
     readSequenceInfo(FLAGS_sequence_file, sequence_info);
-    if (sequence_info.bag_base_names_.empty()) {
+    if (sequence_info.bag_base_names_and_waypoint_files.empty()) {
       LOG(ERROR) << "No bag names in sequence";
       exit(1);
     }
-    for (size_t bag_idx = 0; bag_idx < sequence_info.bag_base_names_.size();
+    for (size_t bag_idx = 0;
+         bag_idx < sequence_info.bag_base_names_and_waypoint_files.size();
          bag_idx++) {
       indiv_traj_dir_base_names.emplace_back(
           (std::to_string(bag_idx) + "_" +
-           sequence_info.bag_base_names_[bag_idx]));
+           sequence_info.bag_base_names_and_waypoint_files[bag_idx]
+               .bag_base_name_));
     }
   } else {
     indiv_traj_dir_base_names.emplace_back(
