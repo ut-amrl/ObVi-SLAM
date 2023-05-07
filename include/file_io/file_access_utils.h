@@ -13,6 +13,7 @@
 namespace file_io {
 
 const static std::string kJsonExtension = ".json";
+const static std::string kCsvExtension = ".csv";
 
 std::string ensureDirectoryPathEndsWithSlash(
     const std::string &unvalidated_dir_path) {

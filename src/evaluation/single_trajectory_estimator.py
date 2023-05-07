@@ -34,12 +34,21 @@ class SingleTrajectoryExecutableParamConstants:
     input_checkpoints_dir = "input_checkpoints_dir"
 
 
+class OrbTrajectorySparsifierParamConstants:
+    param_prefix = "param_prefix"
+    input_processed_data_path = "input_processed_data_path"
+    output_processed_data_path = "output_processed_data_path"
+    params_config_file = "params_config_file"
+    required_timestamps_file = "required_timestamps_file"
+    required_stamps_by_node_file = "required_stamps_by_node_file"
+
+
 class SingleTrajectoryExecutionConfig:
 
     def __init__(self,
                  configFileDirectory, orbSlamOutDirectory, rosbagDirectory,
                  orbPostProcessBaseDirectory, calibrationFileDirectory, resultsRootDirectory, configFileBaseName,
-                 sequenceFileBaseName, rosbagBaseName, resultsForBagDirPrefix, longTermMapBagDir,
+                 sequenceFileBaseName, rosbagBaseName, waypointFileBaseName, resultsForBagDirPrefix, longTermMapBagDir,
                  lego_loam_root_dir,
                  forceRunOrbSlamPostProcess=False, outputEllipsoidDebugInfo=True, outputJacobianDebugInfo=True,
                  outputBbAssocInfo=True, runRviz=False, recordVisualizationRosbag=False, logToFile=False,
@@ -53,6 +62,7 @@ class SingleTrajectoryExecutionConfig:
         self.configFileBaseName = configFileBaseName
         self.sequenceFileBaseName = sequenceFileBaseName
         self.rosbagBaseName = rosbagBaseName
+        self.waypointFileBaseName = waypointFileBaseName
         self.resultsForBagDirPrefix = resultsForBagDirPrefix
         self.longTermMapBagDir = longTermMapBagDir
         self.lego_loam_root_dir = lego_loam_root_dir
@@ -101,7 +111,7 @@ class OfflineRunnerArgs:
 
 
 def runOrbPostProcess(orbDataDirForBag, unsparsifiedUtVslamInDir, sparsifiedUtVslamInDir, calibrationDir,
-                      configFileName, deletePrevData=True):
+                      configFileName, fullWaypointFileName=None, deletePrevData=True):
     print("Unsparsified ut vslam in dir: ")
     print(unsparsifiedUtVslamInDir)
 
@@ -128,15 +138,24 @@ def runOrbPostProcess(orbDataDirForBag, unsparsifiedUtVslamInDir, sparsifiedUtVs
     print(cmd2)
     os.system(cmd2)
 
-    cmd3 = "./bin/orb_trajectory_sparsifier --input_processed_data_path " + unsparsifiedUtVslamInDir + \
-           " --output_processed_data_path " + sparsifiedUtVslamInDir + " --params_config_file " + configFileName
+    sparsifierArgsString = ""
+    sparsifierArgsString += createCommandStrAddition(OrbTrajectorySparsifierParamConstants.input_processed_data_path,
+                                                     unsparsifiedUtVslamInDir)
+    sparsifierArgsString += createCommandStrAddition(OrbTrajectorySparsifierParamConstants.output_processed_data_path,
+                                                     sparsifiedUtVslamInDir)
+    sparsifierArgsString += createCommandStrAddition(OrbTrajectorySparsifierParamConstants.params_config_file,
+                                                     configFileName)
+    sparsifierArgsString += createCommandStrAddition(OrbTrajectorySparsifierParamConstants.required_timestamps_file,
+                                                     fullWaypointFileName)
+
+    cmd3 = "./bin/orb_trajectory_sparsifier " + sparsifierArgsString
     print("Running command: ")
     print(cmd3)
     os.system(cmd3)
 
 
 def ensureOrbDataPostProcessed(orbDataDirForBag, unsparsifiedUtVslamInDir, sparsifiedUtVslamInDir, calibrationDir,
-                               configFileName, forceRunOrbSlamPostProcess):
+                               configFileName, forceRunOrbSlamPostProcess, fullWaypointFileName):
     needToRerun = False
     if (forceRunOrbSlamPostProcess):
         needToRerun = True
@@ -151,7 +170,7 @@ def ensureOrbDataPostProcessed(orbDataDirForBag, unsparsifiedUtVslamInDir, spars
 
     if (needToRerun):
         runOrbPostProcess(orbDataDirForBag, unsparsifiedUtVslamInDir, sparsifiedUtVslamInDir, calibrationDir,
-                          configFileName)
+                          configFileName, fullWaypointFileName)
 
 
 def generateRequiredStampsFileFromNodesAndTimestampsFile(nodesAndTimestampsFile, requiredStampsFile):
@@ -212,8 +231,13 @@ def generateOfflineRunnerArgsFromExecutionConfigAndPreprocessOrbDataIfNecessary(
     rosbag_file_name = FileStructureUtils.ensureDirectoryEndsWithSlash(
         executionConfig.rosbagDirectory) + rosbagBaseName + FileStructureConstants.bagSuffix
 
+    fullWaypointFileName = None
+    if (executionConfig.waypointFileBaseName is not None):
+        fullWaypointFileName = FileStructureUtils.createWaypointTimestampsFileName(executionConfig.rosbagDirectory,
+                                                                                   executionConfig.waypointFileBaseName)
     ensureOrbDataPostProcessed(orbOutputDirForBag, unsparsifiedUtVslamInDir, sparsifiedUtVslamInDir,
-                               calibrationFileDirectory, fullConfigFileName, executionConfig.forceRunOrbSlamPostProcess)
+                               calibrationFileDirectory, fullConfigFileName, executionConfig.forceRunOrbSlamPostProcess,
+                               fullWaypointFileName)
 
     bag_results_dir_name = executionConfig.resultsForBagDirPrefix + executionConfig.rosbagBaseName
 
@@ -479,6 +503,9 @@ def singleTrajectoryArgParse():
     parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.rosbagBaseNameBaseArgName),
                         required=True,
                         help=CmdLineArgConstants.rosbagBaseNameHelp)
+    parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.waypointFileBaseNameBaseArgName),
+                        required=False,
+                        help=CmdLineArgConstants.waypointFileBaseNameHelp)
     parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.resultsForBagDirPrefixBaseArgName),
                         required=False,
                         help=CmdLineArgConstants.resultsForBagDirPrefixHelp)
@@ -590,6 +617,7 @@ def singleTrajectoryArgParse():
         configFileBaseName=args_dict[CmdLineArgConstants.configFileBaseNameBaseArgName],
         sequenceFileBaseName=args_dict[CmdLineArgConstants.sequenceFileBaseNameBaseArgName],
         rosbagBaseName=args_dict[CmdLineArgConstants.rosbagBaseNameBaseArgName],
+        waypointFileBaseName=args_dict[CmdLineArgConstants.waypointFileBaseNameBaseArgName],
         resultsForBagDirPrefix=args_dict[CmdLineArgConstants.resultsForBagDirPrefixBaseArgName],
         longTermMapBagDir=args_dict[CmdLineArgConstants.longTermMapBagDirBaseArgName],
         lego_loam_root_dir=args_dict[CmdLineArgConstants.legoLoamOutRootDirBaseArgName],

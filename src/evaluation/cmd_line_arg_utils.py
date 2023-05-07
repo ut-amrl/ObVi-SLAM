@@ -9,6 +9,7 @@ class CmdLineArgConstants:
     configFileBaseNameBaseArgName = 'config_file_base_name'
     sequenceFileBaseNameBaseArgName = 'sequence_file_base_name'
     rosbagBaseNameBaseArgName = 'rosbag_base_name'
+    waypointFileBaseNameBaseArgName = 'waypoint_file_base_name'
     resultsForBagDirPrefixBaseArgName = 'results_for_bag_dir_prefix'
     longTermMapBagDirBaseArgName = 'long_term_map_bag_dir_arg_name'
     numberInSequenceBaseArgName = 'number_in_sequence_arg_name'
@@ -63,6 +64,7 @@ class CmdLineArgConstants:
         "json file (argument specified here should not have json suffix). The sequence file that this points to will" \
         " contain a list of rosbag base names to execute in sequence as well as an identifier for the sequence"
     rosbagBaseNameHelp = "Base name of the rosbag that these results are for. "
+    waypointFileBaseNameHelp = "Base name of the waypoint file that these results are for."
     resultsForBagDirPrefixHelp = \
         "Prefix to add to the rosbag name that should be used for storing results. If part of a sequence, this should " \
         "be the number of the trajectory in the sequence (starting with 0) followed by an underscore"

@@ -37,12 +37,14 @@ class TrajectorySequenceExecutionConfig:
 
 
 def runTrajectorySequence(sequenceExecutionConfig):
-    rosbagsSequence = readTrajectorySequence(sequenceExecutionConfig.sequenceFilesDirectory,
+    rosbagsSequence = readTrajectorySequenceAndWaypoints(sequenceExecutionConfig.sequenceFilesDirectory,
                                              sequenceExecutionConfig.sequenceFileBaseName)
 
     prevTrajectoryIdentifier = None
 
-    for idx, bagName in enumerate(rosbagsSequence):
+    for idx, sequenceEntry in enumerate(rosbagsSequence):
+        bagName = sequenceEntry[0]
+        waypointInfo = sequenceEntry[1]
         bagPrefix = str(idx) + "_"
         # if (idx != 0):
         trajectoryExecutionConfig = SingleTrajectoryExecutionConfig(
@@ -55,6 +57,7 @@ def runTrajectorySequence(sequenceExecutionConfig):
             configFileBaseName=sequenceExecutionConfig.configFileBaseName,
             sequenceFileBaseName=sequenceExecutionConfig.sequenceFileBaseName,
             rosbagBaseName=bagName,
+            waypointFileBaseName=waypointInfo,
             resultsForBagDirPrefix=bagPrefix,
             longTermMapBagDir=prevTrajectoryIdentifier,
             lego_loam_root_dir=sequenceExecutionConfig.lego_loam_root_dir,
