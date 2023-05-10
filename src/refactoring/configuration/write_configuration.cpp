@@ -133,7 +133,7 @@ int main(int argc, char **argv) {
   std::string config_identifier = FLAGS_config_identifier;
   if (config_identifier.empty()) {
     // TODO INCREMENT IF YOU CHANGE VALUES/STRUCTURE FOR CONFIG
-    int config_version_number = 11;
+    int config_version_number = 12;
 
     config_identifier = std::to_string(config_version_number);
   }
@@ -209,6 +209,7 @@ int main(int argc, char **argv) {
       relative_pose_cov_params;
 
   configuration.ltm_tunable_params_.far_feature_threshold_ = 75;
+  configuration.ltm_tunable_params_.min_col_norm_ = 5e-9;
   configuration.ltm_solver_params_ =
       base_solver_params;  // TODO is this the one we want?
   configuration.ltm_solver_params_.max_num_iterations_ = 300;

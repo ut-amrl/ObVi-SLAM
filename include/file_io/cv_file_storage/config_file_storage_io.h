@@ -1229,11 +1229,13 @@ class SerializableLongTermMapExtractionTunableParams
   virtual void write(cv::FileStorage &fs) const override {
     fs << "{";
     fs << kFarFeatureThresholdLabel << data_.far_feature_threshold_;
+    fs << kMinColNormLabel << data_.min_col_norm_;
     fs << "}";
   }
 
   virtual void read(const cv::FileNode &node) override {
     data_.far_feature_threshold_ = node[kFarFeatureThresholdLabel];
+    data_.min_col_norm_ = node[kMinColNormLabel];
   }
 
  protected:
@@ -1242,6 +1244,8 @@ class SerializableLongTermMapExtractionTunableParams
  private:
   inline static const std::string kFarFeatureThresholdLabel =
       "far_feature_threshold";
+  inline static const std::string kMinColNormLabel =
+      "min_col_norm";
 };
 
 static void write(cv::FileStorage &fs,

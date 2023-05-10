@@ -13,6 +13,7 @@ trajectory_sequence_file_directory=/home/amanda/workspaces/ut_vslam/sequences/
 #sequence_file_base_name="high_res_7326_20230218_1a"
 sequence_file_base_name="high_res_20230218_1a_7326"
 #config_file_base_name="10_two_phase_off_first_100"
+#config_file_base_name="10_two_phase_off"
 config_file_base_name="10_two_phase_off"
 #config_file_base_name="9_two_phase_off"
 #config_file_base_name="8_two_phase_off_first_250"
@@ -69,7 +70,7 @@ number_in_sequence=0
 # 395   547   Problem
 # 331   547   No problem
 
-
+make
 python3 src/evaluation/ltm_extractor_only.py \
     --config_file_directory ${config_file_directory} \
     --trajectory_sequence_file_directory ${trajectory_sequence_file_directory} \
