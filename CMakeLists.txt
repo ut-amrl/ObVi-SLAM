@@ -27,7 +27,7 @@ OPTION(GENERATE_SHARED_LIB_UNITTESTS,
         OFF)
 
 find_package(PCL 1.3 REQUIRED)
-find_package(Ceres REQUIRED)
+find_package(Ceres 1.14 REQUIRED)
 find_package(OpenCV 4.2 EXACT REQUIRED)
 find_package(Boost COMPONENTS filesystem REQUIRED)
 find_package(pcl_conversions)
@@ -113,6 +113,8 @@ target_link_libraries(write_configuration ut_vslam ${LIBS})
 ROSBUILD_ADD_EXECUTABLE(interpolate_poses_with_required_nodes src/evaluation/interpolate_poses_with_required_nodes.cpp)
 target_link_libraries(interpolate_poses_with_required_nodes ut_vslam ${LIBS})
 
+ROSBUILD_ADD_EXECUTABLE(oa_slam_data_generator src/evaluation/oa_slam/oa_slam_data_generator.cpp)
+target_link_libraries(oa_slam_data_generator ut_vslam ${LIBS})
 
 ROSBUILD_ADD_EXECUTABLE(trajectory_metrics_generator src/evaluation/trajectory_metrics_generator.cpp)
 target_link_libraries(trajectory_metrics_generator ut_vslam ${LIBS})
