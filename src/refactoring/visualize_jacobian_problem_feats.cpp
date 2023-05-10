@@ -26,6 +26,11 @@ DEFINE_string(problem_feats_matlab_file,
               "",
               "File containing columns identified in matlab as very low value "
               "on diagonal of Hessian");
+DEFINE_string(problem_ellipsoids_matlab_file,
+              "",
+              "File containing columns for ellipsoids identified in matlab as "
+              "very low value "
+              "on diagonal of Hessian");
 DEFINE_string(images_out_dir, "", "Directory to which to output images");
 DEFINE_string(nodes_by_timestamp_file,
               "",

@@ -13,8 +13,9 @@
 
 namespace vslam_types_refactor {
 
-std::pair<std::vector<int>, std::vector<int>> writeJacobianToFile(
-    const ceres::CRSMatrix &crs_matrix, const std::string &jacobian_file);
+std::pair<std::pair<std::vector<int>, std::vector<int>>, std::vector<int>>
+writeJacobianToFile(const ceres::CRSMatrix &crs_matrix,
+                    const std::string &jacobian_file);
 
 void writeJacobianMatlabFormatToFile(const ceres::CRSMatrix &crs_matrix,
                                      const std::string &jacobian_file);
@@ -35,7 +36,8 @@ void generateGenericFactorInfoForFactor(
 void displayInfoForSmallJacobian(const ceres::CRSMatrix &jacobian_mat);
 
 void validateZeroColumnEntries(
-    const std::vector<int> &all_zero_columns,
+    const std::pair<std::pair<std::vector<int>, std::vector<int>>,
+                    std::vector<int>> &all_zero_columns,
     const std::vector<ParameterBlockInfo> &ordered_parameter_block_infos,
 
     const std::vector<ceres::ResidualBlockId> &residual_block_ids,
