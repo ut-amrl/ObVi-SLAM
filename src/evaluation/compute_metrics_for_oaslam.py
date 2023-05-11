@@ -30,7 +30,7 @@ class MetricsForOASLAMConfig:
         self.force_rerun_metrics_generator = force_rerun_metrics_generator
 
 
-def generateMetricsForOrbSLAM3(metricsConfig):
+def generateMetricsForOASLAM(metricsConfig):
     metrics_for_approach_config = MetricsForApproachConfig(
         rosbag_dir=metricsConfig.rosbag_dir,
         sequence_dir=metricsConfig.sequence_dir,
@@ -59,9 +59,9 @@ def metricsForOrbSLAM3ArgParse():
     parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.sequenceFileBaseNameBaseArgName),
                         required=True,
                         help=CmdLineArgConstants.sequenceFileBaseNameHelp)
-    parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.orbSlam3OutRootDirBaseArgName),
+    parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.oaSlamOutRootDirBaseArgName),
                         required=True,
-                        help=CmdLineArgConstants.orbSlam3OutRootDirHelp)
+                        help=CmdLineArgConstants.oaSlamOutRootDirHelp)
     parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.legoLoamOutRootDirBaseArgName),
                         required=True,
                         help=CmdLineArgConstants.legoLoamOutRootDirHelp)
@@ -93,13 +93,13 @@ def metricsForOrbSLAM3ArgParse():
     lego_loam_frame_to_bl_extrinsics = calibrationFileDirectory + CalibrationFileConstants.legoLoamCalibFile
     comparison_alg_to_bl_extrinsics = calibrationFileDirectory + CalibrationFileConstants.orbslam3CalibFile
     odom_to_bl_extrinsics = calibrationFileDirectory + CalibrationFileConstants.odomCalibFile
-    return MetricsForOrbSLAM3Config(rosbag_dir=args_dict[CmdLineArgConstants.rosbagDirectoryBaseArgName],
+    return MetricsForOASLAMConfig(rosbag_dir=args_dict[CmdLineArgConstants.rosbagDirectoryBaseArgName],
                                     sequence_dir=args_dict[
                                         CmdLineArgConstants.trajectorySequenceFileDirectoryBaseArgName],
                                     sequence_file_base_name=args_dict[
                                         CmdLineArgConstants.sequenceFileBaseNameBaseArgName],
                                     results_for_approach_root=args_dict[
-                                        CmdLineArgConstants.orbSlam3OutRootDirBaseArgName],
+                                        CmdLineArgConstants.oaSlamOutRootDirBaseArgName],
                                     lego_loam_root_dir=args_dict[CmdLineArgConstants.legoLoamOutRootDirBaseArgName],
                                     lego_loam_frame_to_bl_extrinsics=lego_loam_frame_to_bl_extrinsics,
                                     comparison_alg_to_bl_extrinsics=comparison_alg_to_bl_extrinsics,
@@ -111,5 +111,5 @@ def metricsForOrbSLAM3ArgParse():
 
 
 if __name__ == "__main__":
-    metricsForOrbConfig = metricsForOrbSLAM3ArgParse()
-    generateMetricsForOrbSLAM3(metricsForOrbConfig)
+    metricsForOAConfig = metricsForOrbSLAM3ArgParse()
+    generateMetricsForOASLAM(metricsForOAConfig)
