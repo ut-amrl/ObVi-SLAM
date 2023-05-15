@@ -25,7 +25,7 @@ sleep 5
 
 cd $SLAM_DIR
 
-config_file_base_name="9"
+config_file_base_name="9_two_phase_off"
 python3 src/evaluation/ltm_trajectory_sequence_executor.py \
     --config_file_directory ${config_file_directory} \
     --orb_slam_out_directory ${orb_slam_out_directory} \

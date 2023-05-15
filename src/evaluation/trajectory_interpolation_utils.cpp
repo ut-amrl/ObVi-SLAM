@@ -19,6 +19,10 @@ bool runOptimization(
     const std::vector<pose::Timestamp> &fixed_timestamps,
     util::BoostHashMap<pose::Timestamp, Pose3D<double>> &results,
     std::vector<pose::Timestamp> &sorted_stamps) {
+  LOG(INFO) << "Ready to run optimization. " 
+    << "initial_estimates size: " << initial_estimates.size() << std::endl
+    << "factors size: " << factors.size() << std::endl
+    << "fixed_timestamps size: " << fixed_timestamps.size() << std::endl;
   std::shared_ptr<util::BoostHashMap<pose::Timestamp, RobotPoseNode>>
       robot_pose_nodes = std::make_shared<
           util::BoostHashMap<pose::Timestamp, RobotPoseNode>>();
@@ -60,6 +64,7 @@ bool runOptimization(
   options.use_nonmonotonic_steps = true;
   options.max_num_iterations = 600;
   ceres::Solver::Summary summary;
+  LOG(INFO) << "Interpolating trajectories";
   ceres::Solve(options, &problem, &summary);
 
   LOG(INFO) << summary.FullReport();
@@ -464,13 +469,13 @@ void interpolate3dPosesUsingOdom(
   }
   std::sort(all_stamps.begin(), all_stamps.end(), pose::timestamp_sort());
 
-  vis_function(poses_by_timestamp, pose_factor_infos);
+  // vis_function(poses_by_timestamp, pose_factor_infos);
   runOptimization(poses_by_timestamp,
                   pose_factor_infos,
                   coarse_timestamps,
                   interpolated_poses,
                   all_stamps);
-  vis_function(interpolated_poses, pose_factor_infos);
+  // vis_function(interpolated_poses, pose_factor_infos);
 
   LOG(INFO) << "Storing interpolated poses";
 }

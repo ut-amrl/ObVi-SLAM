@@ -8,7 +8,7 @@ orb_slam_configuration_file=${HOME}/ORB_SLAM3/Examples/Stereo/high_res_husky_zed
 orb_slam_vocabulary_file=${HOME}/ORB_SLAM3/Vocabulary/ORBvoc.txt
 orb_slam_3_out_root_dir=${root_data_dir}orb_slam_3_out/
 
-sequence_file_base_name="high_res_20230218_1a"
+sequence_file_base_name="high_res_20230218_1a_7326"
 
 python3 src/evaluation/run_multi_session_orb_slam_3.py \
     --orb_slam_configuration_file=${orb_slam_configuration_file} \
