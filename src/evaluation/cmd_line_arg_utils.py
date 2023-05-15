@@ -123,6 +123,9 @@ class CmdLineArgConstants:
     forceRerunMetricsGeneratorBaseArgName = 'force_rerun_metrics_generator'
     forceRerunMetricsGeneratorHelp = "Force run the metrics generator even if there is already a metrics file"
 
+    odometryTopicBaseArgName = 'odometry_topic'
+    odometryTopicHelp = "Topic on which odometry is published"
+
     forceRerunInterpolatorBaseArgName = "force_rerun_interpolator"
     forceRerunInterpolatorHelp = "Force rerun the interpolator even if the interpolated file is already generated"
 

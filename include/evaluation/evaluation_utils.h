@@ -50,8 +50,13 @@ ATEResults generateATEforRotAndTranslForSyncedAlignedTrajectories(
 
 RawWaypointConsistencyResults computeWaypointConsistencyResults(
     const std::vector<std::vector<WaypointInfo>> &waypoints_by_trajectory,
+    const std::vector<
+        std::vector<std::pair<pose::Timestamp, std::optional<Pose3D<double>>>>>
+    &comparison_trajectories_rel_baselink,
     const std::vector<util::BoostHashMap<pose::Timestamp, Pose3D<double>>>
-        &poses_by_timestamp_by_trajectory);
+    &poses_by_timestamp_by_trajectory,
+    const std::vector<std::vector<std::pair<pose::Timestamp, pose::Pose2d>>> &
+    odom_poses_by_trajectory);
 
 Pose3D<double> getMeanPose(const std::vector<Pose3D<double>> &poses);
 

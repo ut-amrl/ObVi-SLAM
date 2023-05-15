@@ -25,7 +25,7 @@ def runWaypointExtraction(waypointExtractorExecutionConfig):
     fullBagName = FileStructureUtils.createRosbagFileName(waypointExtractorExecutionConfig.rosbag_file_directory,
                                                           waypointExtractorExecutionConfig.rosbag_base_name)
 
-    waypointOutputFileName = FileStructureUtils.createWaypointTimestampsFileName(
+    waypointOutputFileName = FileStructureUtils.createWaypointTimestampsFileNameFromComponents(
         waypointExtractorExecutionConfig.rosbag_file_directory,
         waypointExtractorExecutionConfig.rosbag_base_name,
         waypointExtractorExecutionConfig.waypoints_file_version)

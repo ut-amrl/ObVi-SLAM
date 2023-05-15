@@ -4,6 +4,7 @@
 
 #include <base_lib/pose_utils.h>
 #include <evaluation/evaluation_utils.h>
+#include <evaluation/trajectory_interpolation_utils.h>
 #include <file_io/cv_file_storage/full_sequence_metrics_file_storage_io.h>
 #include <file_io/cv_file_storage/sequence_file_storage_io.h>
 #include <file_io/file_access_utils.h>
@@ -15,6 +16,7 @@
 #include <refactoring/types/vslam_basic_types_refactor.h>
 #include <refactoring/types/vslam_types_math_util.h>
 using namespace vslam_types_refactor;
+using namespace pose;
 
 DEFINE_string(
     interpolated_gt_traj_dir,
@@ -74,8 +76,10 @@ DEFINE_string(waypoints_files_directory,
 DEFINE_string(metrics_out_file,
               "",
               "Name of the file to which to output metrics data to.");
-
-// TODO Add waypoints file (waypoints by timestamp)
+DEFINE_string(rosbag_files_directory,
+              "",
+              "Directory where the rosbags are stored");
+DEFINE_string(odometry_topic, "", "Topic on which odometry is published");
 
 const std::string kIndivTrajectoryBaseFileName = "trajectory.csv";
 const std::string kGTIndivTrajectoryBaseFileName =
@@ -87,6 +91,8 @@ FullSequenceMetrics computeMetrics(
         &comparison_trajectories_rel_baselink,
     const std::vector<std::vector<std::pair<pose::Timestamp, Pose3D<double>>>>
         &interp_gt_trajectories_rel_baselink,
+    const std::vector<std::string> &ros_bag_names,
+    const std::string &odom_topic,
     const std::vector<std::vector<WaypointInfo>> &waypoint_info_by_trajectory) {
   FullSequenceMetrics full_metrics;
   std::vector<ATEResults> single_traj_ate_results;
@@ -108,9 +114,20 @@ FullSequenceMetrics computeMetrics(
     poses_by_timestamp_by_trajectory.emplace_back(poses_by_timestamp);
   }
 
+  // Assumes odom is for base_link
+  std::vector<std::vector<std::pair<Timestamp, Pose2d>>>
+      odom_poses_by_trajectory;
+  for (const std::string &rosbag_name : ros_bag_names) {
+    std::vector<std::pair<Timestamp, Pose2d>> odom_poses_for_bag;
+    getOdomPoseEsts(rosbag_name, odom_topic, odom_poses_for_bag);
+    odom_poses_by_trajectory.emplace_back(odom_poses_for_bag);
+  }
+
   RawWaypointConsistencyResults raw_consistency_results =
       computeWaypointConsistencyResults(waypoint_info_by_trajectory,
-                                        poses_by_timestamp_by_trajectory);
+                                        comparison_trajectories_rel_baselink,
+                                        poses_by_timestamp_by_trajectory,
+                                        odom_poses_by_trajectory);
 
   for (size_t traj_num = 0;
        traj_num < comparison_trajectories_rel_baselink.size();
@@ -246,8 +263,17 @@ int main(int argc, char **argv) {
                   "to base link must be specified";
     exit(1);
   }
+  if (FLAGS_rosbag_files_directory.empty()) {
+    LOG(ERROR) << "Rosbags file directory required.";
+    exit(1);
+  }
+  if (FLAGS_odometry_topic.empty()) {
+    LOG(ERROR) << "Odometry topic must be specified";
+    exit(1);
+  }
 
   std::vector<std::string> indiv_traj_dir_base_names;
+  std::vector<std::string> rosbag_names;
   std::vector<std::optional<std::string>> waypoint_file_base_names;
   if (!FLAGS_sequence_file.empty()) {
     SequenceInfo sequence_info;
@@ -263,6 +289,12 @@ int main(int argc, char **argv) {
           (std::to_string(bag_idx) + "_" +
            sequence_info.bag_base_names_and_waypoint_files[bag_idx]
                .bag_base_name_));
+      rosbag_names.emplace_back(
+          file_io::ensureDirectoryPathEndsWithSlash(
+              FLAGS_rosbag_files_directory) +
+          sequence_info.bag_base_names_and_waypoint_files[bag_idx]
+              .bag_base_name_ +
+          file_io::kBagExtension);
       waypoint_file_base_names.emplace_back(
           sequence_info.bag_base_names_and_waypoint_files[bag_idx]
               .optional_waypoint_file_base_name_);
@@ -270,6 +302,10 @@ int main(int argc, char **argv) {
   } else {
     indiv_traj_dir_base_names.emplace_back(
         FLAGS_single_trajectory_eval_base_name);
+    rosbag_names.emplace_back(file_io::ensureDirectoryPathEndsWithSlash(
+                                  FLAGS_rosbag_files_directory) +
+                              FLAGS_single_trajectory_eval_base_name +
+                              file_io::kBagExtension);
   }
 
   std::vector<std::string> full_paths_for_comparison_trajectories;
@@ -474,6 +510,8 @@ int main(int argc, char **argv) {
   FullSequenceMetrics full_metrics =
       computeMetrics(comparison_trajectories_rel_baselink,
                      interp_gt_trajectories_rel_baselink,
+                     rosbag_names,
+                     FLAGS_odometry_topic,
                      waypoint_info_by_trajectory);
 
   writeFullSequenceMetrics(FLAGS_metrics_out_file, full_metrics);

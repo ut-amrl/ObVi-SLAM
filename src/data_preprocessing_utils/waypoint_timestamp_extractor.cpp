@@ -285,6 +285,7 @@ int main(int argc, char **argv) {
 
       bool numeric = all_of(line.begin(), line.end(), ::isdigit);
       if (!numeric) {
+        LOG(INFO) << "Not numeric -- not treating as waypoint";
         continue;
       }
       WaypointId waypoint_id = std::stoi(line);
