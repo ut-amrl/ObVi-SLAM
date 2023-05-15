@@ -10,16 +10,22 @@ from lego_loam_utils import *
 class OusterLeGOLOAMExecutionInfo(LeGOLOAMExecutionInfo):
     def __init__(self, lego_loam_out_root_dir, coda_parser_repo_root_dir, rosbag_file_directory, rosbag_base_name,
                  force_run_lego_loam):
-        LeGOLOAMExecutionInfo.__init__(lego_loam_out_root_dir, rosbag_file_directory, rosbag_base_name,
-                                       force_run_lego_loam)
+        LeGOLOAMExecutionInfo.__init__(self,
+                                       lego_loam_out_root_dir=lego_loam_out_root_dir,
+                                       rosbag_file_directory=rosbag_file_directory,
+                                       rosbag_base_name=rosbag_base_name,
+                                       force_run_lego_loam=force_run_lego_loam)
         self.coda_parser_repo_root_dir = coda_parser_repo_root_dir
 
 
 class OusterLeGOLOAMExecutionInfoForSequence(LeGOLOAMExecutionInfoForSequence):
     def __init__(self, lego_loam_out_root_dir, coda_parser_repo_root_dir, trajectory_sequence_file_directory,
                  sequence_file_base_name, rosbag_file_directory, force_run_lego_loam):
-        LeGOLOAMExecutionInfoForSequence.__init__(lego_loam_out_root_dir, trajectory_sequence_file_directory,
-                                                  sequence_file_base_name, rosbag_file_directory, force_run_lego_loam)
+        LeGOLOAMExecutionInfoForSequence.__init__(self, lego_loam_out_root_dir=lego_loam_out_root_dir,
+                                                  trajectory_sequence_file_directory=trajectory_sequence_file_directory,
+                                                  sequence_file_base_name=sequence_file_base_name,
+                                                  rosbag_file_directory=rosbag_file_directory,
+                                                  force_run_lego_loam=force_run_lego_loam)
         self.coda_parser_repo_root_dir = coda_parser_repo_root_dir
 
 
@@ -46,7 +52,7 @@ def runBagWithCoda(legoLoamExecutionInfo):
     os.system(codaCmd)
 
 
-def createOusterSingleConfigFromSequence(legoLoamExecutionInfoForSequence):
+def createOusterSingleConfigFromSequence(bagName, legoLoamExecutionInfoForSequence):
     return OusterLeGOLOAMExecutionInfo(
         lego_loam_out_root_dir=legoLoamExecutionInfoForSequence.lego_loam_out_root_dir,
         coda_parser_repo_root_dir=legoLoamExecutionInfoForSequence.coda_parser_repo_root_dir,
