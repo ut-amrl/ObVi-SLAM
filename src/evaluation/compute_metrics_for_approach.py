@@ -4,6 +4,7 @@ from file_structure_utils import *
 from trajectory_sequence import *
 from trajectory_interpolation import *
 
+
 class MetricsForApproachConfig:
     def __init__(self, rosbag_dir,
                  sequence_dir,
@@ -15,6 +16,7 @@ class MetricsForApproachConfig:
                  results_for_approach_root,
                  within_sequence_dir_subdir,
                  within_bagdir_sub_dir,
+                 odometry_topic,
                  force_rerun_interpolator,
                  force_rerun_metrics_generator):
         self.rosbag_dir = rosbag_dir
@@ -27,6 +29,7 @@ class MetricsForApproachConfig:
         self.results_for_approach_root = results_for_approach_root
         self.within_sequence_dir_subdir = within_sequence_dir_subdir
         self.within_bagdir_sub_dir = within_bagdir_sub_dir
+        self.odometry_topic = odometry_topic
         self.force_rerun_interpolator = force_rerun_interpolator
         self.force_rerun_metrics_generator = force_rerun_metrics_generator
 
@@ -44,12 +47,15 @@ class TrajectoryMetricsGeneratorParamConstants:
     sequence_file = "sequence_file"
     metrics_out_file = "metrics_out_file"
     waypoints_files_directory = "waypoints_files_directory"
+    rosbag_files_directory = "rosbag_files_directory"
+    odometry_topic = "odometry_topic"
 
 
 class TrajectoryMetricsGeneratorConfig:
     def __init__(self, interpolated_gt_traj_dir, lego_loam_frame_to_bl_extrinsics, comparison_alg_traj_est_dir,
                  comparison_alg_to_bl_extrinsics, trajectory_results_dir_suffix, gt_dir_suffix, sequence_file,
-                 metrics_out_file, waypoints_files_directory):
+                 metrics_out_file, waypoints_files_directory,
+                 rosbag_files_directory, odometry_topic):
         self.interpolated_gt_traj_dir = interpolated_gt_traj_dir
         self.lego_loam_frame_to_bl_extrinsics = lego_loam_frame_to_bl_extrinsics
         self.comparison_alg_traj_est_dir = comparison_alg_traj_est_dir
@@ -59,6 +65,8 @@ class TrajectoryMetricsGeneratorConfig:
         self.sequence_file = sequence_file
         self.metrics_out_file = metrics_out_file
         self.waypoints_files_directory = waypoints_files_directory
+        self.rosbag_files_directory = rosbag_files_directory
+        self.odometry_topic = odometry_topic
 
 
 def runMetricsGeneratorWithGeneratorConfig(generator_config):
@@ -84,6 +92,11 @@ def runMetricsGeneratorWithGeneratorConfig(generator_config):
                                            generator_config.metrics_out_file)
     argsString += createCommandStrAddition(TrajectoryMetricsGeneratorParamConstants.waypoints_files_directory,
                                            generator_config.waypoints_files_directory)
+    argsString += createCommandStrAddition(TrajectoryMetricsGeneratorParamConstants.rosbag_files_directory,
+                                           generator_config.rosbag_files_directory)
+    argsString += createCommandStrAddition(TrajectoryMetricsGeneratorParamConstants.odometry_topic,
+                                           generator_config.odometry_topic)
+
 
     cmdToRun = "./bin/trajectory_metrics_generator " + argsString
     print("Running command: ")
@@ -152,7 +165,9 @@ def generateMetricsForApproach(metrics_for_approach_config):
                                                metrics_for_approach_config.sequence_file_base_name),
         lego_loam_frame_to_bl_extrinsics=metrics_for_approach_config.lego_loam_frame_to_bl_extrinsics,
         comparison_alg_to_bl_extrinsics=metrics_for_approach_config.comparison_alg_to_bl_extrinsics,
-        waypoints_files_directory=metrics_for_approach_config.rosbag_dir)
+        waypoints_files_directory=metrics_for_approach_config.rosbag_dir,
+        rosbag_files_directory=metrics_for_approach_config.rosbag_dir,
+        odometry_topic=metrics_for_approach_config.odometry_topic)
     runMetricsGeneratorWithGeneratorConfig(metrics_generator_config)
 
 

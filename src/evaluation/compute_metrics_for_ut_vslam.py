@@ -17,6 +17,7 @@ class MetricsForUTVSlamConfig:
                  results_for_approach_root,
                  ut_vslam_preprocessing_root_dir,
                  config_base_name,
+                 odometry_topic,
                  force_rerun_interpolator,
                  force_rerun_metrics_generator,
                  force_rerun_trajectory_formatter):
@@ -30,6 +31,7 @@ class MetricsForUTVSlamConfig:
         self.results_for_approach_root = results_for_approach_root  # UT VSLAM out root
         self.ut_vslam_preprocessing_root_dir = ut_vslam_preprocessing_root_dir
         self.config_base_name = config_base_name
+        self.odometry_topic = odometry_topic
         self.force_rerun_interpolator = force_rerun_interpolator
         self.force_rerun_metrics_generator = force_rerun_metrics_generator
         self.force_rerun_trajectory_formatter = force_rerun_trajectory_formatter
@@ -101,7 +103,8 @@ def generateMetricsForUTVSLAM(metricsConfig):
         within_sequence_dir_subdir=metricsConfig.config_base_name,
         within_bagdir_sub_dir=FileStructureConstants.postprocessingDirBaseName,
         force_rerun_interpolator=metricsConfig.force_rerun_interpolator,
-        force_rerun_metrics_generator=metricsConfig.force_rerun_metrics_generator)
+        force_rerun_metrics_generator=metricsConfig.force_rerun_metrics_generator,
+        odometry_topic=metricsConfig.odometry_topic)
     generateMetricsForApproach(metrics_for_approach_config)
 
 
@@ -133,6 +136,11 @@ def metricsForUTVSlamArgParse():
         CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.orbPostProcessBaseDirectoryBaseArgName),
         required=True,
         help=CmdLineArgConstants.orbPostProcessBaseDirectoryHelp)
+    parser.add_argument(
+        CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.odometryTopicBaseArgName),
+        required=True,
+        help=CmdLineArgConstants.odometryTopicHelp)
+
     parser.add_argument(
         CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.forceRerunInterpolatorBaseArgName),
         default=False,

@@ -3,6 +3,7 @@
 //
 
 #include <evaluation/evaluation_utils.h>
+#include <evaluation/trajectory_interpolation_utils.h>
 #include <glog/logging.h>
 #include <refactoring/types/vslam_types_math_util.h>
 
@@ -169,16 +170,77 @@ ATEResults generateATEforRotAndTranslForSyncedAlignedTrajectories(
 
 RawWaypointConsistencyResults computeWaypointConsistencyResults(
     const std::vector<std::vector<WaypointInfo>> &waypoints_by_trajectory,
+    const std::vector<
+        std::vector<std::pair<pose::Timestamp, std::optional<Pose3D<double>>>>>
+        &comparison_trajectories_rel_baselink,
     const std::vector<util::BoostHashMap<pose::Timestamp, Pose3D<double>>>
-        &poses_by_timestamp_by_trajectory) {
+        &poses_by_timestamp_by_trajectory,
+    const std::vector<std::vector<std::pair<pose::Timestamp, pose::Pose2d>>>
+        &odom_poses_by_trajectory) {
   std::unordered_map<WaypointId, std::vector<std::pair<size_t, Pose3D<double>>>>
       poses_by_waypoint_with_trajectory;
+
+  std::function<void(
+      const util::BoostHashMap<pose::Timestamp, Pose3D<double>> &,
+      const std::vector<RelativePoseFactorInfo> &)>
+      vis_function = {};
+
+  std::vector<util::BoostHashMap<pose::Timestamp, Pose3D<double>>>
+      aligned_poses_by_timestamp_by_trajectory;
+  for (size_t traj_num = 0; traj_num < waypoints_by_trajectory.size();
+       traj_num++) {
+    bool all_found = true;
+
+    std::vector<pose::Timestamp> required_timestamps_for_traj;
+    std::vector<WaypointInfo> waypoints_for_traj =
+        waypoints_by_trajectory.at(traj_num);
+    util::BoostHashMap<pose::Timestamp, Pose3D<double>> raw_poses_by_stamp =
+        poses_by_timestamp_by_trajectory.at(traj_num);
+    for (const WaypointInfo &waypoint_info : waypoints_for_traj) {
+      required_timestamps_for_traj.emplace_back(
+          waypoint_info.waypoint_timestamp_);
+      if (raw_poses_by_stamp.find(waypoint_info.waypoint_timestamp_) ==
+          raw_poses_by_stamp.end()) {
+        all_found = false;
+      }
+    }
+    std::sort(required_timestamps_for_traj.begin(),
+              required_timestamps_for_traj.end(),
+              pose::timestamp_sort());
+    if (!all_found) {
+      std::vector<std::pair<pose::Timestamp, Pose3D<double>>> est_traj_not_lost;
+      for (const std::pair<pose::Timestamp, std::optional<Pose3D<double>>>
+               &pose : comparison_trajectories_rel_baselink.at(traj_num)) {
+        if (pose.second.has_value()) {
+          est_traj_not_lost.emplace_back(
+              std::make_pair(pose.first, pose.second.value()));
+        }
+      }
+
+      util::BoostHashMap<pose::Timestamp, Pose3D<double>> interpolated_poses;
+      util::BoostHashMap<pose::Timestamp, Pose3D<double>>
+          odom_poses_adjusted_3d;
+
+      // Interpolate to find estimates
+      interpolate3dPosesUsingOdom(odom_poses_by_trajectory.at(traj_num),
+                                  est_traj_not_lost,
+                                  required_timestamps_for_traj,
+                                  vis_function,
+                                  interpolated_poses,
+                                  odom_poses_adjusted_3d);
+      aligned_poses_by_timestamp_by_trajectory.emplace_back(interpolated_poses);
+    } else {
+      aligned_poses_by_timestamp_by_trajectory.emplace_back(
+          poses_by_timestamp_by_trajectory.at(traj_num));
+    }
+  }
+
   for (size_t traj_num = 0; traj_num < waypoints_by_trajectory.size();
        traj_num++) {
     std::vector<WaypointInfo> waypoints_for_traj =
         waypoints_by_trajectory.at(traj_num);
     util::BoostHashMap<pose::Timestamp, Pose3D<double>> poses_by_stamp =
-        poses_by_timestamp_by_trajectory.at(traj_num);
+        aligned_poses_by_timestamp_by_trajectory.at(traj_num);
     for (const WaypointInfo &waypoint_info : waypoints_for_traj) {
       Pose3D<double> pose_at_waypoint =
           poses_by_stamp.at(waypoint_info.waypoint_timestamp_);

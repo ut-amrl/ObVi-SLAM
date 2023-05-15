@@ -57,45 +57,6 @@ struct sort_pose3d_timestamp_pair {
   }
 };
 
-void getOdomPoseEsts(const std::string &rosbag_file_name,
-                     const std::string &odom_topic_name,
-                     std::vector<std::pair<Timestamp, Pose2d>> &odom_poses) {
-  rosbag::Bag bag;
-  bag.open(rosbag_file_name, rosbag::bagmode::Read);
-
-  std::vector<std::string> topics = {odom_topic_name};
-
-  rosbag::View view(bag, rosbag::TopicQuery(topics));
-
-  for (rosbag::MessageInstance const &m : view) {
-    nav_msgs::Odometry::ConstPtr msg = m.instantiate<nav_msgs::Odometry>();
-
-    Timestamp curr_stamp =
-        std::make_pair(msg->header.stamp.sec, msg->header.stamp.nsec);
-    if (!odom_poses.empty()) {
-      Timestamp prev_stamp = odom_poses.back().first;
-      if (!timestamp_sort()(prev_stamp, curr_stamp)) {
-        LOG(INFO) << "Out of order messages!";
-      }
-    }
-
-    Eigen::Quaternion pose_quat(msg->pose.pose.orientation.w,
-                                msg->pose.pose.orientation.x,
-                                msg->pose.pose.orientation.y,
-                                msg->pose.pose.orientation.z);
-    pose::Pose2d pose =
-        pose::createPose2d((double)msg->pose.pose.position.x,
-                           (double)msg->pose.pose.position.y,
-                           (double)toEulerAngles(pose_quat).z());
-    odom_poses.emplace_back(std::make_pair(curr_stamp, pose));
-  }
-
-  LOG(INFO) << "Min odom timestamp " << odom_poses.front().first.first << ", "
-            << odom_poses.front().first.second;
-  LOG(INFO) << "Max odom timestamp " << odom_poses.back().first.first << ", "
-            << odom_poses.back().first.second;
-}
-
 void convertToStampAndPose3D(
     const std::vector<file_io::Pose3DWithDoubleTimestamp> &coarse_fixed_poses,
     std::vector<std::pair<Timestamp, Pose3D<double>>>

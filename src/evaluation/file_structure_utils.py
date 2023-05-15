@@ -116,9 +116,9 @@ class FileStructureUtils:
             rosbagFileDirectory) + rosbagBaseName + FileStructureConstants.bagSuffix
 
     @staticmethod
-    def createWaypointTimestampsFileName(originalDataDir, rosbagBaseName, waypointsFileVersion):
+    def createWaypointTimestampsFileNameFromComponents(originalDataDir, rosbagBaseName, waypointsFileVersion):
         return FileStructureUtils.ensureDirectoryEndsWithSlash(
-            originalDataDir) + FileStructureConstants.waypointsTimestampFilePrefix + waypointsFileVersion + \
+            originalDataDir) + FileStructureConstants.waypointsTimestampFilePrefix + waypointsFileVersion + "_" + \
                rosbagBaseName + FileStructureConstants.csvExtension
 
     @staticmethod

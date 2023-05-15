@@ -24,6 +24,11 @@ struct RelativePoseFactorInfo {
   pose::Timestamp after_pose_timestamp_;
 };
 
+void getOdomPoseEsts(
+    const std::string &rosbag_file_name,
+    const std::string &odom_topic_name,
+    std::vector<std::pair<pose::Timestamp, pose::Pose2d>> &odom_poses);
+
 Covariance<double, 6> generateOdomCov(
     const Pose3D<double> &relative_pose,
     const double &transl_error_mult_for_transl_error,

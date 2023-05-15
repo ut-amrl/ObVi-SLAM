@@ -16,6 +16,7 @@ class MetricsForOrbSLAM3Config:
                  comparison_alg_to_bl_extrinsics,
                  odom_to_bl_extrinsics,
                  results_for_approach_root,
+                 odometry_topic,
                  force_rerun_interpolator,
                  force_rerun_metrics_generator):
         self.rosbag_dir = rosbag_dir
@@ -26,6 +27,7 @@ class MetricsForOrbSLAM3Config:
         self.comparison_alg_to_bl_extrinsics = comparison_alg_to_bl_extrinsics
         self.odom_to_bl_extrinsics = odom_to_bl_extrinsics
         self.results_for_approach_root = results_for_approach_root
+        self.odometry_topic = odometry_topic
         self.force_rerun_interpolator = force_rerun_interpolator
         self.force_rerun_metrics_generator = force_rerun_metrics_generator
 
@@ -43,7 +45,8 @@ def generateMetricsForOrbSLAM3(metricsConfig):
         within_sequence_dir_subdir=None,
         within_bagdir_sub_dir=None,
         force_rerun_interpolator=metricsConfig.force_rerun_interpolator,
-        force_rerun_metrics_generator=metricsConfig.force_rerun_metrics_generator)
+        force_rerun_metrics_generator=metricsConfig.force_rerun_metrics_generator,
+        odometry_topic=metricsConfig.odometry_topic)
     generateMetricsForApproach(metrics_for_approach_config)
 
 
@@ -68,6 +71,9 @@ def metricsForOrbSLAM3ArgParse():
     parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.calibrationFileDirectoryBaseArgName),
                         required=True,
                         help=CmdLineArgConstants.calibrationFileDirectoryHelp)
+    parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.odometryTopicBaseArgName),
+                        required=True,
+                        help=CmdLineArgConstants.odometryTopicHelp)
     parser.add_argument(
         CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.forceRerunInterpolatorBaseArgName),
         default=False,
