@@ -1,5 +1,5 @@
 #!/bin/bash
-bagname=1676766718
+bagname=1677097326
 
 YOLO_DIR=/root/LTOV-SLAM-Evaluation/yolov5-ros/
 SLAM_DIR=/root/LTOV-SLAM-Evaluation/ut_vslam/
@@ -24,3 +24,4 @@ cd $SLAM_DIR
     --rosbag_file ${rosbag_file} --oa_slam_data_output_directory ${oa_slam_data_output_directory}
 
 python src/evaluation/oa_slam/oa_slam_input_formatter.py --data_path ${oa_slam_data_output_directory}
+kill -9 $yolo_pid

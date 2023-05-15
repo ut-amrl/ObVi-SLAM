@@ -8,7 +8,7 @@ lego_loam_out_root_dir=${root_data_dir}lego_loam_out/
 calibration_file_directory=${root_data_dir}calibration/
 results_root_directory=${root_data_dir}ut_vslam_results/
 
-config_file_base_name="9"
+config_file_base_name="8"
 sequence_file_base_name="high_res_20230218_1a_7326"
 
 make && python3 src/evaluation/compute_metrics_for_ut_vslam.py \
