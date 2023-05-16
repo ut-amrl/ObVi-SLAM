@@ -133,7 +133,7 @@ int main(int argc, char **argv) {
   std::string config_identifier = FLAGS_config_identifier;
   if (config_identifier.empty()) {
     // TODO INCREMENT IF YOU CHANGE VALUES/STRUCTURE FOR CONFIG
-    int config_version_number = 10;
+    int config_version_number = 11;
 
     config_identifier = std::to_string(config_version_number);
   }
