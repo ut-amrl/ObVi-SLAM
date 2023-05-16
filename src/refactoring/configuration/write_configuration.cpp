@@ -133,7 +133,7 @@ int main(int argc, char **argv) {
   std::string config_identifier = FLAGS_config_identifier;
   if (config_identifier.empty()) {
     // TODO INCREMENT IF YOU CHANGE VALUES/STRUCTURE FOR CONFIG
-    int config_version_number = 9;
+    int config_version_number = 10;
 
     config_identifier = std::to_string(config_version_number);
   }
@@ -152,13 +152,18 @@ int main(int argc, char **argv) {
   configuration.visual_feature_params_.enforce_min_pixel_parallax_requirement_ =
       true;
   configuration.visual_feature_params_
-      .enforce_min_robot_pose_parallax_requirement_ = false;
+      .enforce_min_robot_pose_parallax_requirement_ = true;
+  configuration.visual_feature_params_.inlier_epipolar_err_thresh_ = 8.0;
+  configuration.visual_feature_params_.check_past_n_frames_for_epipolar_err_ =
+      5;
+  configuration.visual_feature_params_.enforce_epipolar_error_requirement_ =
+      true;
 
   // Set up defaults for the different types of optimization that can be
   // overridden later
   pose_graph_optimization::OptimizationSolverParams base_solver_params;
   base_solver_params.max_num_iterations_ = 100;
-  base_solver_params.feature_outlier_percentage = .1;
+  base_solver_params.feature_outlier_percentage_ = .1;
   base_solver_params.allow_non_monotonic_steps_ = true;
   base_solver_params.function_tolerance_ = 1e-6;          // Ceres default
   base_solver_params.gradient_tolerance_ = 1e-10;         // Ceres default

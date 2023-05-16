@@ -14,7 +14,7 @@ struct OptimizationSolverParams {
   // config_version_id_
 
   int max_num_iterations_ = 100;
-  double feature_outlier_percentage = .1;
+  double feature_outlier_percentage_ = .1;
   bool allow_non_monotonic_steps_ = false;
   double function_tolerance_ = 1e-6;          // Ceres default
   double gradient_tolerance_ = 1e-10;         // Ceres default
@@ -25,7 +25,7 @@ struct OptimizationSolverParams {
 
   bool operator==(const OptimizationSolverParams &rhs) const {
     return (max_num_iterations_ == rhs.max_num_iterations_) &&
-           (feature_outlier_percentage == rhs.feature_outlier_percentage) &&
+           (feature_outlier_percentage_ == rhs.feature_outlier_percentage_) &&
            (allow_non_monotonic_steps_ == rhs.allow_non_monotonic_steps_) &&
            (function_tolerance_ == rhs.function_tolerance_) &&
            (gradient_tolerance_ == rhs.gradient_tolerance_) &&
