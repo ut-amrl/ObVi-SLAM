@@ -276,7 +276,7 @@ class OfflineProblemRunner {
           opt_logger->writeCurrentOptInfo();
         }
         // Phase II
-        if (solver_params.feature_outlier_percentage > 0) {
+        if (solver_params.feature_outlier_percentage_ > 0) {
           if (opt_logger.has_value()) {
             opt_logger->setOptimizationTypeParams(
                 next_frame_id, start_opt_with_frame == 0, false, true);
@@ -295,7 +295,7 @@ class OfflineProblemRunner {
               excluded_feature_factor_types_and_ids;
           size_t n_outliers =
               (size_t)(ordered_residuals_and_block_ids.size() *
-                       solver_params.feature_outlier_percentage);
+                       solver_params.feature_outlier_percentage_);
           auto it = ordered_residuals_and_block_ids.begin();
           for (size_t i = 0; i < n_outliers; ++i) {
             const ceres::ResidualBlockId &block_id = it->second;
