@@ -39,7 +39,7 @@ struct GenericFactorInfo {
         camera_id_(camera_id),
         obj_id_(obj_id),
         feature_id_(feature_id),
-        final_residual_val_(final_residual_val){}
+        final_residual_val_(final_residual_val) {}
 };
 }  // namespace vslam_types_refactor
 

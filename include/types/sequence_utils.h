@@ -4,9 +4,9 @@
 
 #ifndef UT_VSLAM_SEQUENCE_UTILS_H
 #define UT_VSLAM_SEQUENCE_UTILS_H
+#include <optional>
 #include <string>
 #include <vector>
-#include <optional>
 
 namespace vslam_types_refactor {
 

@@ -26,7 +26,8 @@ inline void writeCommaSeparatedStringsLineToFile(
   }
 }
 
-inline std::vector<std::string> parseCommaSeparatedStrings(const std::string &str) {
+inline std::vector<std::string> parseCommaSeparatedStrings(
+    const std::string &str) {
   std::vector<std::string> strs;
   std::stringstream ss(str);
 

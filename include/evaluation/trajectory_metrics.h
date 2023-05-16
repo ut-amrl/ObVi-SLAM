@@ -28,7 +28,8 @@ struct ATEResults {
 };
 
 struct TrajectoryMetrics {
-  std::unordered_map<WaypointId, std::pair<std::vector<double>, std::vector<double>>>
+  std::unordered_map<WaypointId,
+                     std::pair<std::vector<double>, std::vector<double>>>
       waypoint_deviations_;
   std::vector<double> all_translation_deviations_;
   std::vector<double> all_rotation_deviations_;

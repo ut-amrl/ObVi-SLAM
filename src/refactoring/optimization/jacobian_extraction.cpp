@@ -423,7 +423,8 @@ void validateZeroColumnEntries(
             problem_frames[param_block.frame_id_.value()].insert(
                 all_zero_columns[next_all_zero_column]);
             next_all_zero_column++;
-            param_block_num_for_problem_col[param_num] = current_param_in_block_idx;
+            param_block_num_for_problem_col[param_num] =
+                current_param_in_block_idx;
           }
         }
         if (next_all_zero_column < some_zero_columns.size()) {
@@ -435,7 +436,8 @@ void validateZeroColumnEntries(
             problem_frames_some_zeros[param_block.frame_id_.value()].insert(
                 some_zero_columns[next_some_zero_column]);
             next_some_zero_column++;
-            param_block_num_for_problem_col[param_num] = current_param_in_block_idx;
+            param_block_num_for_problem_col[param_num] =
+                current_param_in_block_idx;
           }
         }
         if (next_tiny_column < all_tiny_columns.size()) {
@@ -447,7 +449,8 @@ void validateZeroColumnEntries(
             problem_frames_all_tiny[param_block.frame_id_.value()].insert(
                 all_tiny_columns[next_tiny_column]);
             next_tiny_column++;
-            param_block_num_for_problem_col[param_num] = current_param_in_block_idx;
+            param_block_num_for_problem_col[param_num] =
+                current_param_in_block_idx;
           }
         }
         if (current_param_in_block_idx < 5) {
@@ -473,7 +476,8 @@ void validateZeroColumnEntries(
             problem_object_ids_with_cols[param_block.obj_id_.value()].insert(
                 all_zero_columns[next_all_zero_column]);
             next_all_zero_column++;
-            param_block_num_for_problem_col[param_num] = current_param_in_block_idx;
+            param_block_num_for_problem_col[param_num] =
+                current_param_in_block_idx;
           }
         }
         if (next_all_zero_column < some_zero_columns.size()) {
@@ -487,7 +491,8 @@ void validateZeroColumnEntries(
             problem_object_ids_with_cols_some_zeros[param_block.obj_id_.value()]
                 .insert(some_zero_columns[next_some_zero_column]);
             next_some_zero_column++;
-            param_block_num_for_problem_col[param_num] = current_param_in_block_idx;
+            param_block_num_for_problem_col[param_num] =
+                current_param_in_block_idx;
           }
         }
         if (next_tiny_column < all_tiny_columns.size()) {
@@ -501,7 +506,8 @@ void validateZeroColumnEntries(
             problem_object_ids_with_cols_all_tiny[param_block.obj_id_.value()]
                 .insert(all_tiny_columns[next_tiny_column]);
             next_tiny_column++;
-            param_block_num_for_problem_col[param_num] = current_param_in_block_idx;
+            param_block_num_for_problem_col[param_num] =
+                current_param_in_block_idx;
           }
         }
         if (current_param_in_block_idx < (kEllipsoidParamterizationSize - 1)) {
@@ -528,7 +534,8 @@ void validateZeroColumnEntries(
             problem_feats[param_block.feature_id_.value()].insert(
                 all_zero_columns[next_all_zero_column]);
             next_all_zero_column++;
-            param_block_num_for_problem_col[param_num] = current_param_in_block_idx;
+            param_block_num_for_problem_col[param_num] =
+                current_param_in_block_idx;
           }
         }
         if (next_all_zero_column < some_zero_columns.size()) {
@@ -541,7 +548,8 @@ void validateZeroColumnEntries(
             problem_feats_some_zeros[param_block.feature_id_.value()].insert(
                 some_zero_columns[next_some_zero_column]);
             next_some_zero_column++;
-            param_block_num_for_problem_col[param_num] = current_param_in_block_idx;
+            param_block_num_for_problem_col[param_num] =
+                current_param_in_block_idx;
           }
         }
         if (next_tiny_column < all_tiny_columns.size()) {
@@ -553,7 +561,8 @@ void validateZeroColumnEntries(
             problem_feats_all_tiny[param_block.feature_id_.value()].insert(
                 all_tiny_columns[next_tiny_column]);
             next_tiny_column++;
-            param_block_num_for_problem_col[param_num] = current_param_in_block_idx;
+            param_block_num_for_problem_col[param_num] =
+                current_param_in_block_idx;
           }
         }
         if (current_param_in_block_idx < 2) {
@@ -614,11 +623,14 @@ void validateZeroColumnEntries(
     }
   }
 
-  LOG(INFO) << "Getting jacobian info for problematic objects, count " << problem_object_ids_with_cols.size();;
+  LOG(INFO) << "Getting jacobian info for problematic objects, count "
+            << problem_object_ids_with_cols.size();
+  ;
   for (const auto &objs_and_problem_cols : problem_object_ids_with_cols) {
     ObjectId obj = objs_and_problem_cols.first;
     for (const int &problem_col : objs_and_problem_cols.second) {
-      LOG(INFO) << "Object param block entries " << param_block_num_for_problem_col[problem_col];
+      LOG(INFO) << "Object param block entries "
+                << param_block_num_for_problem_col[problem_col];
     }
     displayInfoForObj(obj,
                       generic_factor_infos,
@@ -627,12 +639,14 @@ void validateZeroColumnEntries(
                       associated_factor_infos_for_obj,
                       problem_for_ltm);
   }
-  LOG(INFO) << "Objects with some zeros, count " << problem_object_ids_with_cols_some_zeros.size();
+  LOG(INFO) << "Objects with some zeros, count "
+            << problem_object_ids_with_cols_some_zeros.size();
   for (const auto &objs_and_problem_cols :
        problem_object_ids_with_cols_some_zeros) {
     ObjectId obj = objs_and_problem_cols.first;
     for (const int &problem_col : objs_and_problem_cols.second) {
-      LOG(INFO) << "Object param block entries " << param_block_num_for_problem_col[problem_col];
+      LOG(INFO) << "Object param block entries "
+                << param_block_num_for_problem_col[problem_col];
     }
     if (problem_object_ids_with_cols.find(obj) ==
         problem_object_ids_with_cols.end()) {
@@ -645,12 +659,14 @@ void validateZeroColumnEntries(
     }
   }
 
-  LOG(INFO) << "Objects with tiny cols (all tiny), count " << problem_object_ids_with_cols_all_tiny.size();
+  LOG(INFO) << "Objects with tiny cols (all tiny), count "
+            << problem_object_ids_with_cols_all_tiny.size();
   for (const auto &objs_and_problem_cols :
        problem_object_ids_with_cols_all_tiny) {
     ObjectId obj = objs_and_problem_cols.first;
     for (const int &problem_col : objs_and_problem_cols.second) {
-      LOG(INFO) << "Object param block entries, col: " << problem_col << ", entry: " << param_block_num_for_problem_col[problem_col];
+      LOG(INFO) << "Object param block entries, col: " << problem_col
+                << ", entry: " << param_block_num_for_problem_col[problem_col];
     }
     if (problem_object_ids_with_cols.find(obj) ==
         problem_object_ids_with_cols.end()) {
@@ -687,7 +703,8 @@ void validateZeroColumnEntries(
   for (const auto &frames_and_problem_cols : problem_frames) {
     FrameId frame = frames_and_problem_cols.first;
     for (const int &problem_col : frames_and_problem_cols.second) {
-      LOG(INFO) << "Frame param block entries " << param_block_num_for_problem_col[problem_col];
+      LOG(INFO) << "Frame param block entries "
+                << param_block_num_for_problem_col[problem_col];
     }
     LOG(INFO) << "Frame: " << frame;
     std::unordered_set<size_t> factor_info_nums =
@@ -729,7 +746,8 @@ void validateZeroColumnEntries(
   for (const auto &feat_and_problem_cols : problem_feats) {
     FeatureId feat = feat_and_problem_cols.first;
     for (const int &problem_col : feat_and_problem_cols.second) {
-      LOG(INFO) << "Feat param block entries " << param_block_num_for_problem_col[problem_col];
+      LOG(INFO) << "Feat param block entries "
+                << param_block_num_for_problem_col[problem_col];
     }
     LOG(INFO) << "Feat: " << feat;
     std::unordered_set<size_t> factor_info_nums =
@@ -758,7 +776,8 @@ void validateZeroColumnEntries(
   for (const auto &frames_and_problem_cols : problem_frames_all_tiny) {
     FrameId frame = frames_and_problem_cols.first;
     for (const int &problem_col : frames_and_problem_cols.second) {
-      LOG(INFO) << "Frame param block entries " << param_block_num_for_problem_col[problem_col];
+      LOG(INFO) << "Frame param block entries "
+                << param_block_num_for_problem_col[problem_col];
     }
     LOG(INFO) << "Frame: " << frame;
     std::unordered_set<size_t> factor_info_nums =
@@ -800,7 +819,8 @@ void validateZeroColumnEntries(
   for (const auto &feat_and_problem_cols : problem_feats_all_tiny) {
     FeatureId feat = feat_and_problem_cols.first;
     for (const int &problem_col : feat_and_problem_cols.second) {
-      LOG(INFO) << "Feat param block entries " << param_block_num_for_problem_col[problem_col];
+      LOG(INFO) << "Feat param block entries "
+                << param_block_num_for_problem_col[problem_col];
     }
     LOG(INFO) << "Feat: " << feat;
     std::unordered_set<size_t> factor_info_nums =

@@ -905,12 +905,14 @@ class ObjectAndReprojectionFeaturePoseGraph
                util::BoostHashMap<std::pair<FactorType, FeatureFactorId>,
                                   std::unordered_set<ObjectId>> &)>
           &long_term_map_factor_provider) {
-    ObjectAndReprojectionFeaturePoseGraph orig_pose_graph(long_term_map_factor_provider);
+    ObjectAndReprojectionFeaturePoseGraph orig_pose_graph(
+        long_term_map_factor_provider);
     orig_pose_graph.initializeFromState(pose_graph_state);
 
     // Make a pointer with the shallow-copy constructor because dumb c++ won't
     // allow shared_ptrs with private/protected constructors
-    return std::make_shared<ObjectAndReprojectionFeaturePoseGraph>(orig_pose_graph);
+    return std::make_shared<ObjectAndReprojectionFeaturePoseGraph>(
+        orig_pose_graph);
   }
 
  protected:
