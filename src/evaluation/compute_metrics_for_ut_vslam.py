@@ -189,6 +189,7 @@ def metricsForUTVSlamArgParse():
                                    comparison_alg_to_bl_extrinsics=comparison_alg_to_bl_extrinsics,
                                    ut_vslam_preprocessing_root_dir=ut_vslam_preprocessing_root_dir,
                                    odom_to_bl_extrinsics=odom_to_bl_extrinsics,
+                                   odometry_topic=args_dict[CmdLineArgConstants.odometryTopicBaseArgName],
                                    force_rerun_trajectory_formatter=args_dict[
                                        CmdLineArgConstants.forceReformatUTVSLAMOutputBaseArgName],
                                    force_rerun_interpolator=args_dict[
