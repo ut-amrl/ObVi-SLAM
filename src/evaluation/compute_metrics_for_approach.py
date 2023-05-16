@@ -143,6 +143,7 @@ def generateMetricsForApproach(metrics_for_approach_config):
                         required_timestamps_file_dir=required_timestamps_file_dir,
                         coarse_trajectory_frame_rel_bl_file=metrics_for_approach_config.lego_loam_frame_to_bl_extrinsics,
                         odom_frame_rel_bl_file=metrics_for_approach_config.odom_frame_rel_bl_file,
+                        odometry_topic=metrics_for_approach_config.odometry_topic,
                         forceRerunInterpolator=metrics_for_approach_config.force_rerun_interpolator)
 
     metrics_out_file = dirForSequenceResults + "metrics.json"

@@ -33,7 +33,6 @@ class SingleTrajectoryExecutableParamConstants:
     output_checkpoints_dir = "output_checkpoints_dir"
     input_checkpoints_dir = "input_checkpoints_dir"
 
-
 class OrbTrajectorySparsifierParamConstants:
     param_prefix = "param_prefix"
     input_processed_data_path = "input_processed_data_path"
@@ -49,7 +48,7 @@ class SingleTrajectoryExecutionConfig:
                  configFileDirectory, orbSlamOutDirectory, rosbagDirectory,
                  orbPostProcessBaseDirectory, calibrationFileDirectory, resultsRootDirectory, configFileBaseName,
                  sequenceFileBaseName, rosbagBaseName, waypointFileBaseName, resultsForBagDirPrefix, longTermMapBagDir,
-                 lego_loam_root_dir,
+                 lego_loam_root_dir, odometryTopic,
                  forceRunOrbSlamPostProcess=False, outputEllipsoidDebugInfo=True, outputJacobianDebugInfo=True,
                  outputBbAssocInfo=True, runRviz=False, recordVisualizationRosbag=False, logToFile=False,
                  forceRerunInterpolator=False, outputCheckpoints=False, readCheckpoints=False):
@@ -66,6 +65,7 @@ class SingleTrajectoryExecutionConfig:
         self.resultsForBagDirPrefix = resultsForBagDirPrefix
         self.longTermMapBagDir = longTermMapBagDir
         self.lego_loam_root_dir = lego_loam_root_dir
+        self.odometryTopic = odometryTopic
         self.forceRunOrbSlamPostProcess = forceRunOrbSlamPostProcess
         self.outputEllipsoidDebugInfo = outputEllipsoidDebugInfo
         self.outputJacobianDebugInfo = outputJacobianDebugInfo
@@ -202,6 +202,7 @@ def runInterpolatorIfNecessary(executionConfig, postProcessingDir, sparsifiedUtV
                                                 gtExtrinsicsRelBlFile,
                                                 FileStructureUtils.ensureDirectoryEndsWithSlash(
                                                     executionConfig.calibrationFileDirectory) + CalibrationFileConstants.odomCalibFile,
+                                                executionConfig.odometryTopic,
                                                 executionConfig.forceRerunInterpolator,
                                                 requiredStampsFile)
     return (interpolatedPosesFileName, gtExtrinsicsRelBlFile)
@@ -515,6 +516,9 @@ def singleTrajectoryArgParse():
     parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.legoLoamOutRootDirBaseArgName),
                         required=False,
                         help=CmdLineArgConstants.legoLoamOutRootDirHelp)
+    parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.odometryTopicBaseArgName),
+                        required=False,
+                        help=CmdLineArgConstants.odometryTopicHelp)
 
     # Boolean arguments
     parser.add_argument(
@@ -621,6 +625,7 @@ def singleTrajectoryArgParse():
         resultsForBagDirPrefix=args_dict[CmdLineArgConstants.resultsForBagDirPrefixBaseArgName],
         longTermMapBagDir=args_dict[CmdLineArgConstants.longTermMapBagDirBaseArgName],
         lego_loam_root_dir=args_dict[CmdLineArgConstants.legoLoamOutRootDirBaseArgName],
+        odometryTopic=args_dict[CmdLineArgConstants.odometryTopicBaseArgName],
         forceRunOrbSlamPostProcess=args_dict[
             CmdLineArgConstants.forceRunOrbSlamPostProcessBaseArgName],
         outputEllipsoidDebugInfo=args_dict[

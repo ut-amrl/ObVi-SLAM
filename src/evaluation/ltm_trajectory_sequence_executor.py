@@ -10,7 +10,7 @@ class TrajectorySequenceExecutionConfig:
                  configFileDirectory, orbSlamOutDirectory, rosbagDirectory,
                  orbPostProcessBaseDirectory, calibrationFileDirectory,
                  sequenceFilesDirectory, resultsRootDirectory, configFileBaseName,
-                 sequenceFileBaseName, lego_loam_root_dir,
+                 sequenceFileBaseName, lego_loam_root_dir, odometryTopic,
                  forceRunOrbSlamPostProcess=False, outputEllipsoidDebugInfo=True, outputJacobianDebugInfo=True,
                  outputBbAssocInfo=True, runRviz=False, recordVisualizationRosbag=False, logToFile=False,
                  forceRerunInterpolator=False, outputCheckpoints=False, readCheckpoints=False):
@@ -24,6 +24,7 @@ class TrajectorySequenceExecutionConfig:
         self.configFileBaseName = configFileBaseName
         self.sequenceFileBaseName = sequenceFileBaseName
         self.lego_loam_root_dir = lego_loam_root_dir
+        self.odometryTopic = odometryTopic
         self.forceRunOrbSlamPostProcess = forceRunOrbSlamPostProcess
         self.outputEllipsoidDebugInfo = outputEllipsoidDebugInfo
         self.outputJacobianDebugInfo = outputJacobianDebugInfo
@@ -61,6 +62,7 @@ def runTrajectorySequence(sequenceExecutionConfig):
             resultsForBagDirPrefix=bagPrefix,
             longTermMapBagDir=prevTrajectoryIdentifier,
             lego_loam_root_dir=sequenceExecutionConfig.lego_loam_root_dir,
+            odometryTopic=sequenceExecutionConfig.odometryTopic,
             forceRunOrbSlamPostProcess=sequenceExecutionConfig.forceRunOrbSlamPostProcess,
             outputEllipsoidDebugInfo=sequenceExecutionConfig.outputEllipsoidDebugInfo,
             outputJacobianDebugInfo=sequenceExecutionConfig.outputJacobianDebugInfo,
@@ -110,6 +112,9 @@ def trajectorySequenceArgParse():
     parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.legoLoamOutRootDirBaseArgName),
                         required=False,
                         help=CmdLineArgConstants.legoLoamOutRootDirHelp)
+    parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.odometryTopicBaseArgName),
+                        required=False,
+                        help=CmdLineArgConstants.odometryTopicHelp)
 
     # Boolean arguments
     parser.add_argument(
@@ -210,6 +215,7 @@ def trajectorySequenceArgParse():
         configFileBaseName=args_dict[CmdLineArgConstants.configFileBaseNameBaseArgName],
         sequenceFileBaseName=args_dict[CmdLineArgConstants.sequenceFileBaseNameBaseArgName],
         lego_loam_root_dir=args_dict[CmdLineArgConstants.legoLoamOutRootDirBaseArgName],
+        odometryTopic=args_dict[CmdLineArgConstants.odometryTopicBaseArgName],
         forceRunOrbSlamPostProcess=args_dict[
             CmdLineArgConstants.forceRunOrbSlamPostProcessBaseArgName],
         outputEllipsoidDebugInfo=args_dict[

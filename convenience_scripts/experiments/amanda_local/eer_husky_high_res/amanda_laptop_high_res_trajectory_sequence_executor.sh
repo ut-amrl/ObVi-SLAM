@@ -10,6 +10,8 @@ results_root_directory=${root_data_dir}ut_vslam_results/
 trajectory_sequence_file_directory=/home/amanda/workspaces/ut_vslam/sequences/
 lego_loam_out_root_dir=${root_data_dir}lego_loam_out/
 
+odometry_topic="/husky_velocity_controller/odom"
+
 #sequence_file_base_name="1676766718_only"
 #config_file_base_name="two_phase_off"
 #sequence_file_base_name="20230218_1a_4a"
@@ -19,7 +21,7 @@ lego_loam_out_root_dir=${root_data_dir}lego_loam_out/
 #sequence_file_base_name="high_res_20230218_1a_7326"
 sequence_file_base_name="high_res_20230218_1a_7326_wp"
 #config_file_base_name="8_two_phase_off_first_100"
-config_file_base_name="10_two_phase_off"
+config_file_base_name="9_two_phase_off"
 #config_file_base_name="9_two_phase_off"
 #config_file_base_name="8_two_phase_off_first_250"
 #config_file_base_name="4_higher_obj_thresh_lower_conf_fix_traj"
@@ -38,5 +40,6 @@ python3 src/evaluation/ltm_trajectory_sequence_executor.py \
     --config_file_base_name ${config_file_base_name} \
     --sequence_file_base_name ${sequence_file_base_name} \
     --lego_loam_out_root_dir ${lego_loam_out_root_dir} \
+    --odometry_topic ${odometry_topic} \
     --output_ellipsoid_debug --output_jacobian_debug --output_bb_assoc --run_rviz --record_viz_rosbag --log_to_file \
     --output_checkpoints

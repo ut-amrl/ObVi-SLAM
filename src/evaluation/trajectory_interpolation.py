@@ -10,6 +10,7 @@ class InterpolatorParamConstants:
     poses_for_required_timestamps_file = "poses_for_required_timestamps_file"
     coarse_trajectory_frame_rel_bl_file = "coarse_trajectory_frame_rel_bl_file"
     odom_frame_rel_bl_file = "odom_frame_rel_bl_file"
+    odometry_topic = "odometry_topic"
 
 
 class CalibrationFileConstants:
@@ -22,13 +23,15 @@ class CalibrationFileConstants:
 
 class InterpolatorConfig:
     def __init__(self, required_timestamps_file, coarse_trajectory_file, rosbag_file,
-                 poses_for_required_timestamps_file, coarse_trajectory_frame_rel_bl_file, odom_frame_rel_bl_file):
+                 poses_for_required_timestamps_file, coarse_trajectory_frame_rel_bl_file, odom_frame_rel_bl_file,
+                 odometry_topic):
         self.required_timestamps_file = required_timestamps_file
         self.coarse_trajectory_file = coarse_trajectory_file
         self.rosbag_file = rosbag_file
         self.poses_for_required_timestamps_file = poses_for_required_timestamps_file
         self.coarse_trajectory_frame_rel_bl_file = coarse_trajectory_frame_rel_bl_file
         self.odom_frame_rel_bl_file = odom_frame_rel_bl_file
+        self.odometry_topic = odometry_topic
 
 
 def runInterpolatorCmd(interpolatorConfig):
@@ -44,6 +47,8 @@ def runInterpolatorCmd(interpolatorConfig):
                                            interpolatorConfig.coarse_trajectory_frame_rel_bl_file)
     argsString += createCommandStrAddition(InterpolatorParamConstants.odom_frame_rel_bl_file,
                                            interpolatorConfig.odom_frame_rel_bl_file)
+    argsString += createCommandStrAddition(InterpolatorParamConstants.odometry_topic,
+                                           interpolatorConfig.odometry_topic)
 
     cmdToRun = "./bin/interpolate_poses_with_required_nodes " + argsString
     print("Running command: ")
@@ -52,7 +57,7 @@ def runInterpolatorCmd(interpolatorConfig):
 
 
 def runInterpolator(rosbag_dir, rosbag_name, interpolation_traj_dir, lego_loam_root_dir, required_timestamps_file_dir,
-                    coarse_trajectory_frame_rel_bl_file, odom_frame_rel_bl_file, forceRerunInterpolator,
+                    coarse_trajectory_frame_rel_bl_file, odom_frame_rel_bl_file, odometry_topic, forceRerunInterpolator,
                     overrideRequiredStampsFile=None):
     poses_for_required_timestamps_file = FileStructureUtils.ensureDirectoryEndsWithSlash(
         interpolation_traj_dir) + "interpolated_lego_loam_poses.csv"
@@ -83,6 +88,7 @@ def runInterpolator(rosbag_dir, rosbag_name, interpolation_traj_dir, lego_loam_r
                      rosbag_name + FileStructureConstants.bagSuffix),
         poses_for_required_timestamps_file=poses_for_required_timestamps_file,
         coarse_trajectory_frame_rel_bl_file=coarse_trajectory_frame_rel_bl_file,
-        odom_frame_rel_bl_file=odom_frame_rel_bl_file)
+        odom_frame_rel_bl_file=odom_frame_rel_bl_file,
+        odometry_topic=odometry_topic)
     runInterpolatorCmd(interpolatorConfig)
     return poses_for_required_timestamps_file
