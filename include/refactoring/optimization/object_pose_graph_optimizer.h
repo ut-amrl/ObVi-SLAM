@@ -627,6 +627,75 @@ class ObjectPoseGraphOptimizer {
       const pose_graph_optimization::OptimizationSolverParams &solver_params,
       const std::vector<std::shared_ptr<ceres::IterationCallback>> callbacks,
       std::optional<vslam_types_refactor::OptimizationLogger> &opt_logger,
+      // This is a hack for Ceres < 2+
+      std::vector<ceres::ResidualBlockId> *residual_block_id_ptrs = nullptr,
+      std::vector<double> *residual_ptrs = nullptr) {
+    CHECK(problem != NULL);
+    ceres::Solver::Options options;
+    // TODO configure options
+
+    // Set up callbacks
+    //    options.callbacks = callbacks;
+    for (const std::shared_ptr<ceres::IterationCallback> &callback_smart_ptr :
+         callbacks) {
+      options.callbacks.emplace_back(callback_smart_ptr.get());
+    }
+    if (!callbacks.empty()) {
+      options.update_state_every_iteration = true;
+    }
+    options.max_num_iterations = solver_params.max_num_iterations_;
+    options.num_threads = 10;
+    options.linear_solver_type = ceres::SPARSE_SCHUR;
+    options.use_nonmonotonic_steps = solver_params.allow_non_monotonic_steps_;
+    options.function_tolerance = solver_params.function_tolerance_;
+    options.gradient_tolerance = solver_params.gradient_tolerance_;
+    options.parameter_tolerance = solver_params.parameter_tolerance_;
+    options.initial_trust_region_radius =
+        solver_params.initial_trust_region_radius_;
+    options.max_trust_region_radius = solver_params.max_trust_region_radius_;
+    //    options.minimizer_progress_to_stdout = true;
+
+    ceres::Solver::Summary summary;
+    ceres::Solve(options, problem, &summary);
+    LOG(INFO) << summary.FullReport();
+
+    if (residual_block_id_ptrs != nullptr) {
+      problem->GetResidualBlocks(residual_block_id_ptrs);
+    }
+    if (residual_ptrs != nullptr) {
+      ceres::Problem::EvaluateOptions eval_options;
+      eval_options.apply_loss_function = false;
+      if (residual_block_id_ptrs == nullptr) {
+        std::vector<ceres::ResidualBlockId> residual_block_ids;
+        problem->GetResidualBlocks(&residual_block_ids);
+        eval_options.residual_blocks = residual_block_ids;
+      } else {
+        eval_options.residual_blocks = *residual_block_id_ptrs;
+      }
+      problem->Evaluate(eval_options, nullptr, residual_ptrs, nullptr, nullptr);
+    }
+
+    if ((summary.termination_type == ceres::TerminationType::FAILURE) ||
+        (summary.termination_type == ceres::TerminationType::USER_FAILURE)) {
+      LOG(ERROR) << "Ceres optimization failed";
+    }
+    LOG(INFO) << "Optimization complete";
+    if (opt_logger.has_value()) {
+      opt_logger->extractOptimizationTimingResults(summary);
+    }
+    return summary.IsSolutionUsable();
+  }
+
+  // IMPORTANT NOTE: This is a copy of the old version of solveOptimization so
+  // that is compatible to runOptimizationForLtmExtraction & outputJacobianInfo.
+  // In runOptimizationForLtmExtraction, block_ids_and_residuals_ptr seems to be
+  // a dummy variable so nothing should be affected. I'm not sure about
+  // outputJacobianInfo so we need to double-check here.
+  bool solveOptimization(
+      ceres::Problem *problem,
+      const pose_graph_optimization::OptimizationSolverParams &solver_params,
+      const std::vector<std::shared_ptr<ceres::IterationCallback>> callbacks,
+      std::optional<vslam_types_refactor::OptimizationLogger> &opt_logger,
       std::shared_ptr<std::unordered_map<ceres::ResidualBlockId, double>>
           block_ids_and_residuals_ptr = nullptr) {
     CHECK(problem != NULL);
