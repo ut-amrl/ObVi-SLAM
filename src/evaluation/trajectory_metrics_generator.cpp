@@ -201,8 +201,15 @@ FullSequenceMetrics computeMetrics(
 
     for (const auto &waypoint_and_devs :
          single_traj_metrics.waypoint_deviations_) {
-      std::pair<std::vector<double>, std::vector<double>> all_waypoint_devs =
-          sequence_results.waypoint_deviations_.at(waypoint_and_devs.first);
+      std::pair<std::vector<double>, std::vector<double>> all_waypoint_devs;
+      if (sequence_results.waypoint_deviations_.find(waypoint_and_devs.first) !=
+          sequence_results.waypoint_deviations_.end()) {
+        all_waypoint_devs =
+            sequence_results.waypoint_deviations_.at(waypoint_and_devs.first);
+      } else {
+        all_waypoint_devs =
+            std::make_pair((std::vector<double>){}, (std::vector<double>){});
+      }
       std::vector<double> centroid_devs_for_waypoint = all_waypoint_devs.first;
       std::vector<double> orientation_devs_for_waypoint =
           all_waypoint_devs.second;

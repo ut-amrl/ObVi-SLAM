@@ -110,6 +110,7 @@ def metricsForOrbSLAM3ArgParse():
                                     lego_loam_frame_to_bl_extrinsics=lego_loam_frame_to_bl_extrinsics,
                                     comparison_alg_to_bl_extrinsics=comparison_alg_to_bl_extrinsics,
                                     odom_to_bl_extrinsics=odom_to_bl_extrinsics,
+                                    odometry_topic=args_dict[CmdLineArgConstants.odometryTopicBaseArgName],
                                     force_rerun_interpolator=args_dict[
                                         CmdLineArgConstants.forceRerunInterpolatorBaseArgName],
                                     force_rerun_metrics_generator=args_dict[

@@ -183,7 +183,8 @@ RawWaypointConsistencyResults computeWaypointConsistencyResults(
   std::function<void(
       const util::BoostHashMap<pose::Timestamp, Pose3D<double>> &,
       const std::vector<RelativePoseFactorInfo> &)>
-      vis_function = {};
+      vis_function = [](const util::BoostHashMap<pose::Timestamp, Pose3D<double>> &,
+                        const std::vector<RelativePoseFactorInfo> &){};
 
   std::vector<util::BoostHashMap<pose::Timestamp, Pose3D<double>>>
       aligned_poses_by_timestamp_by_trajectory;
