@@ -13,7 +13,7 @@ sleep 5
 
 cd $SLAM_DIR
 
-root_data_dir=/root/LTOV-SLAM-Evaluation/data/
+root_data_dir=${WORKDIR}/data/
 
 declare -a bagnames=("_2023_05_11_18_35_54" \
                      "_2023_05_12_11_00_35" \
