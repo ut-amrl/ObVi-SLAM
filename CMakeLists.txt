@@ -93,6 +93,9 @@ target_link_libraries(initialize_traj_and_feats_from_orb_out ut_vslam ${LIBS})
 ROSBUILD_ADD_EXECUTABLE(orb_trajectory_sparsifier src/data_preprocessing_utils/orb_trajectory_sparsifier.cpp)
 target_link_libraries(orb_trajectory_sparsifier ut_vslam ${LIBS})
 
+ROSBUILD_ADD_EXECUTABLE(visualize_vslam_inputs src/refactoring/visualize_vslam_inputs.cpp)
+target_link_libraries(visualize_vslam_inputs ut_vslam ${LIBS})
+
 #
 #ROSBUILD_ADD_EXECUTABLE(approx_depth_bounding_box_extractor src/data_preprocessing_utils/approx_depth_bounding_box_extractor.cpp)
 #target_link_libraries(approx_depth_bounding_box_extractor ut_vslam ${LIBS})
