@@ -1120,10 +1120,25 @@ class SerializableVisualFeatureParams
        << data_.min_visual_feature_parallax_robot_transl_requirement_;
     fs << kMinVisualFeatureParallaxRobotOrientRequirementLabel
        << data_.min_visual_feature_parallax_robot_orient_requirement_;
+
+    int enforce_min_pixel_parallax_requirement =
+        data_.enforce_min_pixel_parallax_requirement_ ? 1 : 0;
     fs << kEnforceMinPixelParallaxRequirement
-       << data_.enforce_min_pixel_parallax_requirement_;
+       << enforce_min_pixel_parallax_requirement;
+
+    int enforce_min_robot_pose_parallax_requirement =
+        data_.enforce_min_robot_pose_parallax_requirement_ ? 1 : 0;
     fs << kEnforceMinRobotPoseParallaxRequirement
-       << data_.enforce_min_robot_pose_parallax_requirement_;
+       << enforce_min_robot_pose_parallax_requirement;
+
+    fs << kInlierEpipolarErrThresh << (double)data_.inlier_epipolar_err_thresh_;
+    fs << kCheckPastNFramesForEpipolarErr
+       << (int)data_.check_past_n_frames_for_epipolar_err_;
+
+    int enforce_epipolar_error_requirement =
+        data_.enforce_epipolar_error_requirement_ ? 1 : 0;
+    fs << kEnforceEpipolarErrorRequirement
+       << (int)enforce_epipolar_error_requirement;
     fs << "}";
   }
 
@@ -1135,10 +1150,27 @@ class SerializableVisualFeatureParams
         data_.min_visual_feature_parallax_robot_transl_requirement_;
     node[kMinVisualFeatureParallaxRobotOrientRequirementLabel] >>
         data_.min_visual_feature_parallax_robot_orient_requirement_;
-    node[kEnforceMinPixelParallaxRequirement] >>
-        data_.enforce_min_pixel_parallax_requirement_;
-    node[kEnforceMinRobotPoseParallaxRequirement] >>
-        data_.enforce_min_robot_pose_parallax_requirement_;
+
+    int enforce_min_pixel_parallax_requirement =
+        node[kEnforceMinPixelParallaxRequirement];
+    data_.enforce_min_pixel_parallax_requirement_ =
+        enforce_min_pixel_parallax_requirement != 0;
+    int enforce_min_robot_pose_parallax_requirement =
+        node[kEnforceMinRobotPoseParallaxRequirement];
+    data_.enforce_min_robot_pose_parallax_requirement_ =
+        enforce_min_robot_pose_parallax_requirement != 0;
+
+    double inlier_epipolar_err_thresh = (double)node[kInlierEpipolarErrThresh];
+    data_.inlier_epipolar_err_thresh_ = inlier_epipolar_err_thresh;
+    int check_past_n_frames_for_epipolar_err =
+        (int)node[kCheckPastNFramesForEpipolarErr];
+    data_.check_past_n_frames_for_epipolar_err_ =
+        check_past_n_frames_for_epipolar_err;
+
+    int enforce_epipolar_error_requirement =
+        node[kEnforceEpipolarErrorRequirement];
+    data_.enforce_epipolar_error_requirement_ =
+        enforce_epipolar_error_requirement != 0;
   }
 
  protected:
@@ -1157,9 +1189,15 @@ class SerializableVisualFeatureParams
       kMinVisualFeatureParallaxRobotOrientRequirementLabel =
           "min_visual_feature_parallax_robot_orient_requirement";
   inline static const std::string kEnforceMinPixelParallaxRequirement =
-      "enforce_min_pixel_parallax_requirement_";
+      "enforce_min_pixel_parallax_requirement";
   inline static const std::string kEnforceMinRobotPoseParallaxRequirement =
-      "enforce_min_robot_pose_parallax_requirement_";
+      "enforce_min_robot_pose_parallax_requirement";
+  inline static const std::string kInlierEpipolarErrThresh =
+      "inlier_epipolar_err_thresh";
+  inline static const std::string kCheckPastNFramesForEpipolarErr =
+      "check_past_n_frames_for_epipolar_err";
+  inline static const std::string kEnforceEpipolarErrorRequirement =
+      "enforce_epipolar_error_requirement_";
 };
 
 static void write(cv::FileStorage &fs,
