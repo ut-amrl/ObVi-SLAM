@@ -9,6 +9,7 @@ class CmdLineArgConstants:
     configFileBaseNameBaseArgName = 'config_file_base_name'
     sequenceFileBaseNameBaseArgName = 'sequence_file_base_name'
     rosbagBaseNameBaseArgName = 'rosbag_base_name'
+    waypointFileBaseNameBaseArgName = 'waypoint_file_base_name'
     resultsForBagDirPrefixBaseArgName = 'results_for_bag_dir_prefix'
     longTermMapBagDirBaseArgName = 'long_term_map_bag_dir_arg_name'
     numberInSequenceBaseArgName = 'number_in_sequence_arg_name'
@@ -63,6 +64,7 @@ class CmdLineArgConstants:
         "json file (argument specified here should not have json suffix). The sequence file that this points to will" \
         " contain a list of rosbag base names to execute in sequence as well as an identifier for the sequence"
     rosbagBaseNameHelp = "Base name of the rosbag that these results are for. "
+    waypointFileBaseNameHelp = "Base name of the waypoint file that these results are for."
     resultsForBagDirPrefixHelp = \
         "Prefix to add to the rosbag name that should be used for storing results. If part of a sequence, this should " \
         "be the number of the trajectory in the sequence (starting with 0) followed by an underscore"
@@ -127,6 +129,9 @@ class CmdLineArgConstants:
     forceRerunMetricsGeneratorBaseArgName = 'force_rerun_metrics_generator'
     forceRerunMetricsGeneratorHelp = "Force run the metrics generator even if there is already a metrics file"
 
+    odometryTopicBaseArgName = 'odometry_topic'
+    odometryTopicHelp = "Topic on which odometry is published"
+
     forceRerunInterpolatorBaseArgName = "force_rerun_interpolator"
     forceRerunInterpolatorHelp = "Force rerun the interpolator even if the interpolated file is already generated"
 
@@ -136,6 +141,16 @@ class CmdLineArgConstants:
     forceReformatUTVSLAMOutputBaseArgName = "force_rerun_trajectory_formatter"
     forceReformatUTVSLAMOutputHelp = "Force rerun the trajectory formatter that converts from JSON with trajectories " \
                                      "by frame to a csv with trajectories stored by timestamp"
+
+    # Waypoint extraction
+    waypointTopicTriggerBaseArgName = "waypoint_topic_trigger"
+    waypointTopicTriggerHelp = "Topic on which waypoint stops are recorded"
+    cameraTopicsFileBaseArgName = "camera_topics_file"
+    cameraTopicsFileHelp = "File that contains the camera topics to use for waypoint extraction"
+    waypointFileVersionBaseArgName = "waypoint_file_version"
+    waypointFileVersionHelp = "version string for the waypoints file"
+    forceWaypointFileRegenerationBaseArgName = 'force_waypoint_file_regeneration'
+    forceWaypointFileRegenerationHelp = "Force run the waypoint extractor even if there is already a waypoints file"
 
     @staticmethod
     def prefixWithDashDash(argName):

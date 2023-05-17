@@ -1,0 +1,1 @@
+/zed/zed_node/left/image_rect_color/compressed

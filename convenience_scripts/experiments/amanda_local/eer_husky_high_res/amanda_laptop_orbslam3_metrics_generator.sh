@@ -6,9 +6,10 @@ trajectory_sequence_file_directory=/home/amanda/workspaces/ut_vslam/sequences/
 orb_slam_3_out_root_dir=${root_data_dir}orb_slam_3_out/
 lego_loam_out_root_dir=${root_data_dir}lego_loam_out/
 calibration_file_directory=${root_data_dir}calibration/
+odometry_topic="/husky_velocity_controller/odom"
 
 #sequence_file_base_name="20230218_1a_4a"
-sequence_file_base_name="high_res_20230218_1a_7326"
+sequence_file_base_name="high_res_20230218_1a_7326_wp"
 
 make && python3 src/evaluation/compute_metrics_for_orbslam3.py \
     --rosbag_file_directory=${rosbag_file_directory} \
@@ -17,6 +18,7 @@ make && python3 src/evaluation/compute_metrics_for_orbslam3.py \
     --orb_slam_3_out_root_dir=${orb_slam_3_out_root_dir} \
     --lego_loam_out_root_dir=${lego_loam_out_root_dir} \
     --calibration_file_directory=${calibration_file_directory} \
+    --odometry_topic ${odometry_topic} \
     --force_rerun_metrics_generator \
 #    --force_rerun_interpolator \
 

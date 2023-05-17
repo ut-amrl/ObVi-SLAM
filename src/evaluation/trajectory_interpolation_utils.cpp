@@ -2,15 +2,58 @@
 #include <ceres/ceres.h>
 #include <ceres/problem.h>
 #include <evaluation/trajectory_interpolation_utils.h>
+#include <nav_msgs/Odometry.h>
 #include <refactoring/factors/relative_pose_factor.h>
 #include <refactoring/factors/relative_pose_factor_utils.h>
 #include <refactoring/optimization/low_level_feature_pose_graph.h>
 #include <refactoring/types/vslam_types_conversion.h>
 #include <refactoring/types/vslam_types_math_util.h>
+#include <rosbag/bag.h>
+#include <rosbag/view.h>
 
 #include <unsupported/Eigen/MatrixFunctions>
 
 namespace vslam_types_refactor {
+
+void getOdomPoseEsts(
+    const std::string &rosbag_file_name,
+    const std::string &odom_topic_name,
+    std::vector<std::pair<pose::Timestamp, pose::Pose2d>> &odom_poses) {
+  rosbag::Bag bag;
+  bag.open(rosbag_file_name, rosbag::bagmode::Read);
+
+  std::vector<std::string> topics = {odom_topic_name};
+
+  rosbag::View view(bag, rosbag::TopicQuery(topics));
+
+  for (rosbag::MessageInstance const &m : view) {
+    nav_msgs::Odometry::ConstPtr msg = m.instantiate<nav_msgs::Odometry>();
+
+    pose::Timestamp curr_stamp =
+        std::make_pair(msg->header.stamp.sec, msg->header.stamp.nsec);
+    if (!odom_poses.empty()) {
+      pose::Timestamp prev_stamp = odom_poses.back().first;
+      if (!pose::timestamp_sort()(prev_stamp, curr_stamp)) {
+        LOG(INFO) << "Out of order messages!";
+      }
+    }
+
+    Eigen::Quaternion pose_quat(msg->pose.pose.orientation.w,
+                                msg->pose.pose.orientation.x,
+                                msg->pose.pose.orientation.y,
+                                msg->pose.pose.orientation.z);
+    pose::Pose2d pose =
+        pose::createPose2d((double)msg->pose.pose.position.x,
+                           (double)msg->pose.pose.position.y,
+                           (double)pose::toEulerAngles(pose_quat).z());
+    odom_poses.emplace_back(std::make_pair(curr_stamp, pose));
+  }
+
+  LOG(INFO) << "Min odom timestamp " << odom_poses.front().first.first << ", "
+            << odom_poses.front().first.second;
+  LOG(INFO) << "Max odom timestamp " << odom_poses.back().first.first << ", "
+            << odom_poses.back().first.second;
+}
 
 bool runOptimization(
     const util::BoostHashMap<pose::Timestamp, Pose3D<double>>

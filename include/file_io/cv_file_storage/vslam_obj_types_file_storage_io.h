@@ -81,14 +81,15 @@ static void read(const cv::FileNode &node,
   }
 }
 
-template<typename NumType>
+template <typename NumType>
 using SerializableObjectDim = SerializableEigenMat<NumType, 3, 1>;
 
-template<typename NumType>
+template <typename NumType>
 using SerializableBbCorners = SerializableEigenMat<NumType, 4, 1>;
 
-template<typename NumType>
-using SerializableRawEllipsoid = SerializableEigenMat<NumType, kEllipsoidParamterizationSize, 1>;
+template <typename NumType>
+using SerializableRawEllipsoid =
+    SerializableEigenMat<NumType, kEllipsoidParamterizationSize, 1>;
 
 }  // namespace vslam_types_refactor
 

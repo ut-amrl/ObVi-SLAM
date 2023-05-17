@@ -22,8 +22,9 @@ const std::string kResidualInfoOrderedForJacobianFile =
 const std::string kSparseJacobianOrderedOutBaseFileName =
     "ordered_sparse_jacobian.csv";
 
-std::pair<std::vector<int>, std::vector<int>> writeJacobianToFile(
-    const ceres::CRSMatrix &crs_matrix, const std::string &jacobian_file) {
+std::pair<std::pair<std::vector<int>, std::vector<int>>, std::vector<int>>
+writeJacobianToFile(const ceres::CRSMatrix &crs_matrix,
+                    const std::string &jacobian_file) {
   std::ofstream csv_file(jacobian_file, std::ios::trunc);
 
   // Write num_rows, num_cols
@@ -63,11 +64,15 @@ std::pair<std::vector<int>, std::vector<int>> writeJacobianToFile(
   }
   file_io::writeCommaSeparatedStringsLineToFile(values_strings, csv_file);
 
+  std::unordered_set<int> cols_with_some_tiny_values;
+  std::vector<int> cols_with_tiny_values;
   std::unordered_set<int> cols_with_0_val;
   for (size_t val_num = 0; val_num < crs_matrix.values.size(); val_num++) {
     if (crs_matrix.values.at(val_num) == 0) {
       LOG(INFO) << "Value at index " << val_num << " was exactly 0";
       cols_with_0_val.insert(crs_matrix.cols[val_num]);
+    } else if (abs(crs_matrix.values.at(val_num)) < 1e-5) {
+      cols_with_some_tiny_values.insert(crs_matrix.cols[val_num]);
     }
   }
   std::vector<int> cols_with_0_val_vec;
@@ -90,15 +95,41 @@ std::pair<std::vector<int>, std::vector<int>> writeJacobianToFile(
     }
   }
 
+  for (const int &col_with_tiny_val : cols_with_some_tiny_values) {
+    std::unordered_set<size_t> indices_for_col =
+        indices_for_cols.at(col_with_tiny_val);
+    bool has_non_zero_entry = false;
+    for (const size_t &index_for_col : indices_for_col) {
+      if (abs(crs_matrix.values[index_for_col]) >= 1e-5) {
+        has_non_zero_entry = true;
+        break;
+      }
+    }
+    if (!has_non_zero_entry) {
+      cols_with_tiny_values.emplace_back(col_with_tiny_val);
+      std::string col_vals;
+      for (const size_t &index_for_col : indices_for_col) {
+        col_vals += std::to_string(crs_matrix.values[index_for_col]);
+        col_vals += ", ";
+      }
+
+      LOG(INFO) << "Column " << col_with_tiny_val
+                << " has only tiny vals: " + col_vals;
+    }
+  }
+
   std::sort(cols_with_0_val_vec.begin(), cols_with_0_val_vec.end());
   std::sort(cols_with_only_zeros.begin(), cols_with_only_zeros.end());
+  std::sort(cols_with_tiny_values.begin(), cols_with_tiny_values.end());
   LOG(INFO) << "Cols with only zeros, total size: "
             << cols_with_only_zeros.size();
   for (const auto &col_with_only_zeros : cols_with_only_zeros) {
     LOG(INFO) << col_with_only_zeros;
   }
 
-  return std::make_pair(cols_with_0_val_vec, cols_with_only_zeros);
+  return std::make_pair(
+      std::make_pair(cols_with_0_val_vec, cols_with_only_zeros),
+      cols_with_tiny_values);
 }
 
 void writeJacobianMatlabFormatToFile(const ceres::CRSMatrix &crs_matrix,
@@ -310,7 +341,8 @@ void displayInfoForObj(
       LOG(INFO) << "Shape dim prior";
     } else if (factor.factor_type_ == kObjectObservationFactorTypeId) {
       LOG(INFO) << "Bounding box observation at " << factor.frame_id_.value()
-                << " with camera " << factor.camera_id_.value() << " for obj " << obj;
+                << " with camera " << factor.camera_id_.value() << " for obj "
+                << obj;
     }
     ceres::Problem::EvaluateOptions options;
     options.apply_loss_function = true;
@@ -326,14 +358,14 @@ void displayInfoForObj(
 }
 
 void validateZeroColumnEntries(
-    const std::pair<std::vector<int>, std::vector<int>> &problem_cols,
+    const std::pair<std::pair<std::vector<int>, std::vector<int>>,
+                    std::vector<int>> &problem_cols,
     const std::vector<ParameterBlockInfo> &ordered_parameter_block_infos,
 
     const std::vector<ceres::ResidualBlockId> &residual_block_ids,
     const std::vector<GenericFactorInfo> &generic_factor_infos,
     const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
     ceres::Problem &problem_for_ltm) {
-
   std::unordered_map<ObjectId, std::unordered_set<int>>
       problem_object_ids_with_cols;
   std::unordered_map<FrameId, std::unordered_set<int>> problem_frames;
@@ -346,15 +378,32 @@ void validateZeroColumnEntries(
   std::unordered_map<FeatureId, std::unordered_set<int>>
       problem_feats_some_zeros;
 
+  std::unordered_map<ObjectId, std::unordered_set<int>>
+      problem_object_ids_with_cols_all_tiny;
+  std::unordered_map<FrameId, std::unordered_set<int>> problem_frames_all_tiny;
+  std::unordered_map<FeatureId, std::unordered_set<int>> problem_feats_all_tiny;
+  std::unordered_map<int, int> param_block_num_for_problem_col;
+
   size_t current_param_block = 0;
   size_t current_param_in_block_idx = 0;
   int param_num = 0;
   size_t next_all_zero_column = 0;
   size_t next_some_zero_column = 0;
-  std::vector<int> some_zero_columns = problem_cols.first;
-  std::vector<int> all_zero_columns = problem_cols.second;
-  if (!all_zero_columns.empty() || !some_zero_columns.empty()) {
-    while (param_num <= some_zero_columns.back()) {
+  size_t next_tiny_column = 0;
+  std::vector<int> some_zero_columns = problem_cols.first.first;
+  std::vector<int> all_zero_columns = problem_cols.first.second;
+  std::vector<int> all_tiny_columns = problem_cols.second;
+  if (!all_zero_columns.empty() || !some_zero_columns.empty() ||
+      !all_tiny_columns.empty()) {
+    int max_col;
+    if (!some_zero_columns.empty() && !all_tiny_columns.empty()) {
+      max_col = std::max(some_zero_columns.back(), all_tiny_columns.back());
+    } else if (some_zero_columns.empty()) {
+      max_col = all_tiny_columns.back();
+    } else {
+      max_col = some_zero_columns.back();
+    }
+    while (param_num <= max_col) {
       if (current_param_block >= ordered_parameter_block_infos.size()) {
         LOG(ERROR) << "Parameter block num greater than total number of "
                       "parameter blocks "
@@ -374,16 +423,35 @@ void validateZeroColumnEntries(
             problem_frames[param_block.frame_id_.value()].insert(
                 all_zero_columns[next_all_zero_column]);
             next_all_zero_column++;
+            param_block_num_for_problem_col[param_num] =
+                current_param_in_block_idx;
           }
         }
-        if (some_zero_columns[next_some_zero_column] == param_num) {
-          if (problem_frames_some_zeros.find(param_block.frame_id_.value()) ==
-              problem_frames_some_zeros.end()) {
-            problem_frames_some_zeros[param_block.frame_id_.value()] = {};
+        if (next_all_zero_column < some_zero_columns.size()) {
+          if (some_zero_columns[next_some_zero_column] == param_num) {
+            if (problem_frames_some_zeros.find(param_block.frame_id_.value()) ==
+                problem_frames_some_zeros.end()) {
+              problem_frames_some_zeros[param_block.frame_id_.value()] = {};
+            }
+            problem_frames_some_zeros[param_block.frame_id_.value()].insert(
+                some_zero_columns[next_some_zero_column]);
+            next_some_zero_column++;
+            param_block_num_for_problem_col[param_num] =
+                current_param_in_block_idx;
           }
-          problem_frames_some_zeros[param_block.frame_id_.value()].insert(
-              some_zero_columns[next_some_zero_column]);
-          next_some_zero_column++;
+        }
+        if (next_tiny_column < all_tiny_columns.size()) {
+          if (all_tiny_columns[next_tiny_column] == param_num) {
+            if (problem_frames_all_tiny.find(param_block.frame_id_.value()) ==
+                problem_frames_all_tiny.end()) {
+              problem_frames_all_tiny[param_block.frame_id_.value()] = {};
+            }
+            problem_frames_all_tiny[param_block.frame_id_.value()].insert(
+                all_tiny_columns[next_tiny_column]);
+            next_tiny_column++;
+            param_block_num_for_problem_col[param_num] =
+                current_param_in_block_idx;
+          }
         }
         if (current_param_in_block_idx < 5) {
           current_param_in_block_idx++;
@@ -408,17 +476,39 @@ void validateZeroColumnEntries(
             problem_object_ids_with_cols[param_block.obj_id_.value()].insert(
                 all_zero_columns[next_all_zero_column]);
             next_all_zero_column++;
+            param_block_num_for_problem_col[param_num] =
+                current_param_in_block_idx;
           }
         }
-        if (some_zero_columns[next_some_zero_column] == param_num) {
-          if (problem_object_ids_with_cols_some_zeros.find(
-                  param_block.obj_id_.value()) ==
-              problem_object_ids_with_cols_some_zeros.end()) {
-            problem_object_ids_with_cols_some_zeros[param_block.obj_id_.value()] = {};
+        if (next_all_zero_column < some_zero_columns.size()) {
+          if (some_zero_columns[next_some_zero_column] == param_num) {
+            if (problem_object_ids_with_cols_some_zeros.find(
+                    param_block.obj_id_.value()) ==
+                problem_object_ids_with_cols_some_zeros.end()) {
+              problem_object_ids_with_cols_some_zeros[param_block.obj_id_
+                                                          .value()] = {};
+            }
+            problem_object_ids_with_cols_some_zeros[param_block.obj_id_.value()]
+                .insert(some_zero_columns[next_some_zero_column]);
+            next_some_zero_column++;
+            param_block_num_for_problem_col[param_num] =
+                current_param_in_block_idx;
           }
-          problem_object_ids_with_cols_some_zeros[param_block.obj_id_.value()]
-              .insert(some_zero_columns[next_some_zero_column]);
-          next_some_zero_column++;
+        }
+        if (next_tiny_column < all_tiny_columns.size()) {
+          if (all_tiny_columns[next_tiny_column] == param_num) {
+            if (problem_object_ids_with_cols_all_tiny.find(
+                    param_block.obj_id_.value()) ==
+                problem_object_ids_with_cols_all_tiny.end()) {
+              problem_object_ids_with_cols_all_tiny[param_block.obj_id_
+                                                        .value()] = {};
+            }
+            problem_object_ids_with_cols_all_tiny[param_block.obj_id_.value()]
+                .insert(all_tiny_columns[next_tiny_column]);
+            next_tiny_column++;
+            param_block_num_for_problem_col[param_num] =
+                current_param_in_block_idx;
+          }
         }
         if (current_param_in_block_idx < (kEllipsoidParamterizationSize - 1)) {
           current_param_in_block_idx++;
@@ -444,16 +534,36 @@ void validateZeroColumnEntries(
             problem_feats[param_block.feature_id_.value()].insert(
                 all_zero_columns[next_all_zero_column]);
             next_all_zero_column++;
+            param_block_num_for_problem_col[param_num] =
+                current_param_in_block_idx;
           }
         }
-        if (some_zero_columns[next_some_zero_column] == param_num) {
-          if (problem_feats_some_zeros.find(param_block.feature_id_.value()) ==
-              problem_feats_some_zeros.end()) {
-            problem_feats_some_zeros[param_block.feature_id_.value()] = {};
+        if (next_all_zero_column < some_zero_columns.size()) {
+          if (some_zero_columns[next_some_zero_column] == param_num) {
+            if (problem_feats_some_zeros.find(
+                    param_block.feature_id_.value()) ==
+                problem_feats_some_zeros.end()) {
+              problem_feats_some_zeros[param_block.feature_id_.value()] = {};
+            }
+            problem_feats_some_zeros[param_block.feature_id_.value()].insert(
+                some_zero_columns[next_some_zero_column]);
+            next_some_zero_column++;
+            param_block_num_for_problem_col[param_num] =
+                current_param_in_block_idx;
           }
-          problem_feats_some_zeros[param_block.feature_id_.value()].insert(
-              some_zero_columns[next_some_zero_column]);
-          next_some_zero_column++;
+        }
+        if (next_tiny_column < all_tiny_columns.size()) {
+          if (all_tiny_columns[next_tiny_column] == param_num) {
+            if (problem_feats_all_tiny.find(param_block.feature_id_.value()) ==
+                problem_feats_all_tiny.end()) {
+              problem_feats_all_tiny[param_block.feature_id_.value()] = {};
+            }
+            problem_feats_all_tiny[param_block.feature_id_.value()].insert(
+                all_tiny_columns[next_tiny_column]);
+            next_tiny_column++;
+            param_block_num_for_problem_col[param_num] =
+                current_param_in_block_idx;
+          }
         }
         if (current_param_in_block_idx < 2) {
           current_param_in_block_idx++;
@@ -474,7 +584,6 @@ void validateZeroColumnEntries(
       param_num++;
     }
   }
-
 
   std::unordered_map<ObjectId, std::unordered_set<size_t>>
       associated_factor_infos_for_obj;
@@ -514,9 +623,15 @@ void validateZeroColumnEntries(
     }
   }
 
-  LOG(INFO) << "Getting jacobian info for problematic objects";
+  LOG(INFO) << "Getting jacobian info for problematic objects, count "
+            << problem_object_ids_with_cols.size();
+  ;
   for (const auto &objs_and_problem_cols : problem_object_ids_with_cols) {
     ObjectId obj = objs_and_problem_cols.first;
+    for (const int &problem_col : objs_and_problem_cols.second) {
+      LOG(INFO) << "Object param block entries "
+                << param_block_num_for_problem_col[problem_col];
+    }
     displayInfoForObj(obj,
                       generic_factor_infos,
                       pose_graph,
@@ -524,10 +639,35 @@ void validateZeroColumnEntries(
                       associated_factor_infos_for_obj,
                       problem_for_ltm);
   }
-  LOG(INFO) << "Objects with some zeros";
+  LOG(INFO) << "Objects with some zeros, count "
+            << problem_object_ids_with_cols_some_zeros.size();
   for (const auto &objs_and_problem_cols :
        problem_object_ids_with_cols_some_zeros) {
     ObjectId obj = objs_and_problem_cols.first;
+    for (const int &problem_col : objs_and_problem_cols.second) {
+      LOG(INFO) << "Object param block entries "
+                << param_block_num_for_problem_col[problem_col];
+    }
+    if (problem_object_ids_with_cols.find(obj) ==
+        problem_object_ids_with_cols.end()) {
+      displayInfoForObj(obj,
+                        generic_factor_infos,
+                        pose_graph,
+                        residual_block_ids,
+                        associated_factor_infos_for_obj,
+                        problem_for_ltm);
+    }
+  }
+
+  LOG(INFO) << "Objects with tiny cols (all tiny), count "
+            << problem_object_ids_with_cols_all_tiny.size();
+  for (const auto &objs_and_problem_cols :
+       problem_object_ids_with_cols_all_tiny) {
+    ObjectId obj = objs_and_problem_cols.first;
+    for (const int &problem_col : objs_and_problem_cols.second) {
+      LOG(INFO) << "Object param block entries, col: " << problem_col
+                << ", entry: " << param_block_num_for_problem_col[problem_col];
+    }
     if (problem_object_ids_with_cols.find(obj) ==
         problem_object_ids_with_cols.end()) {
       displayInfoForObj(obj,
@@ -562,6 +702,10 @@ void validateZeroColumnEntries(
   LOG(INFO) << "Getting jacobian info for problematic frames";
   for (const auto &frames_and_problem_cols : problem_frames) {
     FrameId frame = frames_and_problem_cols.first;
+    for (const int &problem_col : frames_and_problem_cols.second) {
+      LOG(INFO) << "Frame param block entries "
+                << param_block_num_for_problem_col[problem_col];
+    }
     LOG(INFO) << "Frame: " << frame;
     std::unordered_set<size_t> factor_info_nums =
         associated_factor_infos_for_frame[frame];
@@ -601,6 +745,83 @@ void validateZeroColumnEntries(
   LOG(INFO) << "Getting jacobian info for problematic features";
   for (const auto &feat_and_problem_cols : problem_feats) {
     FeatureId feat = feat_and_problem_cols.first;
+    for (const int &problem_col : feat_and_problem_cols.second) {
+      LOG(INFO) << "Feat param block entries "
+                << param_block_num_for_problem_col[problem_col];
+    }
+    LOG(INFO) << "Feat: " << feat;
+    std::unordered_set<size_t> factor_info_nums =
+        associated_factor_infos_for_feat[feat];
+    for (const size_t &factor_info_num : factor_info_nums) {
+      GenericFactorInfo factor = generic_factor_infos[factor_info_num];
+      if (factor.factor_type_ == kReprojectionErrorFactorTypeId) {
+        LOG(INFO) << "Reprojection error of feature at frame "
+                  << factor.frame_id_.value() << " with camera "
+                  << factor.camera_id_.value();
+      }
+      ceres::Problem::EvaluateOptions options;
+      options.apply_loss_function = true;
+      double *feat_ptr;
+      pose_graph->getFeaturePointers(feat, &feat_ptr);
+      options.parameter_blocks = {feat_ptr};
+      options.residual_blocks = {residual_block_ids[factor_info_num]};
+      ceres::CRSMatrix jacobian_for_feat_factor;
+      problem_for_ltm.Evaluate(
+          options, nullptr, nullptr, nullptr, &jacobian_for_feat_factor);
+      displayInfoForSmallJacobian(jacobian_for_feat_factor);
+    }
+  }
+
+  LOG(INFO) << "Getting jacobian info for problematic frames (all tiny)";
+  for (const auto &frames_and_problem_cols : problem_frames_all_tiny) {
+    FrameId frame = frames_and_problem_cols.first;
+    for (const int &problem_col : frames_and_problem_cols.second) {
+      LOG(INFO) << "Frame param block entries "
+                << param_block_num_for_problem_col[problem_col];
+    }
+    LOG(INFO) << "Frame: " << frame;
+    std::unordered_set<size_t> factor_info_nums =
+        associated_factor_infos_for_frame[frame];
+    for (const size_t &factor_info_num : factor_info_nums) {
+      GenericFactorInfo factor = generic_factor_infos[factor_info_num];
+      if (factor.factor_type_ == kReprojectionErrorFactorTypeId) {
+        LOG(INFO) << "Reprojection error of feature "
+                  << factor.feature_id_.value() << " with camera "
+                  << factor.camera_id_.value();
+      } else if (factor.factor_type_ == kObjectObservationFactorTypeId) {
+        LOG(INFO) << "Bounding box observation of obj "
+                  << factor.obj_id_.value() << " with camera "
+                  << factor.camera_id_.value();
+      }
+      ceres::Problem::EvaluateOptions options;
+      options.apply_loss_function = true;
+      double *frame_ptr;
+      pose_graph->getPosePointers(frame, &frame_ptr);
+      options.parameter_blocks = {frame_ptr};
+      options.residual_blocks = {residual_block_ids[factor_info_num]};
+      ceres::CRSMatrix jacobian_for_frame_factor;
+      problem_for_ltm.Evaluate(
+          options, nullptr, nullptr, nullptr, &jacobian_for_frame_factor);
+      displayInfoForSmallJacobian(jacobian_for_frame_factor);
+
+      options.apply_loss_function = false;
+      ceres::CRSMatrix jacobian_for_frame_factor_no_loss;
+      problem_for_ltm.Evaluate(options,
+                               nullptr,
+                               nullptr,
+                               nullptr,
+                               &jacobian_for_frame_factor_no_loss);
+      displayInfoForSmallJacobian(jacobian_for_frame_factor_no_loss);
+    }
+  }
+
+  LOG(INFO) << "Getting jacobian info for problematic features (tiny)";
+  for (const auto &feat_and_problem_cols : problem_feats_all_tiny) {
+    FeatureId feat = feat_and_problem_cols.first;
+    for (const int &problem_col : feat_and_problem_cols.second) {
+      LOG(INFO) << "Feat param block entries "
+                << param_block_num_for_problem_col[problem_col];
+    }
     LOG(INFO) << "Feat: " << feat;
     std::unordered_set<size_t> factor_info_nums =
         associated_factor_infos_for_feat[feat];
@@ -760,8 +981,8 @@ void outputJacobianInfo(
       sparse_jacobian_unordered,
       file_io::ensureDirectoryPathEndsWithSlash(jacobian_output_dir) +
           kSparseJacobianOutBaseFileName);
-  std::pair<std::vector<int>, std::vector<int>> problem_cols =
-      writeJacobianToFile(
+  std::pair<std::pair<std::vector<int>, std::vector<int>>, std::vector<int>>
+      problem_cols = writeJacobianToFile(
           sparse_jacobian_ordered,
           file_io::ensureDirectoryPathEndsWithSlash(jacobian_output_dir) +
               kSparseJacobianOrderedOutBaseFileName);
