@@ -115,8 +115,14 @@ struct ReprojectionErrorFactor {
   bool operator==(const ReprojectionErrorFactor &rhs) const {
     return (frame_id_ == rhs.frame_id_) && (feature_id_ == rhs.feature_id_) &&
            (camera_id_ == rhs.camera_id_) &&
-           (feature_pos_ == rhs.feature_pos_) &&
+           (feature_pos_.x() == rhs.feature_pos_.x()) &&
+           (feature_pos_.y() == rhs.feature_pos_.y()) &&
            (reprojection_error_std_dev_ == rhs.reprojection_error_std_dev_);
+  }
+
+  bool shouldBeTheSame(const ReprojectionErrorFactor &rhs) const {
+    return (frame_id_ == rhs.frame_id_) && (feature_id_ == rhs.feature_id_) &&
+           (camera_id_ == rhs.camera_id_);
   }
 };
 

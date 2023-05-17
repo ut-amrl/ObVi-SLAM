@@ -29,7 +29,7 @@ DEFINE_string(
     "",
     "File with coarse 3d trajectory to get more detailed estimates for");
 DEFINE_string(rosbag_file, "", "File with rosbag containing odometry messages");
-DEFINE_string(odom_topic,
+DEFINE_string(odometry_topic,
               "/husky_velocity_controller/odom",
               "Odometry topic. ");
 DEFINE_string(poses_for_required_timestamps_file,
@@ -56,45 +56,6 @@ struct sort_pose3d_timestamp_pair {
     return timestamp_sort()(pose_1.first, pose_2.first);
   }
 };
-
-void getOdomPoseEsts(const std::string &rosbag_file_name,
-                     const std::string &odom_topic_name,
-                     std::vector<std::pair<Timestamp, Pose2d>> &odom_poses) {
-  rosbag::Bag bag;
-  bag.open(rosbag_file_name, rosbag::bagmode::Read);
-
-  std::vector<std::string> topics = {odom_topic_name};
-
-  rosbag::View view(bag, rosbag::TopicQuery(topics));
-
-  for (rosbag::MessageInstance const &m : view) {
-    nav_msgs::Odometry::ConstPtr msg = m.instantiate<nav_msgs::Odometry>();
-
-    Timestamp curr_stamp =
-        std::make_pair(msg->header.stamp.sec, msg->header.stamp.nsec);
-    if (!odom_poses.empty()) {
-      Timestamp prev_stamp = odom_poses.back().first;
-      if (!timestamp_sort()(prev_stamp, curr_stamp)) {
-        LOG(INFO) << "Out of order messages!";
-      }
-    }
-
-    Eigen::Quaternion pose_quat(msg->pose.pose.orientation.w,
-                                msg->pose.pose.orientation.x,
-                                msg->pose.pose.orientation.y,
-                                msg->pose.pose.orientation.z);
-    pose::Pose2d pose =
-        pose::createPose2d((double)msg->pose.pose.position.x,
-                           (double)msg->pose.pose.position.y,
-                           (double)toEulerAngles(pose_quat).z());
-    odom_poses.emplace_back(std::make_pair(curr_stamp, pose));
-  }
-
-  LOG(INFO) << "Min odom timestamp " << odom_poses.front().first.first << ", "
-            << odom_poses.front().first.second;
-  LOG(INFO) << "Max odom timestamp " << odom_poses.back().first.first << ", "
-            << odom_poses.back().first.second;
-}
 
 void convertToStampAndPose3D(
     const std::vector<file_io::Pose3DWithDoubleTimestamp> &coarse_fixed_poses,
@@ -221,7 +182,8 @@ int main(int argc, char **argv) {
 
   LOG(INFO) << "Done reading extrinsics";
   std::vector<std::pair<Timestamp, Pose2d>> odom_poses;
-  getOdomPoseEsts(FLAGS_rosbag_file, FLAGS_odom_topic, odom_poses);
+  getOdomPoseEsts(FLAGS_rosbag_file, FLAGS_odometry_topic, odom_poses);
+  LOG(INFO) << "Done reading odometry poses";
 
   std::vector<file_io::Pose3DWithDoubleTimestamp> coarse_fixed_poses_raw;
   readPose3DWithDoubleTimestampFromFile(FLAGS_coarse_trajectory_file,
@@ -234,6 +196,7 @@ int main(int argc, char **argv) {
        coarse_fixed_poses) {
     coarse_fixed_poses_no_stamp.emplace_back(fixed_pose.second);
   }
+  LOG(INFO) << "Done getting fixed poses";
 
   Pose3D<double> odom_rel_lidar = combinePoses(
       poseInverse(coarse_traj_frame_rel_base_link), odom_frame_rel_base_link);
@@ -246,6 +209,7 @@ int main(int argc, char **argv) {
         std::make_pair(coarse_pose.first, coarse_pose_rel_odom));
   }
 
+  LOG(INFO) << "Reading required timestamps";
   std::vector<Timestamp> required_timestamps;
   file_io::readTimestampsFromFile(FLAGS_required_timestamps_file,
                                   required_timestamps);
@@ -266,6 +230,8 @@ int main(int argc, char **argv) {
   std::sort(all_sorted_timestamps.begin(),
             all_sorted_timestamps.end(),
             timestamp_sort());
+
+  LOG(INFO) << "Setting up ros stuff";
 
   ros::init(argc, argv, "interpolator");
   ros::NodeHandle node_handle;
@@ -293,12 +259,14 @@ int main(int argc, char **argv) {
             vis_manager->visualizeTrajectory(req_poses, ESTIMATED);
             visualizePoseGraph(vis_manager, poses, factors, pub);
           };
+  LOG(INFO) << "Starting interpolation";
   interpolate3dPosesUsingOdom(odom_poses,
                               coarse_fixed_poses_rel_odom,
                               required_timestamps,
                               vis_function,
                               interpolated_poses_rel_odom,
                               odom_poses_adjusted_3d);
+  LOG(INFO) << "Finished interpoolation";
 
   std::vector<std::pair<Timestamp, Pose3D<double>>> all_poses_with_timestamps;
   std::vector<Pose3D<double>> all_poses;

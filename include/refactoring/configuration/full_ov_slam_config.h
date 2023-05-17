@@ -21,7 +21,7 @@ namespace vslam_types_refactor {
 
 // NOTE: This should be incremented every time the format of the configuration
 // data changes
-const static int kCurrentConfigSchemaVersion = 6;
+const static int kCurrentConfigSchemaVersion = 7;
 
 struct VisualFeatureParams {
   double reprojection_error_std_dev_;
@@ -30,22 +30,12 @@ struct VisualFeatureParams {
   double min_visual_feature_parallax_robot_orient_requirement_;
   bool enforce_min_pixel_parallax_requirement_ = true;
   bool enforce_min_robot_pose_parallax_requirement_ = true;
+
+  double inlier_epipolar_err_thresh_;
+  size_t check_past_n_frames_for_epipolar_err_;
+  bool enforce_epipolar_error_requirement_;
+
   bool operator==(const VisualFeatureParams &rhs) const {
-    // return ((reprojection_error_std_dev_ - rhs.reprojection_error_std_dev_ <
-    //          kEpsilon) &&
-    //         (min_visual_feature_parallax_pixel_requirement_ -
-    //              rhs.min_visual_feature_parallax_pixel_requirement_ <
-    //          kEpsilon) &&
-    //         (min_visual_feature_parallax_robot_transl_requirement_ -
-    //              rhs.min_visual_feature_parallax_robot_transl_requirement_ <
-    //          kEpsilon) &&
-    //         (min_visual_feature_parallax_robot_orient_requirement_ -
-    //              rhs.min_visual_feature_parallax_robot_orient_requirement_ <
-    //          kEpsilon) &&
-    //         (enforce_min_pixel_parallax_requirement_ ==
-    //          rhs.enforce_min_pixel_parallax_requirement_) &&
-    //         (enforce_min_robot_pose_parallax_requirement_ ==
-    //          rhs.enforce_min_robot_pose_parallax_requirement_));
     return (reprojection_error_std_dev_ == rhs.reprojection_error_std_dev_) &&
            (min_visual_feature_parallax_pixel_requirement_ ==
             rhs.min_visual_feature_parallax_pixel_requirement_) &&
@@ -56,7 +46,12 @@ struct VisualFeatureParams {
            (enforce_min_pixel_parallax_requirement_ ==
             rhs.enforce_min_pixel_parallax_requirement_) &&
            (enforce_min_robot_pose_parallax_requirement_ ==
-            rhs.enforce_min_robot_pose_parallax_requirement_);
+            rhs.enforce_min_robot_pose_parallax_requirement_) &&
+           (inlier_epipolar_err_thresh_ == rhs.inlier_epipolar_err_thresh_) &&
+           (check_past_n_frames_for_epipolar_err_ ==
+            rhs.check_past_n_frames_for_epipolar_err_) &&
+           (enforce_epipolar_error_requirement_ ==
+            rhs.enforce_epipolar_error_requirement_);
   }
 
   bool operator!=(const VisualFeatureParams &rhs) const {

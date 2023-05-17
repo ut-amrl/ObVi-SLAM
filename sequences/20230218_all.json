@@ -1,11 +1,43 @@
 {
-  "seq_id": "20230218_all",
-  "sequence": [
-    "1676766718",
-    "1676767081",
-    "1676767437",
-    "1676767833",
-    "1676768224",
-    "1676768545"
-  ]
+  "sequence_info": {
+    "seq_id": "20230218_all",
+    "sequence": [
+      {
+        "bag_base_name": "1676766718",
+        "waypoint_file_base_name": {
+          "has_v": 0
+        }
+      },
+      {
+        "bag_base_name": "1676767081",
+        "waypoint_file_base_name": {
+          "has_v": 0
+        }
+      },
+      {
+        "bag_base_name": "1676767437",
+        "waypoint_file_base_name": {
+          "has_v": 0
+        }
+      },
+      {
+        "bag_base_name": "1676767833",
+        "waypoint_file_base_name": {
+          "has_v": 0
+        }
+      },
+      {
+        "bag_base_name": "1676768224",
+        "waypoint_file_base_name": {
+          "has_v": 0
+        }
+      },
+      {
+        "bag_base_name": "1676768545",
+        "waypoint_file_base_name": {
+          "has_v": 0
+        }
+      }
+    ]
+  }
 }

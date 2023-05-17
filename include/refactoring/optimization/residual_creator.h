@@ -278,7 +278,6 @@ bool createRelPoseResidual(
     ceres::ResidualBlockId &residual_id,
     CachedInfo &cached_info,
     const std::optional<std::pair<FrameId, FrameId>> &min_max_frame) {
-
   vslam_types_refactor::RelPoseFactor factor;
   if (!pose_graph->getPoseFactor(factor_id, factor)) {
     LOG(ERROR) << "Could not find pose factor with id " << factor_id

@@ -133,6 +133,12 @@ target_link_libraries(ltm_extraction_only ut_vslam ${LIBS})
 ROSBUILD_ADD_EXECUTABLE(display_ltm src/refactoring/display_ltm.cpp)
 target_link_libraries(display_ltm ut_vslam ${LIBS})
 
+ROSBUILD_ADD_EXECUTABLE(waypoint_timestamp_extractor src/data_preprocessing_utils/waypoint_timestamp_extractor.cpp)
+target_link_libraries(waypoint_timestamp_extractor ut_vslam ${LIBS})
+
+ROSBUILD_ADD_EXECUTABLE(sequence_file_writer src/data_preprocessing_utils/sequence_file_writer.cpp)
+target_link_libraries(sequence_file_writer ut_vslam ${LIBS})
+
 IF (GENERATE_UNITTESTS)
     MESSAGE("Adding test executable")
     SET(UT_VSLAM_UNITTEST_NAME "ut_vslam_tests"

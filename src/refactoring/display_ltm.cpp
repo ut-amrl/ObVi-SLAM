@@ -21,10 +21,7 @@
 
 namespace vtr = vslam_types_refactor;
 
-
-typedef vtr::IndependentEllipsoidsLongTermObjectMap<
-    util::EmptyStruct>
-    MainLtm;
+typedef vtr::IndependentEllipsoidsLongTermObjectMap<util::EmptyStruct> MainLtm;
 typedef std::shared_ptr<MainLtm> MainLtmPtr;
 typedef vtr::UnassociatedBoundingBoxOfflineProblemData<
     vtr::StructuredVisionFeatureTrack,
@@ -84,7 +81,8 @@ int main(int argc, char **argv) {
   long_term_map = std::make_shared<MainLtm>(ltm_from_serializable);
 
   std::shared_ptr<vtr::RosVisualization> vis_manager =
-      std::make_shared<vtr::RosVisualization>(node_handle, param_prefix, node_prefix);
+      std::make_shared<vtr::RosVisualization>(
+          node_handle, param_prefix, node_prefix);
 
   std::unordered_map<
       vtr::ObjectId,

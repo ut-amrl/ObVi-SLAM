@@ -242,7 +242,8 @@ template <typename EntryType, typename SerializableEntryType>
 class SerializableUnorderedSet
     : public FileStorageSerializable<std::unordered_set<EntryType>> {
  public:
-  SerializableUnorderedSet() : FileStorageSerializable<std::unordered_set<EntryType>>() {}
+  SerializableUnorderedSet()
+      : FileStorageSerializable<std::unordered_set<EntryType>>() {}
   SerializableUnorderedSet(const std::unordered_set<EntryType> &data)
       : FileStorageSerializable<std::unordered_set<EntryType>>(data) {}
 
@@ -278,8 +279,9 @@ template <typename EntryType, typename SerializableEntryType>
 static void read(
     const cv::FileNode &node,
     SerializableUnorderedSet<EntryType, SerializableEntryType> &data,
-    const SerializableUnorderedSet<EntryType, SerializableEntryType> &default_data =
-    SerializableUnorderedSet<EntryType, SerializableEntryType>()) {
+    const SerializableUnorderedSet<EntryType, SerializableEntryType>
+        &default_data =
+            SerializableUnorderedSet<EntryType, SerializableEntryType>()) {
   if (node.empty()) {
     data = default_data;
   } else {
@@ -291,7 +293,8 @@ template <typename EntryType, typename SerializableEntryType>
 class SerializableBoostHashSet
     : public FileStorageSerializable<util::BoostHashSet<EntryType>> {
  public:
-  SerializableBoostHashSet() : FileStorageSerializable<util::BoostHashSet<EntryType>>() {}
+  SerializableBoostHashSet()
+      : FileStorageSerializable<util::BoostHashSet<EntryType>>() {}
   SerializableBoostHashSet(const util::BoostHashSet<EntryType> &data)
       : FileStorageSerializable<util::BoostHashSet<EntryType>>(data) {}
 
@@ -327,8 +330,9 @@ template <typename EntryType, typename SerializableEntryType>
 static void read(
     const cv::FileNode &node,
     SerializableBoostHashSet<EntryType, SerializableEntryType> &data,
-    const SerializableBoostHashSet<EntryType, SerializableEntryType> &default_data =
-    SerializableBoostHashSet<EntryType, SerializableEntryType>()) {
+    const SerializableBoostHashSet<EntryType, SerializableEntryType>
+        &default_data =
+            SerializableBoostHashSet<EntryType, SerializableEntryType>()) {
   if (node.empty()) {
     data = default_data;
   } else {
@@ -563,7 +567,6 @@ static void read(
     data.read(node);
   }
 }
-
 
 }  // namespace vslam_types_refactor
 

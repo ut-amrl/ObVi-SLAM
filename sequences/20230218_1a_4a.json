@@ -1,7 +1,19 @@
 {
-  "seq_id": "20230218_1a_4a",
-  "sequence": [
-    "1676766718",
-    "1676767833"
-  ]
+  "sequence_info": {
+    "seq_id": "20230218_1a_4a",
+    "sequence": [
+      {
+        "bag_base_name": "1676766718",
+        "waypoint_file_base_name": {
+          "has_v": 0
+        }
+      },
+      {
+        "bag_base_name": "1676767833",
+        "waypoint_file_base_name": {
+          "has_v": 0
+        }
+      }
+    ]
+  }
 }
