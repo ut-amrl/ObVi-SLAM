@@ -16,6 +16,7 @@ make -j4 && python3 src/evaluation/compute_metrics_for_oaslam.py \
     --oa_slam_out_root_dir=${oa_slam_out_root_dir} \
     --lego_loam_out_root_dir=${lego_loam_out_root_dir} \
     --calibration_file_directory=${calibration_file_directory} \
+    --odometry_topic ${odometry_topic} \
     --force_rerun_metrics_generator \
 #    --force_rerun_interpolator \
 

@@ -45,8 +45,12 @@ int main(int argc, char **argv) {
       camera_topics_to_camera_ids = {
           {"/zed/zed_node/right/image_rect_color", 2},
           {"/zed/zed_node/right/image_rect_color/compressed", 2},
+          {"/zed2i/zed_node/right/image_rect_color", 2},
+          {"/zed2i/zed_node/right/image_rect_color/compressed", 2},
           {"/zed/zed_node/left/image_rect_color", 1},
-          {"/zed/zed_node/left/image_rect_color/compressed", 1}};
+          {"/zed/zed_node/left/image_rect_color/compressed", 1},
+          {"/zed2i/zed_node/left/image_rect_color", 1},
+          {"/zed2i/zed_node/left/image_rect_color/compressed", 1}};
   const std::unordered_map<std::string, size_t> class_names_and_class_ids = {
       {"trashcan", 0}, {"lamppost", 1}, {"treetrunk", 2}, {"bench", 3}};
 
@@ -67,7 +71,7 @@ int main(int argc, char **argv) {
 
   LOG(INFO) << "Initializing nodes";
   const std::string node_prefix = FLAGS_param_prefix;
-  ros::init(argc, argv, "a_" + node_prefix + "ellipsoid_estimator_real_data");
+  ros::init(argc, argv, "a_" + node_prefix + "oa_slam_data_generator");
   ros::NodeHandle node_handle;
 
   LOG(INFO) << "Reading images from rosbag";
