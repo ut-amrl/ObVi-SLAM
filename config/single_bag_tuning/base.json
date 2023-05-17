@@ -8,7 +8,7 @@
             "min_visual_feature_parallax_robot_transl_requirement": 1.0000000000000001e-01,
             "min_visual_feature_parallax_robot_orient_requirement": 5.0000000000000003e-02,
             "enforce_min_pixel_parallax_requirement": 1,
-            "enforce_min_robot_pose_parallax_requirement": 1,
+            "enforce_min_robot_pose_parallax_requirement": 0,
             "inlier_epipolar_err_thresh": 8.0,
             "check_past_n_frames_for_epipolar_err": 5,
             "enforce_epipolar_error_requirement_": 1
@@ -282,11 +282,27 @@
                     "camera_id": "2"
                 },
                 {
+                    "camera_topic": "/zed2i/zed_node/right/image_rect_color",
+                    "camera_id": "2"
+                },
+                {
+                    "camera_topic": "/zed2i/zed_node/right/image_rect_color/compressed",
+                    "camera_id": "2"
+                },
+                {
                     "camera_topic": "/zed/zed_node/left/image_rect_color",
                     "camera_id": "1"
                 },
                 {
                     "camera_topic": "/zed/zed_node/left/image_rect_color/compressed",
+                    "camera_id": "1"
+                },
+                {
+                    "camera_topic": "/zed2i/zed_node/left/image_rect_color",
+                    "camera_id": "1"
+                },
+                {
+                    "camera_topic": "/zed2i/zed_node/left/image_rect_color/compressed",
                     "camera_id": "1"
                 }
             ]
