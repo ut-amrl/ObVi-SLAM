@@ -15,6 +15,7 @@ class MetricsForOASLAMConfig:
                  lego_loam_frame_to_bl_extrinsics,
                  comparison_alg_to_bl_extrinsics,
                  odom_to_bl_extrinsics,
+                 odometry_topic,
                  results_for_approach_root,
                  force_rerun_interpolator,
                  force_rerun_metrics_generator):
@@ -26,6 +27,7 @@ class MetricsForOASLAMConfig:
         self.comparison_alg_to_bl_extrinsics = comparison_alg_to_bl_extrinsics
         self.odom_to_bl_extrinsics = odom_to_bl_extrinsics
         self.results_for_approach_root = results_for_approach_root
+        self.odometry_topic = odometry_topic
         self.force_rerun_interpolator = force_rerun_interpolator
         self.force_rerun_metrics_generator = force_rerun_metrics_generator
 
@@ -43,12 +45,13 @@ def generateMetricsForOASLAM(metricsConfig):
         within_sequence_dir_subdir=None,
         within_bagdir_sub_dir=None,
         force_rerun_interpolator=metricsConfig.force_rerun_interpolator,
-        force_rerun_metrics_generator=metricsConfig.force_rerun_metrics_generator)
+        force_rerun_metrics_generator=metricsConfig.force_rerun_metrics_generator,
+        odometry_topic=metricsConfig.odometry_topic)
     generateMetricsForApproach(metrics_for_approach_config)
 
 
 def metricsForOrbSLAM3ArgParse():
-    parser = argparse.ArgumentParser(description="Generate metrics for ORBSLAM3 sequence")
+    parser = argparse.ArgumentParser(description="Generate metrics for OASLAM sequence")
     parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.rosbagDirectoryBaseArgName),
                         required=True,
                         help=CmdLineArgConstants.rosbagDirectoryHelp)
@@ -104,6 +107,7 @@ def metricsForOrbSLAM3ArgParse():
                                     lego_loam_frame_to_bl_extrinsics=lego_loam_frame_to_bl_extrinsics,
                                     comparison_alg_to_bl_extrinsics=comparison_alg_to_bl_extrinsics,
                                     odom_to_bl_extrinsics=odom_to_bl_extrinsics,
+                                    odometry_topic=args_dict[CmdLineArgConstants.odometryTopicBaseArgName],
                                     force_rerun_interpolator=args_dict[
                                         CmdLineArgConstants.forceRerunInterpolatorBaseArgName],
                                     force_rerun_metrics_generator=args_dict[
