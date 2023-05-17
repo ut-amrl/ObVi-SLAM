@@ -39,16 +39,6 @@ class YoloBoundingBoxQuerier {
     }
   }
 
-  bool retrieveBoundingBoxesFromCamIdsAndImages(
-      const FrameId &frame_to_query_for,
-      const std::unordered_map<CameraId, sensor_msgs::Image::ConstPtr>
-          &cam_ids_and_images,
-      std::unordered_map<CameraId, std::vector<RawBoundingBox>>
-          &bounding_boxes_for_frame) {
-    return retrieveBoundingBoxHelper(
-        frame_to_query_for, cam_ids_and_images, bounding_boxes_for_frame);
-  }
-
   template <typename InputProblemData>
   bool retrieveBoundingBoxes(
       const FrameId &frame_to_query_for,
@@ -58,42 +48,8 @@ class YoloBoundingBoxQuerier {
     std::unordered_map<CameraId, sensor_msgs::Image::ConstPtr>
         images_by_cam_for_frame =
             input_problem_data.getImagesByCameraForFrame(frame_to_query_for);
-    return retrieveBoundingBoxHelper(
-        frame_to_query_for, images_by_cam_for_frame, bounding_boxes_for_frame);
-  }
 
- private:
-  constexpr const static double kWaitForServiceMaxDuration = 10;
-
-  ros::NodeHandle node_handle_;
-  std::string service_name_;
-  ros::ServiceClient bounding_box_client_;
-
-  bool regenerateClient() {
-    if (!ros::service::waitForService(
-            service_name_, ros::Duration(kWaitForServiceMaxDuration))) {
-      LOG(WARNING) << "Bounding box query service " << service_name_
-                   << " never became available.";
-      return false;
-    }
-
-    bounding_box_client_ =
-        node_handle_.serviceClient<amrl_msgs::ObjectDetectionSrv>(service_name_,
-                                                                  true);
-    if (!bounding_box_client_.isValid()) {
-      LOG(WARNING) << "Regenerated client, but still wasn't valid";
-      return false;
-    }
-    return true;
-  }
-
-  bool retrieveBoundingBoxHelper(
-      const FrameId &frame_to_query_for,
-      const std::unordered_map<CameraId, sensor_msgs::Image::ConstPtr>
-          &cam_ids_and_images,
-      std::unordered_map<CameraId, std::vector<RawBoundingBox>>
-          &bounding_boxes_for_frame) {
-    for (const auto &cam_id_and_img : cam_ids_and_images) {
+    for (const auto &cam_id_and_img : images_by_cam_for_frame) {
       amrl_msgs::ObjectDetectionSrv obj_det_srv_call;
       sensor_msgs::Image::ConstPtr curr_img = cam_id_and_img.second;
       obj_det_srv_call.request.query_image = *curr_img;
@@ -104,6 +60,7 @@ class YoloBoundingBoxQuerier {
           exit(1);
         }
       }
+
       if (bounding_box_client_.call(obj_det_srv_call)) {
         std::vector<RawBoundingBox> bounding_boxes_for_camera;
         for (size_t bb_idx = 0;
@@ -152,6 +109,31 @@ class YoloBoundingBoxQuerier {
                      << cam_id_and_img.first;
         return false;
       }
+    }
+    return true;
+  }
+
+ private:
+  constexpr const static double kWaitForServiceMaxDuration = 10;
+
+  ros::NodeHandle node_handle_;
+  std::string service_name_;
+  ros::ServiceClient bounding_box_client_;
+
+  bool regenerateClient() {
+    if (!ros::service::waitForService(
+            service_name_, ros::Duration(kWaitForServiceMaxDuration))) {
+      LOG(WARNING) << "Bounding box query service " << service_name_
+                   << " never became available.";
+      return false;
+    }
+
+    bounding_box_client_ =
+        node_handle_.serviceClient<amrl_msgs::ObjectDetectionSrv>(service_name_,
+                                                                  true);
+    if (!bounding_box_client_.isValid()) {
+      LOG(WARNING) << "Regenerated client, but still wasn't valid";
+      return false;
     }
     return true;
   }
