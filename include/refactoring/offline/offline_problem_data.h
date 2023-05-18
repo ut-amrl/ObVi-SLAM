@@ -10,7 +10,7 @@
 
 namespace vslam_types_refactor {
 
-FrameId getMaxFrame(const std::unordered_map<FrameId, Pose3D<double>>& poses) {
+inline FrameId getMaxFrame(const std::unordered_map<FrameId, Pose3D<double>>& poses) {
   CHECK(!poses.empty());
   FrameId max_frame_id = 0;
   for (const auto& frame_and_pose : poses) {

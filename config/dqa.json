@@ -1,14 +1,14 @@
 {
   "config": {
-    "config_schema_version": 7,
-    "config_version_id": "8",
+    "config_schema_version": 8,
+    "config_version_id": "11",
     "visual_feature_params": {
       "reprojection_error_std_dev": 2.0,
       "min_visual_feature_parallax_pixel_requirement": 5.0,
       "min_visual_feature_parallax_robot_transl_requirement": 1.0000000000000001e-01,
       "min_visual_feature_parallax_robot_orient_requirement": 5.0000000000000003e-02,
-      "enforce_min_pixel_parallax_requirement_": 1,
-      "enforce_min_robot_pose_parallax_requirement_": 0,
+      "enforce_min_pixel_parallax_requirement": 1,
+      "enforce_min_robot_pose_parallax_requirement": 0,
       "inlier_epipolar_err_thresh": 8.0,
       "check_past_n_frames_for_epipolar_err": 5,
       "enforce_epipolar_error_requirement_": 1
@@ -73,7 +73,8 @@
       }
     },
     "ltm_tunable_params": {
-      "far_feature_threshold": 75.0
+      "far_feature_threshold": 75.0,
+      "min_col_norm": 5.0000000000000001e-09
     },
     "ltm_solver_residual_params": {
       "object_residual_params": {

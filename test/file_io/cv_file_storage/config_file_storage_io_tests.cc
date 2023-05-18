@@ -83,6 +83,7 @@ TEST(FullOVSLAMConfigIO, ReadWriteFullOBSLAMConfig) {
 
   LongTermMapExtractionTunableParams ltm_tunable_params;
   ltm_tunable_params.far_feature_threshold_ = 2.4;
+  ltm_tunable_params.min_col_norm_ = 32.3;
   orig_config.ltm_tunable_params_ = ltm_tunable_params;
 
   pose_graph_optimization::ObjectVisualPoseGraphResidualParams

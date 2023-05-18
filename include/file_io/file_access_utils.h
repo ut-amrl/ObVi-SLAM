@@ -14,7 +14,7 @@ namespace file_io {
 
 const static std::string kJsonExtension = ".json";
 
-std::string ensureDirectoryPathEndsWithSlash(
+inline std::string ensureDirectoryPathEndsWithSlash(
     const std::string &unvalidated_dir_path) {
   CHECK(!unvalidated_dir_path.empty()) << "Directory path cannot be empty";
 
@@ -27,7 +27,7 @@ std::string ensureDirectoryPathEndsWithSlash(
   return unvalidated_dir_path;
 }
 
-void makeDirectoryIfDoesNotExist(const std::string &dir_name) {
+inline void makeDirectoryIfDoesNotExist(const std::string &dir_name) {
   boost::filesystem::create_directories(dir_name);
 }
 }  // namespace file_io

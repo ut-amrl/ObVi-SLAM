@@ -15,8 +15,9 @@ config_version="dqa"
 params_config_file=${config_file_directory}${config_version}.json
 
 
-declare -a bagnames=("_2023-05-13-17-18-50" \
-                     "_2023-05-13-19-21-13")
+declare -a bagnames=("_2023-05-16-15-06-47" \
+                     "_2023-05-16-15-19-50" \
+                     "_2023-05-16-15-24-19")
 
 for bagname in ${bagnames[@]}; do
 
@@ -25,8 +26,8 @@ for bagname in ${bagnames[@]}; do
     unsparsified_vslam_in_dir=${orb_post_process_dir}unsparsified_ut_vslam_in/${bagname}/
     [ ! -d $unsparsified_vslam_in_dir ]  && mkdir -p $unsparsified_vslam_in_dir
 
-    python3 src/data_preprocessing_utils/orb_stereo_reformat_data.py -i $orb_out_dir -o $unsparsified_vslam_in_dir 
-    sleep 3
+    # python3 src/data_preprocessing_utils/orb_stereo_reformat_data.py -i $orb_out_dir -o $unsparsified_vslam_in_dir 
+    # sleep 3
     ./bin/initialize_traj_and_feats_from_orb_out --raw_data_path $orb_out_dir --calibration_path $calibration_file_directory --processed_data_path $unsparsified_vslam_in_dir
     sleep 3
 
