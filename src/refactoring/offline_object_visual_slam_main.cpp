@@ -650,7 +650,7 @@ int main(int argc, char **argv) {
   if (FLAGS_logs_directory.empty()) {
     FLAGS_logtostderr = true;  // Don't log to disk - log to terminal
   } else {
-    FLAGS_alsologtostderr = true;
+    // FLAGS_alsologtostderr = true;
     FLAGS_log_dir = FLAGS_logs_directory;
     opt_logger = vtr::OptimizationLogger(
         file_io::ensureDirectoryPathEndsWithSlash(FLAGS_logs_directory) +
