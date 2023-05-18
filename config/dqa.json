@@ -1,0 +1,405 @@
+{
+  "config": {
+    "config_schema_version": 7,
+    "config_version_id": "8",
+    "visual_feature_params": {
+      "reprojection_error_std_dev": 2.0,
+      "min_visual_feature_parallax_pixel_requirement": 5.0,
+      "min_visual_feature_parallax_robot_transl_requirement": 1.0000000000000001e-01,
+      "min_visual_feature_parallax_robot_orient_requirement": 5.0000000000000003e-02,
+      "enforce_min_pixel_parallax_requirement_": 1,
+      "enforce_min_robot_pose_parallax_requirement_": 0,
+      "inlier_epipolar_err_thresh": 8.0,
+      "check_past_n_frames_for_epipolar_err": 5,
+      "enforce_epipolar_error_requirement_": 1
+    },
+    "local_ba_solver_params": {
+      "max_num_iterations": 200,
+      "feature_outlier_percentage": 1.0000000000000001e-01,
+      "allow_non_monotonic_steps": 0,
+      "function_tolerance": 9.9999999999999995e-07,
+      "gradient_tolerance": 1.0000000000000000e-10,
+      "parameter_tolerance": 1.0000000000000000e-08,
+      "initial_trust_region_radius": 100.0,
+      "max_trust_region_radius": 10000.0
+    },
+    "global_ba_solver_params": {
+      "max_num_iterations": 250,
+      "feature_outlier_percentage": 1.0000000000000001e-01,
+      "allow_non_monotonic_steps": 0,
+      "function_tolerance": 9.9999999999999995e-07,
+      "gradient_tolerance": 1.0000000000000000e-10,
+      "parameter_tolerance": 1.0000000000000000e-08,
+      "initial_trust_region_radius": 100.0,
+      "max_trust_region_radius": 10000.0
+    },
+    "final_ba_solver_params": {
+      "max_num_iterations": 300,
+      "feature_outlier_percentage": 1.0000000000000001e-01,
+      "allow_non_monotonic_steps": 0,
+      "function_tolerance": 9.9999999999999995e-07,
+      "gradient_tolerance": 1.0000000000000000e-10,
+      "parameter_tolerance": 1.0000000000000000e-08,
+      "initial_trust_region_radius": 100.0,
+      "max_trust_region_radius": 10000.0
+    },
+    "pgo_solver_params": {
+      "relative_pose_factor_huber_loss": 5.0,
+      "relative_pose_cov_params": {
+        "transl_error_mult_for_transl_error": 1.0000000000000001e-01,
+        "transl_error_mult_for_rot_error": 1.0000000000000001e-01,
+        "rot_error_mult_for_transl_error": 1.0000000000000001e-01,
+        "rot_error_mult_for_rot_error": 1.0000000000000001e-01
+      },
+      "pgo_optimization_solver_params": {
+        "max_num_iterations": 250,
+        "feature_outlier_percentage": 1.0000000000000001e-01,
+        "allow_non_monotonic_steps": 0,
+        "function_tolerance": 9.9999999999999995e-07,
+        "gradient_tolerance": 1.0000000000000000e-10,
+        "parameter_tolerance": 1.0000000000000000e-08,
+        "initial_trust_region_radius": 100.0,
+        "max_trust_region_radius": 10000.0
+      },
+      "final_pgo_optimization_solver_params": {
+        "max_num_iterations": 300,
+        "feature_outlier_percentage": 1.0000000000000001e-01,
+        "allow_non_monotonic_steps": 0,
+        "function_tolerance": 9.9999999999999995e-07,
+        "gradient_tolerance": 1.0000000000000000e-10,
+        "parameter_tolerance": 1.0000000000000000e-08,
+        "initial_trust_region_radius": 100.0,
+        "max_trust_region_radius": 10000.0
+      }
+    },
+    "ltm_tunable_params": {
+      "far_feature_threshold": 75.0
+    },
+    "ltm_solver_residual_params": {
+      "object_residual_params": {
+        "object_observation_huber_loss_param": 1.0,
+        "shape_dim_prior_factor_huber_loss_param": 1.0,
+        "invalid_ellipsoid_error_val": 1000.0
+      },
+      "visual_residual_params": {
+        "reprojection_error_huber_loss_param": 1.0
+      },
+      "long_term_map_params": {
+        "pair_huber_loss_param": 1.0
+      },
+      "relative_pose_factor_huber_loss": 1.0,
+      "relative_pose_cov_params": {
+        "transl_error_mult_for_transl_error": 6.9527439742482904e-310,
+        "transl_error_mult_for_rot_error": 6.9387275916363210e-310,
+        "rot_error_mult_for_transl_error": 6.9387277272197918e-310,
+        "rot_error_mult_for_rot_error": 6.9387280496419928e-310
+      }
+    },
+    "ltm_solver_params": {
+      "max_num_iterations": 300,
+      "feature_outlier_percentage": 1.0000000000000001e-01,
+      "allow_non_monotonic_steps": 0,
+      "function_tolerance": 9.9999999999999995e-07,
+      "gradient_tolerance": 1.0000000000000000e-10,
+      "parameter_tolerance": 1.0000000000000000e-08,
+      "initial_trust_region_radius": 10000.0,
+      "max_trust_region_radius": 1.0000000000000000e+16
+    },
+    "shape_dimension_priors": {
+      "dimension_prior_label": [
+        {
+          "semantic_class": "chair",
+          "obj_dim_mean": {
+            "Rows": 3,
+            "Cols": 1,
+            "Data": [
+              6.2000000000000000e-01,
+              6.2000000000000000e-01,
+              9.7499999999999998e-01
+            ]
+          },
+          "dim_covariance": {
+            "Rows": 3,
+            "Cols": 3,
+            "Data": [
+              2.5000000000000005e-03,
+              0.0,
+              0.0,
+              0.0,
+              2.5000000000000005e-03,
+              0.0,
+              0.0,
+              0.0,
+              2.5000000000000005e-03
+            ]
+          }
+        },
+        {
+          "semantic_class": "bench",
+          "obj_dim_mean": {
+            "Rows": 3,
+            "Cols": 1,
+            "Data": [
+              1.0,
+              2.5000000000000000e+00,
+              1.5000000000000000e+00
+            ]
+          },
+          "dim_covariance": {
+            "Rows": 3,
+            "Cols": 3,
+            "Data": [
+              2.2500000000000000e+00,
+              0.0,
+              0.0,
+              0.0,
+              4.0,
+              0.0,
+              0.0,
+              0.0,
+              2.2500000000000000e+00
+            ]
+          }
+        },
+        {
+          "semantic_class": "roadblock",
+          "obj_dim_mean": {
+            "Rows": 3,
+            "Cols": 1,
+            "Data": [
+              2.8999999999999998e-01,
+              2.8999999999999998e-01,
+              4.7999999999999998e-01
+            ]
+          },
+          "dim_covariance": {
+            "Rows": 3,
+            "Cols": 3,
+            "Data": [
+              9.9999999999999995e-07,
+              0.0,
+              0.0,
+              0.0,
+              9.9999999999999995e-07,
+              0.0,
+              0.0,
+              0.0,
+              1.0000000000000000e-04
+            ]
+          }
+        },
+        {
+          "semantic_class": "treetrunk",
+          "obj_dim_mean": {
+            "Rows": 3,
+            "Cols": 1,
+            "Data": [
+              4.0000000000000002e-01,
+              4.0000000000000002e-01,
+              2.0
+            ]
+          },
+          "dim_covariance": {
+            "Rows": 3,
+            "Cols": 3,
+            "Data": [
+              4.0000000000000008e-02,
+              0.0,
+              0.0,
+              0.0,
+              4.0000000000000008e-02,
+              0.0,
+              0.0,
+              0.0,
+              9.0
+            ]
+          }
+        },
+        {
+          "semantic_class": "lamppost",
+          "obj_dim_mean": {
+            "Rows": 3,
+            "Cols": 1,
+            "Data": [
+              2.9999999999999999e-01,
+              2.9999999999999999e-01,
+              4.0
+            ]
+          },
+          "dim_covariance": {
+            "Rows": 3,
+            "Cols": 3,
+            "Data": [
+              2.2499999999999999e-02,
+              0.0,
+              0.0,
+              0.0,
+              2.2499999999999999e-02,
+              0.0,
+              0.0,
+              0.0,
+              9.0
+            ]
+          }
+        },
+        {
+          "semantic_class": "trashcan",
+          "obj_dim_mean": {
+            "Rows": 3,
+            "Cols": 1,
+            "Data": [
+              1.0,
+              1.0,
+              1.5000000000000000e+00
+            ]
+          },
+          "dim_covariance": {
+            "Rows": 3,
+            "Cols": 3,
+            "Data": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              2.2500000000000000e+00
+            ]
+          }
+        }
+      ]
+    },
+    "camera_info": {
+      "camera_topic_to_camera_id": [
+        {
+          "camera_topic": "/zed2i/zed_node/right/image_rect_color",
+          "camera_id": "2"
+        },
+        {
+          "camera_topic": "/zed2i/zed_node/right/image_rect_color/compressed",
+          "camera_id": "2"
+        },
+        {
+          "camera_topic": "/zed2i/zed_node/left/image_rect_color",
+          "camera_id": "1"
+        },
+        {
+          "camera_topic": "/zed2i/zed_node/left/image_rect_color/compressed",
+          "camera_id": "1"
+        }
+      ]
+    },
+    "bounding_box_front_end_params": {
+      "geometric_similarity_scorer_params": {
+        "max_merge_distance": 4.0
+      },
+      "feature_based_bb_association_params": {
+        "min_observations_for_local_est": 3,
+        "min_observations": 10,
+        "discard_candidate_after_num_frames": "40",
+        "min_bb_confidence": 2.0000000000000001e-01,
+        "required_min_conf_for_initialization": 0.0,
+        "min_overlapping_features_for_match": 3.0,
+        "feature_validity_window": "20",
+        "pending_obj_estimator_params": {
+          "object_residual_params": {
+            "object_observation_huber_loss_param": 1.0,
+            "shape_dim_prior_factor_huber_loss_param": 1.0,
+            "invalid_ellipsoid_error_val": 1000.0
+          },
+          "solver_params": {
+            "max_num_iterations": 500,
+            "feature_outlier_percentage": 1.0000000000000001e-01,
+            "allow_non_monotonic_steps": 0,
+            "function_tolerance": 9.9999999999999995e-07,
+            "gradient_tolerance": 1.0000000000000000e-10,
+            "parameter_tolerance": 1.0000000000000000e-08,
+            "initial_trust_region_radius": 10000.0,
+            "max_trust_region_radius": 1.0000000000000000e+16
+          }
+        },
+        "bounding_box_inflation_size": 10.0
+      }
+    },
+    "bounding_box_covariance_generator_params": {
+      "bounding_box_cov": {
+        "Rows": 4,
+        "Cols": 4,
+        "Data": [
+          900.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          900.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          900.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          900.0
+        ]
+      },
+      "near_edge_threshold": 25.0,
+      "image_boundary_variance": 40000.0
+    },
+    "sliding_window_params": {
+      "global_ba_frequency": "30",
+      "local_ba_window_size": "50"
+    },
+    "optimization_factors_enabled_params": {
+      "allow_reversion_after_dectecting_jumps": 1,
+      "min_low_level_feature_observations_per_frame": 50,
+      "consecutive_pose_transl_tol": 1.0,
+      "consecutive_pose_orient_tol": 3.1415926535897931e+00,
+      "include_object_factors": 1,
+      "include_visual_factors": 1,
+      "fix_poses": 0,
+      "fix_objects": 0,
+      "fix_visual_features": 0,
+      "fix_ltm_objects": 0,
+      "use_pom": 0,
+      "poses_prior_to_window_to_keep_constant": 5,
+      "min_object_observations": 10,
+      "min_low_level_feature_observations": 5,
+      "use_pose_graph_on_global_ba": 1,
+      "use_visual_features_on_global_ba": 0,
+      "use_pose_graph_on_final_global_ba": 1,
+      "use_visual_features_on_final_global_ba": 1
+    },
+    "object_visual_pose_graph_residual_params": {
+      "object_residual_params": {
+        "object_observation_huber_loss_param": 1.0,
+        "shape_dim_prior_factor_huber_loss_param": 1.0,
+        "invalid_ellipsoid_error_val": 1000.0
+      },
+      "visual_residual_params": {
+        "reprojection_error_huber_loss_param": 1.0
+      },
+      "long_term_map_params": {
+        "pair_huber_loss_param": 1.0
+      },
+      "relative_pose_factor_huber_loss": 1.0,
+      "relative_pose_cov_params": {
+        "transl_error_mult_for_transl_error": 2.5000000000000001e-02,
+        "transl_error_mult_for_rot_error": 2.5000000000000001e-02,
+        "rot_error_mult_for_transl_error": 2.5000000000000001e-02,
+        "rot_error_mult_for_rot_error": 2.5000000000000001e-02
+      }
+    },
+    "limit_traj_eval_params": {
+      "should_limit_trajectory_evaluation": 0,
+      "max_frame_id": 1
+    },
+    "sparsifier_params": {
+      "max_pose_inc_threshold_transl": 2.0000000000000001e-01,
+      "max_pose_inc_threshold_rot": 1.0000000000000001e-01
+    }
+  }
+}
