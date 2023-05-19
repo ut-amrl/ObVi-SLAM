@@ -6,15 +6,10 @@ camera_topics_file=/home/amanda/workspaces/ut_vslam/config/zed2i_left_camera_top
 waypoint_topic_trigger=/autonomy_arbiter/joystick_stamp
 waypoint_file_version=1
 
-#rosbag_base_name=_2023-05-11-18-35-54
-#rosbag_base_name=_2023-05-12-10-35-39
-#rosbag_base_name=_2023-05-12-10-40-16
-#rosbag_base_name=_2023-05-12-10-46-11
-#rosbag_base_name=_2023-05-12-10-50-32
-#rosbag_base_name=_2023-05-12-10-55-45
-#rosbag_base_name=_2023-05-12-11-00-35
-rosbag_base_name=_2023-05-12-11-04-29
-
+#rosbag_base_name=_2023_05_13_19_03_07
+#rosbag_base_name=_2023_05_13_21_34_26
+#rosbag_base_name=_2023_05_13_21_51_39
+rosbag_base_name=_2023_05_16_15_02_33
 
 make && python3 src/evaluation/waypoint_timestamp_extractor.py \
     --waypoint_topic_trigger ${waypoint_topic_trigger} \

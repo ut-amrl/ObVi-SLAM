@@ -1,54 +1,57 @@
 {
-  "seq_id": "2023-05-12_morning",
-  "sequence": [
-    {
-      "bag_base_name": "_2023-05-12-10-35-39",
-      "waypoint_file_base_name": {
-        "has_v": 1,
-        "v": "waypoint_stamps_v1_2023-05-12-10-35-39"
+  "sequence_info": {
+    "seq_id": "2023-05-12_morning",
+    "sequence": [
+      {
+        "bag_base_name": "_2023-05-12-10-35-39",
+        "waypoint_file_base_name": {
+          "has_v": 1,
+          "v": "waypoint_stamps_v1_2023-05-12-10-35-39"
+        }
+      },
+      {
+        "bag_base_name": "_2023-05-12-10-40-16",
+        "waypoint_file_base_name": {
+          "has_v": 1,
+          "v": "waypoint_stamps_v1_2023-05-12-10-40-16"
+        }
+      },
+      {
+        "bag_base_name": "_2023-05-12-10-46-11",
+        "waypoint_file_base_name": {
+          "has_v": 1,
+          "v": "waypoint_stamps_v1_2023-05-12-10-46-11"
+        }
+      },
+      {
+        "bag_base_name": "_2023-05-12-10-50-32",
+        "waypoint_file_base_name": {
+          "has_v": 1,
+          "v": "waypoint_stamps_v1_2023-05-12-10-50-32"
+        }
+      },
+      {
+        "bag_base_name": "_2023-05-12-10-55-45",
+        "waypoint_file_base_name": {
+          "has_v": 1,
+          "v": "waypoint_stamps_v1_2023-05-12-10-55-45"
+        }
+      },
+      {
+        "bag_base_name": "_2023-05-12-11-00-35",
+        "waypoint_file_base_name": {
+          "has_v": 1,
+          "v": "waypoint_stamps_v1_2023-05-12-11-00-35"
+        }
+      },
+      {
+        "bag_base_name": "_2023-05-12-11-04-29",
+        "waypoint_file_base_name": {
+          "has_v": 1,
+          "v": "waypoint_stamps_v1_2023-05-12-11-04-29"
+        }
       }
-    },
-    {
-      "bag_base_name": "_2023-05-12-10-40-16",
-      "waypoint_file_base_name": {
-        "has_v": 1,
-        "v": "waypoint_stamps_v1_2023-05-12-10-40-16"
-      }
-    },
-    {
-      "bag_base_name": "_2023-05-12-10-46-11",
-      "waypoint_file_base_name": {
-        "has_v": 1,
-        "v": "waypoint_stamps_v1_2023-05-12-10-46-11"
-      }
-    },
-    {
-      "bag_base_name": "_2023-05-12-10-50-32",
-      "waypoint_file_base_name": {
-        "has_v": 1,
-        "v": "waypoint_stamps_v1_2023-05-12-10-50-32"
-      }
-    },
-    {
-      "bag_base_name": "_2023-05-12-10-55-45",
-      "waypoint_file_base_name": {
-        "has_v": 1,
-        "v": "waypoint_stamps_v1_2023-05-12-10-55-45"
-      }
-    },
-    {
-      "bag_base_name": "_2023-05-12-11-00-35",
-      "waypoint_file_base_name": {
-        "has_v": 1,
-        "v": "waypoint_stamps_v1_2023-05-12-11-00-35"
-      }
-    },
-    {
-      "bag_base_name": "_2023-05-12-11-04-29",
-      "waypoint_file_base_name": {
-        "has_v": 1,
-        "v": "waypoint_stamps_v1_2023-05-12-11-04-29"
-      }
-    }
-  ]
+    ]
+  }
 }
+

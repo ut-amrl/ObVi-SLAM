@@ -8,7 +8,7 @@ trajectory_sequence_file_directory=/home/amanda/workspaces/ut_vslam/sequences/
 
 #rosbag_base_name="1669743059"
 #rosbag_base_name="1668019589"
-sequence_file_base_name="2023-05-12_morning"
+sequence_file_base_name="end_of_may_demo_v1"
 
 ouster_branch=writeToFile
 
