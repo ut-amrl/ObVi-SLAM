@@ -10,16 +10,12 @@ orb_slam_2_out_root_dir=${root_data_dir}orb_out/
 
 trajectory_sequence_file_directory=${WORKDIR}ut_vslam/sequences/single_bag/
 
-declare -a sequence_file_base_names=("2023-05-16-14-49-37_only" \
-                                     "2023-05-16-14-58-28_only" \
-                                     "2023-05-16-15-02-33_only" \
-                                     "2023-05-16-15-06-47_only" \
-                                     "2023-05-16-15-11-22_only" \
-                                     "2023-05-16-15-15-12_only" \
-                                     "2023-05-16-15-19-50_only" \
-                                     "2023-05-16-15-24-19_only" \
-                                     "2023-05-16-15-30-05_only" \
-                                     "2023-05-16-15-34-13_only")
+declare -a sequence_file_base_names=("20230511183554_only" \
+                                     "20230512110035_only" \
+                                     "20230513190307_only" \
+                                     "20230513213426_only" \
+                                     "20230513215139_only" \
+                                     "20230516150233_only")
 
 for sequence_file_base_name in ${sequence_file_base_names[@]}; do
   python3 src/evaluation/run_orb_slam_2.py \
