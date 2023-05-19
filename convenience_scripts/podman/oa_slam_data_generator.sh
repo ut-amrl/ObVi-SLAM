@@ -1,19 +1,26 @@
 #!/bin/bash
 
-YOLO_DIR=/root/LTOV-SLAM-Evaluation/yolov5-ros/
-SLAM_DIR=/root/LTOV-SLAM-Evaluation/ut_vslam/
-yolo_weight=/root/LTOV-SLAM-Evaluation/data/yolo_models/outdoors-final-yolov5s-1.pt
+WORKDIR=/root/LTOV-SLAM-Evaluation/
 
-cd $YOLO_DIR
-(python3 detect_ros.py --weights $yolo_weight --img 960 --conf 0.2) &
-yolo_pid=$!
-sleep 5
+YOLO_DIR=${WORKDIR}yolov5-ros/
+SLAM_DIR=${WORKDIR}ut_vslam/
+yolo_weight=${WORKDIR}data/yolo_models/outdoors-final-yolov5s-1.pt
+
+# cd $YOLO_DIR
+# (python3 detect_ros.py --weights $yolo_weight --img 960 --conf 0.2) &
+# yolo_pid=$!
+# sleep 5
 
 cd $SLAM_DIR
 
 root_data_dir=/root/LTOV-SLAM-Evaluation/data/
 
-declare -a bagnames=("1677097326")
+declare -a bagnames=("_2023_05_11_18_35_54" \
+                     "_2023_05_12_11_00_35" \
+                     "_2023_05_13_19_03_07" \
+                     "_2023_05_13_21_34_26" \
+                     "_2023_05_13_21_51_39" \
+                     "_2023_05_16_15_02_33")
 
 for bagname in ${bagnames[@]}; do
 

@@ -26,7 +26,7 @@ sequence_file_base_name="amazon_0523_v1"
 
 cd $SLAM_DIR
 
-config_file_base_name="amazon_0523_base"
+config_file_base_name="amazon_0523_conf_0_6"
 python3 src/evaluation/ltm_trajectory_sequence_executor.py \
     --config_file_directory ${config_file_directory} \
     --orb_slam_out_directory ${orb_slam_out_directory} \

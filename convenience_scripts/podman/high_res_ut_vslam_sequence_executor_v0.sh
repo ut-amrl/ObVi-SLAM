@@ -17,7 +17,7 @@ orb_post_process_base_directory=${root_data_dir}orb_post_process/
 results_root_directory=${root_data_dir}ut_vslam_results/
 lego_loam_out_root_dir=${root_data_dir}lego_loam_out/
 
-sequence_file_base_name="amazon_0523_v1"
+sequence_file_base_name="amazon_0523_v0"
 
 # cd $YOLO_DIR
 # (python3 detect_ros.py --weights $yolo_weight --img 960 --conf 0.01) &

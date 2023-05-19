@@ -1,15 +1,15 @@
 #!/bin/bash
-# bagname=1676766718
+# bagname=_2023_05_11_18_35_54
 
-# root_data_dir="${HOME}/data/"
+# root_data_dir=/root/LTOV-SLAM-Evaluation/data/
 # oa_slam_in_dir=${root_data_dir}oa_slam_in/${bagname}/
 # path_to_image_sequence_for_cam_1=${oa_slam_in_dir}1/cam_1_images.txt
 # path_to_image_sequence_for_cam_2=${oa_slam_in_dir}2/cam_2_images.txt
 # detections_file_for_cam_1=${oa_slam_in_dir}1/detections/detections.json
 # detections_file_for_cam_2=${oa_slam_in_dir}2/detections/detections.json
 
-# oa_slam_dir=${HOME}/OA-SLAM/
-# camera_file=${oa_slam_dir}/Cameras/husky_zed_rectified.yaml
+# oa_slam_dir=/root/LTOV-SLAM-Evaluation/OA-SLAM/
+# camera_file=${oa_slam_dir}Cameras/husky_zed_rectified.yaml
 # nodes_by_timestamp_file=${root_data_dir}orb_out/${bagname}/timestamps/node_ids_and_timestamps.txt
 
 # oa_slam_out_dir=${root_data_dir}oa_slam_out/
@@ -33,11 +33,12 @@
 #     ${oa_slam_pose_path}
 
 oa_slam_dir=/root/LTOV-SLAM-Evaluation/OA-SLAM/
-camera_file=${oa_slam_dir}/Cameras/husky_zed_rectified.yaml
+camera_file=${oa_slam_dir}/Cameras/jackal_zed_rectified.yaml
 root_data_dir=/root/LTOV-SLAM-Evaluation/data/
 
-sequence_file_base_name="high_res_20230218_1a_7326"
-sequence_file=/root/LTOV-SLAM-Evaluation/ut_vslam/sequences/${sequence_file_base_name}.json
+sequence_file_base_name="amazon_0523_v0"
+# TODO fix me
+sequence_file=/root/LTOV-SLAM-Evaluation/ut_vslam/sequences/amazon_0523/${sequence_file_base_name}.json
 
 cd ${oa_slam_dir}
 
