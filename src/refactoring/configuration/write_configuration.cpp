@@ -243,7 +243,11 @@ int main(int argc, char **argv) {
       {"/zed/zed_node/left/image_rect_color/compressed", 1},
       {"/zed/zed_node/left/image_rect_color", 1},
       {"/zed/zed_node/right/image_rect_color/compressed", 2},
-      {"/zed/zed_node/right/image_rect_color", 2}};
+      {"/zed/zed_node/right/image_rect_color", 2},
+      {"/zed2i/zed_node/left/image_rect_color/compressed", 1},
+      {"/zed2i/zed_node/left/image_rect_color", 1},
+      {"/zed2i/zed_node/right/image_rect_color/compressed", 2},
+      {"/zed2i/zed_node/right/image_rect_color", 2}};
 
   configuration.bounding_box_front_end_params_ =
       generateBoundingBoxFrontEndParams(residual_params.object_residual_params_,

@@ -225,6 +225,22 @@
         "camera_info": {
             "camera_topic_to_camera_id": [
                 {
+                    "camera_topic": "/zed2i/zed_node/right/image_rect_color",
+                    "camera_id": "2"
+                },
+                {
+                    "camera_topic": "/zed2i/zed_node/right/image_rect_color/compressed",
+                    "camera_id": "2"
+                },
+                {
+                    "camera_topic": "/zed2i/zed_node/left/image_rect_color",
+                    "camera_id": "1"
+                },
+                {
+                    "camera_topic": "/zed2i/zed_node/left/image_rect_color/compressed",
+                    "camera_id": "1"
+                },
+                {
                     "camera_topic": "/zed/zed_node/right/image_rect_color",
                     "camera_id": "2"
                 },
