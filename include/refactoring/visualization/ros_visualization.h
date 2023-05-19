@@ -78,6 +78,38 @@ class RosVisualization {
     prefixes_for_plot_type_[GROUND_TRUTH] = kGtPrefix;
     prefixes_for_plot_type_[ESTIMATED] = kEstPrefix;
     prefixes_for_plot_type_[INITIAL] = kInitPrefix;
+
+    // TODO read this from file
+    std_msgs::ColorRGBA bench_color;
+    bench_color.a = 1.0;
+    bench_color.r = 201.0 / 255;
+    bench_color.g = 36.0 / 255;
+    bench_color.b = 137.0 / 255;
+    colors_for_semantic_classes_["bench"] = bench_color;
+
+
+    std_msgs::ColorRGBA lamppost_color;
+    lamppost_color.a = 1.0;
+    lamppost_color.r = 135.0 / 255;
+    lamppost_color.g = 157.0 / 255;
+    lamppost_color.b = 161.0 / 255;
+    colors_for_semantic_classes_["lamppost"] = lamppost_color;
+
+
+    std_msgs::ColorRGBA tree_trunk_color;
+    tree_trunk_color.a = 1.0;
+    tree_trunk_color.r = 0.0 / 255;
+    tree_trunk_color.g = 138.0 / 255;
+    tree_trunk_color.b = 64.0 / 255;
+    colors_for_semantic_classes_["treetrunk"] = tree_trunk_color;
+
+
+    std_msgs::ColorRGBA trashcan_color;
+    trashcan_color.a = 1.0;
+    trashcan_color.r = 46.0 / 255;
+    trashcan_color.g = 166.0 / 255;
+    trashcan_color.b = 225.0 / 255;
+    colors_for_semantic_classes_["trashcan"] = trashcan_color;
   }
 
   std::string createEllipsoidFrameId(const ObjectId &ellipsoid_idx,
@@ -1289,10 +1321,10 @@ class RosVisualization {
     LOG(INFO) << "Publishing ellipsoids for plot type " << topic;
     visualizeEllipsoids(ltm_ellipsoids, topic, ltm_obj_color_, false);
 
-    int next_marker = ltm_ellipsoids.size();
-    for (const auto &obj_info : initial_ests_and_cov) {
-      next_marker = visualizeCovForObj(obj_info.second.second, next_marker);
-    }
+//    int next_marker = ltm_ellipsoids.size();
+//    for (const auto &obj_info : initial_ests_and_cov) {
+//      next_marker = visualizeCovForObj(obj_info.second.second, next_marker);
+//    }
   }
 
  private:
