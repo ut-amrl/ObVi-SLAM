@@ -265,6 +265,9 @@ class OfflineProblemRunner {
         std::vector<ceres::ResidualBlockId> residual_block_ids;
         std::vector<double> residuals;
         if (visual_feature_opt_enable_two_phase) {
+          int max_num_iterations_tmp = solver_params.max_num_iterations_;
+          // TODO add this to config
+          solver_params.max_num_iterations_ = 20;
           phase1_optim_success =
               optimizer_.solveOptimization(&problem,
                                            solver_params,
@@ -272,6 +275,7 @@ class OfflineProblemRunner {
                                            opt_logger,
                                            &residual_block_ids,
                                            &residuals);
+          solver_params.max_num_iterations_ = max_num_iterations_tmp;
         } else {
           phase1_optim_success = optimizer_.solveOptimization(&problem,
                                                               solver_params,
