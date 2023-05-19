@@ -18,15 +18,15 @@ orb_post_process_base_directory=${root_data_dir}orb_post_process/
 results_root_directory=${root_data_dir}ut_vslam_results/
 # lego_loam_out_root_dir=${root_data_dir}lego_loam_out/
 
-cd $YOLO_DIR
-(python3 detect_ros.py --weights $yolo_weight --img 960 --conf 0.01) &
-yolo_pid=$!
-sleep 5
+# cd $YOLO_DIR
+# (python3 detect_ros.py --weights $yolo_weight --img 960 --conf 0.01) &
+# yolo_pid=$!
+# sleep 5
 
 cd $SLAM_DIR
 
-config_file_base_name="base_no_two_phase"
-declare -a sequence_file_base_names=("20230512105032_only")
+config_file_base_name="base"
+declare -a sequence_file_base_names=("20230515184521_only")
 
 for sequence_file_base_name in ${sequence_file_base_names[@]}; do
 
@@ -40,7 +40,6 @@ for sequence_file_base_name in ${sequence_file_base_names[@]}; do
         --results_root_directory ${results_root_directory} \
         --config_file_base_name ${config_file_base_name} \
         --sequence_file_base_name ${sequence_file_base_name} \
-        # --lego_loam_out_root_dir ${lego_loam_out_root_dir} \
         --record_viz_rosbag --log_to_file
 
     sleep 10
