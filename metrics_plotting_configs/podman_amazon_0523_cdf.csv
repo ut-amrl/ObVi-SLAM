@@ -1,0 +1,3 @@
+ObVi-SLAM,/root/LTOV-SLAM-Evaluation/data/ut_vslam_results/amazon_0523_v0/amazon_0523_base/metrics.json
+ORB-SLAM3,/root/LTOV-SLAM-Evaluation/data/orb_slam_3_out/end_of_may_demo_v1/metrics.json
+OA-SLAM,/root/LTOV-SLAM-Evaluation/data/oa_slam_out/amazon_0523_v0/metrics.json

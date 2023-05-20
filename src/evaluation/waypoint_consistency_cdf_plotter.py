@@ -57,7 +57,7 @@ def getCDFData(dataset, num_bins):
     return (cdf, bins_count, max_val)
 
 
-def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins=40):
+def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins=40, savepath=None):
     plt.figure(fig_num)
     comparison_approach_summary_max = 0
 
@@ -89,12 +89,12 @@ def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins
     plt.xlabel(x_label)
     plt.ylabel("Proportion of data")
     plt.grid(alpha=0.4)
-    # plt.show()
-
+    if savepath:
+        plt.savefig(savepath)
 
 def plotTranslationConsistency(primaryApproachName, translationConsistency):
     plotCDF(primaryApproachName, translationConsistency,
-            "CDF of Position Deviation from Waypoint Estimate Centroid", "Meters from Respective Centroid", 1)
+            "CDF of Position Deviation from Waypoint Estimate Centroid", "Meters from Respective Centroid", 1, savepath="transl_cdf.png")
 
 
 def plotOrientationConsistency(primaryApproachName, orientationConsistency):
@@ -102,7 +102,7 @@ def plotOrientationConsistency(primaryApproachName, orientationConsistency):
                                  orientationConsistency.items()}
     plotCDF(primaryApproachName, orientationConsistencyDeg,
             "CDF of Orientation Estimate Deviation from Mean Waypoint Orientation",
-            "Degrees from Mean Waypoint Orientation", 2)
+            "Degrees from Mean Waypoint Orientation", 2, savepath="orient_cdf.png")
 
 
 def runPlotter(approaches_and_metrics_file_name):
