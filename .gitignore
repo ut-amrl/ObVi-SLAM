@@ -7,4 +7,8 @@ media/*
 cmake-build-debug/*
 cmake-build-debug-remote/*
 *__pycache__/
+<<<<<<< HEAD
 *.png
+=======
+figs
+>>>>>>> 154beac0 (add sequence visualizations)

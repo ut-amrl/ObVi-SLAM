@@ -1,0 +1,4 @@
+ObVi-SLAM,/root/LTOV-SLAM-Evaluation/data/ut_vslam_results/
+ORB-SLAM3,/root/LTOV-SLAM-Evaluation/data/orb_slam_3_out/
+OA-SLAM3,/root/LTOV-SLAM-Evaluation/data/oa_slam_out/
+Pseudo-Groundtruth,/root/LTOV-SLAM-Evaluation/data/lego_loam_out/
