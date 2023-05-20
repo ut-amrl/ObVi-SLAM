@@ -71,6 +71,9 @@ def metricsForOrbSLAM3ArgParse():
     parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.calibrationFileDirectoryBaseArgName),
                         required=True,
                         help=CmdLineArgConstants.calibrationFileDirectoryHelp)
+    parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.odometryTopicBaseArgName),
+                        required=True,
+                        help=CmdLineArgConstants.odometryTopicHelp)
     parser.add_argument(
         CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.forceRerunInterpolatorBaseArgName),
         default=False,
