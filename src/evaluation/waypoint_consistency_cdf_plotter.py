@@ -3,13 +3,18 @@ import rospy
 import math
 import csv
 import sys
+import warnings
+import os
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 from approach_metrics import *
 
 kMaxXAxisBoundsMultiplier = 1.2
+kCDFTranslErrorType = "transl_cdf"
+kCDFOrientErrorType = "orient_cdf"
 
 
 class MetricsFilesInfo:
@@ -38,6 +43,29 @@ def readApproachesAndMetricsFile(approaches_and_metrics_file_name):
     return MetricsFilesInfo(primaryApproachName=primaryApproachName,
                             approachNameAndMetricsFileInfo=approachesAndMetricsFiles)
 
+def readErrTypesAndSavepathsFile(filepath):
+    errTypesAndSavepaths = {}
+    if not os.path.exists(filepath):
+        warnings.warn("Specified filepath " + filepath + " doesn't exist; Not saveing files")
+        errTypesAndSavepaths[kCDFTranslErrorType] = None
+        errTypesAndSavepaths[kCDFOrientErrorType] = None
+        return errTypesAndSavepaths
+    df = pd.read_csv(filepath, delimiter=",", header=None)
+    errorTypeConstants = set([kCDFTranslErrorType, kCDFOrientErrorType])
+    if (df.iloc[0,0] not in errorTypeConstants) or (df.iloc[1,0] not in errorTypeConstants):
+        warnings.warn("Found invalide error type. Not saving files for those entries")
+        # handle the file if there're unexpected entries
+        errTypesAndSavepaths[kCDFTranslErrorType] = None
+        errTypesAndSavepaths[kCDFOrientErrorType] = None
+        if df.iloc[0,0] in errorTypeConstants:
+            errTypesAndSavepaths[df.iloc[0,0]] = df.iloc[0,1]
+        if df.iloc[1,0] in errorTypeConstants:
+            errTypesAndSavepaths[df.iloc[1,0]] = df.iloc[1,1]
+    else:
+        # handle the file if there aren't unexpected entries
+        errTypesAndSavepaths[df.iloc[0,0]] = df.iloc[0,1]
+        errTypesAndSavepaths[df.iloc[1,0]] = df.iloc[1,1]
+    return errTypesAndSavepaths
 
 def getCDFData(dataset, num_bins):
     # getting data of the histogram
@@ -57,7 +85,7 @@ def getCDFData(dataset, num_bins):
     return (cdf, bins_count, max_val)
 
 
-def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins=40):
+def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins=40, savepath=None):
     plt.figure(fig_num)
     comparison_approach_summary_max = 0
 
@@ -89,23 +117,27 @@ def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins
     plt.xlabel(x_label)
     plt.ylabel("Proportion of data")
     plt.grid(alpha=0.4)
-    # plt.show()
+    if savepath:
+        print("Saving plot to " + savepath)
+        plt.savefig(savepath)
+    else:
+        plt.show()
 
 
-def plotTranslationConsistency(primaryApproachName, translationConsistency):
+def plotTranslationConsistency(primaryApproachName, translationConsistency, savepath=None):
     plotCDF(primaryApproachName, translationConsistency,
-            "CDF of Position Deviation from Waypoint Estimate Centroid", "Meters from Respective Centroid", 1)
+            "CDF of Position Deviation from Waypoint Estimate Centroid", "Meters from Respective Centroid", 1, savepath=savepath)
 
 
-def plotOrientationConsistency(primaryApproachName, orientationConsistency):
+def plotOrientationConsistency(primaryApproachName, orientationConsistency, savepath=None):
     orientationConsistencyDeg = {approachName: np.degrees(approachResults) for approachName, approachResults in
                                  orientationConsistency.items()}
     plotCDF(primaryApproachName, orientationConsistencyDeg,
             "CDF of Orientation Estimate Deviation from Mean Waypoint Orientation",
-            "Degrees from Mean Waypoint Orientation", 2)
+            "Degrees from Mean Waypoint Orientation", 2, savepath=savepath)
 
 
-def runPlotter(approaches_and_metrics_file_name):
+def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_name=None):
     metricsFilesInfo = readApproachesAndMetricsFile(approaches_and_metrics_file_name)
     translationConsistency = {}
     orientationConsistency = {}
@@ -115,8 +147,10 @@ def runPlotter(approaches_and_metrics_file_name):
         translationConsistency[approachName] = translationDeviations
         orientationConsistency[approachName] = rotationDeviations
 
-    plotTranslationConsistency(metricsFilesInfo.primaryApproachName, translationConsistency)
-    plotOrientationConsistency(metricsFilesInfo.primaryApproachName, orientationConsistency)
+    errorTypesAndSavepaths = readErrTypesAndSavepathsFile(error_types_and_savepaths_file_name)
+
+    plotTranslationConsistency(metricsFilesInfo.primaryApproachName, translationConsistency, errorTypesAndSavepaths[kCDFTranslErrorType])
+    plotOrientationConsistency(metricsFilesInfo.primaryApproachName, orientationConsistency, errorTypesAndSavepaths[kCDFOrientErrorType])
 
     plt.show()
 
@@ -124,6 +158,7 @@ def runPlotter(approaches_and_metrics_file_name):
 def parseArgs():
     parser = argparse.ArgumentParser(description='Plot consistency results.')
     parser.add_argument('--approaches_and_metrics_file_name', required=True, default="")
+    parser.add_argument('--error_types_and_savepaths_file_name', required=False, default="")
 
     args = parser.parse_args()
     return args
@@ -132,4 +167,5 @@ def parseArgs():
 if __name__ == "__main__":
     cmdLineArgs = parseArgs()
     approaches_and_metrics_file_name = cmdLineArgs.approaches_and_metrics_file_name
-    runPlotter(approaches_and_metrics_file_name)
+    error_types_and_savepaths_file_name = cmdLineArgs.error_types_and_savepaths_file_name
+    runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_name)
