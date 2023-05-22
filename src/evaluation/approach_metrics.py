@@ -91,6 +91,8 @@ def readMetricsFile(metricsFile):
 
         sequenceMetrics = readTrajectoryMetricsFromJsonObj(
             sequenceMetricsJson[MetricsFileConstants.sequenceMetricsLabel])
+        print(sequenceMetrics.all_translation_deviations)
+        print(sequenceMetrics.all_rotation_deviations)
         indivTrajectoryMetrics = [readTrajectoryMetricsFromJsonObj(indivTrajJson) for indivTrajJson in
                                   readUtVSLAMVector(sequenceMetricsJson[MetricsFileConstants.indivTrajectoryMetricsLabel])]
 

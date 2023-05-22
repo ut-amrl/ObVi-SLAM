@@ -198,15 +198,22 @@ int main(int argc, char **argv) {
   }
   LOG(INFO) << "Done getting fixed poses";
 
-  Pose3D<double> odom_rel_lidar = combinePoses(
-      poseInverse(coarse_traj_frame_rel_base_link), odom_frame_rel_base_link);
+  Pose3D<double> lidar_rel_odom = combinePoses(
+      poseInverse(odom_frame_rel_base_link), coarse_traj_frame_rel_base_link);
   std::vector<std::pair<Timestamp, Pose3D<double>>> coarse_fixed_poses_rel_odom;
+  std::vector<Pose3D<double>> coarse_traj;
+
   for (const std::pair<Timestamp, Pose3D<double>> &coarse_pose :
        coarse_fixed_poses) {
-    Pose3D<double> coarse_pose_rel_odom =
-        combinePoses(coarse_pose.second, odom_rel_lidar);
-    coarse_fixed_poses_rel_odom.emplace_back(
-        std::make_pair(coarse_pose.first, coarse_pose_rel_odom));
+    coarse_traj.emplace_back(coarse_pose.second);
+  }
+  std::vector<Pose3D<double>> coarse_traj_rel_odom_frame =
+      adjustTrajectoryToStartAtOriginWithExtrinsics(
+          coarse_traj, coarse_traj.front(), lidar_rel_odom);
+  for (size_t pose_num = 0; pose_num < coarse_traj_rel_odom_frame.size();
+       pose_num++) {
+    coarse_fixed_poses_rel_odom.emplace_back(std::make_pair(
+        coarse_fixed_poses.at(pose_num).first, coarse_traj.at(pose_num)));
   }
 
   LOG(INFO) << "Reading required timestamps";
@@ -273,11 +280,14 @@ int main(int argc, char **argv) {
   std::vector<std::pair<Timestamp, Pose3D<double>>>
       poses_for_required_timestamp;
 
-  util::BoostHashMap<pose::Timestamp, Pose3D<double>> interpolated_poses;
-  for (const auto &interp_rel_odom : interpolated_poses_rel_odom) {
-    interpolated_poses[interp_rel_odom.first] =
-        combinePoses(interp_rel_odom.second, poseInverse(odom_rel_lidar));
-  }
+  Pose3D<double> earliest_interp_pose =
+      interpolated_poses_rel_odom[all_sorted_timestamps.front()];
+
+  util::BoostHashMap<pose::Timestamp, Pose3D<double>> interpolated_poses =
+      adjustTrajectoryToStartAtOriginWithExtrinsics(
+          interpolated_poses_rel_odom,
+          earliest_interp_pose,
+          poseInverse(lidar_rel_odom));
 
   for (const Timestamp &timestamp : all_sorted_timestamps) {
     all_poses_with_timestamps.emplace_back(

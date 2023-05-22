@@ -1,0 +1,3 @@
+ObVi-SLAM,/home/amanda/rosbags/ellipsoid_slam/eer_jackal/ut_vslam_results/amazon_0523_v0/amazon_0523_base/metrics.json
+ORB-SLAM3,/home/amanda/rosbags/ellipsoid_slam/eer_jackal/orb_slam_3_out/end_of_may_demo_v1/metrics.json
+OA-SLAM,/home/amanda/rosbags/ellipsoid_slam/eer_jackal/oa_slam_out/amazon_0523_v0/metrics.json

@@ -1,0 +1,3 @@
+ObVi-SLAM,/home/amanda/rosbags/ellipsoid_slam/eer_jackal/taijing_results/amazon_0523_v0/obvi_slam_metrics.json
+ORB-SLAM3,/home/amanda/rosbags/ellipsoid_slam/eer_jackal/taijing_results/amazon_0523_v0/orb_slam_3_metrics.json
+OA-SLAM,/home/amanda/rosbags/ellipsoid_slam/eer_jackal/taijing_results/amazon_0523_v0/oa_slam_metrics.json

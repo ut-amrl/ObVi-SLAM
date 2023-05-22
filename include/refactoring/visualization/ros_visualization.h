@@ -13,6 +13,7 @@
 #include <sensor_msgs/Image.h>
 #include <tf2_ros/static_transform_broadcaster.h>
 #include <tf2_ros/transform_broadcaster.h>
+#include <types/timestamped_data_to_frames_utils.h>
 #include <visualization_msgs/Marker.h>
 
 #include <opencv2/highgui.hpp>
@@ -87,7 +88,6 @@ class RosVisualization {
     bench_color.b = 137.0 / 255;
     colors_for_semantic_classes_["bench"] = bench_color;
 
-
     std_msgs::ColorRGBA lamppost_color;
     lamppost_color.a = 1.0;
     lamppost_color.r = 135.0 / 255;
@@ -95,14 +95,12 @@ class RosVisualization {
     lamppost_color.b = 161.0 / 255;
     colors_for_semantic_classes_["lamppost"] = lamppost_color;
 
-
     std_msgs::ColorRGBA tree_trunk_color;
     tree_trunk_color.a = 1.0;
     tree_trunk_color.r = 0.0 / 255;
     tree_trunk_color.g = 138.0 / 255;
     tree_trunk_color.b = 64.0 / 255;
     colors_for_semantic_classes_["treetrunk"] = tree_trunk_color;
-
 
     std_msgs::ColorRGBA trashcan_color;
     trashcan_color.a = 1.0;
@@ -288,6 +286,69 @@ class RosVisualization {
         kRobotPoseMarkerPubQueueSize);
     std_msgs::ColorRGBA color = color_for_plot_type_.at(plot_type);
     publishTrajectory(pub, color, trajectory);
+  }
+
+  void visualizeTrajectories(
+      const std::vector<std::vector<Pose3D<double>>> &trajectories,
+      const PlotType &plot_type) {
+    ros::Publisher pub = getOrCreateVisMarkerPublisherAndClearPrevious(
+        createTopicForPlotTypeAndBase(plot_type, kPoseTopicSuffix),
+        kRobotPoseMarkerPubQueueSize);
+    ros::Duration(2).sleep();
+    std_msgs::ColorRGBA color = color_for_plot_type_.at(plot_type);
+    int32_t next_marker = kTrajectoryMarkerNum;
+    float inc = 1.0 / (trajectories.size() * 4);
+    float curr_inc = 0;
+    for (const std::vector<Pose3D<double>> &trajectory : trajectories) {
+      color.g += curr_inc;
+      if (plot_type == INITIAL) {
+        color.b -= curr_inc;
+      } else {
+        color.r -= curr_inc;
+      }
+      curr_inc += inc;
+      ros::Duration(0.5).sleep();
+      next_marker = publishTrajectory(pub, color, trajectory, next_marker);
+    }
+  }
+
+  void visualizeWaypoints(
+      const std::unordered_map<WaypointId, std::vector<Pose3D<double>>>
+          &waypoints) {
+    int32_t next_robot_pose_id = 1;
+    std::string topic_name =
+        createTopicForPlotTypeAndBase(ESTIMATED, "waypoint");
+    ros::Publisher waypoint_pub_ =
+        getOrCreateVisMarkerPublisherAndClearPrevious(
+            topic_name, kRobotPoseMarkerPubQueueSize);
+    LOG(INFO) << "Publishing waypoints to " << topic_name;
+    ros::Duration(4).sleep();
+
+    std::vector<std_msgs::ColorRGBA> colors;
+    size_t waypoint_idx = 0;
+    size_t waypoints_size = waypoints.size();
+    for (const auto &data_for_wp : waypoints) {
+      std_msgs::ColorRGBA color;
+      color.a = 1.0;
+      color.g = 1.0;
+
+      size_t half_poses = waypoints_size / 2;
+      if (waypoint_idx % 2) {
+        color.b = ((double)(waypoint_idx / 2)) / half_poses;
+        color.g = 1.0;
+      } else {
+        color.b = 1.0;
+        color.g = ((double)((waypoints_size - waypoint_idx) / 2)) / half_poses;
+      }
+      waypoint_idx++;
+      LOG(INFO) << "Publishing wp " << data_for_wp.first << " num points " << data_for_wp.second.size();
+      publishRobotPoses(waypoint_pub_,
+                        data_for_wp.second,
+                        color,
+                        next_robot_pose_id,
+                        std::numeric_limits<int32_t>::max(),
+                        true);
+    }
   }
 
   void publishTfsForLatestPose(
@@ -1321,10 +1382,11 @@ class RosVisualization {
     LOG(INFO) << "Publishing ellipsoids for plot type " << topic;
     visualizeEllipsoids(ltm_ellipsoids, topic, ltm_obj_color_, false);
 
-//    int next_marker = ltm_ellipsoids.size();
-//    for (const auto &obj_info : initial_ests_and_cov) {
-//      next_marker = visualizeCovForObj(obj_info.second.second, next_marker);
-//    }
+    //    int next_marker = ltm_ellipsoids.size();
+    //    for (const auto &obj_info : initial_ests_and_cov) {
+    //      next_marker = visualizeCovForObj(obj_info.second.second,
+    //      next_marker);
+    //    }
   }
 
  private:
@@ -1377,7 +1439,7 @@ class RosVisualization {
 
   const std::string kPoseTopicSuffix = "pose";
 
-  const int32_t kTrajectoryMarkerNum = 1;
+  static const int32_t kTrajectoryMarkerNum = 1;
   const int32_t kMaxRobotPoseMarkerNum = std::numeric_limits<int32_t>::max();
 
   const double kTrajectoryScaleX = 0.02;
@@ -1784,11 +1846,13 @@ class RosVisualization {
     image_pub.publish(image);
   }
 
-  void publishTrajectory(ros::Publisher &marker_pub,
-                         const std_msgs::ColorRGBA &color,
-                         const std::vector<Pose3D<double>> &trajectory_poses) {
+  int32_t publishTrajectory(
+      ros::Publisher &marker_pub,
+      const std_msgs::ColorRGBA &color,
+      const std::vector<Pose3D<double>> &trajectory_poses,
+      const int32_t &first_marker_id = kTrajectoryMarkerNum) {
     visualization_msgs::Marker marker_msg;
-    marker_msg.id = kTrajectoryMarkerNum;
+    marker_msg.id = first_marker_id;
     marker_msg.color = color;
 
     marker_msg.type = visualization_msgs::Marker::LINE_STRIP;
@@ -1808,17 +1872,20 @@ class RosVisualization {
     publishRobotPoses(marker_pub,
                       trajectory_poses,
                       color,
-                      kTrajectoryMarkerNum + 1,
+                      first_marker_id + 1,
                       kMaxRobotPoseMarkerNum);
+    return first_marker_id + 1 +
+           trajectory_poses.size();  // Assumes 1 marker per pose
   }
 
   void publishRobotPoses(ros::Publisher &marker_pub,
                          const std::vector<Pose3D<double>> &robot_poses,
                          const std_msgs::ColorRGBA &color,
                          const int32_t min_id,
-                         const int32_t max_id) {
+                         const int32_t max_id,
+                         const bool &larger = false) {
     for (size_t i = 0; i < robot_poses.size(); i++) {
-      publishRobotPose(marker_pub, robot_poses[i], color, min_id + i);
+      publishRobotPose(marker_pub, robot_poses[i], color, min_id + i, larger);
     }
   }
 
@@ -1851,9 +1918,9 @@ class RosVisualization {
       //                marker_msg.scale.x = 0.8;
       //                marker_msg.scale.y = 0.6;
 
-      marker_msg.scale.x = 1.2;
-      marker_msg.scale.y = 0.9;
-      marker_msg.scale.z = 0.3;
+      marker_msg.scale.x = 0.4;
+      marker_msg.scale.y = 0.3;
+      marker_msg.scale.z = 0.2;
     }
 
     marker_msg.pose.position.x = robot_pose.transl_.x();

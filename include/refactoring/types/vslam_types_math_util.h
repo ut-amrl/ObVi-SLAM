@@ -5,6 +5,7 @@
 #ifndef UT_VSLAM_VSLAM_TYPES_MATH_UTIL_H
 #define UT_VSLAM_VSLAM_TYPES_MATH_UTIL_H
 
+#include <base_lib/basic_utils.h>
 #include <refactoring/types/vslam_basic_types_refactor.h>
 #include <refactoring/types/vslam_math_util.h>
 
@@ -144,6 +145,53 @@ std::vector<Pose3D<NumType>> adjustTrajectoryToStartAtOrigin(
         getPose2RelativeToPose1(prev_pose, curr_pose);
     new_traj.emplace_back(combinePoses(new_traj.back(), relative_pose));
     prev_pose = curr_pose;
+  }
+  return new_traj;
+}
+
+template <typename NumType>
+std::vector<Pose3D<NumType>> adjustTrajectoryToStartAtOriginWithExtrinsics(
+    const std::vector<Pose3D<double>>& other_sensor_frame_trajectory,
+    const Pose3D<NumType>& origin_pose,
+    const Pose3D<NumType>& pose_of_sensor_rel_target_frame) {
+  if (other_sensor_frame_trajectory.empty()) {
+    return {};
+  }
+  Pose3D<NumType> adjusted_first_pose = pose_of_sensor_rel_target_frame;
+  std::vector<Pose3D<NumType>> new_traj;
+  Pose3D<NumType> inv_extrinsics = poseInverse(pose_of_sensor_rel_target_frame);
+
+  for (size_t frame_num = 0; frame_num < other_sensor_frame_trajectory.size();
+       frame_num++) {
+    Pose3D<NumType> curr_pose = other_sensor_frame_trajectory.at(frame_num);
+    Pose3D<NumType> relative_pose =
+        getPose2RelativeToPose1(origin_pose, curr_pose);
+    new_traj.emplace_back(combinePoses(
+        combinePoses(adjusted_first_pose, relative_pose), inv_extrinsics));
+  }
+  return new_traj;
+}
+
+template <typename NumType, typename KeyType>
+util::BoostHashMap<KeyType, Pose3D<NumType>>
+adjustTrajectoryToStartAtOriginWithExtrinsics(
+    const util::BoostHashMap<KeyType, Pose3D<NumType>>&
+        other_sensor_frame_trajectory,
+    const Pose3D<NumType>& origin_pose,
+    const Pose3D<NumType>& pose_of_sensor_rel_target_frame) {
+  if (other_sensor_frame_trajectory.empty()) {
+    return {};
+  }
+  Pose3D<NumType> adjusted_first_pose = pose_of_sensor_rel_target_frame;
+  util::BoostHashMap<KeyType, Pose3D<NumType>> new_traj;
+  Pose3D<NumType> inv_extrinsics = poseInverse(pose_of_sensor_rel_target_frame);
+
+  for (const auto& pose_entry : other_sensor_frame_trajectory) {
+    Pose3D<NumType> curr_pose = pose_entry.second;
+    Pose3D<NumType> relative_pose =
+        getPose2RelativeToPose1(origin_pose, curr_pose);
+    new_traj[pose_entry.first] = combinePoses(
+        combinePoses(adjusted_first_pose, relative_pose), inv_extrinsics);
   }
   return new_traj;
 }
