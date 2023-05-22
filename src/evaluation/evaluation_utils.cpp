@@ -176,7 +176,9 @@ RawWaypointConsistencyResults computeWaypointConsistencyResults(
     const std::vector<util::BoostHashMap<pose::Timestamp, Pose3D<double>>>
         &poses_by_timestamp_by_trajectory,
     const std::vector<std::vector<std::pair<pose::Timestamp, pose::Pose2d>>>
-        &odom_poses_by_trajectory) {
+        &odom_poses_by_trajectory,
+    const std::shared_ptr<vslam_types_refactor::RosVisualization>
+        &vis_manager) {
   std::unordered_map<WaypointId, std::vector<std::pair<size_t, Pose3D<double>>>>
       poses_by_waypoint_with_trajectory;
 
@@ -224,6 +226,7 @@ RawWaypointConsistencyResults computeWaypointConsistencyResults(
           odom_poses_adjusted_3d;
 
       // Interpolate to find estimates
+      LOG(INFO) << "Interpolating to find poses";
       interpolate3dPosesUsingOdom(odom_poses_by_trajectory.at(traj_num),
                                   est_traj_not_lost,
                                   required_timestamps_for_traj,
@@ -258,6 +261,19 @@ RawWaypointConsistencyResults computeWaypointConsistencyResults(
     }
   }
 
+  if (vis_manager != nullptr) {
+    std::unordered_map<WaypointId, std::vector<Pose3D<double>>> waypoints;
+    for (const auto &wp_info : poses_by_waypoint_with_trajectory) {
+      std::vector<Pose3D<double>> wp_poses;
+      for (const std::pair<size_t, Pose3D<double>> &pose_info :
+           wp_info.second) {
+        wp_poses.emplace_back(pose_info.second);
+      }
+      waypoints[wp_info.first] = wp_poses;
+    }
+    vis_manager->visualizeWaypoints(waypoints);
+  }
+
   RawWaypointConsistencyResults consistency_results;
   for (const auto &waypoint_and_poses : poses_by_waypoint_with_trajectory) {
     std::vector<std::vector<double>> centroid_devs;
@@ -271,12 +287,21 @@ RawWaypointConsistencyResults computeWaypointConsistencyResults(
       poses_for_waypoint.emplace_back(traj_num_and_pose_for_waypoint.second);
     }
     Pose3D<double> mean_pose = getMeanPose(poses_for_waypoint);
+    //    LOG(INFO) << "Waypoint: " << waypoint_and_poses.first;
+    //    LOG(INFO) << "Mean pose: " << mean_pose.transl_.x() << ", "
+    //              << mean_pose.transl_.y() << ", " << mean_pose.transl_.z();
     for (const std::pair<size_t, Pose3D<double>> &pose_for_waypoint_with_traj :
          waypoint_and_poses.second) {
       double transl_dev;
       double rot_dev;
+      //      LOG(INFO) << pose_for_waypoint_with_traj.second.transl_.x() << ",
+      //      "
+      //                << pose_for_waypoint_with_traj.second.transl_.y() << ",
+      //                "
+      //                << pose_for_waypoint_with_traj.second.transl_.z();
       getDeviationFromMeanPose(
           mean_pose, pose_for_waypoint_with_traj.second, transl_dev, rot_dev);
+      //      LOG(INFO) << "Transl dev: " << transl_dev;
       centroid_devs[pose_for_waypoint_with_traj.first].emplace_back(transl_dev);
       orientation_devs[pose_for_waypoint_with_traj.first].emplace_back(rot_dev);
     }

@@ -60,6 +60,7 @@ def getCDFData(dataset, num_bins):
 def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins=40):
     plt.figure(fig_num)
     comparison_approach_summary_max = 0
+    comparison_approach_summary_min_max = None
 
     alternate_line_styles = ['dotted', 'dashdot', 'dashed', (0, (3, 1, 1, 1)), (0, (3, 1, 1, 1, 1, 1))]
     alternate_line_style_index = 0
@@ -68,6 +69,10 @@ def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins
     for approach_label, comparison_dataset in approach_results.items():
         approach_cdf, bins_count, comparison_approach_max = getCDFData(comparison_dataset, bins)
         if (approach_label is not primaryApproachName):
+            if (comparison_approach_summary_min_max is None):
+                comparison_approach_summary_min_max = comparison_approach_max
+            else:
+                comparison_approach_summary_min_max = min(comparison_approach_max, comparison_approach_summary_min_max)
             comparison_approach_summary_max = max(comparison_approach_max, comparison_approach_summary_max)
             line_style = alternate_line_styles[alternate_line_style_index]
             alternate_line_style_index += 1
@@ -77,12 +82,13 @@ def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins
         plt.plot(bins_count, approach_cdf, linestyle=line_style,
                  label=approach_label)
 
-    if (len(approach_results) != 1):
+    if (len(approach_results) > 2):
+        plt.xlim(0, max(primary_approach_max, comparison_approach_summary_min_max))
         # if (primary_approach_max > comparison_approach_summary_max):
-        x_lim = primary_approach_max
+        # x_lim = primary_approach_max
         # else:
         #     x_lim = min(primary_approach_max * kMaxXAxisBoundsMultiplier, comparison_approach_summary_max)
-        plt.xlim(0, x_lim)
+        # plt.xlim(0, x_lim)
         plt.legend(prop={'size': 'small'})
     plt.ylim(0, 1)
     plt.title(title)
@@ -111,6 +117,7 @@ def runPlotter(approaches_and_metrics_file_name):
     orientationConsistency = {}
 
     for approachName, metricsFile in metricsFilesInfo.approachNameAndMetricsFileInfo.items():
+        print("Reading results for " + approachName)
         translationDeviations, rotationDeviations = readTranslationAndOrientationConsistencyFromFile(metricsFile)
         translationConsistency[approachName] = translationDeviations
         orientationConsistency[approachName] = rotationDeviations

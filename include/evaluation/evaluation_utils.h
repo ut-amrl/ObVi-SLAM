@@ -8,6 +8,7 @@
 #include <base_lib/basic_utils.h>
 #include <evaluation/trajectory_metrics.h>
 #include <refactoring/types/vslam_basic_types_refactor.h>
+#include <refactoring/visualization/ros_visualization.h>
 #include <types/timestamped_data_to_frames_utils.h>
 
 #include <utility>
@@ -56,7 +57,8 @@ RawWaypointConsistencyResults computeWaypointConsistencyResults(
     const std::vector<util::BoostHashMap<pose::Timestamp, Pose3D<double>>>
         &poses_by_timestamp_by_trajectory,
     const std::vector<std::vector<std::pair<pose::Timestamp, pose::Pose2d>>>
-        &odom_poses_by_trajectory);
+        &odom_poses_by_trajectory,
+    const std::shared_ptr<RosVisualization> &vis_manager = nullptr);
 
 Pose3D<double> getMeanPose(const std::vector<Pose3D<double>> &poses);
 

@@ -15,6 +15,7 @@
 #include <glog/logging.h>
 #include <refactoring/types/vslam_basic_types_refactor.h>
 #include <refactoring/types/vslam_types_math_util.h>
+#include <refactoring/visualization/ros_visualization.h>
 using namespace vslam_types_refactor;
 using namespace pose;
 
@@ -93,7 +94,9 @@ FullSequenceMetrics computeMetrics(
         &interp_gt_trajectories_rel_baselink,
     const std::vector<std::string> &ros_bag_names,
     const std::string &odom_topic,
-    const std::vector<std::vector<WaypointInfo>> &waypoint_info_by_trajectory) {
+    const std::vector<std::vector<WaypointInfo>> &waypoint_info_by_trajectory,
+    const std::shared_ptr<vslam_types_refactor::RosVisualization> &vis_manager =
+        nullptr) {
   FullSequenceMetrics full_metrics;
   std::vector<ATEResults> single_traj_ate_results;
 
@@ -127,7 +130,8 @@ FullSequenceMetrics computeMetrics(
       computeWaypointConsistencyResults(waypoint_info_by_trajectory,
                                         comparison_trajectories_rel_baselink,
                                         poses_by_timestamp_by_trajectory,
-                                        odom_poses_by_trajectory);
+                                        odom_poses_by_trajectory,
+                                        vis_manager);
 
   for (size_t traj_num = 0;
        traj_num < comparison_trajectories_rel_baselink.size();
@@ -236,6 +240,12 @@ int main(int argc, char **argv) {
   google::InitGoogleLogging(argv[0]);
   FLAGS_logtostderr = true;
   FLAGS_colorlogtostderr = true;
+
+  ros::init(argc, argv, "metrics_generator");
+  ros::NodeHandle node_handle;
+  std::shared_ptr<RosVisualization> vis_manager =
+      std::make_shared<RosVisualization>(node_handle);
+  ros::Duration(2).sleep();
 
   if (FLAGS_sequence_file.empty() ==
       FLAGS_single_trajectory_eval_base_name.empty()) {
@@ -358,6 +368,7 @@ int main(int argc, char **argv) {
     interp_gt_trajectories.emplace_back(gt_traj);
   }
 
+  std::optional<Pose3D<double>> first_pose;
   std::vector<
       std::vector<std::pair<pose::Timestamp, std::optional<Pose3D<double>>>>>
       comparison_trajectories;
@@ -368,6 +379,14 @@ int main(int argc, char **argv) {
     file_io::readOptionalPose3dsWithTimestampFromFile(comparison_traj_file,
                                                       comparison_traj);
     comparison_trajectories.emplace_back(comparison_traj);
+    for (const std::pair<pose::Timestamp, std::optional<Pose3D<double>>> &pose :
+         comparison_traj) {
+      if (pose.second.has_value()) {
+        if (!first_pose.has_value()) {
+          first_pose = pose.second.value();
+        }
+      }
+    }
   }
 
   Pose3D<double> comparison_traj_frame_rel_base_link;
@@ -413,45 +432,86 @@ int main(int argc, char **argv) {
   for (const std::vector<
            std::pair<pose::Timestamp, std::optional<Pose3D<double>>>>
            &comparison_traj : comparison_trajectories) {
-    std::vector<std::pair<pose::Timestamp, std::optional<Pose3D<double>>>>
-        comparison_traj_rel_bl;
+    std::vector<Pose3D<double>> entries_with_valid_pose;
+    std::vector<std::pair<std::optional<size_t>, pose::Timestamp>>
+        old_to_new_mapping;
 
     for (const std::pair<pose::Timestamp, std::optional<Pose3D<double>>>
-             &orig_compare_pos : comparison_traj) {
-      std::optional<Pose3D<double>> transformed_pos;
-      if (orig_compare_pos.second.has_value()) {
-        transformed_pos = combinePoses(orig_compare_pos.second.value(),
-                                       base_link_rel_comparison_traj_frame);
+             &pose_info : comparison_traj) {
+      if (pose_info.second.has_value()) {
+        old_to_new_mapping.emplace_back(
+            std::make_pair(entries_with_valid_pose.size(), pose_info.first));
+        entries_with_valid_pose.emplace_back(pose_info.second.value());
+      } else {
+        old_to_new_mapping.emplace_back(
+            std::make_pair(std::nullopt, pose_info.first));
       }
-      comparison_traj_rel_bl.emplace_back(orig_compare_pos.first,
-                                          transformed_pos);
     }
+
+    std::vector<Pose3D<double>> other_sensor_frame_trajectory =
+        adjustTrajectoryToStartAtOriginWithExtrinsics<double>(
+            entries_with_valid_pose,
+            first_pose.value(),
+            comparison_traj_frame_rel_base_link);
 
     std::vector<std::pair<pose::Timestamp, std::optional<Pose3D<double>>>>
         comparison_traj_rel_bl_origin_start;
 
-    Pose3D<double> transform_traj_to_origin_with;
-    for (const std::pair<pose::Timestamp, std::optional<Pose3D<double>>>
-             &pos_rel_bl : comparison_traj_rel_bl) {
-      if (pos_rel_bl.second.has_value()) {
-        transform_traj_to_origin_with = poseInverse(pos_rel_bl.second.value());
-        break;
+    for (const std::pair<std::optional<size_t>, pose::Timestamp> &mapping :
+         old_to_new_mapping) {
+      if (mapping.first.has_value()) {
+        comparison_traj_rel_bl_origin_start.emplace_back(std::make_pair(
+            mapping.second,
+            other_sensor_frame_trajectory.at(mapping.first.value())));
+      } else {
+        comparison_traj_rel_bl_origin_start.emplace_back(
+            std::make_pair(mapping.second, std::nullopt));
       }
     }
-
-    for (const std::pair<pose::Timestamp, std::optional<Pose3D<double>>>
-             &pos_rel_bl : comparison_traj_rel_bl) {
-      std::optional<Pose3D<double>> pose_to_use;
-      if (pos_rel_bl.second.has_value()) {
-        pose_to_use = combinePoses(transform_traj_to_origin_with,
-                                   pos_rel_bl.second.value());
-      }
-      comparison_traj_rel_bl_origin_start.emplace_back(
-          std::make_pair(pos_rel_bl.first, pose_to_use));
-    }
-
     comparison_trajectories_rel_baselink.emplace_back(
         comparison_traj_rel_bl_origin_start);
+  }
+
+  if (vis_manager != nullptr) {
+    std::vector<std::vector<Pose3D<double>>> init;
+    std::vector<std::vector<Pose3D<double>>> est;
+
+    for (size_t traj_num = 0;
+         traj_num < comparison_trajectories_rel_baselink.size();
+         traj_num++) {
+      const std::vector<
+          std::pair<pose::Timestamp, std::optional<Pose3D<double>>>>
+          new_traj = comparison_trajectories_rel_baselink.at(traj_num);
+      const std::vector<
+          std::pair<pose::Timestamp, std::optional<Pose3D<double>>>>
+          old_traj = comparison_trajectories.at(traj_num);
+      std::vector<Pose3D<double>> orig_traj_valid;
+      std::vector<Pose3D<double>> new_traj_valid;
+
+      for (size_t pose_num = 0; pose_num < new_traj.size(); pose_num++) {
+        const std::pair<pose::Timestamp, std::optional<Pose3D<double>>>
+            old_entry = old_traj.at(pose_num);
+        const std::pair<pose::Timestamp, std::optional<Pose3D<double>>>
+            new_entry = new_traj.at(pose_num);
+        if (new_entry.second.has_value()) {
+          new_traj_valid.emplace_back(new_entry.second.value());
+        }
+        if (old_entry.second.has_value()) {
+          orig_traj_valid.emplace_back(old_entry.second.value());
+        }
+        if (old_entry.second.has_value() && new_entry.second.has_value()) {
+        } else if (old_entry.second.has_value() ||
+                   new_entry.second.has_value()) {
+          LOG(INFO) << "ERROR! inconsistent value-ness for traj " << traj_num
+                    << " pose " << pose_num;
+        }
+      }
+
+      est.emplace_back(new_traj_valid);
+      init.emplace_back(orig_traj_valid);
+    }
+    vis_manager->visualizeTrajectories(est, ESTIMATED);
+    vis_manager->visualizeTrajectories(init, INITIAL);
   }
 
   // Read in LeGO-LOAM trajectories
@@ -465,27 +525,22 @@ int main(int argc, char **argv) {
            &interp_gt_traj : interp_gt_trajectories) {
     std::vector<std::pair<pose::Timestamp, Pose3D<double>>>
         interp_gt_traj_rel_bl;
+    std::vector<Pose3D<double>> poses;
 
     for (const std::pair<pose::Timestamp, Pose3D<double>> &orig_gt_pos :
          interp_gt_traj) {
-      interp_gt_traj_rel_bl.emplace_back(
-          orig_gt_pos.first, combinePoses(orig_gt_pos.second, bl_rel_gt_frame));
+      poses.emplace_back(orig_gt_pos.second);
+    }
+    std::vector<Pose3D<double>> frame_adjusted =
+        adjustTrajectoryToStartAtOriginWithExtrinsics<double>(
+            poses, poses.front(), lego_loam_frame_rel_base_link);
+
+    for (size_t pose_num = 0; pose_num < poses.size(); pose_num++) {
+      interp_gt_traj_rel_bl.emplace_back(std::make_pair(
+          interp_gt_traj.at(pose_num).first, frame_adjusted.at(pose_num)));
     }
 
-    std::vector<std::pair<pose::Timestamp, Pose3D<double>>>
-        interp_gt_traj_rel_bl_origin_start;
-
-    Pose3D<double> transform_traj_to_origin_with =
-        poseInverse(interp_gt_traj_rel_bl.front().second);
-
-    for (const std::pair<pose::Timestamp, Pose3D<double>> &gt_rel_bl :
-         interp_gt_traj_rel_bl) {
-      interp_gt_traj_rel_bl_origin_start.emplace_back(std::make_pair(
-          gt_rel_bl.first,
-          combinePoses(transform_traj_to_origin_with, gt_rel_bl.second)));
-    }
-    interp_gt_trajectories_rel_baselink.emplace_back(
-        interp_gt_traj_rel_bl_origin_start);
+    interp_gt_trajectories_rel_baselink.emplace_back(interp_gt_traj_rel_bl);
   }
 
   std::vector<std::vector<WaypointInfo>> waypoint_info_by_trajectory;
@@ -514,12 +569,14 @@ int main(int argc, char **argv) {
       }
     }
   }
+
   FullSequenceMetrics full_metrics =
       computeMetrics(comparison_trajectories_rel_baselink,
                      interp_gt_trajectories_rel_baselink,
                      rosbag_names,
                      FLAGS_odometry_topic,
-                     waypoint_info_by_trajectory);
+                     waypoint_info_by_trajectory,
+                     vis_manager);
 
   writeFullSequenceMetrics(FLAGS_metrics_out_file, full_metrics);
 }
