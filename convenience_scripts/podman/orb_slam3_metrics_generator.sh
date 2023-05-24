@@ -3,13 +3,13 @@
 root_data_dir=/root/LTOV-SLAM-Evaluation/data/
 
 rosbag_file_directory=${root_data_dir}original_data/
-trajectory_sequence_file_directory=/root/LTOV-SLAM-Evaluation/ut_vslam/sequences/
+trajectory_sequence_file_directory=/root/LTOV-SLAM-Evaluation/ut_vslam/sequences/amazon_0523/
 orb_slam_3_out_root_dir=${root_data_dir}orb_slam_3_out/
 lego_loam_out_root_dir=${root_data_dir}lego_loam_out/
 calibration_file_directory=${root_data_dir}calibration/
 odometry_topic="/jackal_velocity_controller/odom"
 
-sequence_file_base_name="end_of_may_demo_v1"
+sequence_file_base_name="amazon_0523_v0"
 
 make && python3 src/evaluation/compute_metrics_for_orbslam3.py \
     --rosbag_file_directory=${rosbag_file_directory} \

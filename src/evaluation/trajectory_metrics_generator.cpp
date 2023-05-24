@@ -16,8 +16,11 @@
 #include <refactoring/types/vslam_basic_types_refactor.h>
 #include <refactoring/types/vslam_types_math_util.h>
 #include <refactoring/visualization/ros_visualization.h>
+
+#include <filesystem>
 using namespace vslam_types_refactor;
 using namespace pose;
+namespace fs = std::filesystem;
 
 DEFINE_string(
     interpolated_gt_traj_dir,
@@ -95,6 +98,10 @@ FullSequenceMetrics computeMetrics(
     const std::vector<std::string> &ros_bag_names,
     const std::string &odom_topic,
     const std::vector<std::vector<WaypointInfo>> &waypoint_info_by_trajectory,
+    std::unordered_map<
+        size_t,
+        std::vector<std::pair<pose::Timestamp, std::optional<Pose3D<double>>>>>
+        &aligned_trajectories,
     const std::shared_ptr<vslam_types_refactor::RosVisualization> &vis_manager =
         nullptr) {
   FullSequenceMetrics full_metrics;
@@ -155,6 +162,14 @@ FullSequenceMetrics computeMetrics(
     std::vector<std::optional<Pose3D<double>>> aligned_comparison_pose;
     alignWithGroundTruth(
         gt_pose_only, comparison_pose_only, aligned_comparison_pose);
+
+    std::vector<std::pair<pose::Timestamp, std::optional<Pose3D<double>>>>
+        timestamps_and_aligned_comparison_poses;
+    for (size_t i = 0; i < comparison_traj_rel_bl.size(); ++i) {
+      timestamps_and_aligned_comparison_poses.emplace_back(
+          comparison_traj_rel_bl[i].first, aligned_comparison_pose[i]);
+    }
+    aligned_trajectories[traj_num] = timestamps_and_aligned_comparison_poses;
 
     ATEResults traj_ate_results =
         generateATEforRotAndTranslForSyncedAlignedTrajectories(
@@ -292,8 +307,8 @@ int main(int argc, char **argv) {
   std::vector<std::string> indiv_traj_dir_base_names;
   std::vector<std::string> rosbag_names;
   std::vector<std::optional<std::string>> waypoint_file_base_names;
+  SequenceInfo sequence_info;
   if (!FLAGS_sequence_file.empty()) {
-    SequenceInfo sequence_info;
     readSequenceInfo(FLAGS_sequence_file, sequence_info);
     if (sequence_info.bag_base_names_and_waypoint_files.empty()) {
       LOG(ERROR) << "No bag names in sequence";
@@ -570,13 +585,56 @@ int main(int argc, char **argv) {
     }
   }
 
+  std::unordered_map<
+      size_t,
+      std::vector<std::pair<pose::Timestamp, std::optional<Pose3D<double>>>>>
+      aligned_trajectories;
+  LOG(INFO) << "Before computeMetrics";
   FullSequenceMetrics full_metrics =
       computeMetrics(comparison_trajectories_rel_baselink,
                      interp_gt_trajectories_rel_baselink,
                      rosbag_names,
                      FLAGS_odometry_topic,
                      waypoint_info_by_trajectory,
+                     aligned_trajectories,
                      vis_manager);
+  LOG(INFO) << "After computeMetrics";
+  if (!FLAGS_sequence_file.empty()) {
+    size_t found_idx = FLAGS_metrics_out_file.find_last_of("/\\");
+    fs::path sequence_out_root_dir(FLAGS_metrics_out_file.substr(0, found_idx));
+    for (size_t bag_idx = 0;
+         bag_idx < sequence_info.bag_base_names_and_waypoint_files.size();
+         ++bag_idx) {
+      const std::string &bag_base_name =
+          sequence_info.bag_base_names_and_waypoint_files[bag_idx]
+              .bag_base_name_;
+      fs::path bag_out_dir = sequence_out_root_dir /
+                             (std::to_string(bag_idx) + "_" + bag_base_name);
+      if (!fs::exists(bag_out_dir)) {
+        LOG(ERROR) << "Directory " << bag_out_dir
+                   << " doesn't exist. Not saving the aligned trajectory!";
+        continue;
+      }
+      // bag_out_dir /= "postprocessing";
+      // if (!fs::exists(bag_out_dir)) {
+      //   LOG(ERROR) << "Directory " << bag_out_dir
+      //              << " doesn't exist. Not saving the aligned trajectory!";
+      //   continue;
+      // }
+      fs::path savepath = bag_out_dir / "aligned_trajectory.csv";
+      LOG(INFO) << "Saving aligned trajectory to " << savepath;
+      std::vector<
+          std::pair<pose::Timestamp, vslam_types_refactor::Pose3D<double>>>
+          timestamps_and_poses;
+      for (const auto timestamp_and_pose : aligned_trajectories.at(bag_idx)) {
+        if (timestamp_and_pose.second.has_value()) {
+          timestamps_and_poses.emplace_back(timestamp_and_pose.first,
+                                            timestamp_and_pose.second.value());
+        }
+      }
+      file_io::writePose3dsWithTimestampToFile(savepath, timestamps_and_poses);
+    }
+  }
 
   writeFullSequenceMetrics(FLAGS_metrics_out_file, full_metrics);
 }

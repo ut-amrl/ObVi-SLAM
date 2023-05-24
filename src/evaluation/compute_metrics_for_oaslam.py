@@ -99,7 +99,6 @@ def metricsForOrbSLAM3ArgParse():
     lego_loam_frame_to_bl_extrinsics = calibrationFileDirectory + CalibrationFileConstants.legoLoamCalibFile
     comparison_alg_to_bl_extrinsics = calibrationFileDirectory + CalibrationFileConstants.orbslam3CalibFile
     odom_to_bl_extrinsics = calibrationFileDirectory + CalibrationFileConstants.odomCalibFile
-    print("!!!!here")
     return MetricsForOASLAMConfig(rosbag_dir=args_dict[CmdLineArgConstants.rosbagDirectoryBaseArgName],
                                     sequence_dir=args_dict[
                                         CmdLineArgConstants.trajectorySequenceFileDirectoryBaseArgName],
