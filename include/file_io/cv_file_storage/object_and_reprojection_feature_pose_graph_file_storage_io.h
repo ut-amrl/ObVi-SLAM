@@ -10,6 +10,8 @@
 #include <file_io/cv_file_storage/vslam_obj_types_file_storage_io.h>
 #include <refactoring/optimization/object_pose_graph.h>
 
+#include <filesystem>
+
 namespace vslam_types_refactor {
 
 const std::string kLtmCheckpointOutputFileBaseName = "long_term_map_checkpoint";
@@ -1023,6 +1025,10 @@ void outputPoseGraphStateToFile(
 void readPoseGraphStateFromFile(
     const std::string &in_file,
     ObjectAndReprojectionFeaturePoseGraphState &pose_graph_state) {
+  if (!std::filesystem::exists(in_file)) {
+    LOG(ERROR) << "Trying to read file " << in_file << " that does not exist";
+    return;
+  }
   cv::FileStorage pg_state_in_fs(in_file, cv::FileStorage::READ);
   SerializableObjectAndReprojectionFeaturePoseGraphState ser_pose_graph_state;
 

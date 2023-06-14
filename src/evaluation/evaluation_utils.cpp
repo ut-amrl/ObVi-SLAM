@@ -272,6 +272,7 @@ RawWaypointConsistencyResults computeWaypointConsistencyResults(
       waypoints[wp_info.first] = wp_poses;
     }
     vis_manager->visualizeWaypoints(waypoints);
+    ros::Duration(2).sleep();
   }
 
   RawWaypointConsistencyResults consistency_results;

@@ -10,6 +10,8 @@
 #include <glog/logging.h>
 #include <refactoring/output_problem_data.h>
 
+#include <filesystem>
+
 namespace vslam_types_refactor {
 const std::string kRobotPosesKey = "robot_poses";
 
@@ -294,6 +296,11 @@ void writeRobotPoseResults(const std::string &robot_pose_file,
 
 void readRobotPoseResults(const std::string &robot_pose_file,
                           RobotPoseResults &robot_pose_results) {
+  if (!std::filesystem::exists(robot_pose_file)) {
+    LOG(ERROR) << "Trying to read file " << robot_pose_file
+               << " that does not exist";
+    return;
+  }
   cv::FileStorage robot_pose_in(robot_pose_file, cv::FileStorage::READ);
   SerializableRobotPoseResults serializable_robot_pose_results;
   robot_pose_in[kRobotPosesKey] >> serializable_robot_pose_results;
