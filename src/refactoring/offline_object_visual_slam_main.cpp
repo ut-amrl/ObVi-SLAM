@@ -1,3 +1,5 @@
+#include <analysis/cumulative_timer_constants.h>
+#include <analysis/cumulative_timer_factory.h>
 #include <base_lib/basic_utils.h>
 #include <base_lib/pose_utils.h>
 #include <file_io/bounding_box_by_node_id_io.h>
@@ -409,6 +411,10 @@ void visualizationStub(
     const double &near_edge_threshold,
     const size_t &pending_obj_min_obs_threshold,
     const std::optional<std::vector<vtr::Pose3D<double>>> &gt_trajectory) {
+  CumulativeFunctionTimer::Invocation invoc(
+      vtr::CumulativeTimerFactory::getInstance()
+          .getOrCreateFunctionTimer(vtr::kTimerNameVisFunction)
+          .get());
   bool pgo_opt = false;
   switch (visualization_stage) {
     case vtr::BEFORE_ANY_OPTIMIZATION:
