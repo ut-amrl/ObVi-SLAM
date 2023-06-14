@@ -341,13 +341,15 @@ class RosVisualization {
         color.g = ((double)((waypoints_size - waypoint_idx) / 2)) / half_poses;
       }
       waypoint_idx++;
-      LOG(INFO) << "Publishing wp " << data_for_wp.first << " num points " << data_for_wp.second.size();
+      LOG(INFO) << "Publishing wp " << data_for_wp.first << " num points "
+                << data_for_wp.second.size();
       publishRobotPoses(waypoint_pub_,
                         data_for_wp.second,
                         color,
                         next_robot_pose_id,
                         std::numeric_limits<int32_t>::max(),
                         true);
+      next_robot_pose_id += data_for_wp.second.size();
     }
   }
 
@@ -1382,11 +1384,10 @@ class RosVisualization {
     LOG(INFO) << "Publishing ellipsoids for plot type " << topic;
     visualizeEllipsoids(ltm_ellipsoids, topic, ltm_obj_color_, false);
 
-    //    int next_marker = ltm_ellipsoids.size();
-    //    for (const auto &obj_info : initial_ests_and_cov) {
-    //      next_marker = visualizeCovForObj(obj_info.second.second,
-    //      next_marker);
-    //    }
+    int next_marker = ltm_ellipsoids.size();
+    for (const auto &obj_info : initial_ests_and_cov) {
+      next_marker = visualizeCovForObj(obj_info.second.second, next_marker);
+    }
   }
 
  private:
@@ -1544,6 +1545,9 @@ class RosVisualization {
     Eigen::SelfAdjointEigenSolver<Eigen::Matrix2d> eigen_solver(x_y_cov);
     Eigen::Vector2d unscaled_axis_lengths =
         eigen_solver.eigenvalues().array().sqrt().matrix();
+    Eigen::Vector2d capped_axis_lengths = unscaled_axis_lengths;
+    capped_axis_lengths.x() = std::min(4.0, capped_axis_lengths.x());
+    capped_axis_lengths.y() = std::min(4.0, capped_axis_lengths.y());
     Eigen::Matrix2d eigVecs = eigen_solver.eigenvectors();
     double eigvec21 = eigVecs(1, 0);
     double eigvec11 = eigVecs(0, 0);
@@ -1555,8 +1559,9 @@ class RosVisualization {
       std_msgs::ColorRGBA color;
       color.a = 1;
       color.r = color.b = color.g = (50.0 + i * 60) / 255.0;
+
       visualizeCovCircleForObj(
-          center, unscaled_axis_lengths, yaw, i, color, next_marker - 1 + i);
+          center, capped_axis_lengths, yaw, i, color, next_marker - 1 + i);
     }
     return next_marker + 3;
   }
@@ -1568,10 +1573,8 @@ class RosVisualization {
                                 const std_msgs::ColorRGBA &color,
                                 const int &marker_num) {
     visualization_msgs::Marker marker;
-    marker.scale.x =
-        std::min(10.0, unscaled_axis_lengths.x() * uncertainty_mult);
-    marker.scale.y =
-        std::min(10.0, unscaled_axis_lengths.y() * uncertainty_mult);
+    marker.scale.x = unscaled_axis_lengths.x() * uncertainty_mult;
+    marker.scale.y = unscaled_axis_lengths.y() * uncertainty_mult;
     marker.scale.z = 0.005 - uncertainty_mult * 0.001;
 
     marker.pose.position.x = center.x();

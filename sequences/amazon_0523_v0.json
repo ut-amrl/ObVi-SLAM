@@ -1,0 +1,49 @@
+{
+  "sequence_info": {
+    "seq_id": "amazon_0523_v0",
+    "sequence": [
+      {
+        "bag_base_name": "_2023_05_11_18_35_54",
+        "waypoint_file_base_name": {
+          "has_v": 1,
+          "v": "waypoint_stamps_v1_2023_05_11_18_35_54"
+        }
+      },
+      {
+        "bag_base_name": "_2023_05_12_11_00_35",
+        "waypoint_file_base_name": {
+          "has_v": 1,
+          "v": "waypoint_stamps_v1_2023_05_12_11_00_35"
+        }
+      },
+      {
+        "bag_base_name": "_2023_05_13_19_03_07",
+        "waypoint_file_base_name": {
+          "has_v": 1,
+          "v": "waypoint_stamps_v1__2023_05_13_19_03_07"
+        }
+      },
+      {
+        "bag_base_name": "_2023_05_13_21_34_26",
+        "waypoint_file_base_name": {
+          "has_v": 1,
+          "v": "waypoint_stamps_v1__2023_05_13_21_34_26"
+        }
+      },
+      {
+        "bag_base_name": "_2023_05_13_21_51_39",
+        "waypoint_file_base_name": {
+          "has_v": 1,
+          "v": "waypoint_stamps_v1__2023_05_13_21_51_39"
+        }
+      },
+      {
+        "bag_base_name": "_2023_05_16_15_02_33",
+        "waypoint_file_base_name": {
+          "has_v": 1,
+          "v": "waypoint_stamps_v1__2023_05_16_15_02_33"
+        }
+      }
+    ]
+  }
+}

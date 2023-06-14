@@ -614,6 +614,8 @@ void visualizationStub(
       }
       vis_manager->visualizeFeatureEstimates(curr_frame_est_feature_ests,
                                              vtr::PlotType::ESTIMATED);
+      //      vis_manager->visualizeFeatureEstimates(feature_ests,
+      //                                             vtr::PlotType::ESTIMATED);
       vis_manager->publishTfsForLatestPose(
           est_trajectory_vec.back(), vtr::PlotType::ESTIMATED, extrinsics);
       vis_manager->publishTfsForLatestPose(

@@ -7,6 +7,7 @@
 
 #include <evaluation/trajectory_metrics.h>
 #include <file_io/cv_file_storage/file_storage_io_utils.h>
+#include <filesystem>
 
 namespace vslam_types_refactor {
 
@@ -215,6 +216,10 @@ void writeFullSequenceMetrics(const std::string &metrics_file_name,
 
 void readFullSequenceMetrics(const std::string &metrics_file_name,
                              FullSequenceMetrics &metrics) {
+  if (!std::filesystem::exists(metrics_file_name)) {
+    LOG(ERROR) << "Trying to read file " << metrics_file_name << " that does not exist";
+    return;
+  }
   cv::FileStorage metrics_file_in(metrics_file_name, cv::FileStorage::READ);
   SerializableFullSequenceMetrics serializable_metrics;
   metrics_file_in[kMetricsEntryKey] >> serializable_metrics;

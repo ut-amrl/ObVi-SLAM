@@ -8,6 +8,8 @@
 #include <file_io/cv_file_storage/file_storage_io_utils.h>
 #include <types/sequence_utils.h>
 
+#include <filesystem>
+
 namespace vslam_types_refactor {
 
 const std::string kSequenceInfoKey = "sequence_info";
@@ -132,6 +134,11 @@ void writeSequenceInfo(const std::string &sequence_file,
 
 void readSequenceInfo(const std::string &sequence_file,
                       SequenceInfo &sequence_info) {
+  if (!std::filesystem::exists(sequence_file)) {
+    LOG(ERROR) << "Trying to read file " << sequence_file
+               << " that does not exist";
+    return;
+  }
   cv::FileStorage sequence_in(sequence_file, cv::FileStorage::READ);
   SerializableSequenceInfo serializable_sequence_info;
   sequence_in[kSequenceInfoKey] >> serializable_sequence_info;

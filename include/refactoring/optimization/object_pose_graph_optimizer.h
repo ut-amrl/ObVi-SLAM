@@ -908,7 +908,7 @@ class ObjectPoseGraphOptimizer {
         }
       } else {
         LOG(WARNING) << "No parameter block found for object with id "
-                     << identifier_type
+                     << identifier_type << ": " << param_identifier
                      << "; not able to set variability in optimization problem";
       }
     }

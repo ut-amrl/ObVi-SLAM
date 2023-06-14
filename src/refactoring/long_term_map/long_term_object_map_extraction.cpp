@@ -747,7 +747,7 @@ extractCovarianceWithRankDeficiencyHandling(
            insufficient_rank_info.objects_with_rank_deficient_entries) {
         for (const auto &indiv_param_info : insufficient_obj_info.second) {
           LOG(INFO) << "Obj: " << insufficient_obj_info.first
-                    << ", param idx: " << indiv_param_info.first << ";, norm"
+                    << ", param idx: " << indiv_param_info.first << ";, norm "
                     << indiv_param_info.second;
         }
       }
@@ -790,6 +790,50 @@ extractCovarianceWithRankDeficiencyHandling(
                     "additional priors; consider revising minimum column norm, "
                     "currently "
                  << long_term_map_tunable_params.min_col_norm_;
+
+      // Identify bad parameter blocks + values
+      InsufficientRankInfo insufficient_rank_info =
+          findRankDeficiencies(residual_info,
+                               long_term_map_obj_retriever,
+                               long_term_map_tunable_params.min_col_norm_,
+                               pose_graph_copy,
+                               problem_for_ltm);
+
+      if (!insufficient_rank_info.features_with_rank_deficient_entries.empty()) {
+        LOG(INFO) << "Features with problems ";
+        for (const auto &insufficient_feat_info :
+            insufficient_rank_info.features_with_rank_deficient_entries) {
+          for (const auto &indiv_param_info : insufficient_feat_info.second) {
+            LOG(INFO) << "Feat: " << insufficient_feat_info.first
+                      << ", param idx: " << indiv_param_info.first << ";, norm"
+                      << indiv_param_info.second;
+          }
+        }
+      }
+
+      if (!insufficient_rank_info.objects_with_rank_deficient_entries.empty()) {
+        LOG(INFO) << "Objects with problems ";
+        for (const auto &insufficient_obj_info :
+            insufficient_rank_info.objects_with_rank_deficient_entries) {
+          for (const auto &indiv_param_info : insufficient_obj_info.second) {
+            LOG(INFO) << "Obj: " << insufficient_obj_info.first
+                      << ", param idx: " << indiv_param_info.first << ";, norm "
+                      << indiv_param_info.second;
+          }
+        }
+      }
+
+      if (!insufficient_rank_info.frames_with_rank_deficient_entries.empty()) {
+        LOG(INFO) << "Frames with problems ";
+        for (const auto &insufficient_frame_info :
+            insufficient_rank_info.frames_with_rank_deficient_entries) {
+          for (const auto &indiv_param_info : insufficient_frame_info.second) {
+            LOG(INFO) << "Frame: " << insufficient_frame_info.first
+                      << ", param idx: " << indiv_param_info.first << ";, norm"
+                      << indiv_param_info.second;
+          }
+        }
+      }
     }
   }
   return covariance_result;
