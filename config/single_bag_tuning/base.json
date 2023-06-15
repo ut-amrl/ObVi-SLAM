@@ -74,7 +74,7 @@
         },
         "ltm_tunable_params": {
             "far_feature_threshold": 75.0,
-            "min_col_norm": 5.0000000000000001e-09
+            "min_col_norm": 5.0000000000000001e-06
         },
         "ltm_solver_residual_params": {
             "object_residual_params": {
