@@ -157,7 +157,8 @@ class OfflineProblemRunner {
         return false;
       }
       // This function is also responsible for adjusting the initial estimate
-      // for the pose at next_frame_id given the optimized pose at next_frame_id
+      // for the pose at next_frame_id given the optimized pose at
+      // next_frame_id
       // - 1
       FrameId start_opt_with_frame = window_provider_func_(next_frame_id);
       optimization_scope_params.min_frame_id_ = start_opt_with_frame;
@@ -340,8 +341,8 @@ class OfflineProblemRunner {
               ++residual_idx;
             }
             // Only exclude reprojection errors for visual features and bbox
-            // observation errors for objects. Modify this check if you want to
-            // add two-phase optimization support to other factors.
+            // observation errors for objects. Modify this check if you want
+            // to add two-phase optimization support to other factors.
             if ((current_residual_block_info.at(block_id).first ==
                  kReprojectionErrorFactorTypeId) ||
                 (current_residual_block_info.at(block_id).first ==
