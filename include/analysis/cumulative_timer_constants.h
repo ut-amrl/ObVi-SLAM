@@ -9,6 +9,8 @@
 
 namespace vslam_types_refactor {
 const std::string kTimerNameVisFunction = "visualization_top_level";
-}
+const std::string kTimerNameVisualFrontendFunction =
+    "visual_frontend_top_level";
+}  // namespace vslam_types_refactor
 
 #endif  // UT_VSLAM_CUMULATIVE_TIMER_CONSTANTS_H

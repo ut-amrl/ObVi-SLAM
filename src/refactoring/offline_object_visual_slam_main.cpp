@@ -1129,6 +1129,10 @@ int main(int argc, char **argv) {
                                             const MainPgPtr &pose_graph,
                                             const vtr::FrameId &min_frame_id,
                                             const vtr::FrameId &max_frame_id) {
+        CumulativeFunctionTimer::Invocation invoc(
+            vtr::CumulativeTimerFactory::getInstance()
+                .getOrCreateFunctionTimer(vtr::kTimerNameVisualFrontendFunction)
+                .get());
         visual_feature_fronted.addVisualFeatureObservations(
             input_problem_data, pose_graph, min_frame_id, max_frame_id);
       };
