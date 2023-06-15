@@ -94,9 +94,9 @@ std::pair<bool, std::shared_ptr<ceres::Covariance>> extractCovariance(
         std::vector<std::pair<const double *, const double *>>()>
         &parameter_block_cov_retriever,
     std::unordered_map<ceres::ResidualBlockId,
-        std::pair<vslam_types_refactor::FactorType,
-            vslam_types_refactor::FeatureFactorId>>
-    &residual_info,
+                       std::pair<vslam_types_refactor::FactorType,
+                                 vslam_types_refactor::FeatureFactorId>>
+        &residual_info,
     std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph_copy,
     ceres::Problem &problem_for_ltm);
 
@@ -113,9 +113,9 @@ void getFramesFeaturesAndObjectsForFactor(
 
 InsufficientRankInfo findRankDeficiencies(
     const std::unordered_map<ceres::ResidualBlockId,
-        std::pair<vslam_types_refactor::FactorType,
-            vslam_types_refactor::FeatureFactorId>>
-    &residual_info,
+                             std::pair<vslam_types_refactor::FactorType,
+                                       vslam_types_refactor::FeatureFactorId>>
+        &residual_info,
     const std::function<bool(const FactorType &,
                              const FeatureFactorId &,
                              ObjectId &)> &long_term_map_obj_retriever,

@@ -6,8 +6,8 @@
 #define UT_VSLAM_OPTIMIZATION_LOGGER_H
 
 #include <ceres/solver.h>
-#include <refactoring/types/vslam_obj_opt_types_refactor.h>
 #include <file_io/file_io_utils.h>
+#include <refactoring/types/vslam_obj_opt_types_refactor.h>
 
 #include <string>
 #include <unordered_set>

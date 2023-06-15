@@ -1244,8 +1244,7 @@ class SerializableLongTermMapExtractionTunableParams
  private:
   inline static const std::string kFarFeatureThresholdLabel =
       "far_feature_threshold";
-  inline static const std::string kMinColNormLabel =
-      "min_col_norm";
+  inline static const std::string kMinColNormLabel = "min_col_norm";
 };
 
 static void write(cv::FileStorage &fs,
