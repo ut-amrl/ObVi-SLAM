@@ -5,6 +5,8 @@
 #ifndef UT_VSLAM_BOUNDING_BOX_FRONT_END_H
 #define UT_VSLAM_BOUNDING_BOX_FRONT_END_H
 
+#include <analysis/cumulative_timer_constants.h>
+#include <analysis/cumulative_timer_factory.h>
 #include <refactoring/optimization/object_pose_graph.h>
 #include <refactoring/types/vslam_obj_opt_types_refactor.h>
 
@@ -78,6 +80,12 @@ class AbstractBoundingBoxFrontEnd {
       const vslam_types_refactor::CameraId &camera_id,
       const std::vector<RawBoundingBox> &bounding_boxes,
       const RawBoundingBoxContextInfo &bb_context) {
+#ifdef RUN_TIMERS
+    CumulativeFunctionTimer::Invocation invoc(
+        CumulativeTimerFactory::getInstance()
+            .getOrCreateFunctionTimer(kTimerNameBbFrontEndAddBbObs)
+            .get());
+#endif
     CHECK(initialized_)
         << "Bounding box front end not initialized properly. Make "
            "sure to call initializeWithLongTermMapFrontEndData "

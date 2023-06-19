@@ -5,6 +5,8 @@
 #ifndef UT_VSLAM_OFFLINE_PROBLEM_RUNNER_H
 #define UT_VSLAM_OFFLINE_PROBLEM_RUNNER_H
 
+#include <analysis/cumulative_timer_constants.h>
+#include <analysis/cumulative_timer_factory.h>
 #include <ceres/problem.h>
 #include <refactoring/offline/limit_trajectory_evaluation_params.h>
 #include <refactoring/optimization/object_pose_graph.h>
@@ -151,6 +153,12 @@ class OfflineProblemRunner {
 
     for (FrameId next_frame_id = 1; next_frame_id <= max_frame_id;
          next_frame_id++) {
+#ifdef RUN_TIMERS
+      CumulativeFunctionTimer::Invocation invoc(
+          CumulativeTimerFactory::getInstance()
+              .getOrCreateFunctionTimer(kTimerNameOptimizationIteration)
+              .get());
+#endif
       if (!continue_opt_checker_) {
         LOG(WARNING)
             << "Halted optimization due to continue checker reporting false";
@@ -202,6 +210,12 @@ class OfflineProblemRunner {
           }
         }
         if (run_pgo) {
+#ifdef RUN_TIMERS
+          CumulativeFunctionTimer::Invocation gba_invoc(
+              CumulativeTimerFactory::getInstance()
+                  .getOrCreateFunctionTimer(kTimerNameGlobalBundleAdjustment)
+                  .get());
+#endif
           // TODO Need to run 1 iteration of tracking first
           LOG(INFO) << "Running tracking before PGO";
           pose_graph_optimizer::OptimizationScopeParams tracking_params =
@@ -246,6 +260,12 @@ class OfflineProblemRunner {
       }
 
       if (run_visual_feature_opt) {
+#ifdef RUN_TIMERS
+        CumulativeFunctionTimer::Invocation invoc_lba(
+            CumulativeTimerFactory::getInstance()
+                .getOrCreateFunctionTimer(kTimerNameLocalBundleAdjustment)
+                .get());
+#endif
         bool visual_feature_opt_enable_two_phase =
             solver_params.feature_outlier_percentage_ > 0;
         // Phase I
@@ -266,6 +286,12 @@ class OfflineProblemRunner {
         std::vector<ceres::ResidualBlockId> residual_block_ids;
         std::vector<double> residuals;
         if (visual_feature_opt_enable_two_phase) {
+#ifdef RUN_TIMERS
+          CumulativeFunctionTimer::Invocation phase_one_invoc(
+              CumulativeTimerFactory::getInstance()
+                  .getOrCreateFunctionTimer(kTimerNamePhaseOneLbaOpt)
+                  .get());
+#endif
           phase1_optim_success =
               optimizer_.solveOptimization(&problem,
                                            solver_params,
@@ -274,6 +300,12 @@ class OfflineProblemRunner {
                                            &residual_block_ids,
                                            &residuals);
         } else {
+#ifdef RUN_TIMERS
+          CumulativeFunctionTimer::Invocation phase_one_invoc(
+              CumulativeTimerFactory::getInstance()
+                  .getOrCreateFunctionTimer(kTimerNamePhaseOneLbaOpt)
+                  .get());
+#endif
           phase1_optim_success = optimizer_.solveOptimization(&problem,
                                                               solver_params,
                                                               ceres_callbacks,
@@ -297,6 +329,12 @@ class OfflineProblemRunner {
                            std::unordered_map<ceres::ResidualBlockId, double>>
             factor_types_and_residual_info;
         if (visual_feature_opt_enable_two_phase) {
+#ifdef RUN_TIMERS
+          CumulativeFunctionTimer::Invocation post_opt_residual_invoc(
+              CumulativeTimerFactory::getInstance()
+                  .getOrCreateFunctionTimer(kTimerNamePostOptResidualCompute)
+                  .get());
+#endif
           size_t residual_idx = 0;
           for (size_t block_idx = 0; block_idx < residual_block_ids.size();
                ++block_idx) {
@@ -363,6 +401,13 @@ class OfflineProblemRunner {
         util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
             excluded_feature_factor_types_and_ids;
         if (visual_feature_opt_enable_two_phase) {
+#ifdef RUN_TIMERS
+          CumulativeFunctionTimer::Invocation two_phase_opt_outlier_invoc(
+              CumulativeTimerFactory::getInstance()
+                  .getOrCreateFunctionTimer(
+                      kTimerNameTwoPhaseOptOutlierIdentification)
+                  .get());
+#endif
           std::unordered_map<
               FactorType,
               std::map<double, ceres::ResidualBlockId, std::greater<double>>>
@@ -400,6 +445,12 @@ class OfflineProblemRunner {
         // Phase II
         if (visual_feature_opt_enable_two_phase) {
           // revert back to the old pose graph for Phase II optim
+#ifdef RUN_TIMERS
+          CumulativeFunctionTimer::Invocation phase_two_invoc(
+              CumulativeTimerFactory::getInstance()
+                  .getOrCreateFunctionTimer(kTimerNamePhaseTwoLbaOpt)
+                  .get());
+#endif
           if (opt_logger.has_value()) {
             opt_logger->setOptimizationTypeParams(
                 next_frame_id, start_opt_with_frame == 0, false, true);
