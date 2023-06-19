@@ -106,6 +106,12 @@ bool getCornerLocationsVector(
     const Eigen::Transform<T, 3, Eigen::Affine> &robot_to_cam_tf,
     const Eigen::Matrix<T, 3, 3> &intrinsics,
     Eigen::Matrix<T, 4, 1> &corner_results) {
+#ifdef RUN_TIMERS
+  CumulativeFunctionTimer::Invocation invoc(
+      CumulativeTimerFactory::getInstance()
+          .getOrCreateFunctionTimer(kTimerNameMathUtilGetCornerLocationsVector)
+          .get());
+#endif
   Eigen::Transform<T, 3, Eigen::Affine> robot_to_world_current =
       PoseArrayToAffine(&(robot_pose[3]), &(robot_pose[0]));
   //    LOG(INFO) << "Robot pose " << robot_to_world_current.matrix();

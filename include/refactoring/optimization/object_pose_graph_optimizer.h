@@ -5,6 +5,8 @@
 #ifndef UT_VSLAM_POSE_GRAPH_OPTIMIZER_H
 #define UT_VSLAM_POSE_GRAPH_OPTIMIZER_H
 
+#include <analysis/cumulative_timer_constants.h>
+#include <analysis/cumulative_timer_factory.h>
 #include <base_lib/basic_utils.h>
 #include <ceres/ceres.h>
 #include <debugging/optimization_logger.h>
@@ -131,6 +133,13 @@ class ObjectPoseGraphOptimizer {
       const util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
                                          vslam_types_refactor::FeatureFactorId>>
           &excluded_feature_factor_types_and_ids = {}) {
+#ifdef RUN_TIMERS
+    CumulativeFunctionTimer::Invocation invoc(
+        vslam_types_refactor::CumulativeTimerFactory::getInstance()
+            .getOrCreateFunctionTimer(
+                vslam_types_refactor::kTimerNameOptimizerBuildPgo)
+            .get());
+#endif
     // Check for invalid combinations of scope and reject
     CHECK(checkInvalidOptimizationScopeParams(optimization_scope));
 
@@ -630,6 +639,13 @@ class ObjectPoseGraphOptimizer {
       // This is a hack for Ceres < 2+
       std::vector<ceres::ResidualBlockId> *residual_block_id_ptrs = nullptr,
       std::vector<double> *residual_ptrs = nullptr) {
+#ifdef RUN_TIMERS
+    CumulativeFunctionTimer::Invocation invoc(
+        vslam_types_refactor::CumulativeTimerFactory::getInstance()
+            .getOrCreateFunctionTimer(
+                vslam_types_refactor::kTimerNameOptimizerSolveOptimization)
+            .get());
+#endif
     CHECK(problem != NULL);
     ceres::Solver::Options options;
     // TODO configure options
@@ -698,6 +714,13 @@ class ObjectPoseGraphOptimizer {
       std::optional<vslam_types_refactor::OptimizationLogger> &opt_logger,
       std::shared_ptr<std::unordered_map<ceres::ResidualBlockId, double>>
           block_ids_and_residuals_ptr = nullptr) {
+#ifdef RUN_TIMERS
+    CumulativeFunctionTimer::Invocation invoc(
+        vslam_types_refactor::CumulativeTimerFactory::getInstance()
+            .getOrCreateFunctionTimer(
+                vslam_types_refactor::kTimerNameOptimizerSolveOptimization)
+            .get());
+#endif
     CHECK(problem != NULL);
     ceres::Solver::Options options;
     // TODO configure options
@@ -805,6 +828,13 @@ class ObjectPoseGraphOptimizer {
           std::unordered_set<vslam_types_refactor::FeatureFactorId>>
           &required_feature_factors,
       const std::unordered_set<IdType> &ignore_min_obs_requirement = {}) {
+#ifdef RUN_TIMERS
+    CumulativeFunctionTimer::Invocation invoc(
+        vslam_types_refactor::CumulativeTimerFactory::getInstance()
+            .getOrCreateFunctionTimer(
+                vslam_types_refactor::kTimerNameOptimizerApplyMinObsReq)
+            .get());
+#endif
     std::unordered_map<
         IdType,
         util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
@@ -849,6 +879,14 @@ class ObjectPoseGraphOptimizer {
       const util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
                                          vslam_types_refactor::FeatureFactorId>>
           &excluded_feature_factor_types_and_ids = {}) {
+#ifdef RUN_TIMERS
+    CumulativeFunctionTimer::Invocation invoc(
+        vslam_types_refactor::CumulativeTimerFactory::getInstance()
+            .getOrCreateFunctionTimer(
+                vslam_types_refactor::
+                    kTimerNameOptimizerExtractObservationFactors)
+            .get());
+#endif
     size_t excluded_count = 0;
     for (const auto &matching_factor : matching_factors) {
       const vslam_types_refactor::FactorType &factor_type =
@@ -898,6 +936,13 @@ class ObjectPoseGraphOptimizer {
                                double **)> &param_block_retriever,
       const std::shared_ptr<PoseGraphType> &pose_graph,
       ceres::Problem *problem) {
+#ifdef RUN_TIMERS
+    CumulativeFunctionTimer::Invocation invoc(
+        vslam_types_refactor::CumulativeTimerFactory::getInstance()
+            .getOrCreateFunctionTimer(
+                vslam_types_refactor::kTimerNameOptimizerSetVariability)
+            .get());
+#endif
     for (const IdentifierType &param_identifier : param_identifiers) {
       double *param_ptr = NULL;
       if (param_block_retriever(param_identifier, pose_graph, &param_ptr)) {
@@ -923,6 +968,14 @@ class ObjectPoseGraphOptimizer {
                                double **)> &param_block_retriever,
       const std::shared_ptr<PoseGraphType> &pose_graph,
       ceres::Problem *problem) {
+#ifdef RUN_TIMERS
+    CumulativeFunctionTimer::Invocation invoc(
+        vslam_types_refactor::CumulativeTimerFactory::getInstance()
+            .getOrCreateFunctionTimer(
+                vslam_types_refactor::
+                    kTimerNameOptimizerRemoveParamWithIdentifiers)
+            .get());
+#endif
     for (const IdentifierType &id_to_remove : identifiers) {
       double *param_block;
       if (param_block_retriever(id_to_remove, pose_graph, &param_block)) {
@@ -945,6 +998,14 @@ class ObjectPoseGraphOptimizer {
       const std::shared_ptr<PoseGraphType> &pose_graph,
       const int &param_block_size,
       ceres::Problem *problem) {
+#ifdef RUN_TIMERS
+    CumulativeFunctionTimer::Invocation invoc(
+        vslam_types_refactor::CumulativeTimerFactory::getInstance()
+            .getOrCreateFunctionTimer(
+                vslam_types_refactor::
+                    kTimerNameOptimizerAddParamBlocksWithIdentifiers)
+            .get());
+#endif
     for (const IdentifierType &id_to_add : identifiers) {
       double *param_block;
       if (param_block_retriever(id_to_add, pose_graph, &param_block)) {
@@ -966,6 +1027,14 @@ class ObjectPoseGraphOptimizer {
           &required_feature_factors,
       const std::shared_ptr<PoseGraphType> &pose_graph,
       ceres::Problem *problem) {
+#ifdef RUN_TIMERS
+    CumulativeFunctionTimer::Invocation invoc(
+        vslam_types_refactor::CumulativeTimerFactory::getInstance()
+            .getOrCreateFunctionTimer(
+                vslam_types_refactor::
+                    kTimerNameOptimizerAddOrRefreshResidualBlocks)
+            .get());
+#endif
     for (const auto &factor_type_and_required_factors :
          required_feature_factors) {
       vslam_types_refactor::FactorType factor_type =
@@ -1077,6 +1146,14 @@ class ObjectPoseGraphOptimizer {
           std::unordered_set<vslam_types_refactor::FeatureFactorId>>
           &required_feature_factors,
       ceres::Problem *problem) {
+#ifdef RUN_TIMERS
+    CumulativeFunctionTimer::Invocation invoc(
+        vslam_types_refactor::CumulativeTimerFactory::getInstance()
+            .getOrCreateFunctionTimer(
+                vslam_types_refactor::
+                    kTimerNameOptimizerRemoveUnnecessaryResidualBlocks)
+            .get());
+#endif
     std::unordered_map<
         vslam_types_refactor::FactorType,
         std::unordered_set<vslam_types_refactor::FeatureFactorId>>

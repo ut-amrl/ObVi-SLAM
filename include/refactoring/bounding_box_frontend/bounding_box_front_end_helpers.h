@@ -5,6 +5,8 @@
 #ifndef UT_VSLAM_BOUNDING_BOX_FRONT_END_HELPERS_H
 #define UT_VSLAM_BOUNDING_BOX_FRONT_END_HELPERS_H
 
+#include <analysis/cumulative_timer_constants.h>
+#include <analysis/cumulative_timer_factory.h>
 #include <refactoring/types/vslam_obj_opt_types_refactor.h>
 #include <refactoring/types/vslam_types_math_util.h>
 
@@ -36,6 +38,13 @@ void identifyMergeCandidates(
         &uninitialized_object_info,
     const bool &only_match_semantic_class,
     std::unordered_map<ObjectId, std::vector<ObjectId>> &merge_candidates) {
+#ifdef RUN_TIMERS
+  CumulativeFunctionTimer::Invocation invoc(
+      CumulativeTimerFactory::getInstance()
+          .getOrCreateFunctionTimer(
+              kTimerNameBbFrontEndHelpersIdentifyMergeCandidates)
+          .get());
+#endif
   // Only populated for the relevant case
   std::unordered_map<std::string, std::unordered_set<ObjectId>>
       objs_by_semantic_class;
@@ -127,6 +136,12 @@ std::vector<AssociatedObjectIdentifier> greedilyAssignBoundingBoxes(
         std::vector<std::pair<AssociatedObjectIdentifier, double>>>
         &match_candidates_with_scores,
     const ObjectId &next_free_obj) {
+#ifdef RUN_TIMERS
+  CumulativeFunctionTimer::Invocation invoc(
+      CumulativeTimerFactory::getInstance()
+          .getOrCreateFunctionTimer(kTimerNameBbFrontEndHelpersGreedilyAssign)
+          .get());
+#endif
   std::vector<
       std::pair<uint64_t, std::pair<AssociatedObjectIdentifier, double>>>
       flattened_scores;
@@ -192,6 +207,12 @@ void removeStalePendingObjects(
     const FrameId &discard_candidate_after_num_frames,
     std::vector<UninitializedEllispoidInfo<AssociationInfo, PendingObjInfo>>
         &uninitialized_object_info_to_keep) {
+#ifdef RUN_TIMERS
+  CumulativeFunctionTimer::Invocation invoc(
+      CumulativeTimerFactory::getInstance()
+          .getOrCreateFunctionTimer(kTimerNameBbFrontEndHelpersRemoveStale)
+          .get());
+#endif
   for (const UninitializedEllispoidInfo<AssociationInfo, PendingObjInfo>
            &uninitialized_info : full_uninitialized_object_info) {
     if (curr_frame_id <= (uninitialized_info.max_frame_id_ +
@@ -222,6 +243,12 @@ bool generateSingleViewEllipsoidEstimate(
     const std::string &semantic_class,
     const BbCorners<double> &bb,
     vslam_types_refactor::EllipsoidState<double> &ellipsoid_est) {
+#ifdef RUN_TIMERS
+  CumulativeFunctionTimer::Invocation invoc(
+      CumulativeTimerFactory::getInstance()
+          .getOrCreateFunctionTimer(kTimerNameBbFrontEndHelpersGenSingleViewEst)
+          .get());
+#endif
   std::optional<ObjectDim<double>> mean_dim_for_class =
       pose_graph->getShapeDimMean(semantic_class);
 

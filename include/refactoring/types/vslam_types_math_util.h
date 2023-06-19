@@ -5,6 +5,8 @@
 #ifndef UT_VSLAM_VSLAM_TYPES_MATH_UTIL_H
 #define UT_VSLAM_VSLAM_TYPES_MATH_UTIL_H
 
+#include <analysis/cumulative_timer_constants.h>
+#include <analysis/cumulative_timer_factory.h>
 #include <base_lib/basic_utils.h>
 #include <refactoring/types/vslam_basic_types_refactor.h>
 #include <refactoring/types/vslam_math_util.h>
@@ -27,6 +29,12 @@ Pose3D<NumType> convertAffineToPose3D(const Transform6Dof<NumType>& affine) {
 template <typename NumType>
 Pose3D<NumType> getPose2RelativeToPose1(const Pose3D<NumType>& pose_1,
                                         const Pose3D<NumType>& pose_2) {
+#ifdef RUN_TIMERS
+  CumulativeFunctionTimer::Invocation invoc(
+      CumulativeTimerFactory::getInstance()
+          .getOrCreateFunctionTimer(kTimerNameMathUtilGetPose2Rel1)
+          .get());
+#endif
   Transform6Dof<NumType> pose_1_mat = convertToAffine(pose_1);
   Transform6Dof<NumType> pose_2_mat = convertToAffine(pose_2);
   Transform6Dof<NumType> pose_2_rel_to_1_mat =
@@ -62,6 +70,12 @@ Position3d<NumType> combinePoseAndPosition(
 template <typename NumType>
 Pose3D<NumType> combinePoses(const Pose3D<NumType>& pose_1,
                              const Pose3D<NumType>& pose_2_rel_to_1) {
+#ifdef RUN_TIMERS
+  CumulativeFunctionTimer::Invocation invoc(
+      CumulativeTimerFactory::getInstance()
+          .getOrCreateFunctionTimer(kTimerNameMathUtilCombinePoses)
+          .get());
+#endif
   Transform6Dof<NumType> pose_1_mat = convertToAffine(pose_1);
   Transform6Dof<NumType> pose_2_rel_to_1_mat = convertToAffine(pose_2_rel_to_1);
   Transform6Dof<NumType> pose_2_mat = pose_1_mat * pose_2_rel_to_1_mat;
@@ -103,6 +117,12 @@ Position3d<NumType> getWorldFramePos(
     const CameraExtrinsics<NumType>& extrinsics,
     const Pose3D<NumType>& robot_pose,
     const NumType& depth) {
+#ifdef RUN_TIMERS
+  CumulativeFunctionTimer::Invocation invoc(
+      CumulativeTimerFactory::getInstance()
+          .getOrCreateFunctionTimer(kTimerNameMathUtilGetWorldFramePos)
+          .get());
+#endif
   Position3d<NumType> point_rel_cam =
       depth * intrinsics.inverse() * pixelToHomogeneous(image_feature);
   Pose3D<NumType> cam_pose_in_world = combinePoses(robot_pose, extrinsics);
@@ -115,6 +135,12 @@ PixelCoord<NumType> getProjectedPixelCoord(
     const Pose3D<NumType>& robot_pose,
     const CameraExtrinsics<NumType>& cam_extrinsics,
     const CameraIntrinsicsMat<NumType>& cam_intrinsics) {
+#ifdef RUN_TIMERS
+  CumulativeFunctionTimer::Invocation invoc(
+      CumulativeTimerFactory::getInstance()
+          .getOrCreateFunctionTimer(kTimerNameMathUtilGetProjectedPixelCoord)
+          .get());
+#endif
   Position3d<NumType> feature_pos_copy = feature_pos;
   NumType* raw_point = feature_pos_copy.data();
   RawPose3d<NumType> raw_robot_pose = convertPoseToArray(robot_pose);
