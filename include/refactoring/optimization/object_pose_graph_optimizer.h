@@ -5,6 +5,8 @@
 #ifndef UT_VSLAM_POSE_GRAPH_OPTIMIZER_H
 #define UT_VSLAM_POSE_GRAPH_OPTIMIZER_H
 
+#include <analysis/cumulative_timer_constants.h>
+#include <analysis/cumulative_timer_factory.h>
 #include <base_lib/basic_utils.h>
 #include <ceres/ceres.h>
 #include <debugging/optimization_logger.h>
@@ -131,6 +133,13 @@ class ObjectPoseGraphOptimizer {
       const util::BoostHashSet<std::pair<vslam_types_refactor::FactorType,
                                          vslam_types_refactor::FeatureFactorId>>
           &excluded_feature_factor_types_and_ids = {}) {
+#ifdef RUN_TIMERS
+    CumulativeFunctionTimer::Invocation invoc(
+        vslam_types_refactor::CumulativeTimerFactory::getInstance()
+            .getOrCreateFunctionTimer(
+                vslam_types_refactor::kTimerNameOptimizerBuildPgo)
+            .get());
+#endif
     // Check for invalid combinations of scope and reject
     CHECK(checkInvalidOptimizationScopeParams(optimization_scope));
 
@@ -630,6 +639,13 @@ class ObjectPoseGraphOptimizer {
       // This is a hack for Ceres < 2+
       std::vector<ceres::ResidualBlockId> *residual_block_id_ptrs = nullptr,
       std::vector<double> *residual_ptrs = nullptr) {
+#ifdef RUN_TIMERS
+    CumulativeFunctionTimer::Invocation invoc(
+        vslam_types_refactor::CumulativeTimerFactory::getInstance()
+            .getOrCreateFunctionTimer(
+                vslam_types_refactor::kTimerNameOptimizerSolveOptimization)
+            .get());
+#endif
     CHECK(problem != NULL);
     ceres::Solver::Options options;
     // TODO configure options
@@ -698,6 +714,13 @@ class ObjectPoseGraphOptimizer {
       std::optional<vslam_types_refactor::OptimizationLogger> &opt_logger,
       std::shared_ptr<std::unordered_map<ceres::ResidualBlockId, double>>
           block_ids_and_residuals_ptr = nullptr) {
+#ifdef RUN_TIMERS
+    CumulativeFunctionTimer::Invocation invoc(
+        vslam_types_refactor::CumulativeTimerFactory::getInstance()
+            .getOrCreateFunctionTimer(
+                vslam_types_refactor::kTimerNameOptimizerSolveOptimization)
+            .get());
+#endif
     CHECK(problem != NULL);
     ceres::Solver::Options options;
     // TODO configure options

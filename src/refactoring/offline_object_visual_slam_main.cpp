@@ -412,10 +412,12 @@ void visualizationStub(
     const double &near_edge_threshold,
     const size_t &pending_obj_min_obs_threshold,
     const std::optional<std::vector<vtr::Pose3D<double>>> &gt_trajectory) {
+#ifdef RUN_TIMERS
   CumulativeFunctionTimer::Invocation invoc(
       vtr::CumulativeTimerFactory::getInstance()
           .getOrCreateFunctionTimer(vtr::kTimerNameVisFunction)
           .get());
+#endif
   bool pgo_opt = false;
   switch (visualization_stage) {
     case vtr::BEFORE_ANY_OPTIMIZATION:
@@ -708,6 +710,12 @@ int main(int argc, char **argv) {
 
   vtr::FullOVSLAMConfig config;
   vtr::readConfiguration(FLAGS_params_config_file, config);
+
+#ifdef RUN_TIMERS
+  // Create an instance so that the factory never goes out of scope
+  vtr::CumulativeTimerFactory &instance =
+      vtr::CumulativeTimerFactory::getInstance();
+#endif
 
   // Hard-coded values -----------------------------------------------------
 
@@ -1130,10 +1138,12 @@ int main(int argc, char **argv) {
                                             const MainPgPtr &pose_graph,
                                             const vtr::FrameId &min_frame_id,
                                             const vtr::FrameId &max_frame_id) {
+#ifdef RUN_TIMERS
         CumulativeFunctionTimer::Invocation invoc(
             vtr::CumulativeTimerFactory::getInstance()
                 .getOrCreateFunctionTimer(vtr::kTimerNameVisualFrontendFunction)
                 .get());
+#endif
         visual_feature_fronted.addVisualFeatureObservations(
             input_problem_data, pose_graph, min_frame_id, max_frame_id);
       };
@@ -1273,6 +1283,12 @@ int main(int argc, char **argv) {
                          std::unordered_map<vtr::CameraId,
                                             std::vector<vtr::RawBoundingBox>>
                              &bounding_boxes_by_cam) {
+#ifdef RUN_TIMERS
+        CumulativeFunctionTimer::Invocation invoc(
+            vtr::CumulativeTimerFactory::getInstance()
+                .getOrCreateFunctionTimer(vtr::kTimerNameBbQuerier)
+                .get());
+#endif
         return bb_querier.retrieveBoundingBoxes(
             frame_id_to_query_for, input_problem_data, bounding_boxes_by_cam);
       };
@@ -1295,6 +1311,12 @@ int main(int argc, char **argv) {
                              const MainPgPtr &pose_graph,
                              const vtr::FrameId &min_frame_id,
                              const vtr::FrameId &frame_to_add) {
+#ifdef RUN_TIMERS
+        CumulativeFunctionTimer::Invocation invoc(
+            vtr::CumulativeTimerFactory::getInstance()
+                .getOrCreateFunctionTimer(vtr::kTimerNameFrameDataAdderTopLevel)
+                .get());
+#endif
         vtr::addFrameDataAssociatedBoundingBox(problem_data,
                                                pose_graph,
                                                min_frame_id,
