@@ -45,6 +45,15 @@ std::string padIntNumberToConstantWidth(const NumType &number,
 
   return padded_frame_string.str();
 }
+
+template <typename NumType, typename ValueType>
+struct sort_pair_by_first {
+  inline bool operator()(const std::pair<NumType, ValueType> &entry_1,
+                         const std::pair<NumType, ValueType> &entry_2) {
+    return entry_1.first <= entry_2.first;
+  }
+};
+
 }  // namespace util
 
 #endif  // UT_VSLAM_BASIC_UTILS_H

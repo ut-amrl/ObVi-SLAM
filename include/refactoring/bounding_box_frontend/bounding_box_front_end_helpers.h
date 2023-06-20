@@ -290,6 +290,90 @@ bool generateSingleViewEllipsoidEstimate(
   return true;
 }
 
+template <typename ObjectPoseGraphType>
+void identifyMergeObjectsBasedOnCenterProximity(
+    const std::shared_ptr<ObjectPoseGraphType> &pose_graph,
+    const double &max_distance_for_merge,
+    std::unordered_map<ObjectId, std::unordered_set<ObjectId>> &merge_results) {
+  if (max_distance_for_merge < 0) {
+    return;
+  }
+
+  // Doing most rudimentary version of this right now -- no checks about
+  // duplicate associations for a single frame or anything class or size
+  // dependent
+
+  // Getting long-term map objects so we can merge into these and also don't
+  // merge two together -- may want to enable merging long-term objects
+  // eventually, but for now that's just going to add complexity for an
+  // unlikely case
+  std::unordered_set<ObjectId> long_term_map_objects;
+  pose_graph->getLongTermMapObjects(long_term_map_objects);
+  std::unordered_set<ObjectId> involved_in_merge;
+
+  std::unordered_map<ObjectId, std::pair<std::string, RawEllipsoid<double>>>
+      object_estimates_raw;
+  std::unordered_map<std::string,
+                     std::vector<std::pair<ObjectId, Position3d<double>>>>
+      object_centers_by_semantic_class;
+  pose_graph->getObjectEstimates(object_estimates_raw);
+  for (const auto &raw_est : object_estimates_raw) {
+    object_centers_by_semantic_class[raw_est.second.first].emplace_back(
+        std::make_pair(raw_est.first, extractPosition(raw_est.second.second)));
+  }
+  std::vector<std::pair<double, std::pair<ObjectId, ObjectId>>>
+      possible_merge_objs_with_dist;
+
+  for (const auto &sem_class_and_objs : object_centers_by_semantic_class) {
+    for (size_t obj_idx = 0; obj_idx < sem_class_and_objs.second.size();
+         obj_idx++) {
+      std::pair<ObjectId, Position3d<double>> first_obj =
+          sem_class_and_objs.second.at(obj_idx);
+      for (size_t compare_obj_idx = obj_idx + 1;
+           compare_obj_idx < sem_class_and_objs.second.size();
+           compare_obj_idx++) {
+        std::pair<ObjectId, Position3d<double>> second_obj =
+            sem_class_and_objs.second.at(compare_obj_idx);
+        double center_dist = (first_obj.second - second_obj.second).norm();
+        if (center_dist <= max_distance_for_merge) {
+          if ((long_term_map_objects.find(first_obj.first) ==
+               long_term_map_objects.end()) ||
+              (long_term_map_objects.find(second_obj.first) ==
+               long_term_map_objects.end())) {
+            possible_merge_objs_with_dist.emplace_back(std::make_pair(
+                center_dist,
+                std::make_pair(first_obj.first, second_obj.first)));
+          }
+        }
+      }
+    }
+  }
+
+  // Sort possible merge objects with dist
+  std::sort(possible_merge_objs_with_dist.begin(),
+            possible_merge_objs_with_dist.end(),
+            util::sort_pair_by_first<double, std::pair<ObjectId, ObjectId>>());
+
+  for (const std::pair<double, std::pair<ObjectId, ObjectId>> &merge_candidate :
+       possible_merge_objs_with_dist) {
+    if ((involved_in_merge.find(merge_candidate.second.first) ==
+         involved_in_merge.end()) &&
+        (involved_in_merge.find(merge_candidate.second.second) ==
+         involved_in_merge.end())) {
+      involved_in_merge.insert(merge_candidate.second.first);
+      involved_in_merge.insert(merge_candidate.second.second);
+      if (long_term_map_objects.find(merge_candidate.second.first) !=
+          long_term_map_objects.end()) {
+        merge_results[merge_candidate.second.first] = {
+            merge_candidate.second.second};
+      } else {
+        merge_results[merge_candidate.second.second] = {
+            merge_candidate.second.first};
+      }
+    }
+  }
+}
+
 }  // namespace vslam_types_refactor
 
 #endif  // UT_VSLAM_BOUNDING_BOX_FRONT_END_HELPERS_H

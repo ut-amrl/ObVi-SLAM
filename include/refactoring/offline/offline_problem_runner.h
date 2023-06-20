@@ -77,6 +77,8 @@ class OfflineProblemRunner {
           &visualization_callback,
       const std::function<pose_graph_optimization::OptimizationSolverParams(
           const FrameId &)> &solver_params_provider_func,
+      const std::function<bool(const std::shared_ptr<PoseGraphType> &)>
+          object_merger,
       const std::function<bool(const FrameId &)> &gba_checker)
       : residual_params_(residual_params),
         limit_trajectory_eval_params_(limit_trajectory_eval_params),
@@ -91,6 +93,7 @@ class OfflineProblemRunner {
         ceres_callback_creator_(ceres_callback_creator),
         visualization_callback_(visualization_callback),
         solver_params_provider_func_(solver_params_provider_func),
+        object_merger_(object_merger),
         gba_checker_(gba_checker) {}
 
   bool runOptimization(
@@ -173,332 +176,37 @@ class OfflineProblemRunner {
       optimization_scope_params.max_frame_id_ = next_frame_id;
       frame_data_adder_(
           problem_data, pose_graph, start_opt_with_frame, next_frame_id);
-      pose_graph_optimization::OptimizationSolverParams solver_params =
-          solver_params_provider_func_(next_frame_id);
 
-      visualization_callback_(problem_data,
-                              pose_graph,
-                              start_opt_with_frame,
-                              next_frame_id,
-                              VisualizationTypeEnum::BEFORE_EACH_OPTIMIZATION);
-      std::vector<std::shared_ptr<ceres::IterationCallback>> ceres_callbacks =
-          ceres_callback_creator_(
-              problem_data, pose_graph, start_opt_with_frame, next_frame_id);
-
-      if (opt_logger.has_value()) {
-        opt_logger->setOptimizationTypeParams(
-            next_frame_id, start_opt_with_frame == 0, false, false);
-      }
-
-      bool run_visual_feature_opt = true;
-      if (gba_checker_(next_frame_id)) {
-        bool run_pgo;
-        if (next_frame_id == max_frame_id) {
-          run_pgo = optimization_factors_enabled_params
-                        .use_pose_graph_on_final_global_ba_;
-          if (run_pgo) {
-            run_visual_feature_opt =
-                optimization_factors_enabled_params
-                    .use_visual_features_on_final_global_ba_;
-          }
-        } else {
-          run_pgo =
-              optimization_factors_enabled_params.use_pose_graph_on_global_ba_;
-          if (run_pgo) {
-            run_visual_feature_opt = optimization_factors_enabled_params
-                                         .use_visual_features_on_global_ba_;
-          }
-        }
-        if (run_pgo) {
-#ifdef RUN_TIMERS
-          CumulativeFunctionTimer::Invocation gba_invoc(
-              CumulativeTimerFactory::getInstance()
-                  .getOrCreateFunctionTimer(kTimerNameGlobalBundleAdjustment)
-                  .get());
-#endif
-          // TODO Need to run 1 iteration of tracking first
-          LOG(INFO) << "Running tracking before PGO";
-          pose_graph_optimizer::OptimizationScopeParams tracking_params =
-              optimization_scope_params;
-          // TODO do we need more poses than this?
-          tracking_params.min_frame_id_ =
-              next_frame_id -
-              tracking_params.poses_prior_to_window_to_keep_constant_;
-          std::optional<OptimizationLogger> null_logger;
-          optimizer_.buildPoseGraphOptimization(tracking_params,
-                                                residual_params_,
-                                                pose_graph,
-                                                &problem,
-                                                null_logger);
-
-          if (!optimizer_.solveOptimization(&problem,
-                                            solver_params,
-                                            ceres_callbacks,
-                                            null_logger,
-                                            nullptr)) {
-            LOG(INFO) << "Tracking failed";
-          }
-
-          LOG(INFO) << "Running PGO+objs";
-          runPgoPlusEllipsoids(next_frame_id,
-                               residual_creator_,
+      if (!runOptimizationIteration(start_opt_with_frame,
+                               next_frame_id,
+                               problem_data,
+                               optimization_factors_enabled_params,
                                optimization_scope_params,
-                               ceres_callbacks,
-                               residual_params_,
-                               pgo_solver_params_,
-                               {},
-                               next_frame_id == max_frame_id,
+                               max_frame_id,
                                opt_logger,
-                               pose_graph);
-          visualization_callback_(
-              problem_data,
-              pose_graph,
-              start_opt_with_frame,
-              next_frame_id,
-              VisualizationTypeEnum::AFTER_PGO_PLUS_OBJ_OPTIMIZATION);
-        }
+                               pose_graph,
+                               problem)) {
+        return false;
       }
+    }
 
-      if (run_visual_feature_opt) {
-#ifdef RUN_TIMERS
-        CumulativeFunctionTimer::Invocation invoc_lba(
-            CumulativeTimerFactory::getInstance()
-                .getOrCreateFunctionTimer(kTimerNameLocalBundleAdjustment)
-                .get());
-#endif
-        bool visual_feature_opt_enable_two_phase =
-            solver_params.feature_outlier_percentage_ > 0;
-        // Phase I
-        LOG(INFO) << "Building optimization";
-        std::unordered_map<ceres::ResidualBlockId,
-                           std::pair<vslam_types_refactor::FactorType,
-                                     vslam_types_refactor::FeatureFactorId>>
-            current_residual_block_info =
-                optimizer_.buildPoseGraphOptimization(optimization_scope_params,
-                                                      residual_params_,
-                                                      pose_graph,
-                                                      &problem,
-                                                      opt_logger);
-        std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> pose_graph_copy =
-            pose_graph->makeDeepCopy();
-        LOG(INFO) << "Solving optimization";
-        bool phase1_optim_success;
-        std::vector<ceres::ResidualBlockId> residual_block_ids;
-        std::vector<double> residuals;
-        if (visual_feature_opt_enable_two_phase) {
-#ifdef RUN_TIMERS
-          CumulativeFunctionTimer::Invocation phase_one_invoc(
-              CumulativeTimerFactory::getInstance()
-                  .getOrCreateFunctionTimer(kTimerNamePhaseOneLbaOpt)
-                  .get());
-#endif
-          phase1_optim_success =
-              optimizer_.solveOptimization(&problem,
-                                           solver_params,
-                                           ceres_callbacks,
-                                           opt_logger,
-                                           &residual_block_ids,
-                                           &residuals);
-        } else {
-#ifdef RUN_TIMERS
-          CumulativeFunctionTimer::Invocation phase_one_invoc(
-              CumulativeTimerFactory::getInstance()
-                  .getOrCreateFunctionTimer(kTimerNamePhaseOneLbaOpt)
-                  .get());
-#endif
-          phase1_optim_success = optimizer_.solveOptimization(&problem,
-                                                              solver_params,
-                                                              ceres_callbacks,
-                                                              opt_logger,
-                                                              nullptr,
-                                                              nullptr);
-        }
+    // Until there are no more objects to merge, check if a merge should be
+    // performed, and then if so, rerun the optimization to update the estimates
+    while (object_merger_(pose_graph)) {
+      ceres::Problem merged_problem;
+      optimizer_.clearPastOptimizationData();
 
-        if (!phase1_optim_success) {
-          // TODO do we want to quit or just silently let this iteration fail?
-          LOG(ERROR) << "Phase I Optimization failed at max frame id "
-                     << next_frame_id;
-          return false;
-        }
-        if (opt_logger.has_value()) {
-          opt_logger->writeCurrentOptInfo();
-        }
-
-        // If two-phase optim is enabled, compute outliers based on residuals
-        std::unordered_map<vslam_types_refactor::FactorType,
-                           std::unordered_map<ceres::ResidualBlockId, double>>
-            factor_types_and_residual_info;
-        if (visual_feature_opt_enable_two_phase) {
-#ifdef RUN_TIMERS
-          CumulativeFunctionTimer::Invocation post_opt_residual_invoc(
-              CumulativeTimerFactory::getInstance()
-                  .getOrCreateFunctionTimer(kTimerNamePostOptResidualCompute)
-                  .get());
-#endif
-          size_t residual_idx = 0;
-          for (size_t block_idx = 0; block_idx < residual_block_ids.size();
-               ++block_idx) {
-            const ceres::ResidualBlockId &block_id =
-                residual_block_ids.at(block_idx);
-            // TODO (Taijing) for speed I hardcoded values here
-            // We want to use Cere 2.0+ or have a generic API to get residual
-            // block lengths
-            size_t residual_block_size;
-            if (current_residual_block_info.at(block_id).first ==
-                kReprojectionErrorFactorTypeId) {
-              residual_block_size = 2;
-              // vslam_types_refactor::ReprojectionErrorFactor factor;
-              // pose_graph->getVisualFactor(
-              //     current_residual_block_info.at(block_id).second, factor);
-            } else if (current_residual_block_info.at(block_id).first ==
-                       kObjectObservationFactorTypeId) {
-              residual_block_size = 4;
-            } else if (current_residual_block_info.at(block_id).first ==
-                       kShapeDimPriorFactorTypeId) {
-              residual_block_size = 3;
-            } else if (current_residual_block_info.at(block_id).first ==
-                       kLongTermMapFactorTypeId) {
-              residual_block_size = kEllipsoidParamterizationSize;
-            } else if (current_residual_block_info.at(block_id).first ==
-                       kPairwiseRobotPoseFactorTypeId) {
-              residual_block_size = 6;
-            } else if (current_residual_block_info.at(block_id).first ==
-                       kPairwiseErrorFactorTypeId) {
-              residual_block_size = 1;
-            } else {
-              LOG(ERROR) << "Unknown factor type "
-                         << current_residual_block_info.at(block_id).first
-                         << ". Disabling two phase optimization ...";
-              visual_feature_opt_enable_two_phase = false;
-              break;
-            }
-            double total_residual = 0;
-            for (size_t i = 0; i < residual_block_size; ++i) {
-              total_residual +=
-                  (residuals.at(residual_idx) * residuals.at(residual_idx));
-              ++residual_idx;
-            }
-            // Only exclude reprojection errors for visual features and bbox
-            // observation errors for objects. Modify this check if you want
-            // to add two-phase optimization support to other factors.
-            if ((current_residual_block_info.at(block_id).first ==
-                 kReprojectionErrorFactorTypeId) ||
-                (current_residual_block_info.at(block_id).first ==
-                 kObjectObservationFactorTypeId)) {
-              factor_types_and_residual_info
-                  [current_residual_block_info.at(block_id).first][block_id] =
-                      total_residual;
-            }
-          }
-          if (residual_idx != residuals.size()) {
-            LOG(ERROR) << "Something is wrong with residual block indexing. "
-                          "Disabling two phase optimization ...";
-            visual_feature_opt_enable_two_phase = false;
-          }
-        }
-
-        // Build excluded_feature_factor_types_and_ids
-        util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
-            excluded_feature_factor_types_and_ids;
-        if (visual_feature_opt_enable_two_phase) {
-#ifdef RUN_TIMERS
-          CumulativeFunctionTimer::Invocation two_phase_opt_outlier_invoc(
-              CumulativeTimerFactory::getInstance()
-                  .getOrCreateFunctionTimer(
-                      kTimerNameTwoPhaseOptOutlierIdentification)
-                  .get());
-#endif
-          std::unordered_map<
-              FactorType,
-              std::map<double, ceres::ResidualBlockId, std::greater<double>>>
-              factor_types_and_ordered_residual_info;
-          for (const auto &factor_type_and_residual_info :
-               factor_types_and_residual_info) {
-            LOG(INFO) << "Factor type "
-                      << (int)factor_type_and_residual_info.first << " has "
-                      << factor_type_and_residual_info.second.size()
-                      << " factors before outlier exclusion.";
-            for (const auto block_id_and_residual :
-                 factor_type_and_residual_info.second) {
-              factor_types_and_ordered_residual_info
-                  [factor_type_and_residual_info.first]
-                  [block_id_and_residual.second] = block_id_and_residual.first;
-            }
-          }
-          for (const auto &factor_type_and_ordered_redsidual_info :
-               factor_types_and_ordered_residual_info) {
-            const auto &ordered_residuals_and_block_ids =
-                factor_type_and_ordered_redsidual_info.second;
-            size_t n_outliers =
-                (size_t)(ordered_residuals_and_block_ids.size() *
-                         solver_params.feature_outlier_percentage_);
-            auto it = ordered_residuals_and_block_ids.begin();
-            for (size_t i = 0; i < n_outliers; ++i) {
-              const ceres::ResidualBlockId &block_id = it->second;
-              excluded_feature_factor_types_and_ids.insert(
-                  current_residual_block_info.at(block_id));
-              ++it;
-            }
-          }
-        }
-
-        // Phase II
-        if (visual_feature_opt_enable_two_phase) {
-          // revert back to the old pose graph for Phase II optim
-#ifdef RUN_TIMERS
-          CumulativeFunctionTimer::Invocation phase_two_invoc(
-              CumulativeTimerFactory::getInstance()
-                  .getOrCreateFunctionTimer(kTimerNamePhaseTwoLbaOpt)
-                  .get());
-#endif
-          if (opt_logger.has_value()) {
-            opt_logger->setOptimizationTypeParams(
-                next_frame_id, start_opt_with_frame == 0, false, true);
-          }
-          pose_graph->setValuesFromAnotherPoseGraph(pose_graph_copy);
-          optimizer_.buildPoseGraphOptimization(
-              optimization_scope_params,
-              residual_params_,
-              pose_graph,
-              &problem,
-              opt_logger,
-              excluded_feature_factor_types_and_ids);
-
-          if (!optimizer_.solveOptimization(&problem,
-                                            solver_params,
-                                            ceres_callbacks,
-                                            opt_logger,
-                                            nullptr,
-                                            nullptr)) {
-            // TODO do we want to quit or just silently let this iteration
-            // fail?
-            LOG(ERROR) << "Phase II Optimization failed at max frame id "
-                       << next_frame_id;
-            return false;
-          }
-          if (opt_logger.has_value()) {
-            opt_logger->writeCurrentOptInfo();
-          }
-        }
-        if (optimization_scope_params.allow_reversion_after_dectecting_jumps_) {
-          if (!isConsecutivePosesStable_(
-                  pose_graph,
-                  optimization_scope_params.min_frame_id_,
-                  optimization_scope_params.max_frame_id_,
-                  optimization_factors_enabled_params
-                      .consecutive_pose_transl_tol_,
-                  optimization_factors_enabled_params
-                      .consecutive_pose_orient_tol_)) {
-            LOG(WARNING) << "Detecting jumps after optimization. Reverting...";
-            pose_graph->setValuesFromAnotherPoseGraph(pose_graph_copy);
-          }
-        }
-
-        visualization_callback_(problem_data,
-                                pose_graph,
-                                start_opt_with_frame,
-                                next_frame_id,
-                                VisualizationTypeEnum::AFTER_EACH_OPTIMIZATION);
+      // Rerun optimization
+      if (!runOptimizationIteration(0,
+                               max_frame_id,
+                               problem_data,
+                               optimization_factors_enabled_params,
+                               optimization_scope_params,
+                               max_frame_id,
+                               opt_logger,
+                               pose_graph,
+                               merged_problem)) {
+        return false;
       }
     }
 
@@ -570,6 +278,8 @@ class OfflineProblemRunner {
       const FrameId &)>
       solver_params_provider_func_;
 
+  std::function<bool(const std::shared_ptr<PoseGraphType> &)> object_merger_;
+
   std::function<bool(const FrameId &)> gba_checker_;
 
   bool isConsecutivePosesStable_(
@@ -607,6 +317,345 @@ class OfflineProblemRunner {
               kConsecutiveOrientTol) {
         return false;
       }
+    }
+    return true;
+  }
+
+  bool runOptimizationIteration(
+      const FrameId &start_opt_with_frame,
+      const FrameId &next_frame_id,
+      const InputProblemData &problem_data,
+      const pose_graph_optimizer::OptimizationFactorsEnabledParams
+          &optimization_factors_enabled_params,
+      const pose_graph_optimizer::OptimizationScopeParams
+          &optimization_scope_params,
+      const FrameId &max_frame_id,
+      std::optional<vslam_types_refactor::OptimizationLogger> &opt_logger,
+      std::shared_ptr<PoseGraphType> &pose_graph,
+      ceres::Problem &problem) {
+    pose_graph_optimization::OptimizationSolverParams solver_params =
+        solver_params_provider_func_(next_frame_id);
+
+    visualization_callback_(problem_data,
+                            pose_graph,
+                            start_opt_with_frame,
+                            next_frame_id,
+                            VisualizationTypeEnum::BEFORE_EACH_OPTIMIZATION);
+    std::vector<std::shared_ptr<ceres::IterationCallback>> ceres_callbacks =
+        ceres_callback_creator_(
+            problem_data, pose_graph, start_opt_with_frame, next_frame_id);
+
+    if (opt_logger.has_value()) {
+      opt_logger->setOptimizationTypeParams(
+          next_frame_id, start_opt_with_frame == 0, false, false);
+    }
+
+    bool run_visual_feature_opt = true;
+    if (gba_checker_(next_frame_id)) {
+      bool run_pgo;
+      if (next_frame_id == max_frame_id) {
+        run_pgo = optimization_factors_enabled_params
+                      .use_pose_graph_on_final_global_ba_;
+        if (run_pgo) {
+          run_visual_feature_opt = optimization_factors_enabled_params
+                                       .use_visual_features_on_final_global_ba_;
+        }
+      } else {
+        run_pgo =
+            optimization_factors_enabled_params.use_pose_graph_on_global_ba_;
+        if (run_pgo) {
+          run_visual_feature_opt = optimization_factors_enabled_params
+                                       .use_visual_features_on_global_ba_;
+        }
+      }
+      if (run_pgo) {
+#ifdef RUN_TIMERS
+        CumulativeFunctionTimer::Invocation gba_invoc(
+            CumulativeTimerFactory::getInstance()
+                .getOrCreateFunctionTimer(kTimerNameGlobalBundleAdjustment)
+                .get());
+#endif
+        // TODO Need to run 1 iteration of tracking first
+        LOG(INFO) << "Running tracking before PGO";
+        pose_graph_optimizer::OptimizationScopeParams tracking_params =
+            optimization_scope_params;
+        // TODO do we need more poses than this?
+        tracking_params.min_frame_id_ =
+            next_frame_id -
+            tracking_params.poses_prior_to_window_to_keep_constant_;
+        std::optional<OptimizationLogger> null_logger;
+        optimizer_.buildPoseGraphOptimization(tracking_params,
+                                              residual_params_,
+                                              pose_graph,
+                                              &problem,
+                                              null_logger);
+
+        if (!optimizer_.solveOptimization(&problem,
+                                          solver_params,
+                                          ceres_callbacks,
+                                          null_logger,
+                                          nullptr)) {
+          LOG(INFO) << "Tracking failed";
+        }
+
+        LOG(INFO) << "Running PGO+objs";
+        runPgoPlusEllipsoids(next_frame_id,
+                             residual_creator_,
+                             optimization_scope_params,
+                             ceres_callbacks,
+                             residual_params_,
+                             pgo_solver_params_,
+                             {},
+                             next_frame_id == max_frame_id,
+                             opt_logger,
+                             pose_graph);
+        visualization_callback_(
+            problem_data,
+            pose_graph,
+            start_opt_with_frame,
+            next_frame_id,
+            VisualizationTypeEnum::AFTER_PGO_PLUS_OBJ_OPTIMIZATION);
+      }
+    }
+
+    if (run_visual_feature_opt) {
+#ifdef RUN_TIMERS
+      CumulativeFunctionTimer::Invocation invoc_lba(
+          CumulativeTimerFactory::getInstance()
+              .getOrCreateFunctionTimer(kTimerNameLocalBundleAdjustment)
+              .get());
+#endif
+      bool visual_feature_opt_enable_two_phase =
+          solver_params.feature_outlier_percentage_ > 0;
+      // Phase I
+      LOG(INFO) << "Building optimization";
+      std::unordered_map<ceres::ResidualBlockId,
+                         std::pair<vslam_types_refactor::FactorType,
+                                   vslam_types_refactor::FeatureFactorId>>
+          current_residual_block_info =
+              optimizer_.buildPoseGraphOptimization(optimization_scope_params,
+                                                    residual_params_,
+                                                    pose_graph,
+                                                    &problem,
+                                                    opt_logger);
+      std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> pose_graph_copy =
+          pose_graph->makeDeepCopy();
+      LOG(INFO) << "Solving optimization";
+      bool phase1_optim_success;
+      std::vector<ceres::ResidualBlockId> residual_block_ids;
+      std::vector<double> residuals;
+      if (visual_feature_opt_enable_two_phase) {
+#ifdef RUN_TIMERS
+        CumulativeFunctionTimer::Invocation phase_one_invoc(
+            CumulativeTimerFactory::getInstance()
+                .getOrCreateFunctionTimer(kTimerNamePhaseOneLbaOpt)
+                .get());
+#endif
+        phase1_optim_success = optimizer_.solveOptimization(&problem,
+                                                            solver_params,
+                                                            ceres_callbacks,
+                                                            opt_logger,
+                                                            &residual_block_ids,
+                                                            &residuals);
+      } else {
+#ifdef RUN_TIMERS
+        CumulativeFunctionTimer::Invocation phase_one_invoc(
+            CumulativeTimerFactory::getInstance()
+                .getOrCreateFunctionTimer(kTimerNamePhaseOneLbaOpt)
+                .get());
+#endif
+        phase1_optim_success = optimizer_.solveOptimization(&problem,
+                                                            solver_params,
+                                                            ceres_callbacks,
+                                                            opt_logger,
+                                                            nullptr,
+                                                            nullptr);
+      }
+
+      if (!phase1_optim_success) {
+        // TODO do we want to quit or just silently let this iteration fail?
+        LOG(ERROR) << "Phase I Optimization failed at max frame id "
+                   << next_frame_id;
+        return false;
+      }
+      if (opt_logger.has_value()) {
+        opt_logger->writeCurrentOptInfo();
+      }
+
+      // If two-phase optim is enabled, compute outliers based on residuals
+      std::unordered_map<vslam_types_refactor::FactorType,
+                         std::unordered_map<ceres::ResidualBlockId, double>>
+          factor_types_and_residual_info;
+      if (visual_feature_opt_enable_two_phase) {
+#ifdef RUN_TIMERS
+        CumulativeFunctionTimer::Invocation post_opt_residual_invoc(
+            CumulativeTimerFactory::getInstance()
+                .getOrCreateFunctionTimer(kTimerNamePostOptResidualCompute)
+                .get());
+#endif
+        size_t residual_idx = 0;
+        for (size_t block_idx = 0; block_idx < residual_block_ids.size();
+             ++block_idx) {
+          const ceres::ResidualBlockId &block_id =
+              residual_block_ids.at(block_idx);
+          // TODO (Taijing) for speed I hardcoded values here
+          // We want to use Cere 2.0+ or have a generic API to get residual
+          // block lengths
+          size_t residual_block_size;
+          if (current_residual_block_info.at(block_id).first ==
+              kReprojectionErrorFactorTypeId) {
+            residual_block_size = 2;
+            // vslam_types_refactor::ReprojectionErrorFactor factor;
+            // pose_graph->getVisualFactor(
+            //     current_residual_block_info.at(block_id).second, factor);
+          } else if (current_residual_block_info.at(block_id).first ==
+                     kObjectObservationFactorTypeId) {
+            residual_block_size = 4;
+          } else if (current_residual_block_info.at(block_id).first ==
+                     kShapeDimPriorFactorTypeId) {
+            residual_block_size = 3;
+          } else if (current_residual_block_info.at(block_id).first ==
+                     kLongTermMapFactorTypeId) {
+            residual_block_size = kEllipsoidParamterizationSize;
+          } else if (current_residual_block_info.at(block_id).first ==
+                     kPairwiseRobotPoseFactorTypeId) {
+            residual_block_size = 6;
+          } else if (current_residual_block_info.at(block_id).first ==
+                     kPairwiseErrorFactorTypeId) {
+            residual_block_size = 1;
+          } else {
+            LOG(ERROR) << "Unknown factor type "
+                       << current_residual_block_info.at(block_id).first
+                       << ". Disabling two phase optimization ...";
+            visual_feature_opt_enable_two_phase = false;
+            break;
+          }
+          double total_residual = 0;
+          for (size_t i = 0; i < residual_block_size; ++i) {
+            total_residual +=
+                (residuals.at(residual_idx) * residuals.at(residual_idx));
+            ++residual_idx;
+          }
+          // Only exclude reprojection errors for visual features and bbox
+          // observation errors for objects. Modify this check if you want
+          // to add two-phase optimization support to other factors.
+          if ((current_residual_block_info.at(block_id).first ==
+               kReprojectionErrorFactorTypeId) ||
+              (current_residual_block_info.at(block_id).first ==
+               kObjectObservationFactorTypeId)) {
+            factor_types_and_residual_info
+                [current_residual_block_info.at(block_id).first][block_id] =
+                    total_residual;
+          }
+        }
+        if (residual_idx != residuals.size()) {
+          LOG(ERROR) << "Something is wrong with residual block indexing. "
+                        "Disabling two phase optimization ...";
+          visual_feature_opt_enable_two_phase = false;
+        }
+      }
+
+      // Build excluded_feature_factor_types_and_ids
+      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
+          excluded_feature_factor_types_and_ids;
+      if (visual_feature_opt_enable_two_phase) {
+#ifdef RUN_TIMERS
+        CumulativeFunctionTimer::Invocation two_phase_opt_outlier_invoc(
+            CumulativeTimerFactory::getInstance()
+                .getOrCreateFunctionTimer(
+                    kTimerNameTwoPhaseOptOutlierIdentification)
+                .get());
+#endif
+        std::unordered_map<
+            FactorType,
+            std::map<double, ceres::ResidualBlockId, std::greater<double>>>
+            factor_types_and_ordered_residual_info;
+        for (const auto &factor_type_and_residual_info :
+             factor_types_and_residual_info) {
+          LOG(INFO) << "Factor type "
+                    << (int)factor_type_and_residual_info.first << " has "
+                    << factor_type_and_residual_info.second.size()
+                    << " factors before outlier exclusion.";
+          for (const auto block_id_and_residual :
+               factor_type_and_residual_info.second) {
+            factor_types_and_ordered_residual_info
+                [factor_type_and_residual_info.first]
+                [block_id_and_residual.second] = block_id_and_residual.first;
+          }
+        }
+        for (const auto &factor_type_and_ordered_redsidual_info :
+             factor_types_and_ordered_residual_info) {
+          const auto &ordered_residuals_and_block_ids =
+              factor_type_and_ordered_redsidual_info.second;
+          size_t n_outliers =
+              (size_t)(ordered_residuals_and_block_ids.size() *
+                       solver_params.feature_outlier_percentage_);
+          auto it = ordered_residuals_and_block_ids.begin();
+          for (size_t i = 0; i < n_outliers; ++i) {
+            const ceres::ResidualBlockId &block_id = it->second;
+            excluded_feature_factor_types_and_ids.insert(
+                current_residual_block_info.at(block_id));
+            ++it;
+          }
+        }
+      }
+
+      // Phase II
+      if (visual_feature_opt_enable_two_phase) {
+        // revert back to the old pose graph for Phase II optim
+#ifdef RUN_TIMERS
+        CumulativeFunctionTimer::Invocation phase_two_invoc(
+            CumulativeTimerFactory::getInstance()
+                .getOrCreateFunctionTimer(kTimerNamePhaseTwoLbaOpt)
+                .get());
+#endif
+        if (opt_logger.has_value()) {
+          opt_logger->setOptimizationTypeParams(
+              next_frame_id, start_opt_with_frame == 0, false, true);
+        }
+        pose_graph->setValuesFromAnotherPoseGraph(pose_graph_copy);
+        optimizer_.buildPoseGraphOptimization(
+            optimization_scope_params,
+            residual_params_,
+            pose_graph,
+            &problem,
+            opt_logger,
+            excluded_feature_factor_types_and_ids);
+
+        if (!optimizer_.solveOptimization(&problem,
+                                          solver_params,
+                                          ceres_callbacks,
+                                          opt_logger,
+                                          nullptr,
+                                          nullptr)) {
+          // TODO do we want to quit or just silently let this iteration
+          // fail?
+          LOG(ERROR) << "Phase II Optimization failed at max frame id "
+                     << next_frame_id;
+          return false;
+        }
+        if (opt_logger.has_value()) {
+          opt_logger->writeCurrentOptInfo();
+        }
+      }
+      if (optimization_scope_params.allow_reversion_after_dectecting_jumps_) {
+        if (!isConsecutivePosesStable_(pose_graph,
+                                       optimization_scope_params.min_frame_id_,
+                                       optimization_scope_params.max_frame_id_,
+                                       optimization_factors_enabled_params
+                                           .consecutive_pose_transl_tol_,
+                                       optimization_factors_enabled_params
+                                           .consecutive_pose_orient_tol_)) {
+          LOG(WARNING) << "Detecting jumps after optimization. Reverting...";
+          pose_graph->setValuesFromAnotherPoseGraph(pose_graph_copy);
+        }
+      }
+
+      visualization_callback_(problem_data,
+                              pose_graph,
+                              start_opt_with_frame,
+                              next_frame_id,
+                              VisualizationTypeEnum::AFTER_EACH_OPTIMIZATION);
     }
     return true;
   }

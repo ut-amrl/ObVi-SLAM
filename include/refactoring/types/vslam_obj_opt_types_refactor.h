@@ -140,6 +140,22 @@ RawEllipsoid<NumType> convertToRawEllipsoid(
 }
 
 template <typename NumType>
+void extractPosition(const RawEllipsoid<NumType> &raw_obj_state,
+                     Position3d<NumType> &position) {
+  position(0) = raw_obj_state[0];
+  position(1) = raw_obj_state[1];
+  position(2) = raw_obj_state[2];
+}
+
+template <typename NumType>
+Position3d<NumType> extractPosition(
+    const RawEllipsoid<NumType> &raw_obj_state) {
+  Position3d<NumType> position;
+  extractPosition(raw_obj_state, position);
+  return position;
+}
+
+template <typename NumType>
 BbCornerPair<NumType> cornerLocationsVectorToPair(
     const BbCorners<NumType> &corner_vec) {
   return std::make_pair(PixelCoord<NumType>(corner_vec(0), corner_vec(2)),

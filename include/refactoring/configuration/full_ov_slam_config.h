@@ -21,7 +21,7 @@ namespace vslam_types_refactor {
 
 // NOTE: This should be incremented every time the format of the configuration
 // data changes
-const static int kCurrentConfigSchemaVersion = 8;
+const static int kCurrentConfigSchemaVersion = 9;
 
 struct VisualFeatureParams {
   double reprojection_error_std_dev_;
@@ -98,15 +98,30 @@ struct SlidingWindowParams {
   }
 };
 
+struct PostSessionObjectMergeParams {
+  double max_merge_distance_;
+
+  bool operator==(const PostSessionObjectMergeParams &rhs) const {
+    return (max_merge_distance_ == rhs.max_merge_distance_);
+  }
+
+  bool operator!=(const PostSessionObjectMergeParams &rhs) const {
+    return !operator==(rhs);
+  }
+};
+
 struct BoundingBoxFrontEndParams {
   GeometricSimilarityScorerParams geometric_similarity_scorer_params_;
   FeatureBasedBbAssociationParams feature_based_bb_association_params_;
+  PostSessionObjectMergeParams post_session_object_merge_params_;
 
   bool operator==(const BoundingBoxFrontEndParams &rhs) const {
     return (geometric_similarity_scorer_params_ ==
             rhs.geometric_similarity_scorer_params_) &&
            (feature_based_bb_association_params_ ==
-            rhs.feature_based_bb_association_params_);
+            rhs.feature_based_bb_association_params_) &&
+           (post_session_object_merge_params_ ==
+            rhs.post_session_object_merge_params_);
   }
 
   bool operator!=(const BoundingBoxFrontEndParams &rhs) const {
