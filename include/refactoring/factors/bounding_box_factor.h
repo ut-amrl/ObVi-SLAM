@@ -77,12 +77,8 @@ class BoundingBoxFactor {
     // about)
 
     Eigen::Matrix<T, 4, 1> corner_results;
-    bool valid_case =
-        getCornerLocationsVector<T>(ellipsoid,
-                                    robot_pose,
-                                    robot_to_cam_tf_.cast<T>(),
-                                    camera_intrinsics_mat_.cast<T>(),
-                                    corner_results);
+    bool valid_case = getCornerLocationsVectorRectified<T>(
+        ellipsoid, robot_pose, robot_to_cam_tf_.cast<T>(), corner_results);
 
     if (!valid_case) {
       residuals_ptr[0] = T(invalid_ellipse_error_);
@@ -110,7 +106,7 @@ class BoundingBoxFactor {
     }
 
     Eigen::Matrix<T, 4, 1> deviation =
-        corner_results - corner_detections_.template cast<T>();
+        corner_results - rectified_corner_locations_.template cast<T>();
     //        LOG(INFO) << "Detection " << corner_detections_;
     //        LOG(INFO) << "Deviation " << deviation;
     //        LOG(INFO) << "Sqrt inf mat bounding box "
@@ -126,7 +122,8 @@ class BoundingBoxFactor {
     }
     Eigen::Map<Eigen::Matrix<T, 4, 1>> residuals(residuals_ptr);
     residuals =
-        sqrt_inf_mat_bounding_box_corners_.template cast<T>() * deviation;
+        sqrt_inf_mat_bounding_box_corners_rectified_.template cast<T>() *
+        deviation;
     if (debug_) {
       if (obj_id_.has_value() && frame_id_.has_value() &&
           camera_id_.has_value()) {
@@ -211,24 +208,16 @@ class BoundingBoxFactor {
  private:
   double invalid_ellipse_error_;
 
-  /**
-   * Corner detections for the bounding box. The first value is the smallest x
-   * value, the next is the largest x value, the third is the smallest y value
-   * and the fourth is the largest y value. These correspond to the x and y
-   * coordinates defining opposite corners of the bounding box.
-   */
-  vslam_types_refactor::BbCorners<double> corner_detections_;
+  vslam_types_refactor::BbCorners<double> rectified_corner_locations_;
 
   /**
-   * Square root of the bounding box information matrix (inverse of covariance).
+   * Square root of the bounding box information matrix (inverse of covariance)
+   * times a matrix for scaling to account for intrinsics.
    *
-   * Let this value be A. To get the shape covariance C, C = (A * A)^-1.
+   * Let the unrectified value be A. To get the shape covariance C, C = (A *
+   * A)^-1.
    */
-  Eigen::Matrix<double, 4, 4> sqrt_inf_mat_bounding_box_corners_;
-  /**
-   * Camera intrinsics matrix.
-   */
-  vslam_types_refactor::CameraIntrinsicsMat<double> camera_intrinsics_mat_;
+  Eigen::Matrix<double, 4, 4> sqrt_inf_mat_bounding_box_corners_rectified_;
 
   /**
    * Transform that provides the robot's position in the camera frame (inverse
