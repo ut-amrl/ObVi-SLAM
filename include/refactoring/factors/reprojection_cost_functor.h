@@ -78,19 +78,16 @@ class ReprojectionCostFunctor {
     //    T(image_feature_.y())) / reprojection_error_std_dev_;
 
     Eigen::Matrix<T, 2, 1> projected_pixel;
-    getProjectedPixelLocation<T>(pose,
-                                 point,
-                                 cam_to_robot_tf_.cast<T>(),
-                                 intrinsics_.cast<T>(),
-                                 projected_pixel);
+    getProjectedPixelLocationRectified<T>(
+        pose, point, cam_to_robot_tf_inv_.cast<T>(), projected_pixel);
     //    LOG(INFO) << "Projected pixel location " << projected_pixel.x() << ",
     //    " << projected_pixel.y();
 
     // Compute the residual.
-    residual[0] = (projected_pixel.x() - T(image_feature_.x())) /
-                  reprojection_error_std_dev_;
-    residual[1] = (projected_pixel.y() - T(image_feature_.y())) /
-                  reprojection_error_std_dev_;
+    residual[0] = T(rectified_error_multiplier_x_) *
+                  (projected_pixel.x() - T(rect_feature_x_));
+    residual[1] = T(rectified_error_multiplier_y_) *
+                  (projected_pixel.y() - T(rect_feature_y_));
 
     return true;
   }
@@ -120,25 +117,18 @@ class ReprojectionCostFunctor {
   }
 
  private:
-  /**
-   * Pixel coordinate of the image feature
-   */
-  Eigen::Vector2d image_feature_;
+  double rect_feature_x_;
 
-  /**
-   * Camera intrinsic matrix
-   */
-  vslam_types_refactor::CameraIntrinsicsMat<double> intrinsics_;
+  double rect_feature_y_;
 
-  /**
-   * Reprojection error standard deviation.
-   */
-  double reprojection_error_std_dev_;
+  double rectified_error_multiplier_x_;
+
+  double rectified_error_multiplier_y_;
 
   /**
    * Transform that provides the camera position in the robot's frame.
    */
-  Eigen::Affine3d cam_to_robot_tf_;
+  Eigen::Affine3d cam_to_robot_tf_inv_;
 };
 }  // namespace vslam_types_refactor
 

@@ -16,16 +16,27 @@ BoundingBoxFactor::BoundingBoxFactor(
     const std::optional<CameraId> &camera_id,
     const bool &debug)
     : invalid_ellipse_error_(invalid_ellipse_error),
-      corner_detections_(corner_pixel_locations),
-      sqrt_inf_mat_bounding_box_corners_(
-          corner_detections_covariance.inverse().sqrt()),
-      camera_intrinsics_mat_(intrinsics),
       robot_to_cam_tf_(
           (Eigen::Translation3d(extrinsics.transl_) * extrinsics.orientation_)
               .inverse()),
       obj_id_(obj_id),
       frame_id_(frame_id),
       camera_id_(camera_id),
-      debug_(debug) {}
+      debug_(debug) {
+  double fx = intrinsics(0, 0);
+  double fy = intrinsics(1, 1);
+  double cx = intrinsics(0, 2);
+  double cy = intrinsics(1, 2);
+  Eigen::Vector4d scale_correct(fx, fx, fy, fy);
+  sqrt_inf_mat_bounding_box_corners_rectified_ =
+      (corner_detections_covariance.inverse().sqrt()) *
+      scale_correct.asDiagonal();
+
+  rectified_corner_locations_ =
+      BbCorners<double>(((corner_pixel_locations(0) - cx) / fx),
+                        ((corner_pixel_locations(1) - cx) / fx),
+                        ((corner_pixel_locations(2) - cy) / fy),
+                        ((corner_pixel_locations(3) - cy) / fy));
+}
 
 }  // namespace vslam_types_refactor

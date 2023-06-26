@@ -22,6 +22,36 @@ namespace {
 const float kDimensionRegularizationConstant = 1e-3;
 }  // namespace
 
+template <typename T>
+void getEllipsoidDimMatAndTf(
+    const T *ellipsoid_data,
+    Eigen::Matrix<T, 4, 4> &dim_mat,
+    Eigen::Transform<T, 3, Eigen::Affine> &ellipsoid_pose) {
+  Eigen::Translation<T, 3> transl(
+      ellipsoid_data[0], ellipsoid_data[1], ellipsoid_data[2]);
+
+  Eigen::Matrix<T, 4, 1> diag_mat(
+      pow(ellipsoid_data[kEllipsoidPoseParameterizationSize] / T(2), 2) +
+          T(kDimensionRegularizationConstant),
+      pow(ellipsoid_data[kEllipsoidPoseParameterizationSize + 1] / T(2), 2) +
+          T(kDimensionRegularizationConstant),
+      pow(ellipsoid_data[kEllipsoidPoseParameterizationSize + 2] / T(2), 2) +
+          T(kDimensionRegularizationConstant),
+      T(-1));
+  dim_mat = diag_mat.asDiagonal();
+
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+  Eigen::AngleAxis<T> axis_angle =
+      Eigen::AngleAxis<T>(ellipsoid_data[3], Eigen::Matrix<T, 3, 1>::UnitZ());
+#else
+  const Eigen::Matrix<T, 3, 1> rotation_axis(
+      ellipsoid_data[3], ellipsoid_data[4], ellipsoid_data[5]);
+  Eigen::AngleAxis<T> axis_angle = VectorToAxisAngle(rotation_axis);
+#endif
+
+  ellipsoid_pose = transl * Eigen::Quaternion<T>(axis_angle);
+}
+
 /**
  * Create the matrix representation (dual form) for the ellipsoid.
  *
@@ -100,72 +130,120 @@ Eigen::Matrix<T, 4, 4> createDualRepresentationForEllipsoid(
  *                              ellipsoid and robot pose estimates.
  */
 template <typename T>
-bool getCornerLocationsVector(
+bool getCornerLocationsVectorRectified(
     const T *ellipsoid,
     const T *robot_pose,
     const Eigen::Transform<T, 3, Eigen::Affine> &robot_to_cam_tf,
-    const Eigen::Matrix<T, 3, 3> &intrinsics,
     Eigen::Matrix<T, 4, 1> &corner_results) {
   Eigen::Transform<T, 3, Eigen::Affine> robot_to_world_current =
       PoseArrayToAffine(&(robot_pose[3]), &(robot_pose[0]));
-  //    LOG(INFO) << "Robot pose " << robot_to_world_current.matrix();
 
   // Robot to world defines the robot's pose in the world frame
   // Cam to robot defines the camera pose in the robot's frame
   // We want the world's pose in the camera frame
   Eigen::Transform<T, 3, Eigen::Affine> world_to_camera =
       robot_to_cam_tf * robot_to_world_current.inverse();
-  Eigen::Transform<T, 3, Eigen::AffineCompact> world_to_camera_compact =
-      world_to_camera;
-  Eigen::Matrix<T, 4, 4> ellipsoid_dual_rep =
-      createDualRepresentationForEllipsoid(ellipsoid);
 
-  Eigen::Matrix<T, 4, 4> ellipsoid_dual_rep_wrt_cam =
-      world_to_camera.matrix() * ellipsoid_dual_rep *
-      world_to_camera.matrix().transpose();
-  T q33 = ellipsoid_dual_rep_wrt_cam(2, 2);
-  T q34 = ellipsoid_dual_rep_wrt_cam(2, 3);
-  T q44 = ellipsoid_dual_rep_wrt_cam(3, 3);
-  T zplaneSqrt = pow((pow(q34, 2) - (q33 * q44)), 0.5);
-  T plus_tan_z_plane = (q34 + zplaneSqrt) / q44;
-  T min_tan_z_plane = (q34 - zplaneSqrt) / q44;
+  // Get the ellipsoid's pose in the world frame as a tf
+  Eigen::Matrix<T, 4, 4> dim_mat;
+  Eigen::Transform<T, 3, Eigen::Affine> ellipsoid_pose;
+
+  getEllipsoidDimMatAndTf(ellipsoid, dim_mat, ellipsoid_pose);
+
+  Eigen::Transform<T, 3, Eigen::AffineCompact> combined_tf_compact =
+      world_to_camera * ellipsoid_pose;
+
+  Eigen::Matrix<T, 3, 3> q_mat = combined_tf_compact.matrix() * dim_mat *
+                                 combined_tf_compact.matrix().transpose();
+
+  // Check if behind camera
+  T t_z = combined_tf_compact.translation().z();
+  T q33_adjusted_sqrt = sqrt(q_mat(2, 2) + pow(t_z, 2));
+
+  T plus_tan_z_plane = t_z + q33_adjusted_sqrt;
+  T min_tan_z_plane = t_z - q33_adjusted_sqrt;
   if ((plus_tan_z_plane < T(0)) && (min_tan_z_plane < T(0))) {
     LOG(WARNING)
         << "Ellipsoid fully behind camera plane. Not physically possible.";
     // TODO should we sleep or exit here to make this error more evident?
   }
 
-  Eigen::Matrix<T, 3, 3> g_mat =
-      intrinsics * world_to_camera_compact.matrix() * ellipsoid_dual_rep *
-      world_to_camera_compact.matrix().transpose() * intrinsics.transpose();
-  //  LOG(INFO) << "G mat ";
-  //  LOG(INFO) << g_mat;
-  T g1_1 = g_mat(0, 0);
-  T g1_3 = g_mat(0, 2);
-  T g2_2 = g_mat(1, 1);
-  T g2_3 = g_mat(1, 2);
-  T g3_3 = g_mat(2, 2);
+  T q1_1 = q_mat(0, 0);
+  T q1_3 = q_mat(0, 2);
+  T q2_2 = q_mat(1, 1);
+  T q2_3 = q_mat(1, 2);
+  T q3_3 = q_mat(2, 2);
 
-  if ((pow(g1_3, 2) - (g1_1 * g3_3)) <= T(0)) {
+  if ((pow(q1_3, 2) - (q1_1 * q3_3)) <= T(0)) {
     return false;
   }
-  if ((pow(g2_3, 2) - (g2_2 * g3_3)) <= T(0)) {
+  if ((pow(q2_3, 2) - (q2_2 * q3_3)) <= T(0)) {
     return false;
   }
-  T x_sqrt_component = sqrt(pow(g1_3, 2) - (g1_1 * g3_3));
-  T y_sqrt_component = sqrt(pow(g2_3, 2) - (g2_2 * g3_3));
+  T x_sqrt_component = sqrt(pow(q1_3, 2) - (q1_1 * q3_3));
+  T y_sqrt_component = sqrt(pow(q2_3, 2) - (q2_2 * q3_3));
 
   // TODO Verify once we have real data that these are in the right order?
   //  is min and max actually the min and max?
-  //    Eigen::Matrix<T, 4, 1> corner_results(g1_3 - x_sqrt_component,
-  //                                          g1_3 + x_sqrt_component,
-  //                                          g2_3 - y_sqrt_component,
-  //                                          g2_3 + y_sqrt_component);
-  corner_results << g1_3 + x_sqrt_component, g1_3 - x_sqrt_component,
-      g2_3 + y_sqrt_component, g2_3 - y_sqrt_component;
-  corner_results = corner_results / g3_3;
+  //    Eigen::Matrix<T, 4, 1> corner_results(q1_3 - x_sqrt_component,
+  //                                          q1_3 + x_sqrt_component,
+  //                                          q2_3 - y_sqrt_component,
+  //                                          q2_3 + y_sqrt_component);
+  corner_results << q1_3 + x_sqrt_component, q1_3 - x_sqrt_component,
+      q2_3 + y_sqrt_component, q2_3 - y_sqrt_component;
+  corner_results = corner_results / q3_3;
   return true;
 }
+
+/**
+ * Get the predicted bounding box for an ellipsoid observed by a camera on a
+ * robot at the given robot pose.
+ *
+ * @tparam T                    Datatype for numbers to evaluate.
+ * @param ellipsoid[in]         Estimate of the ellipsoid parameters. This is a
+ *                              9 entry array with the first 3 entries
+ *                              corresponding to the translation, the second 3
+ *                              entries containing the axis-angle representation
+ *                              (with angle given by the magnitude of the
+ *                              vector), and the final 3 entries corresponding
+ *                              to the dimensions of the ellipsoid.
+ * @param robot_pose[in]        Robot's pose in the world frame corresponding to
+ *                              the location of where the feature was imaged.
+ *                              This is a 6 entry array with the first 3 entries
+ *                              corresponding to the translation and the second
+ *                              3 entries containing the axis-angle
+ *                              representation (with angle given by the
+ *                              magnitude of the vector).
+ * @param robot_to_cam_tf[in]   Transform that provides the robot's position in
+ *                              the camera frame (inverse of extrinsics, which
+ *                              provide the camera's pose in the robot frame).
+ * @param intrinsics[in]        Camera intrinsics.
+ * @param corner_locations[out] Predicted corner locations based on the current
+ *                              ellipsoid and robot pose estimates.
+ */
+template <typename T>
+bool getCornerLocationsVector(
+    const T *ellipsoid,
+    const T *robot_pose,
+    const Eigen::Transform<T, 3, Eigen::Affine> &robot_to_cam_tf,
+    const Eigen::Matrix<T, 3, 3> &intrinsics,
+    Eigen::Matrix<T, 4, 1> &corner_results) {
+  Eigen::Matrix<T, 4, 1> rect_corner_results;
+  if (!getCornerLocationsVectorRectified(
+          ellipsoid, robot_pose, robot_to_cam_tf, rect_corner_results)) {
+    return false;
+  }
+
+  Eigen::Matrix<T, 4, 1> adjust_center(
+      intrinsics(0, 2), intrinsics(0, 2), intrinsics(1, 2), intrinsics(1, 2));
+  Eigen::Matrix<T, 4, 1> adjust_scale(
+      intrinsics(0, 0), intrinsics(0, 0), intrinsics(1, 1), intrinsics(1, 1));
+  corner_results =
+      (adjust_scale.asDiagonal() * rect_corner_results) + adjust_center;
+
+  return true;
+}
+
 template <typename NumType>
 BbCornerPair<NumType> getCornerLocationsPair(
     const EllipsoidState<NumType> &ellispoid_est,

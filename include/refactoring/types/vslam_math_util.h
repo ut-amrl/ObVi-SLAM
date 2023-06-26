@@ -284,11 +284,10 @@ Eigen::Matrix<NumType, N, N> createDiagCovFromStdDevs(
 }
 
 template <typename T>
-void getProjectedPixelLocation(
+void getProjectedPixelLocationRectified(
     const T* pose,
     const T* point,
-    const Eigen::Transform<T, 3, Eigen::Affine>& cam_to_robot_tf_,
-    const Eigen::Matrix<T, 3, 3>& intrinsics_,
+    const Eigen::Transform<T, 3, Eigen::Affine>& cam_to_robot_tf_inv,
     Eigen::Matrix<T, 2, 1>& pixel_results) {
   // Transform from world to current robot pose
   Eigen::Transform<T, 3, Eigen::Affine> world_to_robot_current =
@@ -301,22 +300,36 @@ void getProjectedPixelLocation(
 
   // Transform the point from global coordinates to frame of current pose.
   Eigen::Matrix<T, 3, 1> point_current =
-      cam_to_robot_tf_.inverse() * world_to_robot_current * point_world;
+      cam_to_robot_tf_inv * world_to_robot_current * point_world;
   //  LOG(INFO) << "Point " << point_current;
 
   // Project the 3  D point into the current image.
-  if (point_current.z() < T(0)) {
-    //    LOG(WARNING) << "Point projected onto camera was behind the image
-    //    plane."
-    //                    " This should not happen";
-    // TODO should we sleep or exit here to make this error more evident?
-  }
+  //  if (point_current.z() < T(0)) {
+  //    LOG(WARNING) << "Point projected onto camera was behind the image
+  //    plane."
+  //                    " This should not happen";
+  // TODO should we sleep or exit here to make this error more evident?
+  //  }
+
+  pixel_results.x() = point_current.x() / point_current.z();
+  pixel_results.y() = point_current.y() / point_current.z();
+}
+
+template <typename T>
+void getProjectedPixelLocation(
+    const T* pose,
+    const T* point,
+    const Eigen::Transform<T, 3, Eigen::Affine>& cam_to_robot_tf_,
+    const Eigen::Matrix<T, 3, 3>& intrinsics_,
+    Eigen::Matrix<T, 2, 1>& pixel_results) {
+  Eigen::Matrix<T, 2, 1> unrectified_pixel_results;
+  getProjectedPixelLocationRectified(
+      pose, point, cam_to_robot_tf_.inverse(), unrectified_pixel_results);
+
   pixel_results.x() =
-      intrinsics_(0, 0) * point_current.x() / point_current.z() +
-      intrinsics_(0, 2);
+      intrinsics_(0, 0) * unrectified_pixel_results.x() + intrinsics_(0, 2);
   pixel_results.y() =
-      intrinsics_(1, 1) * point_current.y() / point_current.z() +
-      intrinsics_(1, 2);
+      intrinsics_(1, 1) * unrectified_pixel_results.y() + intrinsics_(1, 2);
 }
 
 }  // namespace vslam_types_refactor
