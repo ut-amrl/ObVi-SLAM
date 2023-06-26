@@ -126,6 +126,9 @@ target_link_libraries(write_configuration ut_vslam ${LIBS})
 ROSBUILD_ADD_EXECUTABLE(interpolate_poses_with_required_nodes src/evaluation/interpolate_poses_with_required_nodes.cpp)
 target_link_libraries(interpolate_poses_with_required_nodes ut_vslam ${LIBS})
 
+ROSBUILD_ADD_EXECUTABLE(cube_slam_data_generator src/evaluation/cube_slam/cube_slam_data_generator.cpp)
+target_link_libraries(cube_slam_data_generator ut_vslam ${LIBS})
+
 ROSBUILD_ADD_EXECUTABLE(oa_slam_data_generator src/evaluation/oa_slam/oa_slam_data_generator.cpp)
 target_link_libraries(oa_slam_data_generator ut_vslam ${LIBS})
 
