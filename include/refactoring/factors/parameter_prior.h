@@ -5,6 +5,8 @@
 #ifndef UT_VSLAM_PARAMETER_PRIOR_H
 #define UT_VSLAM_PARAMETER_PRIOR_H
 
+#include <analysis/cumulative_timer_constants.h>
+#include <analysis/cumulative_timer_factory.h>
 #include <ceres/autodiff_cost_function.h>
 #include <glog/logging.h>
 #include <refactoring/types/ellipsoid_utils.h>
@@ -25,12 +27,34 @@ class ParameterPrior {
         param_std_dev_(param_std_dev) {}
 
   template <typename T>
-  bool operator()(const T *param_block, T *residuals_ptr) const {
+  bool runOperator(const T *param_block, T *residuals_ptr) const {
     T residual_val =
         (param_block[param_idx_] - T(param_mean_)) / (param_std_dev_);
     residuals_ptr[0] = residual_val;
 
     return true;
+  }
+
+  bool operator()(const double *param_block, double *residuals_ptr) const {
+#ifdef RUN_TIMERS
+    CumulativeFunctionTimer::Invocation invoc(
+        CumulativeTimerFactory::getInstance()
+            .getOrCreateFunctionTimer(kTimerNameFactorParamPriorDouble)
+            .get());
+#endif
+    return runOperator<double>(param_block, residuals_ptr);
+  }
+
+  template <int JetDim>
+  bool operator()(const ceres::Jet<double, JetDim> *param_block,
+                  ceres::Jet<double, JetDim> *residuals_ptr) const {
+#ifdef RUN_TIMERS
+    CumulativeFunctionTimer::Invocation invoc(
+        CumulativeTimerFactory::getInstance()
+            .getOrCreateFunctionTimer(kTimerNameFactorParamPriorJacobian)
+            .get());
+#endif
+    return runOperator<ceres::Jet<double, JetDim>>(param_block, residuals_ptr);
   }
 
   template <int ParamBlockSize>

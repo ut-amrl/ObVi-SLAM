@@ -355,6 +355,65 @@ class AbstractBoundingBoxFrontEnd {
     return true;
   }
 
+  /**
+   * Merge objects.
+   *
+   * @param objects_to_merge Map of object id to merge into to objects to merge
+   * into that object. If there is not a key for the object and it isn't
+   * included in one of the values, then it should be left alone
+   *
+   * @return True if the merge object succeeded, false otherwise.
+   */
+  virtual bool mergeObjects(
+      const std::unordered_map<ObjectId, std::unordered_set<ObjectId>>
+          &objects_to_merge) {
+    std::unordered_set<ObjectId> objects_to_remove;
+    for (const auto &merge_group : objects_to_merge) {
+      for (const ObjectId &merge_obj : merge_group.second) {
+        if (objects_to_remove.find(merge_obj) != objects_to_remove.end()) {
+          LOG(ERROR)
+              << "Object " << merge_obj
+              << " expected to be merged into multiple objects (second was "
+              << merge_group.first
+              << "). This will cause unexpected behavior. ";
+        }
+        if (objects_to_merge.find(merge_obj) != objects_to_merge.end()) {
+          LOG(ERROR) << "Object " << merge_obj
+                     << " is supposed to be merged into " << merge_group.first
+                     << " and have other objects merged into it. This will "
+                        "cause unexpected behavior. ";
+        }
+        if (object_appearance_info_.find(merge_obj) ==
+            object_appearance_info_.end()) {
+          LOG(ERROR) << "Could not find appearance info for object to merge "
+                     << merge_obj << "; not merging";
+        } else if (object_appearance_info_.find(merge_group.first) ==
+                   object_appearance_info_.end()) {
+          LOG(ERROR)
+              << "Could not find appearance info for object to merge into ("
+              << merge_group.first
+              << ") ; using info for object to merge into it (" << merge_obj
+              << ")";
+          object_appearance_info_[merge_group.first] =
+              object_appearance_info_.at(merge_obj);
+        } else {
+          // TODO make sure this actually updates the reference
+          mergeObjectAssociationInfo(
+              object_appearance_info_.at(merge_obj),
+              object_appearance_info_[merge_group.first]);
+        }
+      }
+      objects_to_remove.insert(merge_group.second.begin(),
+                               merge_group.second.end());
+    }
+
+    for (const ObjectId &object_to_remove : objects_to_remove) {
+      object_appearance_info_.erase(object_to_remove);
+    }
+
+    return true;
+  }
+
  protected:
   std::shared_ptr<vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
       VisualFeatureFactorType>>
@@ -379,6 +438,12 @@ class AbstractBoundingBoxFrontEnd {
   virtual std::vector<ObjectId> mergePending(
       const std::vector<std::pair<ObjectId, ObjectId>>
           &pending_and_initialized_objects_to_merge) {
+#ifdef RUN_TIMERS
+    CumulativeFunctionTimer::Invocation invoc(
+        CumulativeTimerFactory::getInstance()
+            .getOrCreateFunctionTimer(kTimerNameBbFrontEndMergePending)
+            .get());
+#endif
     std::vector<ObjectId> merged_indices;
     for (const std::pair<ObjectId, ObjectId> &merge_obj :
          pending_and_initialized_objects_to_merge) {
@@ -505,6 +570,12 @@ class AbstractBoundingBoxFrontEnd {
                                        const BbCorners<double> &bb_corners,
                                        const Covariance<double, 4> &bb_cov,
                                        const double &detection_confidence) {
+#ifdef RUN_TIMERS
+    CumulativeFunctionTimer::Invocation invoc(
+        CumulativeTimerFactory::getInstance()
+            .getOrCreateFunctionTimer(kTimerNameBbFrontEndAddObservationForObj)
+            .get());
+#endif
     ObjectObservationFactor factor;
     factor.frame_id_ = frame_id;
     factor.camera_id_ = camera_id;
@@ -763,6 +834,14 @@ class KnownAssociationsOptionalEllipsoidEstBoundingBoxFrontEnd
     return init_result ? SUFFICIENT_VIEWS_FOR_NEW : NOT_INITIALIZED;
   }
 
+  virtual bool mergeObjects(
+      const std::unordered_map<ObjectId, std::unordered_set<ObjectId>>
+          &objects_to_merge) override {
+    LOG(WARNING) << "Merge has no effect in known data association front-end "
+                    "since there shouldn't be any merges";
+    return true;
+  }
+
  private:
   std::unordered_map<ObjectId, vslam_types_refactor::RawEllipsoid<double>>
       optional_initial_estimates_;
@@ -874,6 +953,12 @@ class AbstractUnknownDataAssociationBbFrontEnd
       const RefinedBoundingBoxContextInfo &refined_bb_context,
       const std::vector<SingleBbContextInfo> &indiv_bb_contexts,
       std::vector<AssociatedObjectIdentifier> &bounding_box_assignments) {
+#ifdef RUN_TIMERS
+    CumulativeFunctionTimer::Invocation invoc(
+        CumulativeTimerFactory::getInstance()
+            .getOrCreateFunctionTimer(kTimerNameAbsBbFrontEndGetBbAssignments)
+            .get());
+#endif
     std::vector<std::vector<std::pair<AssociatedObjectIdentifier, double>>>
         match_candidates_with_scores;
     for (size_t i = 0; i < bounding_boxes.size(); i++) {

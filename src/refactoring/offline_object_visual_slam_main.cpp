@@ -28,6 +28,7 @@
 #include <refactoring/offline/offline_problem_data.h>
 #include <refactoring/offline/offline_problem_runner.h>
 #include <refactoring/offline/pose_graph_frame_data_adder.h>
+#include <refactoring/optimization/pose_graph_utils.h>
 #include <refactoring/optimization/residual_creator.h>
 #include <refactoring/output_problem_data.h>
 #include <refactoring/output_problem_data_extraction.h>
@@ -1047,6 +1048,12 @@ int main(int argc, char **argv) {
               ceres::Problem *problem,
               ceres::ResidualBlockId &residual_id,
               util::EmptyStruct &cached_info) {
+#ifdef RUN_TIMERS
+            CumulativeFunctionTimer::Invocation invoc(
+                vtr::CumulativeTimerFactory::getInstance()
+                    .getOrCreateFunctionTimer(vtr::kTimerNameResidualCreator)
+                    .get());
+#endif
             return vtr::createResidual(factor_id,
                                        pose_graph,
                                        solver_residual_params,
@@ -1235,6 +1242,12 @@ int main(int argc, char **argv) {
       bb_context_retriever = [&](const vtr::FrameId &frame_id,
                                  const vtr::CameraId &camera_id,
                                  const MainProbData &problem_data) {
+#ifdef RUN_TIMERS
+        CumulativeFunctionTimer::Invocation invoc(
+            vtr::CumulativeTimerFactory::getInstance()
+                .getOrCreateFunctionTimer(vtr::kTimerNameBbContextRetriever)
+                .get());
+#endif
         vtr::FeatureBasedContextInfo context;
         bool success = false;
         if (low_level_features_map.find(frame_id) !=
@@ -1515,6 +1528,46 @@ int main(int argc, char **argv) {
     }
   }
 
+  std::function<bool(
+      const std::shared_ptr<MainPg> &,
+      std::unordered_map<vtr::ObjectId, std::unordered_set<vtr::ObjectId>> &)>
+      merge_decider = [&](const std::shared_ptr<MainPg> &pose_graph,
+                          std::unordered_map<vtr::ObjectId,
+                                             std::unordered_set<vtr::ObjectId>>
+                              &merge_results) {
+        vtr::identifyMergeObjectsBasedOnCenterProximity(
+            pose_graph,
+            config.bounding_box_front_end_params_
+                .post_session_object_merge_params_.max_merge_distance_,
+            merge_results);
+        return true;
+      };
+
+  std::function<bool(const std::shared_ptr<MainPg> &)> object_merger =
+      [&](const std::shared_ptr<MainPg> &pose_graph) {
+        std::unordered_map<vtr::ObjectId, std::unordered_set<vtr::ObjectId>>
+            merge_results;
+        if (!merge_decider(pose_graph, merge_results)) {
+          LOG(INFO) << "Merge decider failed";
+        }
+        if (merge_results.empty()) {
+          return false;
+        }
+        std::shared_ptr<vtr::AbstractBoundingBoxFrontEnd<
+            vtr::ReprojectionErrorFactor,
+            vtr::FeatureBasedFrontEndObjAssociationInfo,
+            vtr::FeatureBasedFrontEndPendingObjInfo,
+            vtr::FeatureBasedContextInfo,
+            vtr::FeatureBasedContextInfo,
+            vtr::FeatureBasedSingleBbContextInfo,
+            util::EmptyStruct>>
+            front_end = bb_associator_retriever(pose_graph, input_problem_data);
+        if (!mergeObjects(merge_results, pose_graph, front_end)) {
+          LOG(ERROR) << "Error merging objects";
+        }
+        return true;
+      };
+
   std::function<std::vector<std::shared_ptr<ceres::IterationCallback>>(
       const MainProbData &,
       const MainPgPtr &,
@@ -1594,6 +1647,7 @@ int main(int argc, char **argv) {
                              ceres_callback_creator,
                              visualization_callback,
                              solver_params_provider_func,
+                             object_merger,
                              gba_checker);
 
   //  vtr::SpatialEstimateOnlyResults output_results;

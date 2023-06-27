@@ -8,7 +8,7 @@
 #include <glog/logging.h>
 #include <refactoring/configuration/full_ov_slam_config.h>
 
-DEFINE_string(config_directory, "", "Directory for configuration files");
+DEFINE_string(config_directory, "config/", "Directory for configuration files");
 DEFINE_string(
     config_identifier,
     "",
@@ -100,6 +100,10 @@ BoundingBoxFrontEndParams generateBoundingBoxFrontEndParams(
       pending_obj_estimator_params;
 
   params.feature_based_bb_association_params_ = bb_assoc_front_end_params;
+
+  // Post session merge
+  params.post_session_object_merge_params_.max_merge_distance_ = -1;
+
   return params;
 }
 

@@ -5,6 +5,8 @@
 #ifndef UT_VSLAM_OBJECT_POSE_GRAPH_H
 #define UT_VSLAM_OBJECT_POSE_GRAPH_H
 
+#include <analysis/cumulative_timer_constants.h>
+#include <analysis/cumulative_timer_factory.h>
 #include <base_lib/basic_utils.h>
 #include <glog/logging.h>
 #include <refactoring/optimization/low_level_feature_pose_graph.h>
@@ -583,6 +585,13 @@ class ObjAndLowLevelFeaturePoseGraph
 
   virtual std::unordered_set<ObjectId> getObjectsWithSemanticClass(
       const std::string &semantic_class) const {
+#ifdef RUN_TIMERS
+    CumulativeFunctionTimer::Invocation invoc(
+        CumulativeTimerFactory::getInstance()
+            .getOrCreateFunctionTimer(
+                kTimerNamePoseGraphGetObjectsWithSemanticClass)
+            .get());
+#endif
     std::unordered_set<ObjectId> objs;
     for (const auto &obj_id_and_class : semantic_class_for_object_) {
       if (obj_id_and_class.second == semantic_class) {
@@ -604,6 +613,13 @@ class ObjAndLowLevelFeaturePoseGraph
   bool getObservationFactorsForObjId(
       const ObjectId &obj_id,
       std::vector<ObjectObservationFactor> &observation_factors) {
+#ifdef RUN_TIMERS
+    CumulativeFunctionTimer::Invocation invoc(
+        CumulativeTimerFactory::getInstance()
+            .getOrCreateFunctionTimer(
+                kTimerNamePoseGraphGetObservationFactorsForObj)
+            .get());
+#endif
     if (observation_factors_by_object_.find(obj_id) ==
         observation_factors_by_object_.end()) {
       return false;
@@ -655,6 +671,107 @@ class ObjAndLowLevelFeaturePoseGraph
       std::unordered_map<ObjectId, EllipsoidEstimateNode> &ellipsoid_estimates)
       const {
     ellipsoid_estimates = ellipsoid_estimates_;
+  }
+
+  /**
+   * Merge objects.
+   *
+   * @param objects_to_merge Map of object id to merge into to objects to merge
+   * into that object. If there is not a key for the object and it isn't
+   * included in one of the values, then it should be left alone. Objects can
+   * only be included in the value set for one key.
+   *
+   * @return True if the merge object succeeded, false otherwise.
+   */
+  virtual bool mergeObjects(
+      const std::unordered_map<ObjectId, std::unordered_set<ObjectId>>
+          &objects_to_merge) {
+    std::unordered_set<ObjectId> objects_to_remove;
+    for (const auto &merge_group : objects_to_merge) {
+      for (const ObjectId &merge_obj : merge_group.second) {
+        if (objects_to_remove.find(merge_obj) != objects_to_remove.end()) {
+          LOG(ERROR)
+              << "Object " << merge_obj
+              << " expected to be merged into multiple objects (second was "
+              << merge_group.first
+              << "). This will cause unexpected behavior. ";
+        }
+        if (objects_to_merge.find(merge_obj) != objects_to_merge.end()) {
+          LOG(ERROR) << "Object " << merge_obj
+                     << " is supposed to be merged into " << merge_group.first
+                     << " and have other objects merged into it. This will "
+                        "cause unexpected behavior. ";
+        }
+        util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
+            observation_factors_for_merge_target =
+                observation_factors_by_object_.at(merge_obj);
+        for (const std::pair<FactorType, FeatureFactorId> &
+                 observation_factor_id : observation_factors_for_merge_target) {
+          if (observation_factor_id.first == kObjectObservationFactorTypeId) {
+            if (object_observation_factors_.find(
+                    observation_factor_id.second) ==
+                object_observation_factors_.end()) {
+              LOG(WARNING)
+                  << "Could not find object observation factor with id "
+                  << observation_factor_id.second << " skipping";
+            } else {
+              object_observation_factors_[observation_factor_id.second]
+                  .object_id_ = merge_group.first;
+              last_observed_frame_by_object_[merge_group.first] = std::max(
+                  last_observed_frame_by_object_[merge_group.first],
+                  object_observation_factors_[observation_factor_id.second]
+                      .frame_id_);
+              first_observed_frame_by_object_[merge_group.first] = std::max(
+                  first_observed_frame_by_object_[merge_group.first],
+                  object_observation_factors_[observation_factor_id.second]
+                      .frame_id_);
+            }
+          } else {
+            LOG(WARNING) << "Unexpected factor type for object only factor "
+                         << observation_factor_id.first << "Ignoring";
+          }
+        }
+      }
+      objects_to_remove.insert(merge_group.second.begin(),
+                               merge_group.second.end());
+    }
+
+    for (const ObjectId &object_to_remove : objects_to_remove) {
+      ellipsoid_estimates_.erase(object_to_remove);
+      semantic_class_for_object_.erase(object_to_remove);
+      last_observed_frame_by_object_.erase(object_to_remove);
+      first_observed_frame_by_object_.erase(object_to_remove);
+
+      // TODO do we want to be able to remove long-term map objects?
+      long_term_map_object_ids_.erase(object_to_remove);
+
+      // Remove non-observation factors for object if they can't be pointed back
+      // to new object (shape priors at least)
+      // TODO do we need to do anything else to clean these up?
+      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
+          object_only_factors_for_obj =
+              object_only_factors_by_object_.at(object_to_remove);
+      for (const std::pair<FactorType, FeatureFactorId> &obj_only_factor :
+           object_only_factors_for_obj) {
+        if (obj_only_factor.first == kShapeDimPriorFactorTypeId) {
+          shape_dim_prior_factors_.erase(obj_only_factor.second);
+        } else {
+          LOG(WARNING) << "Unexpected factor type for object only factor "
+                       << obj_only_factor.first << "Ignoring";
+        }
+      }
+      object_only_factors_by_object_.erase(object_to_remove);
+    }
+
+    ObjectId tmp_min = std::numeric_limits<ObjectId>::max();
+    ObjectId tmp_max = std::numeric_limits<ObjectId>::min();
+    for (const auto &obj_est : ellipsoid_estimates_) {
+      tmp_min = std::min(obj_est.first, tmp_min);
+      tmp_max = std::max(obj_est.first, tmp_max);
+    }
+    min_object_id_ = tmp_min;
+    max_object_id_ = tmp_max;
+    return true;
   }
 
   void initializeFromState(const ObjOnlyPoseGraphState &pose_graph_state) {

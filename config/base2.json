@@ -340,7 +340,7 @@
                 "bounding_box_inflation_size": 10.0
             },
             "post_session_object_merge_params": {
-                "max_merge_distance": -1.0
+                "max_merge_distance": 1.0
             }
         },
         "bounding_box_covariance_generator_params": {

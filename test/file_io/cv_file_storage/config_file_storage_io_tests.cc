@@ -159,9 +159,11 @@ TEST(FullOVSLAMConfigIO, ReadWriteFullOBSLAMConfig) {
   pending_est_params.solver_params_.function_tolerance_ = -2e-3;
   pending_est_params.solver_params_.allow_non_monotonic_steps_ = true;
   pending_est_params.solver_params_.max_num_iterations_ = 12;
-  pending_est_params.solver_params_.feature_outlier_percentage = 0.978;
+  pending_est_params.solver_params_.feature_outlier_percentage_ = 0.978;
   bounding_box_front_end_params.feature_based_bb_association_params_
       .pending_obj_estimator_params_ = pending_est_params;
+  bounding_box_front_end_params.post_session_object_merge_params_
+      .max_merge_distance_ = 1.23;
   orig_config.bounding_box_front_end_params_ = bounding_box_front_end_params;
 
   BoundingBoxCovGenParams bounding_box_covariance_generator_params;

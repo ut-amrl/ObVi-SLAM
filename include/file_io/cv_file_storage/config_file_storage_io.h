@@ -906,6 +906,49 @@ static void read(
   }
 }
 
+class SerializablePostSessionObjectMergeParams
+    : public FileStorageSerializable<PostSessionObjectMergeParams> {
+ public:
+  SerializablePostSessionObjectMergeParams()
+      : FileStorageSerializable<PostSessionObjectMergeParams>() {}
+  SerializablePostSessionObjectMergeParams(
+      const PostSessionObjectMergeParams &data)
+      : FileStorageSerializable<PostSessionObjectMergeParams>(data) {}
+
+  virtual void write(cv::FileStorage &fs) const override {
+    fs << "{";
+    fs << kMaxMergeDistanceLabel << data_.max_merge_distance_;
+    fs << "}";
+  }
+
+  virtual void read(const cv::FileNode &node) override {
+    data_.max_merge_distance_ = (double)node[kMaxMergeDistanceLabel];
+  }
+
+ protected:
+  using FileStorageSerializable<PostSessionObjectMergeParams>::data_;
+
+ private:
+  inline static const std::string kMaxMergeDistanceLabel = "max_merge_distance";
+};
+
+static void write(cv::FileStorage &fs,
+                  const std::string &,
+                  const SerializablePostSessionObjectMergeParams &data) {
+  data.write(fs);
+}
+
+static void read(const cv::FileNode &node,
+                 SerializablePostSessionObjectMergeParams &data,
+                 const SerializablePostSessionObjectMergeParams &default_data =
+                     SerializablePostSessionObjectMergeParams()) {
+  if (node.empty()) {
+    data = default_data;
+  } else {
+    data.read(node);
+  }
+}
+
 class SerializableBoundingBoxFrontEndParams
     : public FileStorageSerializable<BoundingBoxFrontEndParams> {
  public:
@@ -922,6 +965,9 @@ class SerializableBoundingBoxFrontEndParams
     fs << kFeatureBasedBbAssociationParamsLabel
        << SerializableFeatureBasedBbAssociationParams(
               data_.feature_based_bb_association_params_);
+    fs << kPostSessionObjectMergeParamsLabel
+       << SerializablePostSessionObjectMergeParams(
+              data_.post_session_object_merge_params_);
     fs << "}";
   }
 
@@ -938,6 +984,12 @@ class SerializableBoundingBoxFrontEndParams
         ser_feature_based_bb_association_params;
     data_.feature_based_bb_association_params_ =
         ser_feature_based_bb_association_params.getEntry();
+    SerializablePostSessionObjectMergeParams
+        ser_post_session_object_merge_params;
+    node[kPostSessionObjectMergeParamsLabel] >>
+        ser_post_session_object_merge_params;
+    data_.post_session_object_merge_params_ =
+        ser_post_session_object_merge_params.getEntry();
   }
 
  protected:
@@ -948,6 +1000,8 @@ class SerializableBoundingBoxFrontEndParams
       "geometric_similarity_scorer_params";
   inline static const std::string kFeatureBasedBbAssociationParamsLabel =
       "feature_based_bb_association_params";
+  inline static const std::string kPostSessionObjectMergeParamsLabel =
+      "post_session_object_merge_params";
 };
 
 static void write(cv::FileStorage &fs,
