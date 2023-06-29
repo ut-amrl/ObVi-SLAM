@@ -1,8 +1,6 @@
 #ifndef UT_VSLAM_REFACTORING_BOUNDING_BOX_FACTOR_H
 #define UT_VSLAM_REFACTORING_BOUNDING_BOX_FACTOR_H
 
-#include <analysis/cumulative_timer_constants.h>
-#include <analysis/cumulative_timer_factory.h>
 #include <ceres/autodiff_cost_function.h>
 #include <glog/logging.h>
 #include <refactoring/types/ellipsoid_utils.h>
@@ -68,9 +66,9 @@ class BoundingBoxFactor {
    * @return True if the residual was computed successfully, false otherwise.
    */
   template <typename T>
-  bool runOperator(const T *ellipsoid,
-                   const T *robot_pose,
-                   T *residuals_ptr) const {
+  bool operator()(const T *ellipsoid,
+                  const T *robot_pose,
+                  T *residuals_ptr) const {
     // TODO Add mask that zeros out entries if the edge is near the edge of the
     // image (so we don't use it as a constraint). Could also try to do this
     // through the covariance (very wide covariance for sides we don't care
@@ -138,32 +136,6 @@ class BoundingBoxFactor {
 
     //    LOG(INFO) << "Residuals " << residuals;
     return true;
-  }
-
-  bool operator()(const double *ellipsoid,
-                  const double *robot_pose,
-                  double *residuals_ptr) const {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(kTimerNameFactorBoundingBoxDouble)
-            .get());
-#endif
-    return runOperator<double>(ellipsoid, robot_pose, residuals_ptr);
-  }
-
-  template <int JetDim>
-  bool operator()(const ceres::Jet<double, JetDim> *ellipsoid,
-                  const ceres::Jet<double, JetDim> *robot_pose,
-                  ceres::Jet<double, JetDim> *residuals_ptr) const {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(kTimerNameFactorBoundingBoxJacobian)
-            .get());
-#endif
-    return runOperator<ceres::Jet<double, JetDim>>(
-        ellipsoid, robot_pose, residuals_ptr);
   }
 
   /**

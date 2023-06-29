@@ -5,8 +5,6 @@
 #ifndef UT_VSLAM_POSE_GRAPH_FRAME_DATA_ADDER_H
 #define UT_VSLAM_POSE_GRAPH_FRAME_DATA_ADDER_H
 
-#include <analysis/cumulative_timer_constants.h>
-#include <analysis/cumulative_timer_factory.h>
 #include <refactoring/bounding_box_frontend/bounding_box_front_end.h>
 #include <refactoring/offline/offline_problem_data.h>
 #include <refactoring/optimization/object_pose_graph.h>
@@ -22,13 +20,6 @@ void addConsecutiveRelativePoseFactorsForFrame(
     const FrameId &frame_to_add,
     const std::function<Covariance<double, 6>(const Pose3D<double> &)>
         &pose_deviation_cov_creator) {
-#ifdef RUN_TIMERS
-  CumulativeFunctionTimer::Invocation invoc(
-      CumulativeTimerFactory::getInstance()
-          .getOrCreateFunctionTimer(
-              kTimerNamePgFrameDataAdderAddConsecutiveRelativePoseFactors)
-          .get());
-#endif
   if (start_frame_id == frame_to_add) {
     return;
   }
@@ -75,13 +66,6 @@ void addVisualFeatureFactorsForFrame(
                const FrameId &,
                const FeatureId &,
                const CameraId &)> &reprojection_error_provider) {
-#ifdef RUN_TIMERS
-  CumulativeFunctionTimer::Invocation invoc(
-      CumulativeTimerFactory::getInstance()
-          .getOrCreateFunctionTimer(
-              kTimerNamePgFrameDataAdderAddVisualFeatureFactors)
-          .get());
-#endif
   // Add visual factors for frame
   std::unordered_map<FeatureId, StructuredVisionFeatureTrack> visual_features =
       input_problem_data.getVisualFeatures();
@@ -186,13 +170,6 @@ void addFrameDataAssociatedBoundingBox(
     const std::function<std::pair<bool, RawBoundingBoxContextInfo>(
         const FrameId &, const CameraId &, const ProblemDataType &)>
         &bb_context_retriever) {
-#ifdef RUN_TIMERS
-  CumulativeFunctionTimer::Invocation invoc(
-      CumulativeTimerFactory::getInstance()
-          .getOrCreateFunctionTimer(
-              kTimerNamePgFrameDataAdderAddFrameDataAssociatedBoundingBox)
-          .get());
-#endif
   Pose3D<double> pose_at_frame_init_est;
   if (!input_problem_data.getRobotPoseEstimateForFrame(
           frame_to_add, pose_at_frame_init_est)) {

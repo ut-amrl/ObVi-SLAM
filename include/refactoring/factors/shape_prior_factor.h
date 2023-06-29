@@ -1,8 +1,6 @@
 #ifndef UT_VSLAM_REFACTORING_SHAPE_PRIOR_FACTOR_H
 #define UT_VSLAM_REFACTORING_SHAPE_PRIOR_FACTOR_H
 
-#include <analysis/cumulative_timer_constants.h>
-#include <analysis/cumulative_timer_factory.h>
 #include <ceres/autodiff_cost_function.h>
 #include <glog/logging.h>
 #include <refactoring/types/vslam_obj_opt_types_refactor.h>
@@ -46,7 +44,7 @@ class ShapePriorFactor {
    * @return True if the residual was computed successfully, false otherwise.
    */
   template <typename T>
-  bool runOperator(const T *ellipsoid, T *residuals_ptr) const {
+  bool operator()(const T *ellipsoid, T *residuals_ptr) const {
     Eigen::Matrix<T, 3, 1> dimension_mat(
         ellipsoid[kEllipsoidPoseParameterizationSize],
         ellipsoid[kEllipsoidPoseParameterizationSize + 1],
@@ -60,60 +58,6 @@ class ShapePriorFactor {
         sqrt_shape_dim_inf_mat_.template cast<T>() * deviation_from_mean;
 
     return true;
-  }
-
-  /**
-   * Compute the residual for the deviation from the prior on the ellipsoid's
-   * dimensions.
-   *
-   * @param ellipsoid[in]       Estimate of the ellipsoid parameters. This is a
-   *                            9 or 7 entry array with the first 3 entries
-   *                            corresponding to the translation, the second 3
-   *                            or 1 entries containing the axis-angle
-   *                            representation (with angle given by
-   *                            the magnitude of the vector) or yaw, and the
-   *                            final 3 entries corresponding to the dimensions
-   *                            of the ellipsoid.
-   * @param residuals_ptr[out]  Residual giving the error. Contains 3 entries.
-   *
-   * @return True if the residual was computed successfully, false otherwise.
-   */
-  bool operator()(const double *ellipsoid, double *residuals_ptr) const {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(kTimerNameFactorShapePriorDouble)
-            .get());
-#endif
-    return runOperator<double>(ellipsoid, residuals_ptr);
-  }
-
-  /**
-   * Compute the residual for the deviation from the prior on the ellipsoid's
-   * dimensions.
-   *
-   * @param ellipsoid[in]       Estimate of the ellipsoid parameters. This is a
-   *                            9 or 7 entry array with the first 3 entries
-   *                            corresponding to the translation, the second 3
-   *                            or 1 entries containing the axis-angle
-   *                            representation (with angle given by
-   *                            the magnitude of the vector) or yaw, and the
-   *                            final 3 entries corresponding to the dimensions
-   *                            of the ellipsoid.
-   * @param residuals_ptr[out]  Residual giving the error. Contains 3 entries.
-   *
-   * @return True if the residual was computed successfully, false otherwise.
-   */
-  template <int JetDim>
-  bool operator()(const ceres::Jet<double, JetDim> *ellipsoid,
-                  ceres::Jet<double, JetDim> *residuals_ptr) const {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(kTimerNameFactorShapePriorJacobian)
-            .get());
-#endif
-    return runOperator<ceres::Jet<double, JetDim>>(ellipsoid, residuals_ptr);
   }
 
   /**

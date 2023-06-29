@@ -5,8 +5,6 @@
 #ifndef UT_VSLAM_OFFLINE_PROBLEM_RUNNER_H
 #define UT_VSLAM_OFFLINE_PROBLEM_RUNNER_H
 
-#include <analysis/cumulative_timer_constants.h>
-#include <analysis/cumulative_timer_factory.h>
 #include <ceres/problem.h>
 #include <refactoring/offline/limit_trajectory_evaluation_params.h>
 #include <refactoring/optimization/object_pose_graph.h>
@@ -156,12 +154,6 @@ class OfflineProblemRunner {
 
     for (FrameId next_frame_id = 1; next_frame_id <= max_frame_id;
          next_frame_id++) {
-#ifdef RUN_TIMERS
-      CumulativeFunctionTimer::Invocation invoc(
-          CumulativeTimerFactory::getInstance()
-              .getOrCreateFunctionTimer(kTimerNameOptimizationIteration)
-              .get());
-#endif
       if (!continue_opt_checker_) {
         LOG(WARNING)
             << "Halted optimization due to continue checker reporting false";
@@ -178,14 +170,14 @@ class OfflineProblemRunner {
           problem_data, pose_graph, start_opt_with_frame, next_frame_id);
 
       if (!runOptimizationIteration(start_opt_with_frame,
-                               next_frame_id,
-                               problem_data,
-                               optimization_factors_enabled_params,
-                               optimization_scope_params,
-                               max_frame_id,
-                               opt_logger,
-                               pose_graph,
-                               problem)) {
+                                    next_frame_id,
+                                    problem_data,
+                                    optimization_factors_enabled_params,
+                                    optimization_scope_params,
+                                    max_frame_id,
+                                    opt_logger,
+                                    pose_graph,
+                                    problem)) {
         return false;
       }
     }
@@ -198,14 +190,14 @@ class OfflineProblemRunner {
 
       // Rerun optimization
       if (!runOptimizationIteration(0,
-                               max_frame_id,
-                               problem_data,
-                               optimization_factors_enabled_params,
-                               optimization_scope_params,
-                               max_frame_id,
-                               opt_logger,
-                               pose_graph,
-                               merged_problem)) {
+                                    max_frame_id,
+                                    problem_data,
+                                    optimization_factors_enabled_params,
+                                    optimization_scope_params,
+                                    max_frame_id,
+                                    opt_logger,
+                                    pose_graph,
+                                    merged_problem)) {
         return false;
       }
     }
@@ -369,12 +361,6 @@ class OfflineProblemRunner {
         }
       }
       if (run_pgo) {
-#ifdef RUN_TIMERS
-        CumulativeFunctionTimer::Invocation gba_invoc(
-            CumulativeTimerFactory::getInstance()
-                .getOrCreateFunctionTimer(kTimerNameGlobalBundleAdjustment)
-                .get());
-#endif
         // TODO Need to run 1 iteration of tracking first
         LOG(INFO) << "Running tracking before PGO";
         pose_graph_optimizer::OptimizationScopeParams tracking_params =
@@ -419,12 +405,6 @@ class OfflineProblemRunner {
     }
 
     if (run_visual_feature_opt) {
-#ifdef RUN_TIMERS
-      CumulativeFunctionTimer::Invocation invoc_lba(
-          CumulativeTimerFactory::getInstance()
-              .getOrCreateFunctionTimer(kTimerNameLocalBundleAdjustment)
-              .get());
-#endif
       bool visual_feature_opt_enable_two_phase =
           solver_params.feature_outlier_percentage_ > 0;
       // Phase I
@@ -445,12 +425,6 @@ class OfflineProblemRunner {
       std::vector<ceres::ResidualBlockId> residual_block_ids;
       std::vector<double> residuals;
       if (visual_feature_opt_enable_two_phase) {
-#ifdef RUN_TIMERS
-        CumulativeFunctionTimer::Invocation phase_one_invoc(
-            CumulativeTimerFactory::getInstance()
-                .getOrCreateFunctionTimer(kTimerNamePhaseOneLbaOpt)
-                .get());
-#endif
         phase1_optim_success = optimizer_.solveOptimization(&problem,
                                                             solver_params,
                                                             ceres_callbacks,
@@ -458,12 +432,6 @@ class OfflineProblemRunner {
                                                             &residual_block_ids,
                                                             &residuals);
       } else {
-#ifdef RUN_TIMERS
-        CumulativeFunctionTimer::Invocation phase_one_invoc(
-            CumulativeTimerFactory::getInstance()
-                .getOrCreateFunctionTimer(kTimerNamePhaseOneLbaOpt)
-                .get());
-#endif
         phase1_optim_success = optimizer_.solveOptimization(&problem,
                                                             solver_params,
                                                             ceres_callbacks,
@@ -487,12 +455,6 @@ class OfflineProblemRunner {
                          std::unordered_map<ceres::ResidualBlockId, double>>
           factor_types_and_residual_info;
       if (visual_feature_opt_enable_two_phase) {
-#ifdef RUN_TIMERS
-        CumulativeFunctionTimer::Invocation post_opt_residual_invoc(
-            CumulativeTimerFactory::getInstance()
-                .getOrCreateFunctionTimer(kTimerNamePostOptResidualCompute)
-                .get());
-#endif
         size_t residual_idx = 0;
         for (size_t block_idx = 0; block_idx < residual_block_ids.size();
              ++block_idx) {
@@ -559,13 +521,6 @@ class OfflineProblemRunner {
       util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
           excluded_feature_factor_types_and_ids;
       if (visual_feature_opt_enable_two_phase) {
-#ifdef RUN_TIMERS
-        CumulativeFunctionTimer::Invocation two_phase_opt_outlier_invoc(
-            CumulativeTimerFactory::getInstance()
-                .getOrCreateFunctionTimer(
-                    kTimerNameTwoPhaseOptOutlierIdentification)
-                .get());
-#endif
         std::unordered_map<
             FactorType,
             std::map<double, ceres::ResidualBlockId, std::greater<double>>>
@@ -603,12 +558,6 @@ class OfflineProblemRunner {
       // Phase II
       if (visual_feature_opt_enable_two_phase) {
         // revert back to the old pose graph for Phase II optim
-#ifdef RUN_TIMERS
-        CumulativeFunctionTimer::Invocation phase_two_invoc(
-            CumulativeTimerFactory::getInstance()
-                .getOrCreateFunctionTimer(kTimerNamePhaseTwoLbaOpt)
-                .get());
-#endif
         if (opt_logger.has_value()) {
           opt_logger->setOptimizationTypeParams(
               next_frame_id, start_opt_with_frame == 0, false, true);
@@ -657,8 +606,113 @@ class OfflineProblemRunner {
                               next_frame_id,
                               VisualizationTypeEnum::AFTER_EACH_OPTIMIZATION);
     }
-    return true;
   }
+
+  visualization_callback_(problem_data,
+                          pose_graph,
+                          0,
+                          max_frame_id,
+                          VisualizationTypeEnum::AFTER_ALL_OPTIMIZATION);
+  output_data_extractor_(problem_data,
+                         pose_graph,
+                         optimization_factors_enabled_params,
+                         output_problem_data);
+  return true;
+}
+
+private : pose_graph_optimization::ObjectVisualPoseGraphResidualParams
+              residual_params_;
+
+LimitTrajectoryEvaluationParams limit_trajectory_eval_params_;
+
+pose_graph_optimization::PoseGraphPlusObjectsOptimizationParams
+    pgo_solver_params_;
+
+std::function<bool()> continue_opt_checker_;
+std::function<FrameId(const FrameId &)> window_provider_func_;
+std::function<bool(
+    const std::pair<vslam_types_refactor::FactorType,
+                    vslam_types_refactor::FeatureFactorId> &,
+    const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
+    const std::shared_ptr<PoseGraphType> &,
+    ceres::Problem *,
+    ceres::ResidualBlockId &,
+    CachedFactorInfo &)>
+    residual_creator_;
+pose_graph_optimizer::ObjectPoseGraphOptimizer<VisualFeatureFactorType,
+                                               CachedFactorInfo,
+                                               PoseGraphType>
+    optimizer_;
+std::function<void(const InputProblemData &, std::shared_ptr<PoseGraphType> &)>
+    pose_graph_creator_;
+
+std::function<void(const InputProblemData &,
+                   const std::shared_ptr<PoseGraphType> &,
+                   const FrameId &,
+                   const FrameId &)>
+    frame_data_adder_;
+std::function<void(
+    const InputProblemData &,
+    const std::shared_ptr<PoseGraphType> &,
+    const pose_graph_optimizer::OptimizationFactorsEnabledParams &,
+    OutputProblemData &)>
+    output_data_extractor_;
+
+std::function<std::vector<std::shared_ptr<ceres::IterationCallback>>(
+    const InputProblemData &,
+    const std::shared_ptr<PoseGraphType> &,
+    const FrameId &,
+    const FrameId &)>
+    ceres_callback_creator_;
+std::function<void(const InputProblemData &,
+                   const std::shared_ptr<PoseGraphType> &,
+                   const FrameId &,
+                   const FrameId &,
+                   const VisualizationTypeEnum &)>
+    visualization_callback_;
+
+std::function<pose_graph_optimization::OptimizationSolverParams(
+    const FrameId &)>
+    solver_params_provider_func_;
+
+std::function<bool(const FrameId &)> gba_checker_;
+
+bool isConsecutivePosesStable_(const std::shared_ptr<PoseGraphType> &pose_graph,
+                               const FrameId &min_frame_id,
+                               const FrameId &max_frame_id,
+                               const double &kConsecutiveTranslTol,
+                               const double &kConsecutiveOrientTol) {
+#ifdef RUN_TIMERS
+  CumulativeFunctionTimer::Invocation invoc(
+      CumulativeTimerFactory::getInstance()
+          .getOrCreateFunctionTimer(kTimerNameConsecutivePosesStable)
+          .get());
+#endif
+  for (FrameId frame_id = min_frame_id + 1; frame_id <= max_frame_id;
+       ++frame_id) {
+    std::optional<RawPose3d<double>> prev_raw_robot_pose =
+        pose_graph->getRobotPose(frame_id - 1);
+    std::optional<RawPose3d<double>> raw_robot_pose =
+        pose_graph->getRobotPose(frame_id);
+    // TODO unsure of how to handle the checks here. Techinically this case
+    // should not happen.
+    if (!prev_raw_robot_pose.has_value() || !raw_robot_pose.has_value()) {
+      LOG(ERROR) << "Couldn't find pose for frame " << frame_id
+                 << " in pose graph";
+      continue;
+    }
+    Pose3D<double> prev_robot_pose =
+        convertToPose3D(prev_raw_robot_pose.value());
+    Pose3D<double> robot_pose = convertToPose3D(raw_robot_pose.value());
+    Pose3D<double> relative_pose =
+        getPose2RelativeToPose1(prev_robot_pose, robot_pose);
+    if (relative_pose.transl_.norm() > kConsecutiveTranslTol ||
+        std::fabs(relative_pose.orientation_.angle()) > kConsecutiveOrientTol) {
+      return false;
+    }
+  }
+  return true;
+}
 };
 }  // namespace vslam_types_refactor
 

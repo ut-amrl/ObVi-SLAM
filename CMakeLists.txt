@@ -14,16 +14,6 @@ else ()
     MESSAGE("Not constraining ellipsoid orientation")
 endif ()
 
-# Need to do clean build if change between on and off
-option(RUN_TIMERS "Add in the timers to profile annotated code" ON)
-if (RUN_TIMERS)
-    MESSAGE("Adding timers")
-    add_definitions(-DRUN_TIMERS)
-else ()
-    MESSAGE("Not adding timers")
-endif ()
-
-
 INCLUDE($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 ROSBUILD_INIT()
 SET(ROS_BUILD_STATIC_LIBS true)

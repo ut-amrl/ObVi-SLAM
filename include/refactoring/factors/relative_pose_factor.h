@@ -5,8 +5,6 @@
 #ifndef UT_VSLAM_RELATIVE_POSE_FACTOR_H
 #define UT_VSLAM_RELATIVE_POSE_FACTOR_H
 
-#include <analysis/cumulative_timer_constants.h>
-#include <analysis/cumulative_timer_factory.h>
 #include <ceres/autodiff_cost_function.h>
 #include <refactoring/types/vslam_basic_types_refactor.h>
 #include <refactoring/types/vslam_math_util.h>
@@ -32,9 +30,9 @@ class RelativePoseFactor {
    * @return True if the residual was computed successfully, false otherwise.
    */
   template <typename T>
-  bool runOperator(const T *robot_pose_before,
-                   const T *robot_pose_after,
-                   T *residuals_ptr) const {
+  bool operator()(const T *robot_pose_before,
+                  const T *robot_pose_after,
+                  T *residuals_ptr) const {
     // Transform from world to current robot pose
     Eigen::Transform<T, 3, Eigen::Affine> world_to_robot_before =
         PoseArrayToAffine(&(robot_pose_before[3]), &(robot_pose_before[0]));
@@ -60,33 +58,6 @@ class RelativePoseFactor {
     residuals = sqrt_inf_mat_rel_pose_.template cast<T>() * unscaled_residuals;
 
     return true;
-  }
-
-  bool operator()(const double *robot_pose_before,
-                  const double *robot_pose_after,
-                  double *residuals_ptr) const {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(kTimerNameFactorRelativePoseDouble)
-            .get());
-#endif
-    return runOperator<double>(
-        robot_pose_before, robot_pose_after, residuals_ptr);
-  }
-
-  template <int JetDim>
-  bool operator()(const ceres::Jet<double, JetDim> *robot_pose_before,
-                  const ceres::Jet<double, JetDim> *robot_pose_after,
-                  ceres::Jet<double, JetDim> *residuals_ptr) const {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(kTimerNameFactorRelativePoseJacobian)
-            .get());
-#endif
-    return runOperator<ceres::Jet<double, JetDim>>(
-        robot_pose_before, robot_pose_after, residuals_ptr);
   }
 
   /**

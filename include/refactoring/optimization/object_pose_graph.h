@@ -5,8 +5,6 @@
 #ifndef UT_VSLAM_OBJECT_POSE_GRAPH_H
 #define UT_VSLAM_OBJECT_POSE_GRAPH_H
 
-#include <analysis/cumulative_timer_constants.h>
-#include <analysis/cumulative_timer_factory.h>
 #include <base_lib/basic_utils.h>
 #include <glog/logging.h>
 #include <refactoring/optimization/low_level_feature_pose_graph.h>
@@ -585,13 +583,6 @@ class ObjAndLowLevelFeaturePoseGraph
 
   virtual std::unordered_set<ObjectId> getObjectsWithSemanticClass(
       const std::string &semantic_class) const {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(
-                kTimerNamePoseGraphGetObjectsWithSemanticClass)
-            .get());
-#endif
     std::unordered_set<ObjectId> objs;
     for (const auto &obj_id_and_class : semantic_class_for_object_) {
       if (obj_id_and_class.second == semantic_class) {
@@ -613,13 +604,6 @@ class ObjAndLowLevelFeaturePoseGraph
   bool getObservationFactorsForObjId(
       const ObjectId &obj_id,
       std::vector<ObjectObservationFactor> &observation_factors) {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(
-                kTimerNamePoseGraphGetObservationFactorsForObj)
-            .get());
-#endif
     if (observation_factors_by_object_.find(obj_id) ==
         observation_factors_by_object_.end()) {
       return false;

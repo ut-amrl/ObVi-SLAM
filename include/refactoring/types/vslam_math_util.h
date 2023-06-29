@@ -1,8 +1,6 @@
 #ifndef UT_VSLAM_VSLAM_MATH_UTIL_H
 #define UT_VSLAM_VSLAM_MATH_UTIL_H
 
-#include <analysis/cumulative_timer_constants.h>
-#include <analysis/cumulative_timer_factory.h>
 #include <glog/logging.h>
 
 #include <eigen3/Eigen/Dense>
@@ -292,12 +290,6 @@ void getProjectedPixelLocation(
     const Eigen::Transform<T, 3, Eigen::Affine>& cam_to_robot_tf_,
     const Eigen::Matrix<T, 3, 3>& intrinsics_,
     Eigen::Matrix<T, 2, 1>& pixel_results) {
-#ifdef RUN_TIMERS
-  CumulativeFunctionTimer::Invocation invoc(
-      CumulativeTimerFactory::getInstance()
-          .getOrCreateFunctionTimer(kTimerNameMathUtilGetProjectedPixelLocation)
-          .get());
-#endif
   // Transform from world to current robot pose
   Eigen::Transform<T, 3, Eigen::Affine> world_to_robot_current =
       vslam_types_refactor::PoseArrayToAffine(&(pose[3]), &(pose[0])).inverse();

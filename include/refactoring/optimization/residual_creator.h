@@ -5,8 +5,6 @@
 #ifndef UT_VSLAM_RESIDUAL_CREATOR_H
 #define UT_VSLAM_RESIDUAL_CREATOR_H
 
-#include <analysis/cumulative_timer_constants.h>
-#include <analysis/cumulative_timer_factory.h>
 #include <ceres/loss_function.h>
 #include <ceres/problem.h>
 #include <refactoring/factors/bounding_box_factor.h>
@@ -37,12 +35,6 @@ bool createObjectObservationResidual(
     CachedInfo &cached_info,
     const std::optional<std::pair<FrameId, FrameId>> &min_max_frame,
     const bool &debug = false) {
-#ifdef RUN_TIMERS
-  CumulativeFunctionTimer::Invocation invoc(
-      CumulativeTimerFactory::getInstance()
-          .getOrCreateFunctionTimer(kTimerNameResidualCreatorObject)
-          .get());
-#endif
   // Get the factor
   ObjectObservationFactor factor;
   if (!pose_graph->getObjectObservationFactor(factor_id, factor)) {
@@ -140,12 +132,6 @@ bool createObjectShapeDimPriorResidual(
     ceres::Problem *problem,
     ceres::ResidualBlockId &residual_id,
     CachedInfo &cached_info) {
-#ifdef RUN_TIMERS
-  CumulativeFunctionTimer::Invocation invoc(
-      CumulativeTimerFactory::getInstance()
-          .getOrCreateFunctionTimer(kTimerNameResidualCreatorShapeDim)
-          .get());
-#endif
   // Get the factor
   ShapeDimPriorFactor factor;
   if (!pose_graph->getShapeDimPriorFactor(factor_id, factor)) {
@@ -199,12 +185,6 @@ bool createReprojectionErrorResidual(
     ceres::ResidualBlockId &residual_id,
     CachedInfo &cached_info,
     const std::optional<std::pair<FrameId, FrameId>> &min_max_frame) {
-#ifdef RUN_TIMERS
-  CumulativeFunctionTimer::Invocation invoc(
-      CumulativeTimerFactory::getInstance()
-          .getOrCreateFunctionTimer(kTimerNameResidualCreatorReprojection)
-          .get());
-#endif
   // Get the factor
   ReprojectionErrorFactor factor;
   if (!pose_graph->getVisualFactor(factor_id, factor)) {
@@ -298,12 +278,6 @@ bool createRelPoseResidual(
     ceres::ResidualBlockId &residual_id,
     CachedInfo &cached_info,
     const std::optional<std::pair<FrameId, FrameId>> &min_max_frame) {
-#ifdef RUN_TIMERS
-  CumulativeFunctionTimer::Invocation invoc(
-      CumulativeTimerFactory::getInstance()
-          .getOrCreateFunctionTimer(kTimerNameResidualCreatorRelPose)
-          .get());
-#endif
   vslam_types_refactor::RelPoseFactor factor;
   if (!pose_graph->getPoseFactor(factor_id, factor)) {
     LOG(ERROR) << "Could not find pose factor with id " << factor_id
@@ -432,12 +406,6 @@ bool createResidual(
                                              residual_id,
                                              cached_info);
   } else if (factor_info.first == kLongTermMapFactorTypeId) {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(kTimerNameResidualLongTermMap)
-            .get());
-#endif
     return long_term_map_residual_creator(factor_info,
                                           pose_graph,
                                           residual_params,

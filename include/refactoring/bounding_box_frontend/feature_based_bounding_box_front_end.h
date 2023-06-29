@@ -5,8 +5,6 @@
 #ifndef UT_VSLAM_FEATURE_BASED_BOUNDING_BOX_FRONT_END_H
 #define UT_VSLAM_FEATURE_BASED_BOUNDING_BOX_FRONT_END_H
 
-#include <analysis/cumulative_timer_constants.h>
-#include <analysis/cumulative_timer_factory.h>
 #include <refactoring/bounding_box_frontend/bounding_box_front_end.h>
 #include <refactoring/bounding_box_frontend/bounding_box_front_end_helpers.h>
 #include <refactoring/bounding_box_frontend/pending_object_estimator.h>
@@ -175,12 +173,6 @@ class FeatureBasedBoundingBoxFrontEnd
       const FrameId &frame_id,
       const CameraId &camera_id,
       const std::vector<RawBoundingBox> &original_bounding_boxes) override {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(kTimerNameFeatBasedBbFrontEndFilterBbs)
-            .get());
-#endif
     std::vector<RawBoundingBox> bbs_to_keep =
         filterBoundingBoxesWithMinConfidence(
             frame_id,
@@ -200,13 +192,6 @@ class FeatureBasedBoundingBoxFrontEnd
       const FrameId &frame_id,
       const CameraId &camera_id,
       const FeatureBasedContextInfo &refined_context) override {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(
-                kTimerNameFeatBasedBbFrontEndGenSingleBbContextInfo)
-            .get());
-#endif
     // Note: could do this with a KD tree, but we likely don't have enough
     // bounding boxes to warrant optimizing the search in that way
     FeatureBasedSingleBbContextInfo single_bb_info;
@@ -232,13 +217,6 @@ class FeatureBasedBoundingBoxFrontEnd
       const UninitializedObjectFactor &uninitialized_factor,
       const FeatureBasedContextInfo &refined_context,
       const FeatureBasedSingleBbContextInfo &single_bb_context_info) override {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(
-                kTimerNameFeatBasedBbFrontEndCreateObjInfoFromSingle)
-            .get());
-#endif
     UninitializedEllispoidInfo<FeatureBasedFrontEndObjAssociationInfo,
                                FeatureBasedFrontEndPendingObjInfo>
         uninitalized_info;
@@ -268,13 +246,6 @@ class FeatureBasedBoundingBoxFrontEnd
           &association_info_to_merge_in,
       FeatureBasedFrontEndObjAssociationInfo &association_info_to_update)
       override {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(
-                kTimerNameFeatBasedBbFrontEndMergeObjAssocInfo)
-            .get());
-#endif
     for (const auto &feats_for_frame :
          association_info_to_merge_in.observed_feats_) {
       for (const auto &feats_for_cam : feats_for_frame.second) {
@@ -309,13 +280,6 @@ class FeatureBasedBoundingBoxFrontEnd
       const FeatureBasedSingleBbContextInfo &single_bb_context_info,
       FeatureBasedFrontEndObjAssociationInfo &association_info_to_update,
       FeatureBasedFrontEndPendingObjInfo *pending_obj_info = nullptr) override {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(
-                kTimerNameFeatBasedBbFrontEndMergeSingleBbContext)
-            .get());
-#endif
     if (pending_obj_info != nullptr) {
       pending_obj_info->max_confidence_ =
           std::max(pending_obj_info->max_confidence_,
@@ -355,13 +319,6 @@ class FeatureBasedBoundingBoxFrontEnd
       const CameraId &camera_id,
       const RawBoundingBox &bounding_box,
       const FeatureBasedSingleBbContextInfo &bb_context) override {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(
-                kTimerNameFeatBasedBbFrontEndIdentifyCandidateMatches)
-            .get());
-#endif
     std::vector<
         std::pair<AssociatedObjectIdentifier, FeatureBasedBbCandidateMatchInfo>>
         associated_obj_candidates;
@@ -405,13 +362,6 @@ class FeatureBasedBoundingBoxFrontEnd
                                   FeatureBasedBbCandidateMatchInfo>>
           &candidate_matches,
       const FeatureBasedSingleBbContextInfo &bb_context) override {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(
-                kTimerNameFeatBasedBbFrontEndPruneCandidateMatches)
-            .get());
-#endif
     if (candidate_matches.empty()) {
       LOG(WARNING) << "No candidate matches. This is to be expected for the "
                       "first occurrence of the object for a given semantic "
@@ -478,13 +428,6 @@ class FeatureBasedBoundingBoxFrontEnd
                       FeatureBasedBbCandidateMatchInfo> &candidate,
       const FeatureBasedSingleBbContextInfo &bounding_box_appearance_info)
       override {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(
-                kTimerNameFeatBasedBbFrontEndScoreCandidateMatch)
-            .get());
-#endif
     std::unordered_map<
         FrameId,
         std::unordered_map<CameraId, std::unordered_set<FeatureId>>>
@@ -563,13 +506,6 @@ class FeatureBasedBoundingBoxFrontEnd
   virtual void cleanupBbAssociationRound(
       const vslam_types_refactor::FrameId &frame_id,
       const vslam_types_refactor::CameraId &camera_id) override {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(
-                kTimerNameFeatBasedBbFrontEndCleanUpBbAssocRound)
-            .get());
-#endif
     std::vector<
         UninitializedEllispoidInfo<FeatureBasedFrontEndObjAssociationInfo,
                                    FeatureBasedFrontEndPendingObjInfo>>
@@ -658,13 +594,6 @@ class FeatureBasedBoundingBoxFrontEnd
   virtual void setupInitialEstimateGeneration(
       const std::vector<AssociatedObjectIdentifier> &bounding_box_assignments)
       override {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(
-                kTimerNameFeatBasedBbFrontEndSetupInitialEstimateGeneration)
-            .get());
-#endif
     std::unordered_map<ObjectId, EllipsoidState<double>>
         rough_initial_estimates;
     std::unordered_map<
@@ -745,13 +674,6 @@ class FeatureBasedBoundingBoxFrontEnd
                                        FeatureBasedFrontEndPendingObjInfo>
           &uninitialized_bb_info,
       vslam_types_refactor::EllipsoidState<double> &ellipsoid_est) override {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(
-                kTimerNameFeatBasedBbFrontEndTryInitializeEllipsoid)
-            .get());
-#endif
     if (!uninitialized_bb_info.pending_info_.ready_for_merge) {
       return NOT_INITIALIZED;
     }
@@ -767,13 +689,6 @@ class FeatureBasedBoundingBoxFrontEnd
   }
 
   virtual std::vector<ObjectId> mergeExistingPendingObjects() {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(
-                kTimerNameFeatBasedBbFrontEndMergeExistingPendingObjects)
-            .get());
-#endif
     std::unordered_map<
         ObjectId,
         std::pair<ObjectInitializationStatus, EllipsoidState<double>>>
@@ -831,13 +746,6 @@ class FeatureBasedBoundingBoxFrontEnd
           &pending_and_initialized_objects_to_merge,
       std::vector<std::pair<ObjectId, EllipsoidState<double>>>
           &pending_objects_to_add) override {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(
-                kTimerNameFeatBasedBbFrontEndSearchForObjectMerges)
-            .get());
-#endif
     std::unordered_map<ObjectId, std::vector<ObjectId>> merge_candidates;
     std::unordered_set<ObjectId> possible_pending_objs_to_merge;
     for (const auto &mergable_obj : mergable_objects_and_ests) {
@@ -1011,13 +919,6 @@ class FeatureBasedBoundingBoxFrontEnd
           &candidate_observed_feats,
       std::unordered_map<FrameId, std::unordered_map<CameraId, int>>
           &feature_overlap_count_per_obs) {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(
-                kTimerNameFeatBasedBbFrontEndGetMaxFeatureIntersection)
-            .get());
-#endif
     int max_common_feats = 0;
     for (const auto &frame_id_and_feats : candidate_observed_feats) {
       for (const auto &cam_id_and_feats : frame_id_and_feats.second) {

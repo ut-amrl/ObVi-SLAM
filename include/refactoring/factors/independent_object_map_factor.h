@@ -5,8 +5,6 @@
 #ifndef UT_VSLAM_INDEPENDENT_OBJECT_MAP_FACTOR_H
 #define UT_VSLAM_INDEPENDENT_OBJECT_MAP_FACTOR_H
 
-#include <analysis/cumulative_timer_constants.h>
-#include <analysis/cumulative_timer_factory.h>
 #include <ceres/autodiff_cost_function.h>
 #include <glog/logging.h>
 #include <refactoring/types/vslam_obj_opt_types_refactor.h>
@@ -21,7 +19,7 @@ class IndependentObjectMapFactor {
       const EllipsoidState<double> &ellipsoid_mean,
       const Covariance<double, kEllipsoidParamterizationSize> &covariance);
   template <typename T>
-  bool runOperator(const T *ellipsoid_ptr, T *residuals_ptr) const {
+  bool operator()(const T *ellipsoid_ptr, T *residuals_ptr) const {
     Eigen::Map<const Eigen::Matrix<T, kEllipsoidParamterizationSize, 1>>
         ellipsoid(ellipsoid_ptr);
 
@@ -32,31 +30,6 @@ class IndependentObjectMapFactor {
 
     residuals = sqrt_inf_mat_.template cast<T>() * ellipsoid_deviation;
     return true;
-  }
-
-  bool operator()(const double *ellipsoid_ptr, double *residuals_ptr) const {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(
-                kTimerNameFactorIndependentObjectMapDouble)
-            .get());
-#endif
-    return runOperator<double>(ellipsoid_ptr, residuals_ptr);
-  }
-
-  template <int JetDim>
-  bool operator()(const ceres::Jet<double, JetDim> *ellipsoid_ptr,
-                  ceres::Jet<double, JetDim> *residuals_ptr) const {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(
-                kTimerNameFactorIndependentObjectMapJacobian)
-            .get());
-#endif
-    return runOperator<ceres::Jet<double, JetDim>>(ellipsoid_ptr,
-                                                   residuals_ptr);
   }
 
   static ceres::AutoDiffCostFunction<IndependentObjectMapFactor,

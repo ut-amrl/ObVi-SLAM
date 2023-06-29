@@ -5,8 +5,6 @@
 #ifndef UT_VSLAM_BOUNDING_BOX_FRONT_END_H
 #define UT_VSLAM_BOUNDING_BOX_FRONT_END_H
 
-#include <analysis/cumulative_timer_constants.h>
-#include <analysis/cumulative_timer_factory.h>
 #include <refactoring/optimization/object_pose_graph.h>
 #include <refactoring/types/vslam_obj_opt_types_refactor.h>
 
@@ -80,12 +78,6 @@ class AbstractBoundingBoxFrontEnd {
       const vslam_types_refactor::CameraId &camera_id,
       const std::vector<RawBoundingBox> &bounding_boxes,
       const RawBoundingBoxContextInfo &bb_context) {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(kTimerNameBbFrontEndAddBbObs)
-            .get());
-#endif
     CHECK(initialized_)
         << "Bounding box front end not initialized properly. Make "
            "sure to call initializeWithLongTermMapFrontEndData "
@@ -438,12 +430,6 @@ class AbstractBoundingBoxFrontEnd {
   virtual std::vector<ObjectId> mergePending(
       const std::vector<std::pair<ObjectId, ObjectId>>
           &pending_and_initialized_objects_to_merge) {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(kTimerNameBbFrontEndMergePending)
-            .get());
-#endif
     std::vector<ObjectId> merged_indices;
     for (const std::pair<ObjectId, ObjectId> &merge_obj :
          pending_and_initialized_objects_to_merge) {
@@ -570,12 +556,6 @@ class AbstractBoundingBoxFrontEnd {
                                        const BbCorners<double> &bb_corners,
                                        const Covariance<double, 4> &bb_cov,
                                        const double &detection_confidence) {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(kTimerNameBbFrontEndAddObservationForObj)
-            .get());
-#endif
     ObjectObservationFactor factor;
     factor.frame_id_ = frame_id;
     factor.camera_id_ = camera_id;
@@ -953,12 +933,6 @@ class AbstractUnknownDataAssociationBbFrontEnd
       const RefinedBoundingBoxContextInfo &refined_bb_context,
       const std::vector<SingleBbContextInfo> &indiv_bb_contexts,
       std::vector<AssociatedObjectIdentifier> &bounding_box_assignments) {
-#ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(kTimerNameAbsBbFrontEndGetBbAssignments)
-            .get());
-#endif
     std::vector<std::vector<std::pair<AssociatedObjectIdentifier, double>>>
         match_candidates_with_scores;
     for (size_t i = 0; i < bounding_boxes.size(); i++) {
