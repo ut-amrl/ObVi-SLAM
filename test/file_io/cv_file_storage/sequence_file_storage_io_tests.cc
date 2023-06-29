@@ -26,11 +26,17 @@ using namespace vslam_types_refactor;
 namespace fs = std::filesystem;
 
 TEST(SequenceInfo, ReadSequence) {
-    std::string seq_file_name = "sequences/3059_9589.json";
+  std::string seq_file_name = "sequences/3059_9589.json";
   SequenceInfo read_seq;
   readSequenceInfo(seq_file_name, read_seq);
   ASSERT_EQ("3059_9589", read_seq.sequence_id_);
-  ASSERT_EQ(2, read_seq.bag_base_names_.size());
-  ASSERT_EQ("1669743059", read_seq.bag_base_names_[0]);
-  ASSERT_EQ("1668019589", read_seq.bag_base_names_[1]);
+  ASSERT_EQ(2, read_seq.bag_base_names_and_waypoint_files.size());
+  ASSERT_EQ("1669743059",
+            read_seq.bag_base_names_and_waypoint_files[0].bag_base_name_);
+  ASSERT_FALSE(read_seq.bag_base_names_and_waypoint_files[0]
+                   .optional_waypoint_file_base_name_.has_value());
+  ASSERT_EQ("1668019589",
+            read_seq.bag_base_names_and_waypoint_files[1].bag_base_name_);
+  ASSERT_FALSE(read_seq.bag_base_names_and_waypoint_files[1]
+                   .optional_waypoint_file_base_name_.has_value());
 }

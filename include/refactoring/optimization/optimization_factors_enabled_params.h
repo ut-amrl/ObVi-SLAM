@@ -15,9 +15,6 @@ struct OptimizationFactorsEnabledParams {
   // default values here are modified, make sure any changes are reflected in
   // the config and if necessary, regenerate the config with a new
   // config_version_id_
-  bool allow_reversion_after_dectecting_jumps_ = true;
-  double consecutive_pose_transl_tol_ = 1.0;
-  double consecutive_pose_orient_tol_ = M_PI;
 
   uint32_t min_low_level_feature_observations_per_frame_ = 50;
 
@@ -52,11 +49,7 @@ struct OptimizationFactorsEnabledParams {
   bool use_visual_features_on_final_global_ba_ = false;
 
   bool operator==(const OptimizationFactorsEnabledParams &rhs) const {
-    return (allow_reversion_after_dectecting_jumps_ ==
-            rhs.allow_reversion_after_dectecting_jumps_) &&
-           (consecutive_pose_transl_tol_ == rhs.consecutive_pose_transl_tol_) &&
-           (consecutive_pose_orient_tol_ == rhs.consecutive_pose_orient_tol_) &&
-           (min_low_level_feature_observations_per_frame_ ==
+    return (min_low_level_feature_observations_per_frame_ ==
             rhs.min_low_level_feature_observations_per_frame_) &&
            (include_object_factors_ == rhs.include_object_factors_) &&
            (include_visual_factors_ == rhs.include_visual_factors_) &&
@@ -86,8 +79,6 @@ struct OptimizationFactorsEnabledParams {
 };
 
 struct OptimizationScopeParams {
-  bool allow_reversion_after_dectecting_jumps_;
-
   uint32_t min_low_level_feature_observations_per_frame_ = 50;
 
   bool include_object_factors_;

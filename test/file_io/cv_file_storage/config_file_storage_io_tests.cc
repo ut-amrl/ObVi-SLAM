@@ -40,36 +40,82 @@ TEST(FullOVSLAMConfigIO, ReadWriteFullOBSLAMConfig) {
   visual_feature_params.reprojection_error_std_dev_ = 1.5;
   orig_config.visual_feature_params_ = visual_feature_params;
 
-  pose_graph_optimization::OptimizationSolverParams local_ba_solver_params;
-  local_ba_solver_params.allow_non_monotonic_steps_ = true;
-  local_ba_solver_params.max_num_iterations_ = 5;
-  local_ba_solver_params.parameter_tolerance_ = 1e6;
-  local_ba_solver_params.gradient_tolerance_ = 2e5;
-  local_ba_solver_params.function_tolerance_ = 4.3e2;
-  local_ba_solver_params.feature_outlier_percentage = 0.8;
-  orig_config.local_ba_solver_params_ = local_ba_solver_params;
+  pose_graph_optimization::OptimizationSolverParams
+      local_ba_solver_params_phase_one;
+  local_ba_solver_params_phase_one.allow_non_monotonic_steps_ = true;
+  local_ba_solver_params_phase_one.max_num_iterations_ = 5;
+  local_ba_solver_params_phase_one.parameter_tolerance_ = 1e6;
+  local_ba_solver_params_phase_one.gradient_tolerance_ = 2e5;
+  local_ba_solver_params_phase_one.function_tolerance_ = 4.3e2;
+  orig_config.local_ba_iteration_params_.phase_one_opt_params_ =
+      local_ba_solver_params_phase_one;
 
-  pose_graph_optimization::OptimizationSolverParams global_ba_solver_params;
-  global_ba_solver_params.allow_non_monotonic_steps_ = false;
-  global_ba_solver_params.max_num_iterations_ = 60;
-  global_ba_solver_params.parameter_tolerance_ = 2e6;
-  global_ba_solver_params.gradient_tolerance_ = 7.5e5;
-  global_ba_solver_params.function_tolerance_ = -9e2;
-  global_ba_solver_params.feature_outlier_percentage = 0.7;
-  orig_config.global_ba_solver_params_ = global_ba_solver_params;
+  pose_graph_optimization::OptimizationSolverParams
+      local_ba_solver_params_phase_two;
+  local_ba_solver_params_phase_two.allow_non_monotonic_steps_ = false;
+  local_ba_solver_params_phase_two.max_num_iterations_ = 58;
+  local_ba_solver_params_phase_two.parameter_tolerance_ = 2e6;
+  local_ba_solver_params_phase_two.gradient_tolerance_ = 3e5;
+  local_ba_solver_params_phase_two.function_tolerance_ = 6.3e2;
+  orig_config.local_ba_iteration_params_.phase_two_opt_params_ =
+      local_ba_solver_params_phase_two;
+  orig_config.local_ba_iteration_params_.feature_outlier_percentage_ = 0.8;
+  orig_config.local_ba_iteration_params_
+      .allow_reversion_after_detecting_jumps_ = true;
+  orig_config.local_ba_iteration_params_.consecutive_pose_transl_tol_ = 1.2;
+  orig_config.local_ba_iteration_params_.consecutive_pose_orient_tol_ = 3.4;
 
-  pose_graph_optimization::OptimizationSolverParams final_ba_solver_params;
-  final_ba_solver_params.allow_non_monotonic_steps_ = false;
-  final_ba_solver_params.max_num_iterations_ = 60;
-  final_ba_solver_params.parameter_tolerance_ = 3e6;
-  final_ba_solver_params.gradient_tolerance_ = -6.4e7;
-  final_ba_solver_params.function_tolerance_ = 7e2;
-  final_ba_solver_params.feature_outlier_percentage = 0;
-  orig_config.final_ba_solver_params_ = final_ba_solver_params;
+  pose_graph_optimization::OptimizationSolverParams
+      global_ba_solver_params_phase_one;
+  global_ba_solver_params_phase_one.allow_non_monotonic_steps_ = false;
+  global_ba_solver_params_phase_one.max_num_iterations_ = 60;
+  global_ba_solver_params_phase_one.parameter_tolerance_ = 2e6;
+  global_ba_solver_params_phase_one.gradient_tolerance_ = 7.5e5;
+  global_ba_solver_params_phase_one.function_tolerance_ = -9e2;
+  orig_config.global_ba_iteration_params_.phase_one_opt_params_ =
+      global_ba_solver_params_phase_one;
+  pose_graph_optimization::OptimizationSolverParams
+      global_ba_solver_params_phase_two;
+  global_ba_solver_params_phase_two.allow_non_monotonic_steps_ = true;
+  global_ba_solver_params_phase_two.max_num_iterations_ = 61;
+  global_ba_solver_params_phase_two.parameter_tolerance_ = 3e6;
+  global_ba_solver_params_phase_two.gradient_tolerance_ = 8.5e5;
+  global_ba_solver_params_phase_two.function_tolerance_ = -1e3;
+  orig_config.global_ba_iteration_params_.phase_two_opt_params_ =
+      global_ba_solver_params_phase_two;
+  orig_config.global_ba_iteration_params_.feature_outlier_percentage_ = 0.7;
+  orig_config.global_ba_iteration_params_
+      .allow_reversion_after_detecting_jumps_ = true;
+  orig_config.global_ba_iteration_params_.consecutive_pose_transl_tol_ = 2.3;
+  orig_config.global_ba_iteration_params_.consecutive_pose_orient_tol_ = 4.5;
+
+  pose_graph_optimization::OptimizationSolverParams
+      final_ba_solver_params_phase_one;
+  final_ba_solver_params_phase_one.allow_non_monotonic_steps_ = false;
+  final_ba_solver_params_phase_one.max_num_iterations_ = 60;
+  final_ba_solver_params_phase_one.parameter_tolerance_ = 3e6;
+  final_ba_solver_params_phase_one.gradient_tolerance_ = -6.4e7;
+  final_ba_solver_params_phase_one.function_tolerance_ = 7e2;
+  orig_config.final_ba_iteration_params_.phase_one_opt_params_ =
+      final_ba_solver_params_phase_one;
+  pose_graph_optimization::OptimizationSolverParams
+      final_ba_solver_params_phase_two;
+  final_ba_solver_params_phase_two.allow_non_monotonic_steps_ = true;
+  final_ba_solver_params_phase_two.max_num_iterations_ = 70;
+  final_ba_solver_params_phase_two.parameter_tolerance_ = 4e6;
+  final_ba_solver_params_phase_two.gradient_tolerance_ = -7.4e7;
+  final_ba_solver_params_phase_two.function_tolerance_ = 8e2;
+  orig_config.final_ba_iteration_params_.phase_two_opt_params_ =
+      final_ba_solver_params_phase_two;
+  orig_config.final_ba_iteration_params_.feature_outlier_percentage_ = 0;
+  orig_config.final_ba_iteration_params_
+      .allow_reversion_after_detecting_jumps_ = true;
+  orig_config.final_ba_iteration_params_.consecutive_pose_transl_tol_ = 4.2;
+  orig_config.final_ba_iteration_params_.consecutive_pose_orient_tol_ = 6.4;
 
   orig_config.pgo_solver_params_.relative_pose_factor_huber_loss_ = 2.3;
   orig_config.pgo_solver_params_.pgo_optimization_solver_params_ =
-      global_ba_solver_params;
+      global_ba_solver_params_phase_one;
   orig_config.pgo_solver_params_.pgo_optimization_solver_params_
       .max_num_iterations_ = 2234;
   orig_config.pgo_solver_params_.relative_pose_cov_params_
@@ -101,7 +147,6 @@ TEST(FullOVSLAMConfigIO, ReadWriteFullOBSLAMConfig) {
   orig_config.ltm_solver_residual_params_ = ltm_solver_residual_params;
 
   pose_graph_optimization::OptimizationSolverParams ltm_solver_params;
-  ltm_solver_params.feature_outlier_percentage = 0.1;
   ltm_solver_params.function_tolerance_ = 1e3;
   ltm_solver_params.gradient_tolerance_ = -2e4;
   ltm_solver_params.parameter_tolerance_ = 3e-4;
@@ -159,7 +204,6 @@ TEST(FullOVSLAMConfigIO, ReadWriteFullOBSLAMConfig) {
   pending_est_params.solver_params_.function_tolerance_ = -2e-3;
   pending_est_params.solver_params_.allow_non_monotonic_steps_ = true;
   pending_est_params.solver_params_.max_num_iterations_ = 12;
-  pending_est_params.solver_params_.feature_outlier_percentage_ = 0.978;
   bounding_box_front_end_params.feature_based_bb_association_params_
       .pending_obj_estimator_params_ = pending_est_params;
   bounding_box_front_end_params.post_session_object_merge_params_

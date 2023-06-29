@@ -27,18 +27,9 @@ class SerializableOptimizationFactorsEnabledParams
 
   virtual void write(cv::FileStorage &fs) const override {
     fs << "{";
-    int allow_reversion_after_dectecting_jumps_int =
-        data_.allow_reversion_after_dectecting_jumps_ ? 1 : 0;
-    fs << kAllowReversionAfterDectectingJumps
-       << allow_reversion_after_dectecting_jumps_int;
 
     fs << kMinLowLevelFeatureObservationsPerFrame
        << (int)data_.min_low_level_feature_observations_per_frame_;
-
-    fs << kConsecutivePoseTranslTol
-       << (double)data_.consecutive_pose_transl_tol_;
-    fs << kConsecutivePoseOrientTol
-       << (double)data_.consecutive_pose_orient_tol_;
 
     int include_object_factors_int = data_.include_object_factors_ ? 1 : 0;
     fs << kIncludeObjectFactorsLabel << include_object_factors_int;
@@ -90,17 +81,8 @@ class SerializableOptimizationFactorsEnabledParams
   }
 
   virtual void read(const cv::FileNode &node) override {
-    int allow_reversion_after_dectecting_jumps_int =
-        node[kAllowReversionAfterDectectingJumps];
-    data_.allow_reversion_after_dectecting_jumps_ =
-        allow_reversion_after_dectecting_jumps_int != 0;
     data_.min_low_level_feature_observations_per_frame_ =
         (int)node[kMinLowLevelFeatureObservationsPerFrame];
-
-    data_.consecutive_pose_transl_tol_ =
-        (double)node[kConsecutivePoseTranslTol];
-    data_.consecutive_pose_orient_tol_ =
-        (double)node[kConsecutivePoseOrientTol];
 
     int include_object_factors_int = node[kIncludeObjectFactorsLabel];
     data_.include_object_factors_ = include_object_factors_int != 0;
@@ -153,14 +135,9 @@ class SerializableOptimizationFactorsEnabledParams
       pose_graph_optimizer::OptimizationFactorsEnabledParams>::data_;
 
  private:
-  inline static const std::string kAllowReversionAfterDectectingJumps =
-      "allow_reversion_after_dectecting_jumps";
   inline static const std::string kMinLowLevelFeatureObservationsPerFrame =
       "min_low_level_feature_observations_per_frame";
-  inline static const std::string kConsecutivePoseTranslTol =
-      "consecutive_pose_transl_tol";
-  inline static const std::string kConsecutivePoseOrientTol =
-      "consecutive_pose_orient_tol";
+
   inline static const std::string kIncludeObjectFactorsLabel =
       "include_object_factors";
   inline static const std::string kIncludeVisualFactorsLabel =
@@ -440,7 +417,7 @@ class SerializableOptimizationSolverParams
   virtual void write(cv::FileStorage &fs) const override {
     fs << "{";
     fs << kMaxNumIterationsLabel << data_.max_num_iterations_;
-    fs << kFeatureOutlierPercentageLabel << data_.feature_outlier_percentage_;
+
     int allow_non_monotonic_steps_int =
         data_.allow_non_monotonic_steps_ ? 1 : 0;
     fs << kAllowNonMonotonicStepsLabel << allow_non_monotonic_steps_int;
@@ -454,7 +431,6 @@ class SerializableOptimizationSolverParams
 
   virtual void read(const cv::FileNode &node) override {
     data_.max_num_iterations_ = node[kMaxNumIterationsLabel];
-    data_.feature_outlier_percentage_ = node[kFeatureOutlierPercentageLabel];
     int allow_non_monotonic_steps_int = node[kAllowNonMonotonicStepsLabel];
     data_.allow_non_monotonic_steps_ = allow_non_monotonic_steps_int != 0;
     data_.function_tolerance_ = node[kFunctionToleranceLabel];
@@ -470,8 +446,6 @@ class SerializableOptimizationSolverParams
 
  private:
   inline static const std::string kMaxNumIterationsLabel = "max_num_iterations";
-  inline static const std::string kFeatureOutlierPercentageLabel =
-      "feature_outlier_percentage";
   inline static const std::string kAllowNonMonotonicStepsLabel =
       "allow_non_monotonic_steps";
   inline static const std::string kFunctionToleranceLabel =
@@ -496,6 +470,98 @@ static void read(const cv::FileNode &node,
                  SerializableOptimizationSolverParams &data,
                  const SerializableOptimizationSolverParams &default_data =
                      SerializableOptimizationSolverParams()) {
+  if (node.empty()) {
+    data = default_data;
+  } else {
+    data.read(node);
+  }
+}
+
+class SerializableOptimizationIterationParams
+    : public FileStorageSerializable<
+          pose_graph_optimization::OptimizationIterationParams> {
+ public:
+  SerializableOptimizationIterationParams()
+      : FileStorageSerializable<
+            pose_graph_optimization::OptimizationIterationParams>() {}
+  SerializableOptimizationIterationParams(
+      const pose_graph_optimization::OptimizationIterationParams &data)
+      : FileStorageSerializable<
+            pose_graph_optimization::OptimizationIterationParams>(data) {}
+
+  virtual void write(cv::FileStorage &fs) const override {
+    fs << "{";
+    int allow_reversion_after_detecting_jumps_int =
+        data_.allow_reversion_after_detecting_jumps_ ? 1 : 0;
+    fs << kAllowReversionAfterDetectingJumps
+       << allow_reversion_after_detecting_jumps_int;
+
+    fs << kConsecutivePoseTranslTol
+       << (double)data_.consecutive_pose_transl_tol_;
+    fs << kConsecutivePoseOrientTol
+       << (double)data_.consecutive_pose_orient_tol_;
+    fs << kFeatureOutlierPercentageLabel << data_.feature_outlier_percentage_;
+
+    fs << kPhaseOneOptParamsLabel
+       << SerializableOptimizationSolverParams(data_.phase_one_opt_params_);
+
+    fs << kPhaseTwoOptParamsLabel
+       << SerializableOptimizationSolverParams(data_.phase_two_opt_params_);
+    fs << "}";
+  }
+
+  virtual void read(const cv::FileNode &node) override {
+    int allow_reversion_after_detecting_jumps_int =
+        node[kAllowReversionAfterDetectingJumps];
+    data_.allow_reversion_after_detecting_jumps_ =
+        allow_reversion_after_detecting_jumps_int != 0;
+
+    data_.consecutive_pose_transl_tol_ =
+        (double)node[kConsecutivePoseTranslTol];
+    data_.consecutive_pose_orient_tol_ =
+        (double)node[kConsecutivePoseOrientTol];
+
+    data_.feature_outlier_percentage_ = node[kFeatureOutlierPercentageLabel];
+
+    SerializableOptimizationSolverParams ser_phase_one_opt_params;
+    node[kPhaseOneOptParamsLabel] >> ser_phase_one_opt_params;
+    data_.phase_one_opt_params_ = ser_phase_one_opt_params.getEntry();
+
+    SerializableOptimizationSolverParams ser_phase_two_opt_params;
+    node[kPhaseTwoOptParamsLabel] >> ser_phase_two_opt_params;
+    data_.phase_two_opt_params_ = ser_phase_two_opt_params.getEntry();
+  }
+
+ protected:
+  using FileStorageSerializable<
+      pose_graph_optimization::OptimizationIterationParams>::data_;
+
+ private:
+  inline static const std::string kAllowReversionAfterDetectingJumps =
+      "allow_reversion_after_detecting_jumps";
+  inline static const std::string kConsecutivePoseTranslTol =
+      "consecutive_pose_transl_tol";
+  inline static const std::string kConsecutivePoseOrientTol =
+      "consecutive_pose_orient_tol";
+  inline static const std::string kFeatureOutlierPercentageLabel =
+      "feature_outlier_percentage";
+
+  inline static const std::string kPhaseOneOptParamsLabel =
+      "phase_one_opt_params";
+  inline static const std::string kPhaseTwoOptParamsLabel =
+      "phase_two_opt_params";
+};
+
+static void write(cv::FileStorage &fs,
+                  const std::string &,
+                  const SerializableOptimizationIterationParams &data) {
+  data.write(fs);
+}
+
+static void read(const cv::FileNode &node,
+                 SerializableOptimizationIterationParams &data,
+                 const SerializableOptimizationIterationParams &default_data =
+                     SerializableOptimizationIterationParams()) {
   if (node.empty()) {
     data = default_data;
   } else {
@@ -1519,12 +1585,12 @@ class SerializableFullOVSLAMConfig
 
     fs << kVisualFeatureParamsLabel
        << SerializableVisualFeatureParams(data_.visual_feature_params_);
-    fs << kLocalBaSolverParamsLabel
-       << SerializableOptimizationSolverParams(data_.local_ba_solver_params_);
-    fs << kGlobalBaSolverParamsLabel
-       << SerializableOptimizationSolverParams(data_.global_ba_solver_params_);
-    fs << kFinalBaSolverParamsLabel
-       << SerializableOptimizationSolverParams(data_.final_ba_solver_params_);
+    fs << kLocalBaIterationParamsLabel
+       << SerializableOptimizationIterationParams(data_.local_ba_iteration_params_);
+    fs << kGlobalBaIterationParamsLabel
+       << SerializableOptimizationIterationParams(data_.global_ba_iteration_params_);
+    fs << kFinalBaIterationParamsLabel
+       << SerializableOptimizationIterationParams(data_.final_ba_iteration_params_);
     fs << kPgoSolverParamsLabel
        << SerializablePoseGraphPlusObjectsOptimizationParams(
               data_.pgo_solver_params_);
@@ -1569,17 +1635,18 @@ class SerializableFullOVSLAMConfig
     node[kVisualFeatureParamsLabel] >> ser_visual_feature_params;
     data_.visual_feature_params_ = ser_visual_feature_params.getEntry();
 
-    SerializableOptimizationSolverParams ser_local_ba_solver_params;
-    node[kLocalBaSolverParamsLabel] >> ser_local_ba_solver_params;
-    data_.local_ba_solver_params_ = ser_local_ba_solver_params.getEntry();
+    SerializableOptimizationIterationParams ser_local_ba_iteration_params;
+    node[kLocalBaIterationParamsLabel] >> ser_local_ba_iteration_params;
+    data_.local_ba_iteration_params_ = ser_local_ba_iteration_params.getEntry();
 
-    SerializableOptimizationSolverParams ser_global_ba_solver_params;
-    node[kGlobalBaSolverParamsLabel] >> ser_global_ba_solver_params;
-    data_.global_ba_solver_params_ = ser_global_ba_solver_params.getEntry();
+    SerializableOptimizationIterationParams ser_global_ba_iteration_params;
+    node[kGlobalBaIterationParamsLabel] >> ser_global_ba_iteration_params;
+    data_.global_ba_iteration_params_ =
+        ser_global_ba_iteration_params.getEntry();
 
-    SerializableOptimizationSolverParams ser_final_ba_solver_params;
-    node[kFinalBaSolverParamsLabel] >> ser_final_ba_solver_params;
-    data_.final_ba_solver_params_ = ser_final_ba_solver_params.getEntry();
+    SerializableOptimizationIterationParams ser_final_ba_iteration_params;
+    node[kFinalBaIterationParamsLabel] >> ser_final_ba_iteration_params;
+    data_.final_ba_iteration_params_ = ser_final_ba_iteration_params.getEntry();
 
     SerializablePoseGraphPlusObjectsOptimizationParams ser_pgo_solver_params;
     node[kPgoSolverParamsLabel] >> ser_pgo_solver_params;
@@ -1655,12 +1722,12 @@ class SerializableFullOVSLAMConfig
   inline static const std::string kConfigVersionIdLabel = "config_version_id";
   inline static const std::string kVisualFeatureParamsLabel =
       "visual_feature_params";
-  inline static const std::string kLocalBaSolverParamsLabel =
-      "local_ba_solver_params";
-  inline static const std::string kGlobalBaSolverParamsLabel =
-      "global_ba_solver_params";
-  inline static const std::string kFinalBaSolverParamsLabel =
-      "final_ba_solver_params";
+  inline static const std::string kLocalBaIterationParamsLabel =
+      "local_ba_iteration_params";
+  inline static const std::string kGlobalBaIterationParamsLabel =
+      "global_ba_iteration_params";
+  inline static const std::string kFinalBaIterationParamsLabel =
+      "final_ba_iteration_params";
   inline static const std::string kPgoSolverParamsLabel = "pgo_solver_params";
   inline static const std::string kLtmTunableParamsLabel = "ltm_tunable_params";
   inline static const std::string kLtmSolverResidualParamsLabel =

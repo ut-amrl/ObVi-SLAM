@@ -1,14 +1,14 @@
 {
     "config": {
         "config_schema_version": 10,
-        "config_version_id": "base3",
+        "config_version_id": "12",
         "visual_feature_params": {
             "reprojection_error_std_dev": 2.0,
             "min_visual_feature_parallax_pixel_requirement": 5.0,
             "min_visual_feature_parallax_robot_transl_requirement": 1.0000000000000001e-01,
             "min_visual_feature_parallax_robot_orient_requirement": 5.0000000000000003e-02,
             "enforce_min_pixel_parallax_requirement": 1,
-            "enforce_min_robot_pose_parallax_requirement": 0,
+            "enforce_min_robot_pose_parallax_requirement": 1,
             "inlier_epipolar_err_thresh": 8.0,
             "check_past_n_frames_for_epipolar_err": 5,
             "enforce_epipolar_error_requirement_": 1
@@ -114,7 +114,7 @@
         },
         "ltm_tunable_params": {
             "far_feature_threshold": 75.0,
-            "min_col_norm": 5.0000000000000001e-05
+            "min_col_norm": 5.0000000000000001e-09
         },
         "ltm_solver_residual_params": {
             "object_residual_params": {
@@ -130,10 +130,10 @@
             },
             "relative_pose_factor_huber_loss": 1.0,
             "relative_pose_cov_params": {
-                "transl_error_mult_for_transl_error": 0.0,
+                "transl_error_mult_for_transl_error": 6.9375074155200748e-310,
                 "transl_error_mult_for_rot_error": 0.0,
-                "rot_error_mult_for_transl_error": 6.9245860980687362e-310,
-                "rot_error_mult_for_rot_error": -4.4579057385799811e+204
+                "rot_error_mult_for_transl_error": 6.9375074155248178e-310,
+                "rot_error_mult_for_rot_error": 0.0
             }
         },
         "ltm_solver_params": {
@@ -314,6 +314,22 @@
         "camera_info": {
             "camera_topic_to_camera_id": [
                 {
+                    "camera_topic": "/zed2i/zed_node/right/image_rect_color",
+                    "camera_id": "2"
+                },
+                {
+                    "camera_topic": "/zed2i/zed_node/left/image_rect_color",
+                    "camera_id": "1"
+                },
+                {
+                    "camera_topic": "/zed2i/zed_node/left/image_rect_color/compressed",
+                    "camera_id": "1"
+                },
+                {
+                    "camera_topic": "/zed2i/zed_node/right/image_rect_color/compressed",
+                    "camera_id": "2"
+                },
+                {
                     "camera_topic": "/zed/zed_node/right/image_rect_color",
                     "camera_id": "2"
                 },
@@ -322,27 +338,11 @@
                     "camera_id": "2"
                 },
                 {
-                    "camera_topic": "/zed2i/zed_node/right/image_rect_color",
-                    "camera_id": "2"
-                },
-                {
-                    "camera_topic": "/zed2i/zed_node/right/image_rect_color/compressed",
-                    "camera_id": "2"
-                },
-                {
                     "camera_topic": "/zed/zed_node/left/image_rect_color",
                     "camera_id": "1"
                 },
                 {
                     "camera_topic": "/zed/zed_node/left/image_rect_color/compressed",
-                    "camera_id": "1"
-                },
-                {
-                    "camera_topic": "/zed2i/zed_node/left/image_rect_color",
-                    "camera_id": "1"
-                },
-                {
-                    "camera_topic": "/zed2i/zed_node/left/image_rect_color/compressed",
                     "camera_id": "1"
                 }
             ]
@@ -378,7 +378,7 @@
                 "bounding_box_inflation_size": 10.0
             },
             "post_session_object_merge_params": {
-                "max_merge_distance": 1.0
+                "max_merge_distance": -1.0
             }
         },
         "bounding_box_covariance_generator_params": {

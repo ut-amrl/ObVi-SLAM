@@ -75,8 +75,8 @@ class OfflineProblemRunner {
                                const FrameId &,
                                const VisualizationTypeEnum &)>
           &visualization_callback,
-      const std::function<pose_graph_optimization::OptimizationSolverParams(
-          const FrameId &)> &solver_params_provider_func,
+      const std::function<pose_graph_optimization::OptimizationIterationParams(
+          const FrameId &)> &iteration_params_provider_func,
       const std::function<bool(const std::shared_ptr<PoseGraphType> &)>
           object_merger,
       const std::function<bool(const FrameId &)> &gba_checker)
@@ -92,7 +92,7 @@ class OfflineProblemRunner {
         output_data_extractor_(output_data_extractor),
         ceres_callback_creator_(ceres_callback_creator),
         visualization_callback_(visualization_callback),
-        solver_params_provider_func_(solver_params_provider_func),
+        iteration_params_provider_func_(iteration_params_provider_func),
         object_merger_(object_merger),
         gba_checker_(gba_checker) {}
 
@@ -119,9 +119,6 @@ class OfflineProblemRunner {
     }
 
     pose_graph_optimizer::OptimizationScopeParams optimization_scope_params;
-    optimization_scope_params.allow_reversion_after_dectecting_jumps_ =
-        optimization_factors_enabled_params
-            .allow_reversion_after_dectecting_jumps_;
     optimization_scope_params.min_low_level_feature_observations_per_frame_ =
         optimization_factors_enabled_params
             .min_low_level_feature_observations_per_frame_;
@@ -178,14 +175,14 @@ class OfflineProblemRunner {
           problem_data, pose_graph, start_opt_with_frame, next_frame_id);
 
       if (!runOptimizationIteration(start_opt_with_frame,
-                               next_frame_id,
-                               problem_data,
-                               optimization_factors_enabled_params,
-                               optimization_scope_params,
-                               max_frame_id,
-                               opt_logger,
-                               pose_graph,
-                               problem)) {
+                                    next_frame_id,
+                                    problem_data,
+                                    optimization_factors_enabled_params,
+                                    optimization_scope_params,
+                                    max_frame_id,
+                                    opt_logger,
+                                    pose_graph,
+                                    problem)) {
         return false;
       }
     }
@@ -198,14 +195,14 @@ class OfflineProblemRunner {
 
       // Rerun optimization
       if (!runOptimizationIteration(0,
-                               max_frame_id,
-                               problem_data,
-                               optimization_factors_enabled_params,
-                               optimization_scope_params,
-                               max_frame_id,
-                               opt_logger,
-                               pose_graph,
-                               merged_problem)) {
+                                    max_frame_id,
+                                    problem_data,
+                                    optimization_factors_enabled_params,
+                                    optimization_scope_params,
+                                    max_frame_id,
+                                    opt_logger,
+                                    pose_graph,
+                                    merged_problem)) {
         return false;
       }
     }
@@ -274,9 +271,9 @@ class OfflineProblemRunner {
                      const VisualizationTypeEnum &)>
       visualization_callback_;
 
-  std::function<pose_graph_optimization::OptimizationSolverParams(
+  std::function<pose_graph_optimization::OptimizationIterationParams(
       const FrameId &)>
-      solver_params_provider_func_;
+      iteration_params_provider_func_;
 
   std::function<bool(const std::shared_ptr<PoseGraphType> &)> object_merger_;
 
@@ -333,8 +330,8 @@ class OfflineProblemRunner {
       std::optional<vslam_types_refactor::OptimizationLogger> &opt_logger,
       std::shared_ptr<PoseGraphType> &pose_graph,
       ceres::Problem &problem) {
-    pose_graph_optimization::OptimizationSolverParams solver_params =
-        solver_params_provider_func_(next_frame_id);
+    pose_graph_optimization::OptimizationIterationParams iteration_params =
+        iteration_params_provider_func_(next_frame_id);
 
     visualization_callback_(problem_data,
                             pose_graph,
@@ -390,11 +387,12 @@ class OfflineProblemRunner {
                                               &problem,
                                               null_logger);
 
-        if (!optimizer_.solveOptimization(&problem,
-                                          solver_params,
-                                          ceres_callbacks,
-                                          null_logger,
-                                          nullptr)) {
+        if (!optimizer_.solveOptimization(
+                &problem,
+                iteration_params.phase_one_opt_params_,
+                ceres_callbacks,
+                null_logger,
+                nullptr)) {
           LOG(INFO) << "Tracking failed";
         }
 
@@ -426,7 +424,7 @@ class OfflineProblemRunner {
               .get());
 #endif
       bool visual_feature_opt_enable_two_phase =
-          solver_params.feature_outlier_percentage_ > 0;
+          iteration_params.feature_outlier_percentage_ > 0;
       // Phase I
       LOG(INFO) << "Building optimization";
       std::unordered_map<ceres::ResidualBlockId,
@@ -451,12 +449,13 @@ class OfflineProblemRunner {
                 .getOrCreateFunctionTimer(kTimerNamePhaseOneLbaOpt)
                 .get());
 #endif
-        phase1_optim_success = optimizer_.solveOptimization(&problem,
-                                                            solver_params,
-                                                            ceres_callbacks,
-                                                            opt_logger,
-                                                            &residual_block_ids,
-                                                            &residuals);
+        phase1_optim_success =
+            optimizer_.solveOptimization(&problem,
+                                         iteration_params.phase_one_opt_params_,
+                                         ceres_callbacks,
+                                         opt_logger,
+                                         &residual_block_ids,
+                                         &residuals);
       } else {
 #ifdef RUN_TIMERS
         CumulativeFunctionTimer::Invocation phase_one_invoc(
@@ -464,12 +463,13 @@ class OfflineProblemRunner {
                 .getOrCreateFunctionTimer(kTimerNamePhaseOneLbaOpt)
                 .get());
 #endif
-        phase1_optim_success = optimizer_.solveOptimization(&problem,
-                                                            solver_params,
-                                                            ceres_callbacks,
-                                                            opt_logger,
-                                                            nullptr,
-                                                            nullptr);
+        phase1_optim_success =
+            optimizer_.solveOptimization(&problem,
+                                         iteration_params.phase_one_opt_params_,
+                                         ceres_callbacks,
+                                         opt_logger,
+                                         nullptr,
+                                         nullptr);
       }
 
       if (!phase1_optim_success) {
@@ -589,7 +589,7 @@ class OfflineProblemRunner {
               factor_type_and_ordered_redsidual_info.second;
           size_t n_outliers =
               (size_t)(ordered_residuals_and_block_ids.size() *
-                       solver_params.feature_outlier_percentage_);
+                       iteration_params.feature_outlier_percentage_);
           auto it = ordered_residuals_and_block_ids.begin();
           for (size_t i = 0; i < n_outliers; ++i) {
             const ceres::ResidualBlockId &block_id = it->second;
@@ -622,12 +622,13 @@ class OfflineProblemRunner {
             opt_logger,
             excluded_feature_factor_types_and_ids);
 
-        if (!optimizer_.solveOptimization(&problem,
-                                          solver_params,
-                                          ceres_callbacks,
-                                          opt_logger,
-                                          nullptr,
-                                          nullptr)) {
+        if (!optimizer_.solveOptimization(
+                &problem,
+                iteration_params.phase_two_opt_params_,
+                ceres_callbacks,
+                opt_logger,
+                nullptr,
+                nullptr)) {
           // TODO do we want to quit or just silently let this iteration
           // fail?
           LOG(ERROR) << "Phase II Optimization failed at max frame id "
@@ -638,14 +639,13 @@ class OfflineProblemRunner {
           opt_logger->writeCurrentOptInfo();
         }
       }
-      if (optimization_scope_params.allow_reversion_after_dectecting_jumps_) {
-        if (!isConsecutivePosesStable_(pose_graph,
-                                       optimization_scope_params.min_frame_id_,
-                                       optimization_scope_params.max_frame_id_,
-                                       optimization_factors_enabled_params
-                                           .consecutive_pose_transl_tol_,
-                                       optimization_factors_enabled_params
-                                           .consecutive_pose_orient_tol_)) {
+      if (iteration_params.allow_reversion_after_detecting_jumps_) {
+        if (!isConsecutivePosesStable_(
+                pose_graph,
+                optimization_scope_params.min_frame_id_,
+                optimization_scope_params.max_frame_id_,
+                iteration_params.consecutive_pose_transl_tol_,
+                iteration_params.consecutive_pose_orient_tol_)) {
           LOG(WARNING) << "Detecting jumps after optimization. Reverting...";
           pose_graph->setValuesFromAnotherPoseGraph(pose_graph_copy);
         }
