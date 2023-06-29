@@ -6,6 +6,7 @@
 #define UT_VSLAM_OPTIMIZATION_SOLVER_PARAMS_H
 
 namespace pose_graph_optimization {
+
 struct OptimizationSolverParams {
   // NOTE: If this structure is modified, increment the
   // kCurrentConfigSchemaVersion number in FullOVSLAMConfig.h NOTE: If the
@@ -14,7 +15,6 @@ struct OptimizationSolverParams {
   // config_version_id_
 
   int max_num_iterations_ = 100;
-  double feature_outlier_percentage_ = .1;
   bool allow_non_monotonic_steps_ = false;
   double function_tolerance_ = 1e-6;          // Ceres default
   double gradient_tolerance_ = 1e-10;         // Ceres default
@@ -25,7 +25,6 @@ struct OptimizationSolverParams {
 
   bool operator==(const OptimizationSolverParams &rhs) const {
     return (max_num_iterations_ == rhs.max_num_iterations_) &&
-           (feature_outlier_percentage_ == rhs.feature_outlier_percentage_) &&
            (allow_non_monotonic_steps_ == rhs.allow_non_monotonic_steps_) &&
            (function_tolerance_ == rhs.function_tolerance_) &&
            (gradient_tolerance_ == rhs.gradient_tolerance_) &&
@@ -33,6 +32,29 @@ struct OptimizationSolverParams {
   }
 
   bool operator!=(const OptimizationSolverParams &rhs) const {
+    return !operator==(rhs);
+  }
+};
+
+struct OptimizationIterationParams {
+  bool allow_reversion_after_detecting_jumps_;
+  double consecutive_pose_transl_tol_ = 1.0;
+  double consecutive_pose_orient_tol_ = M_PI;
+  double feature_outlier_percentage_ = .1;
+  OptimizationSolverParams phase_one_opt_params_;
+  OptimizationSolverParams phase_two_opt_params_;
+
+  bool operator==(const OptimizationIterationParams &rhs) const {
+    return (allow_reversion_after_detecting_jumps_ ==
+            rhs.allow_reversion_after_detecting_jumps_) &&
+           (consecutive_pose_transl_tol_ == rhs.consecutive_pose_transl_tol_) &&
+           (consecutive_pose_orient_tol_ == rhs.consecutive_pose_orient_tol_) &&
+           (feature_outlier_percentage_ == rhs.feature_outlier_percentage_) &&
+           (phase_one_opt_params_ == rhs.phase_one_opt_params_) &&
+           (phase_two_opt_params_ == rhs.phase_two_opt_params_);
+  }
+
+  bool operator!=(const OptimizationIterationParams &rhs) const {
     return !operator==(rhs);
   }
 };

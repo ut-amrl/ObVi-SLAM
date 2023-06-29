@@ -21,7 +21,7 @@ namespace vslam_types_refactor {
 
 // NOTE: This should be incremented every time the format of the configuration
 // data changes
-const static int kCurrentConfigSchemaVersion = 9;
+const static int kCurrentConfigSchemaVersion = 10;
 
 struct VisualFeatureParams {
   double reprojection_error_std_dev_;
@@ -154,9 +154,12 @@ struct FullOVSLAMConfig {
 
   VisualFeatureParams visual_feature_params_;
 
-  pose_graph_optimization::OptimizationSolverParams local_ba_solver_params_;
-  pose_graph_optimization::OptimizationSolverParams global_ba_solver_params_;
-  pose_graph_optimization::OptimizationSolverParams final_ba_solver_params_;
+  pose_graph_optimization::OptimizationIterationParams
+      local_ba_iteration_params_;
+  pose_graph_optimization::OptimizationIterationParams
+      global_ba_iteration_params_;
+  pose_graph_optimization::OptimizationIterationParams
+      final_ba_iteration_params_;
 
   pose_graph_optimization::PoseGraphPlusObjectsOptimizationParams
       pgo_solver_params_;
@@ -200,9 +203,9 @@ struct FullOVSLAMConfig {
     return (config_schema_version_ == rhs.config_schema_version_) &&
            (config_version_id_ == rhs.config_version_id_) &&
            (visual_feature_params_ == rhs.visual_feature_params_) &&
-           (local_ba_solver_params_ == rhs.local_ba_solver_params_) &&
-           (global_ba_solver_params_ == rhs.global_ba_solver_params_) &&
-           (final_ba_solver_params_ == rhs.final_ba_solver_params_) &&
+           (local_ba_iteration_params_ == rhs.local_ba_iteration_params_) &&
+           (global_ba_iteration_params_ == rhs.global_ba_iteration_params_) &&
+           (final_ba_iteration_params_ == rhs.final_ba_iteration_params_) &&
            (pgo_solver_params_ == rhs.pgo_solver_params_) &&
            (ltm_tunable_params_ == rhs.ltm_tunable_params_) &&
            (ltm_solver_residual_params_ == rhs.ltm_solver_residual_params_) &&

@@ -166,14 +166,20 @@ int main(int argc, char **argv) {
   // Set up defaults for the different types of optimization that can be
   // overridden later
   pose_graph_optimization::OptimizationSolverParams base_solver_params;
+  pose_graph_optimization::OptimizationIterationParams base_iteration_params;
   base_solver_params.max_num_iterations_ = 100;
-  base_solver_params.feature_outlier_percentage_ = .1;
   base_solver_params.allow_non_monotonic_steps_ = true;
   base_solver_params.function_tolerance_ = 1e-6;          // Ceres default
   base_solver_params.gradient_tolerance_ = 1e-10;         // Ceres default
   base_solver_params.parameter_tolerance_ = 1e-8;         // Ceres default
   base_solver_params.initial_trust_region_radius_ = 1e4;  // Ceres default
   base_solver_params.max_trust_region_radius_ = 1e16;     // Ceres default
+  base_iteration_params.phase_one_opt_params_ = base_solver_params;
+  base_iteration_params.phase_two_opt_params_ = base_solver_params;
+  base_iteration_params.feature_outlier_percentage_ = .1;
+  base_iteration_params.allow_reversion_after_detecting_jumps_ = true;
+  base_iteration_params.consecutive_pose_transl_tol_ = 1.0;
+  base_iteration_params.consecutive_pose_orient_tol_ = M_PI;
 
   // TODO modify convergence thresholds
   pose_graph_optimization::OptimizationSolverParams local_ba_solver_params =
@@ -181,22 +187,34 @@ int main(int argc, char **argv) {
   local_ba_solver_params.max_num_iterations_ = 200;
   local_ba_solver_params.initial_trust_region_radius_ = 1e2;
   local_ba_solver_params.max_trust_region_radius_ = 1e4;
+  pose_graph_optimization::OptimizationIterationParams
+      local_ba_iteration_params = base_iteration_params;
+  local_ba_iteration_params.phase_one_opt_params_ = local_ba_solver_params;
+  local_ba_iteration_params.phase_two_opt_params_ = local_ba_solver_params;
 
   pose_graph_optimization::OptimizationSolverParams global_ba_solver_params =
       base_solver_params;
   global_ba_solver_params.max_num_iterations_ = 250;
   global_ba_solver_params.initial_trust_region_radius_ = 1e2;
   global_ba_solver_params.max_trust_region_radius_ = 1e4;
+  pose_graph_optimization::OptimizationIterationParams
+      global_ba_iteration_params = base_iteration_params;
+  global_ba_iteration_params.phase_one_opt_params_ = global_ba_solver_params;
+  global_ba_iteration_params.phase_two_opt_params_ = global_ba_solver_params;
 
   pose_graph_optimization::OptimizationSolverParams final_opt_solver_params =
       base_solver_params;
   final_opt_solver_params.max_num_iterations_ = 300;
   final_opt_solver_params.initial_trust_region_radius_ = 1e2;
   final_opt_solver_params.max_trust_region_radius_ = 1e4;
+  pose_graph_optimization::OptimizationIterationParams
+      final_ba_iteration_params = base_iteration_params;
+  final_ba_iteration_params.phase_one_opt_params_ = final_opt_solver_params;
+  final_ba_iteration_params.phase_two_opt_params_ = final_opt_solver_params;
 
-  configuration.local_ba_solver_params_ = local_ba_solver_params;
-  configuration.global_ba_solver_params_ = global_ba_solver_params;
-  configuration.final_ba_solver_params_ = final_opt_solver_params;
+  configuration.local_ba_iteration_params_ = local_ba_iteration_params;
+  configuration.global_ba_iteration_params_ = global_ba_iteration_params;
+  configuration.final_ba_iteration_params_ = final_ba_iteration_params;
 
   configuration.pgo_solver_params_.relative_pose_factor_huber_loss_ = 5;
   configuration.pgo_solver_params_.pgo_optimization_solver_params_ =
@@ -268,10 +286,6 @@ int main(int argc, char **argv) {
 
   pose_graph_optimizer::OptimizationFactorsEnabledParams
       optimization_factors_enabled_params;
-  optimization_factors_enabled_params.allow_reversion_after_dectecting_jumps_ =
-      true;
-  optimization_factors_enabled_params.consecutive_pose_transl_tol_ = 1.0;
-  optimization_factors_enabled_params.consecutive_pose_orient_tol_ = M_PI;
 
   optimization_factors_enabled_params
       .min_low_level_feature_observations_per_frame_ = 50;

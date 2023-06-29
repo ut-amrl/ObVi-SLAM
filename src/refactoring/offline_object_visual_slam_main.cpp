@@ -734,14 +734,14 @@ int main(int argc, char **argv) {
   // Hard-coded values -----------------------------------------------------
 
   // TODO modify convergence thresholds
-  pose_graph_optimization::OptimizationSolverParams local_ba_solver_params =
-      config.local_ba_solver_params_;
+  pose_graph_optimization::OptimizationIterationParams local_ba_iteration_params =
+      config.local_ba_iteration_params_;
 
-  pose_graph_optimization::OptimizationSolverParams global_ba_solver_params =
-      config.global_ba_solver_params_;
+  pose_graph_optimization::OptimizationIterationParams global_ba_iteration_params =
+      config.global_ba_iteration_params_;
 
-  pose_graph_optimization::OptimizationSolverParams final_opt_solver_params =
-      config.final_ba_solver_params_;
+  pose_graph_optimization::OptimizationIterationParams final_opt_iteration_params =
+      config.final_ba_iteration_params_;
 
   pose_graph_optimization::ObjectVisualPoseGraphResidualParams residual_params =
       config.object_visual_pose_graph_residual_params_;
@@ -997,17 +997,17 @@ int main(int argc, char **argv) {
     }
     return true;
   };
-  std::function<pose_graph_optimization::OptimizationSolverParams(
+  std::function<pose_graph_optimization::OptimizationIterationParams(
       const vtr::FrameId &)>
       solver_params_provider_func = [&](const vtr::FrameId &max_frame_to_opt)
-      -> pose_graph_optimization::OptimizationSolverParams {
+      -> pose_graph_optimization::OptimizationIterationParams {
     if (max_frame_to_opt == max_frame_id) {
-      return final_opt_solver_params;
+      return final_opt_iteration_params;
     } else if ((max_frame_to_opt %
                 config.sliding_window_params_.global_ba_frequency_) == 0) {
-      return global_ba_solver_params;
+      return global_ba_iteration_params;
     } else {
-      return local_ba_solver_params;
+      return local_ba_iteration_params;
     }
   };
 
