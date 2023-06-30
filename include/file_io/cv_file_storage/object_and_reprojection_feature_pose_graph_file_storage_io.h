@@ -15,6 +15,7 @@
 namespace vslam_types_refactor {
 
 const std::string kLtmCheckpointOutputFileBaseName = "long_term_map_checkpoint";
+const std::string kPreOptimizationCheckpointOutputFileBaseName = "pose_graph_state_checkpoint_pre_optimization_";
 const std::string kPoseGraphStateKey = "pose_graph";
 
 using SerializableFeatureFactorId = SerializableUint64;

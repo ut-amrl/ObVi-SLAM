@@ -411,7 +411,9 @@ void visualizationStub(
     const vtr::VisualizationTypeEnum &visualization_stage,
     const double &near_edge_threshold,
     const size_t &pending_obj_min_obs_threshold,
-    const std::optional<std::vector<vtr::Pose3D<double>>> &gt_trajectory) {
+    const std::optional<std::vector<vtr::Pose3D<double>>> &gt_trajectory,
+    const vtr::FrameId &final_frame_id,
+    const std::string &output_checkpoints_dir) {
 #ifdef RUN_TIMERS
   CumulativeFunctionTimer::Invocation invoc(
       vtr::CumulativeTimerFactory::getInstance()
@@ -429,6 +431,18 @@ void visualizationStub(
       sleep(3);
       break;
     case vtr::BEFORE_EACH_OPTIMIZATION:
+      if ((max_frame_optimized == final_frame_id) &&
+          (!output_checkpoints_dir.empty())) {
+        LOG(INFO) << "Dumping pose graph before final opt";
+        MainPgPtr derived_pose_graph =
+            std::dynamic_pointer_cast<MainPg>(pose_graph);
+        vtr::outputPoseGraphToFile(
+            derived_pose_graph,
+            file_io::ensureDirectoryPathEndsWithSlash(
+                FLAGS_output_checkpoints_dir) +
+                vtr::kPreOptimizationCheckpointOutputFileBaseName +
+                std::to_string(final_frame_id) + file_io::kJsonExtension);
+      }
       break;
     case vtr::AFTER_PGO_PLUS_OBJ_OPTIMIZATION:
       pgo_opt = true;
@@ -951,6 +965,11 @@ int main(int argc, char **argv) {
   for (const auto &frame_and_pose : robot_poses) {
     max_frame_id = std::max(max_frame_id, frame_and_pose.first);
   }
+  vtr::FrameId effective_max_frame_id = max_frame_id;
+  if (config.limit_traj_eval_params_.should_limit_trajectory_evaluation_) {
+    effective_max_frame_id =
+        std::min(max_frame_id, config.limit_traj_eval_params_.max_frame_id_);
+  }
 
   std::function<vtr::FrameId(const vtr::FrameId &)> window_provider_func =
       [&](const vtr::FrameId &max_frame_to_opt) -> vtr::FrameId {
@@ -1137,7 +1156,8 @@ int main(int argc, char **argv) {
       visual_feature_frame_data_adder = [&](const MainProbData &input_problem,
                                             const MainPgPtr &pose_graph,
                                             const vtr::FrameId &min_frame_id,
-                                            const vtr::FrameId &max_frame_id) {
+                                            const vtr::FrameId
+                                                &max_frame_id_to_opt) {
 #ifdef RUN_TIMERS
         CumulativeFunctionTimer::Invocation invoc(
             vtr::CumulativeTimerFactory::getInstance()
@@ -1145,7 +1165,7 @@ int main(int argc, char **argv) {
                 .get());
 #endif
         visual_feature_fronted.addVisualFeatureObservations(
-            input_problem_data, pose_graph, min_frame_id, max_frame_id);
+            input_problem_data, pose_graph, min_frame_id, max_frame_id_to_opt);
       };
 
   std::function<vtr::Covariance<double, 6>(const vtr::Pose3D<double> &)>
@@ -1570,7 +1590,7 @@ int main(int argc, char **argv) {
       visualization_callback = [&](const MainProbData &input_problem_data,
                                    const MainPgPtr &pose_graph,
                                    const vtr::FrameId &min_frame_id,
-                                   const vtr::FrameId &max_frame_id,
+                                   const vtr::FrameId &max_frame_id_to_opt,
                                    const vtr::VisualizationTypeEnum
                                        &visualization_type) {
         std::shared_ptr<
@@ -1592,13 +1612,15 @@ int main(int argc, char **argv) {
             input_problem_data,
             superclass_ptr,
             min_frame_id,
-            max_frame_id,
+            max_frame_id_to_opt,
             visualization_type,
             config.bounding_box_covariance_generator_params_
                 .near_edge_threshold_,
             config.bounding_box_front_end_params_
                 .feature_based_bb_association_params_.min_observations_,
-            gt_trajectory);
+            gt_trajectory,
+            effective_max_frame_id,
+            FLAGS_output_checkpoints_dir);
       };
   if ((!config.optimization_factors_enabled_params_
             .use_visual_features_on_global_ba_) &&
