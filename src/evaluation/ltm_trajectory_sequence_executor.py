@@ -13,7 +13,8 @@ class TrajectorySequenceExecutionConfig:
                  sequenceFileBaseName, lego_loam_root_dir, odometryTopic,
                  forceRunOrbSlamPostProcess=False, outputEllipsoidDebugInfo=True, outputJacobianDebugInfo=True,
                  outputBbAssocInfo=True, runRviz=False, recordVisualizationRosbag=False, logToFile=False,
-                 forceRerunInterpolator=False, outputCheckpoints=False, readCheckpoints=False):
+                 forceRerunInterpolator=False, outputCheckpoints=False, readCheckpoints=False,
+                 disableLogToStdErr=False):
         self.configFileDirectory = configFileDirectory
         self.orbSlamOutDirectory = orbSlamOutDirectory
         self.rosbagDirectory = rosbagDirectory
@@ -35,6 +36,7 @@ class TrajectorySequenceExecutionConfig:
         self.forceRerunInterpolator = forceRerunInterpolator
         self.outputCheckpoints = outputCheckpoints
         self.readCheckpoints = readCheckpoints
+        self.disableLogToStdErr = disableLogToStdErr
 
 
 def runTrajectorySequence(sequenceExecutionConfig):
@@ -72,7 +74,8 @@ def runTrajectorySequence(sequenceExecutionConfig):
             logToFile=sequenceExecutionConfig.logToFile,
             forceRerunInterpolator=sequenceExecutionConfig.forceRerunInterpolator,
             outputCheckpoints=sequenceExecutionConfig.outputCheckpoints,
-            readCheckpoints=sequenceExecutionConfig.readCheckpoints)
+            readCheckpoints=sequenceExecutionConfig.readCheckpoints,
+            disableLogToStdErr=sequenceExecutionConfig.disableLogToStdErr)
         runSingleTrajectory(trajectoryExecutionConfig)
         prevTrajectoryIdentifier = bagPrefix + bagName
 
@@ -199,6 +202,14 @@ def trajectorySequenceArgParse():
     parser.add_argument('--no-' + CmdLineArgConstants.readCheckpointsBaseArgName,
                         dest=CmdLineArgConstants.readCheckpointsBaseArgName, action='store_false',
                         help="Opposite of " + CmdLineArgConstants.readCheckpointsBaseArgName)
+    parser.add_argument(
+        CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.disableLogToStdErrBaseArgName),
+        default=False,
+        action='store_true',
+        help=CmdLineArgConstants.disableLogToStdErrHelp)
+    parser.add_argument('--no-' + CmdLineArgConstants.disableLogToStdErrBaseArgName,
+                        dest=CmdLineArgConstants.disableLogToStdErrBaseArgName, action='store_false',
+                        help="Opposite of " + CmdLineArgConstants.disableLogToStdErrBaseArgName)
 
     args_dict = vars(parser.parse_args())
 
@@ -228,7 +239,8 @@ def trajectorySequenceArgParse():
         logToFile=args_dict[CmdLineArgConstants.logToFileBaseArgName],
         forceRerunInterpolator=args_dict[CmdLineArgConstants.forceRerunInterpolatorBaseArgName],
         outputCheckpoints=args_dict[CmdLineArgConstants.outputCheckpointsBaseArgName],
-        readCheckpoints=args_dict[CmdLineArgConstants.readCheckpointsBaseArgName])
+        readCheckpoints=args_dict[CmdLineArgConstants.readCheckpointsBaseArgName],
+        disableLogToStdErr=args_dict[CmdLineArgConstants.disableLogToStdErrBaseArgName])
 
 
 if __name__ == "__main__":

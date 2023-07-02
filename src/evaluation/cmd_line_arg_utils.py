@@ -26,6 +26,7 @@ class CmdLineArgConstants:
     logToFileBaseArgName = 'log_to_file'
     outputCheckpointsBaseArgName = 'output_checkpoints'
     readCheckpointsBaseArgName = 'read_checkpoints'
+    disableLogToStdErrBaseArgName = "disable_log_to_stderr"
 
     configFileDirectoryHelp = \
         "Directory where config files are stored"
@@ -82,6 +83,7 @@ class CmdLineArgConstants:
     runRvizHelp = "Start the rviz visualization while optimizing a trajectory"
     recordVisualizationRosbagHelp = "Record a rosbag containing the debug visualization messages"
     logToFileHelp = "True if the process should log to file, false if only to standard error"
+    disableLogToStdErrHelp = "True if the process shouldn't log to the standard error, false if it should log to standard error"
     outputCheckpointsHelp = "True if data needed to resume optimization mid-way through should be output as the process " \
                             "is running, false if the optimization should "
     readFromCheckpointsHelp = "True if the optimization should resume from current checkpoints if available, false if" \
@@ -122,8 +124,8 @@ class CmdLineArgConstants:
     # Constants specific to OASLAM
     oaSlamOutRootDirBaseArgName = 'oa_slam_out_root_dir'
     oaSlamOutRootDirHelp = "Root directory where OA-SLAM output files should be stored. There will be a " \
-                             "subdirectory for each sequence, and within that, a subdirectory for each bag (prefixed " \
-                             "with the number in the sequence)"
+                           "subdirectory for each sequence, and within that, a subdirectory for each bag (prefixed " \
+                           "with the number in the sequence)"
 
     # Metrics
     forceRerunMetricsGeneratorBaseArgName = 'force_rerun_metrics_generator'
@@ -158,7 +160,8 @@ class CmdLineArgConstants:
 
 
 def createCommandStrAddition(argumentName, argumentValue):
-    if ((argumentValue is None) or (isinstance(argumentValue, str) and (len(argumentValue) == 0))):
+    if ((argumentValue is None) or (isinstance(argumentValue, str) and (len(argumentValue) == 0)) or (
+            isinstance(argumentValue, bool) and (not argumentValue))):
         return ""
     argStr = argumentValue
     if (type(argumentValue) != 'str'):

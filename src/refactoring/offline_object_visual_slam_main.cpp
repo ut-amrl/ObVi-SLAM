@@ -123,6 +123,9 @@ DEFINE_string(input_checkpoints_dir,
               "",
               "Directory to read checkpoints from. If not specified, "
               "optimization should start from the beginning.");
+DEFINE_bool(disable_log_to_stderr,
+            false,
+            "Set to true if the logging to standard error should be disabled");
 
 std::unordered_map<vtr::CameraId, vtr::CameraIntrinsicsMat<double>>
 readCameraIntrinsicsByCameraFromFile(const std::string &file_name) {
@@ -673,9 +676,13 @@ int main(int argc, char **argv) {
 
   std::optional<vtr::OptimizationLogger> opt_logger;
   if (FLAGS_logs_directory.empty()) {
-    FLAGS_logtostderr = true;  // Don't log to disk - log to terminal
+    if (!FLAGS_disable_log_to_stderr) {
+      FLAGS_logtostderr = true;  // Don't log to disk - log to terminal
+    }
   } else {
-    FLAGS_alsologtostderr = true;
+    if (!FLAGS_disable_log_to_stderr) {
+      FLAGS_alsologtostderr = true;
+    }
     FLAGS_log_dir = FLAGS_logs_directory;
     opt_logger = vtr::OptimizationLogger(
         file_io::ensureDirectoryPathEndsWithSlash(FLAGS_logs_directory) +
@@ -734,14 +741,14 @@ int main(int argc, char **argv) {
   // Hard-coded values -----------------------------------------------------
 
   // TODO modify convergence thresholds
-  pose_graph_optimization::OptimizationIterationParams local_ba_iteration_params =
-      config.local_ba_iteration_params_;
+  pose_graph_optimization::OptimizationIterationParams
+      local_ba_iteration_params = config.local_ba_iteration_params_;
 
-  pose_graph_optimization::OptimizationIterationParams global_ba_iteration_params =
-      config.global_ba_iteration_params_;
+  pose_graph_optimization::OptimizationIterationParams
+      global_ba_iteration_params = config.global_ba_iteration_params_;
 
-  pose_graph_optimization::OptimizationIterationParams final_opt_iteration_params =
-      config.final_ba_iteration_params_;
+  pose_graph_optimization::OptimizationIterationParams
+      final_opt_iteration_params = config.final_ba_iteration_params_;
 
   pose_graph_optimization::ObjectVisualPoseGraphResidualParams residual_params =
       config.object_visual_pose_graph_residual_params_;

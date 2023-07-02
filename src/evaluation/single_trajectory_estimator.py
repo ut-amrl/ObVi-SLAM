@@ -32,6 +32,8 @@ class SingleTrajectoryExecutableParamConstants:
     ground_truth_extrinsics_file = "ground_truth_extrinsics_file"
     output_checkpoints_dir = "output_checkpoints_dir"
     input_checkpoints_dir = "input_checkpoints_dir"
+    disable_log_to_stderr = "disable_log_to_stderr"
+
 
 class OrbTrajectorySparsifierParamConstants:
     param_prefix = "param_prefix"
@@ -51,7 +53,8 @@ class SingleTrajectoryExecutionConfig:
                  lego_loam_root_dir, odometryTopic,
                  forceRunOrbSlamPostProcess=False, outputEllipsoidDebugInfo=True, outputJacobianDebugInfo=True,
                  outputBbAssocInfo=True, runRviz=False, recordVisualizationRosbag=False, logToFile=False,
-                 forceRerunInterpolator=False, outputCheckpoints=False, readCheckpoints=False):
+                 forceRerunInterpolator=False, outputCheckpoints=False, readCheckpoints=False,
+                 disableLogToStdErr=False):
         self.configFileDirectory = configFileDirectory
         self.orbSlamOutDirectory = orbSlamOutDirectory
         self.rosbagDirectory = rosbagDirectory
@@ -76,6 +79,7 @@ class SingleTrajectoryExecutionConfig:
         self.forceRerunInterpolator = forceRerunInterpolator
         self.outputCheckpoints = outputCheckpoints
         self.readCheckpoints = readCheckpoints
+        self.disableLogToStdErr = disableLogToStdErr
 
 
 class OfflineRunnerArgs:
@@ -84,7 +88,7 @@ class OfflineRunnerArgs:
                  rosbag_file, long_term_map_input, long_term_map_output, low_level_feats_dir, bb_associations_out_file,
                  ltm_opt_jacobian_info_directory, visual_feature_results_file, debug_images_output_directory,
                  params_config_file, ellipsoids_results_file, robot_poses_results_file, logs_directory, gt_poses_file,
-                 gt_extrinsics_file, output_checkpoints_dir, input_checkpoints_dir,
+                 gt_extrinsics_file, output_checkpoints_dir, input_checkpoints_dir, disable_log_to_stderr,
                  bounding_boxes_by_node_id_file=None):
         self.param_prefix = param_prefix
         self.intrinsics_file = intrinsics_file
@@ -108,6 +112,7 @@ class OfflineRunnerArgs:
         self.gt_extrinsics_file = gt_extrinsics_file
         self.output_checkpoints_dir = output_checkpoints_dir
         self.input_checkpoints_dir = input_checkpoints_dir
+        self.disable_log_to_stderr = disable_log_to_stderr
 
 
 def runOrbPostProcess(orbDataDirForBag, unsparsifiedUtVslamInDir, sparsifiedUtVslamInDir, calibrationDir,
@@ -341,7 +346,8 @@ def generateOfflineRunnerArgsFromExecutionConfigAndPreprocessOrbDataIfNecessary(
                                     gt_poses_file=gt_poses_file,
                                     gt_extrinsics_file=gt_extrinsics_file,
                                     output_checkpoints_dir=outputCheckpointsDir,
-                                    input_checkpoints_dir=inputCheckpointsDir)
+                                    input_checkpoints_dir=inputCheckpointsDir,
+                                    disable_log_to_stderr=executionConfig.disableLogToStdErr)
     return (param_prefix, offlineArgs)
 
 
@@ -390,6 +396,8 @@ def runTrajectoryFromOfflineArgs(offlineArgs):
                                            offlineArgs.output_checkpoints_dir)
     argsString += createCommandStrAddition(SingleTrajectoryExecutableParamConstants.input_checkpoints_dir,
                                            offlineArgs.input_checkpoints_dir)
+    argsString += createCommandStrAddition(SingleTrajectoryExecutableParamConstants.disable_log_to_stderr,
+                                           offlineArgs.disable_log_to_stderr)
 
     cmdToRun = "./bin/offline_object_visual_slam_main " + argsString
     print("Running command: ")
@@ -606,6 +614,14 @@ def singleTrajectoryArgParse():
     parser.add_argument('--no-' + CmdLineArgConstants.readCheckpointsBaseArgName,
                         dest=CmdLineArgConstants.readCheckpointsBaseArgName, action='store_false',
                         help="Opposite of " + CmdLineArgConstants.readCheckpointsBaseArgName)
+    parser.add_argument(
+        CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.disableLogToStdErrBaseArgName),
+        default=False,
+        action='store_true',
+        help=CmdLineArgConstants.disableLogToStdErrHelp)
+    parser.add_argument('--no-' + CmdLineArgConstants.disableLogToStdErrBaseArgName,
+                        dest=CmdLineArgConstants.disableLogToStdErrBaseArgName, action='store_false',
+                        help="Opposite of " + CmdLineArgConstants.disableLogToStdErrBaseArgName)
 
     args_dict = vars(parser.parse_args())
 
@@ -638,7 +654,8 @@ def singleTrajectoryArgParse():
         logToFile=args_dict[CmdLineArgConstants.logToFileBaseArgName],
         forceRerunInterpolator=args_dict[CmdLineArgConstants.forceRerunInterpolatorBaseArgName],
         outputCheckpoints=args_dict[CmdLineArgConstants.outputCheckpointsBaseArgName],
-        readCheckpoints=args_dict[CmdLineArgConstants.readCheckpointsBaseArgName])
+        readCheckpoints=args_dict[CmdLineArgConstants.readCheckpointsBaseArgName],
+        disableLogToStdErr=args_dict[CmdLineArgConstants.disableLogToStdErrBaseArgName])
 
 
 if __name__ == "__main__":
