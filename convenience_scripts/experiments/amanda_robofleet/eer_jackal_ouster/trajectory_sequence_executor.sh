@@ -29,6 +29,8 @@ sequence_file_base_name="amazon_0523_v0"
 #config_file_base_name="tentative_11_wider_trees_lamps"
 config_file_base_name="base4"
 
+cd $SLAM_DIR
+
 python3 src/evaluation/ltm_trajectory_sequence_executor.py \
     --config_file_directory ${config_file_directory} \
     --orb_slam_out_directory ${orb_slam_out_directory} \
@@ -44,3 +46,4 @@ python3 src/evaluation/ltm_trajectory_sequence_executor.py \
     --output_ellipsoid_debug --output_jacobian_debug --output_bb_assoc --record_viz_rosbag --log_to_file \
     --output_checkpoints --disable_log_to_stderr
 
+kill -9 $yolo_pid
