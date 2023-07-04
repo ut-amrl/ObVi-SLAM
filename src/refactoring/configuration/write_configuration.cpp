@@ -231,6 +231,8 @@ int main(int argc, char **argv) {
       relative_pose_cov_params;
   configuration.pgo_solver_params_.enable_visual_feats_only_opt_post_pgo_ =
       false;
+  configuration.pgo_solver_params_
+      .enable_visual_non_opt_feature_adjustment_post_pgo_ = false;
 
   configuration.ltm_tunable_params_.far_feature_threshold_ = 75;
   configuration.ltm_tunable_params_.min_col_norm_ = 5e-9;

@@ -664,6 +664,11 @@ class SerializablePoseGraphPlusObjectsOptimizationParams
     fs << kEnableVisualFeatsOnlyOptPostPgoLabel
        << enable_visual_feats_only_opt_post_pgo_int;
 
+    int enable_visual_non_opt_feature_adjustment_post_pgo_int =
+        data_.enable_visual_non_opt_feature_adjustment_post_pgo_ ? 1 : 0;
+    fs << kEnableVisualNonOptFeatureAdjustmentPostPgoLabel
+       << enable_visual_non_opt_feature_adjustment_post_pgo_int;
+
     fs << kRelativePoseCovParamsLabel
        << SerializableRelativePoseCovarianceOdomModelParams(
               data_.relative_pose_cov_params_);
@@ -684,6 +689,11 @@ class SerializablePoseGraphPlusObjectsOptimizationParams
         node[kEnableVisualFeatsOnlyOptPostPgoLabel];
     data_.enable_visual_feats_only_opt_post_pgo_ =
         enable_visual_feats_only_opt_post_pgo_int != 0;
+
+    int enable_visual_non_opt_feature_adjustment_post_pgo_int =
+        node[kEnableVisualNonOptFeatureAdjustmentPostPgoLabel];
+    data_.enable_visual_non_opt_feature_adjustment_post_pgo_ =
+        enable_visual_non_opt_feature_adjustment_post_pgo_int != 0;
 
     SerializableRelativePoseCovarianceOdomModelParams
         ser_relative_pose_cov_params;
@@ -712,6 +722,9 @@ class SerializablePoseGraphPlusObjectsOptimizationParams
       "relative_pose_factor_huber_loss";
   inline static const std::string kEnableVisualFeatsOnlyOptPostPgoLabel =
       "enable_visual_feats_only_opt_post_pgo";
+  inline static const std::string
+      kEnableVisualNonOptFeatureAdjustmentPostPgoLabel =
+          "enable_visual_non_opt_feature_adjustment_post_pgo";
   inline static const std::string kRelativePoseCovParamsLabel =
       "relative_pose_cov_params";
   inline static const std::string kPgoOptimizationSolverParamsLabel =

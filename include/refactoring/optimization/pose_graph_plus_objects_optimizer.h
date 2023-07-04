@@ -150,7 +150,7 @@ bool runPgoPlusEllipsoids(
   std::unordered_map<FeatureId, std::pair<FrameId, Position3d<double>>>
       relative_positions_from_first;
 
-  if (pgo_solver_params.enable_visual_feats_only_opt_post_pgo_) {
+  if (pgo_solver_params.enable_visual_non_opt_feature_adjustment_post_pgo_) {
     std::unordered_map<FrameId, RawPose3d<double>> robot_pose_estimates_raw;
     std::unordered_map<FrameId, Pose3D<double>> robot_pose_estimates;
     pose_graph->getRobotPoseEstimates(robot_pose_estimates_raw);
@@ -205,18 +205,14 @@ bool runPgoPlusEllipsoids(
     return false;
   }
 
-  // TODO do we need to readjust visual features after optimization
-
   if (opt_logger.has_value()) {
     opt_logger->writeCurrentOptInfo();
   }
 
-  if (pgo_solver_params.enable_visual_feats_only_opt_post_pgo_) {
+  if (pgo_solver_params.enable_visual_non_opt_feature_adjustment_post_pgo_) {
     if (opt_logger.has_value()) {
       opt_logger->setOptimizationTypeParams(max_frame_id, true, true, false);
     }
-
-    // TODO make sure this actually adjusts things
 
     std::unordered_map<FeatureId, VisualFeatureNode> feature_nodes;
     pose_graph->getFeaturePositionPtrs(feature_nodes);
@@ -249,11 +245,13 @@ bool runPgoPlusEllipsoids(
           robot_pose_estimates.at(first_obs_info.first), first_obs_info.second);
       feat.second.updateVisualPositionParams(new_position);
     }
-
+  }
+  if (pgo_solver_params.enable_visual_feats_only_opt_post_pgo_) {
     pose_graph_optimizer::OptimizationScopeParams
         optimization_scope_params_for_vf_adjustment = optimization_scope_params;
     optimization_scope_params_for_vf_adjustment.fix_poses_ = true;
     optimization_scope_params_for_vf_adjustment.fix_objects_ = true;
+    optimization_scope_params_for_vf_adjustment.include_object_factors_ = false;
     optimizer.buildPoseGraphOptimization(
         optimization_scope_params_for_vf_adjustment,
         residual_params,

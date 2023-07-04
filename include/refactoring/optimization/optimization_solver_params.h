@@ -172,6 +172,7 @@ struct PoseGraphPlusObjectsOptimizationParams {
   double relative_pose_factor_huber_loss_ = 1.0;
 
   bool enable_visual_feats_only_opt_post_pgo_ = false;
+  bool enable_visual_non_opt_feature_adjustment_post_pgo_ = false;
 
   RelativePoseCovarianceOdomModelParams relative_pose_cov_params_;
   OptimizationSolverParams pgo_optimization_solver_params_;
@@ -182,6 +183,8 @@ struct PoseGraphPlusObjectsOptimizationParams {
             rhs.relative_pose_factor_huber_loss_) &&
            (enable_visual_feats_only_opt_post_pgo_ ==
             rhs.enable_visual_feats_only_opt_post_pgo_) &&
+           (enable_visual_non_opt_feature_adjustment_post_pgo_ ==
+            rhs.enable_visual_non_opt_feature_adjustment_post_pgo_) &&
            (relative_pose_cov_params_ == rhs.relative_pose_cov_params_) &&
            (pgo_optimization_solver_params_ ==
             rhs.pgo_optimization_solver_params_) &&
