@@ -126,6 +126,7 @@ TEST(FullOVSLAMConfigIO, ReadWriteFullOBSLAMConfig) {
       .rot_error_mult_for_transl_error_ = 3.6;
   orig_config.pgo_solver_params_.relative_pose_cov_params_
       .rot_error_mult_for_rot_error_ = 4.7;
+  orig_config.pgo_solver_params_.enable_visual_feats_only_opt_post_pgo_ = true;
 
   LongTermMapExtractionTunableParams ltm_tunable_params;
   ltm_tunable_params.far_feature_threshold_ = 2.4;

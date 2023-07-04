@@ -1,6 +1,6 @@
 {
     "config": {
-        "config_schema_version": 10,
+        "config_schema_version": 11,
         "config_version_id": "12",
         "visual_feature_params": {
             "reprojection_error_std_dev": 2.0,
@@ -87,6 +87,7 @@
         },
         "pgo_solver_params": {
             "relative_pose_factor_huber_loss": 5.0,
+            "enable_visual_feats_only_opt_post_pgo": 0,
             "relative_pose_cov_params": {
                 "transl_error_mult_for_transl_error": 1.0000000000000001e-01,
                 "transl_error_mult_for_rot_error": 1.0000000000000001e-01,
@@ -130,9 +131,9 @@
             },
             "relative_pose_factor_huber_loss": 1.0,
             "relative_pose_cov_params": {
-                "transl_error_mult_for_transl_error": 6.9375074155200748e-310,
+                "transl_error_mult_for_transl_error": 0.0,
                 "transl_error_mult_for_rot_error": 0.0,
-                "rot_error_mult_for_transl_error": 6.9375074155248178e-310,
+                "rot_error_mult_for_transl_error": 0.0,
                 "rot_error_mult_for_rot_error": 0.0
             }
         },

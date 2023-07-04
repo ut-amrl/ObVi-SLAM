@@ -659,6 +659,11 @@ class SerializablePoseGraphPlusObjectsOptimizationParams
     fs << kRelativePoseFactorHuberLossLabel
        << data_.relative_pose_factor_huber_loss_;
 
+    int enable_visual_feats_only_opt_post_pgo_int =
+        data_.enable_visual_feats_only_opt_post_pgo_ ? 1 : 0;
+    fs << kEnableVisualFeatsOnlyOptPostPgoLabel
+       << enable_visual_feats_only_opt_post_pgo_int;
+
     fs << kRelativePoseCovParamsLabel
        << SerializableRelativePoseCovarianceOdomModelParams(
               data_.relative_pose_cov_params_);
@@ -674,6 +679,11 @@ class SerializablePoseGraphPlusObjectsOptimizationParams
   virtual void read(const cv::FileNode &node) override {
     data_.relative_pose_factor_huber_loss_ =
         node[kRelativePoseFactorHuberLossLabel];
+
+    int enable_visual_feats_only_opt_post_pgo_int =
+        node[kEnableVisualFeatsOnlyOptPostPgoLabel];
+    data_.enable_visual_feats_only_opt_post_pgo_ =
+        enable_visual_feats_only_opt_post_pgo_int != 0;
 
     SerializableRelativePoseCovarianceOdomModelParams
         ser_relative_pose_cov_params;
@@ -700,6 +710,8 @@ class SerializablePoseGraphPlusObjectsOptimizationParams
  private:
   inline static const std::string kRelativePoseFactorHuberLossLabel =
       "relative_pose_factor_huber_loss";
+  inline static const std::string kEnableVisualFeatsOnlyOptPostPgoLabel =
+      "enable_visual_feats_only_opt_post_pgo";
   inline static const std::string kRelativePoseCovParamsLabel =
       "relative_pose_cov_params";
   inline static const std::string kPgoOptimizationSolverParamsLabel =
@@ -1586,11 +1598,14 @@ class SerializableFullOVSLAMConfig
     fs << kVisualFeatureParamsLabel
        << SerializableVisualFeatureParams(data_.visual_feature_params_);
     fs << kLocalBaIterationParamsLabel
-       << SerializableOptimizationIterationParams(data_.local_ba_iteration_params_);
+       << SerializableOptimizationIterationParams(
+              data_.local_ba_iteration_params_);
     fs << kGlobalBaIterationParamsLabel
-       << SerializableOptimizationIterationParams(data_.global_ba_iteration_params_);
+       << SerializableOptimizationIterationParams(
+              data_.global_ba_iteration_params_);
     fs << kFinalBaIterationParamsLabel
-       << SerializableOptimizationIterationParams(data_.final_ba_iteration_params_);
+       << SerializableOptimizationIterationParams(
+              data_.final_ba_iteration_params_);
     fs << kPgoSolverParamsLabel
        << SerializablePoseGraphPlusObjectsOptimizationParams(
               data_.pgo_solver_params_);
