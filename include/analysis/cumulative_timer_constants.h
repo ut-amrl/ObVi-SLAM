@@ -81,6 +81,11 @@ const std::string kTimerNameFactorReprojectionCostFunctorDouble =
     "factor_reprojection_cost_functor_double";
 const std::string kTimerNameFactorReprojectionCostFunctorJacobian =
     "factor_reprojection_cost_functor_jacobian";
+const std::string kTimerNameFactorAnalyticalReprojectionCostFunctorDouble =
+    "factor_analytical_reprojection_cost_functor_double";
+const std::string kTimerNameFactorAnalyticalReprojectionCostFunctorJacobian =
+    "factor_analytical_reprojection_cost_functor_jacobian";
+
 const std::string kTimerNameFactorBoundingBoxDouble =
     "factor_bounding_box_double";
 const std::string kTimerNameFactorBoundingBoxJacobian =

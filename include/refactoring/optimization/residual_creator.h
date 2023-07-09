@@ -9,6 +9,7 @@
 #include <ceres/problem.h>
 #include <refactoring/factors/bounding_box_factor.h>
 #include <refactoring/factors/reprojection_cost_functor.h>
+#include <refactoring/factors/reprojection_cost_functor_analytic_jacobian.h>
 #include <refactoring/factors/shape_prior_factor.h>
 #include <refactoring/optimization/object_pose_graph.h>
 #include <refactoring/optimization/optimization_solver_params.h>
@@ -247,11 +248,14 @@ bool createReprojectionErrorResidual(
     return false;
   }
 
+  LOG_EVERY_N(INFO, 1000) << "Using new residual type";
   residual_id = problem->AddResidualBlock(
-      ReprojectionCostFunctor::create(intrinsics,
-                                      extrinsics,
-                                      factor.feature_pos_,
-                                      factor.reprojection_error_std_dev_),
+      //      ReprojectionCostFunctor::create(
+      ReprojectionCostFunctorAnalyticJacobian::create(
+          intrinsics,
+          extrinsics,
+          factor.feature_pos_,
+          factor.reprojection_error_std_dev_),
       new ceres::HuberLoss(residual_params.visual_residual_params_
                                .reprojection_error_huber_loss_param_),
       robot_pose_block,

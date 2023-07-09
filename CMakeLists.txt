@@ -85,6 +85,7 @@ add_library(ut_vslam
         src/refactoring/factors/pairwise_2d_feature_cost_functor.cpp
         src/refactoring/factors/independent_object_map_factor.cpp
         src/refactoring/factors/relative_pose_factor.cpp
+        src/refactoring/factors/reprojection_cost_functor_analytic_jacobian.cpp
         src/refactoring/factors/reprojection_cost_functor.cpp
         src/refactoring/factors/shape_prior_factor.cpp
         src/refactoring/long_term_map/long_term_object_map_extraction.cpp
