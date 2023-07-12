@@ -248,10 +248,12 @@ bool createReprojectionErrorResidual(
     return false;
   }
 
-  LOG_EVERY_N(INFO, 1000) << "Using new residual type";
   residual_id = problem->AddResidualBlock(
-      //      ReprojectionCostFunctor::create(
-      ReprojectionCostFunctorAnalyticJacobian::create(
+      ReprojectionCostFunctor::create(
+          // This version seems to cause major problems with the covariance
+          // extraction (is something wrong with the Jacobian?), but the
+          // trajectory/ellipsoid output looks fine
+          // ReprojectionCostFunctorAnalyticJacobian::create(
           intrinsics,
           extrinsics,
           factor.feature_pos_,
