@@ -20,7 +20,8 @@ enum VisualizationTypeEnum {
   BEFORE_EACH_OPTIMIZATION,
   AFTER_EACH_OPTIMIZATION,
   AFTER_PGO_PLUS_OBJ_OPTIMIZATION,
-  AFTER_ALL_OPTIMIZATION
+  AFTER_ALL_OPTIMIZATION,
+  AFTER_ALL_POSTPROCESSING
 };
 
 template <typename InputProblemData,
@@ -73,8 +74,8 @@ class OfflineProblemRunner {
                                const std::shared_ptr<PoseGraphType> &,
                                const FrameId &,
                                const FrameId &,
-                               const VisualizationTypeEnum &)>
-          &visualization_callback,
+                               const VisualizationTypeEnum &,
+                               const int &)> &visualization_callback,
       const std::function<pose_graph_optimization::OptimizationIterationParams(
           const FrameId &)> &iteration_params_provider_func,
       const std::function<bool(const std::shared_ptr<PoseGraphType> &)>
@@ -101,7 +102,9 @@ class OfflineProblemRunner {
       const pose_graph_optimizer::OptimizationFactorsEnabledParams
           &optimization_factors_enabled_params,
       std::optional<vslam_types_refactor::OptimizationLogger> &opt_logger,
-      OutputProblemData &output_problem_data) {
+      OutputProblemData &output_problem_data,
+      const FrameId &start_at_frame = 0,
+      const bool &add_data_for_starting_frame = true) {
     std::shared_ptr<PoseGraphType> pose_graph;
 
     if (opt_logger.has_value()) {
@@ -109,8 +112,14 @@ class OfflineProblemRunner {
     }
     ceres::Problem problem;
     LOG(INFO) << "Running pose graph creator";
-    pose_graph_creator_(problem_data, pose_graph);
-    frame_data_adder_(problem_data, pose_graph, 0, 0);
+    if (pose_graph == nullptr) {
+      pose_graph_creator_(problem_data, pose_graph);
+    }
+    if (start_at_frame == 0) {
+      if (add_data_for_starting_frame) {
+        frame_data_adder_(problem_data, pose_graph, 0, 0);
+      }
+    }
     FrameId max_frame_id = problem_data.getMaxFrameId();
 
     if (limit_trajectory_eval_params_.should_limit_trajectory_evaluation_) {
@@ -148,10 +157,13 @@ class OfflineProblemRunner {
                             pose_graph,
                             0,
                             max_frame_id,  // Should this be max or 0
-                            VisualizationTypeEnum::BEFORE_ANY_OPTIMIZATION);
+                            VisualizationTypeEnum::BEFORE_ANY_OPTIMIZATION,
+                            0);
     LOG(INFO) << "Ready to run optimization";
 
-    for (FrameId next_frame_id = 1; next_frame_id <= max_frame_id;
+    FrameId first_frame = std::max((FrameId)1, start_at_frame);
+
+    for (FrameId next_frame_id = first_frame; next_frame_id <= max_frame_id;
          next_frame_id++) {
 #ifdef RUN_TIMERS
       CumulativeFunctionTimer::Invocation invoc(
@@ -171,8 +183,11 @@ class OfflineProblemRunner {
       FrameId start_opt_with_frame = window_provider_func_(next_frame_id);
       optimization_scope_params.min_frame_id_ = start_opt_with_frame;
       optimization_scope_params.max_frame_id_ = next_frame_id;
-      frame_data_adder_(
-          problem_data, pose_graph, start_opt_with_frame, next_frame_id);
+
+      if ((next_frame_id != start_at_frame) || (add_data_for_starting_frame)) {
+        frame_data_adder_(
+            problem_data, pose_graph, start_opt_with_frame, next_frame_id);
+      }
 
       if (!runOptimizationIteration(start_opt_with_frame,
                                     next_frame_id,
@@ -187,8 +202,16 @@ class OfflineProblemRunner {
       }
     }
 
+    visualization_callback_(problem_data,
+                            pose_graph,
+                            0,
+                            max_frame_id,
+                            VisualizationTypeEnum::AFTER_ALL_OPTIMIZATION,
+                            0);
+
     // Until there are no more objects to merge, check if a merge should be
     // performed, and then if so, rerun the optimization to update the estimates
+    int post_process_round = 1;
     while (object_merger_(pose_graph)) {
       ceres::Problem merged_problem;
       optimizer_.clearPastOptimizationData();
@@ -202,16 +225,19 @@ class OfflineProblemRunner {
                                     max_frame_id,
                                     opt_logger,
                                     pose_graph,
-                                    merged_problem)) {
+                                    merged_problem,
+                                    post_process_round)) {
         return false;
       }
+      post_process_round++;
     }
 
     visualization_callback_(problem_data,
                             pose_graph,
                             0,
                             max_frame_id,
-                            VisualizationTypeEnum::AFTER_ALL_OPTIMIZATION);
+                            VisualizationTypeEnum::AFTER_ALL_POSTPROCESSING,
+                            0);
     output_data_extractor_(problem_data,
                            pose_graph,
                            optimization_factors_enabled_params,
@@ -268,7 +294,8 @@ class OfflineProblemRunner {
                      const std::shared_ptr<PoseGraphType> &,
                      const FrameId &,
                      const FrameId &,
-                     const VisualizationTypeEnum &)>
+                     const VisualizationTypeEnum &,
+                     const int &)>
       visualization_callback_;
 
   std::function<pose_graph_optimization::OptimizationIterationParams(
@@ -329,7 +356,8 @@ class OfflineProblemRunner {
       const FrameId &max_frame_id,
       std::optional<vslam_types_refactor::OptimizationLogger> &opt_logger,
       std::shared_ptr<PoseGraphType> &pose_graph,
-      ceres::Problem &problem) {
+      ceres::Problem &problem,
+      const int &attempt_num = 0) {
     pose_graph_optimization::OptimizationIterationParams iteration_params =
         iteration_params_provider_func_(next_frame_id);
 
@@ -337,7 +365,8 @@ class OfflineProblemRunner {
                             pose_graph,
                             start_opt_with_frame,
                             next_frame_id,
-                            VisualizationTypeEnum::BEFORE_EACH_OPTIMIZATION);
+                            VisualizationTypeEnum::BEFORE_EACH_OPTIMIZATION,
+                            attempt_num);
     std::vector<std::shared_ptr<ceres::IterationCallback>> ceres_callbacks =
         ceres_callback_creator_(
             problem_data, pose_graph, start_opt_with_frame, next_frame_id);
@@ -412,7 +441,8 @@ class OfflineProblemRunner {
             pose_graph,
             start_opt_with_frame,
             next_frame_id,
-            VisualizationTypeEnum::AFTER_PGO_PLUS_OBJ_OPTIMIZATION);
+            VisualizationTypeEnum::AFTER_PGO_PLUS_OBJ_OPTIMIZATION,
+            attempt_num);
       }
     }
 
@@ -655,7 +685,8 @@ class OfflineProblemRunner {
                               pose_graph,
                               start_opt_with_frame,
                               next_frame_id,
-                              VisualizationTypeEnum::AFTER_EACH_OPTIMIZATION);
+                              VisualizationTypeEnum::AFTER_EACH_OPTIMIZATION,
+                              attempt_num);
     }
     return true;
   }

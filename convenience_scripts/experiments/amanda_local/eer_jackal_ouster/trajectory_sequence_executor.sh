@@ -13,10 +13,10 @@ lego_loam_out_root_dir=${root_data_dir}lego_loam_out/
 odometry_topic="/jackal_velocity_controller/odom"
 
 #sequence_file_base_name="end_of_may_demo_v1"
-sequence_file_base_name="jacobian_debug"
+sequence_file_base_name="amazon_0523_v0_bag2_only"
 #config_file_base_name="tentative_11"
 #config_file_base_name="tentative_11_wider_trees_lamps"
-config_file_base_name="tentative_11_first_25"
+config_file_base_name="base4_old_single_thread_higher_jacobian_threshold"
 
 python3 src/evaluation/ltm_trajectory_sequence_executor.py \
     --config_file_directory ${config_file_directory} \
