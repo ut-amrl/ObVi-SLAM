@@ -112,13 +112,10 @@ class OfflineProblemRunner {
     }
     ceres::Problem problem;
     LOG(INFO) << "Running pose graph creator";
-    if (pose_graph == nullptr) {
-      pose_graph_creator_(problem_data, pose_graph);
-    }
-    if (start_at_frame == 0) {
-      if (add_data_for_starting_frame) {
-        frame_data_adder_(problem_data, pose_graph, 0, 0);
-      }
+    pose_graph_creator_(problem_data, pose_graph);
+
+    if ((start_at_frame == 0) && (add_data_for_starting_frame)) {
+      frame_data_adder_(problem_data, pose_graph, 0, 0);
     }
     FrameId max_frame_id = problem_data.getMaxFrameId();
 

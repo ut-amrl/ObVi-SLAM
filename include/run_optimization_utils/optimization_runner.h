@@ -18,7 +18,6 @@
 #include <run_optimization_utils/run_opt_utils.h>
 
 namespace vslam_types_refactor {
-// TODO
 
 bool runFullOptimization(
     std::optional<OptimizationLogger> &opt_logger,
@@ -32,11 +31,11 @@ bool runFullOptimization(
         std::unordered_map<CameraId, std::vector<RawBoundingBox>>>
         &bounding_boxes,
     const std::unordered_map<FeatureId, StructuredVisionFeatureTrack>
-        visual_features,
+        &visual_features,
     const std::unordered_map<FrameId, Pose3D<double>> &robot_poses,
     const MainLtmPtr &long_term_map,
     const std::function<void(const MainProbData &, MainPgPtr &)>
-        pose_graph_creator,
+        &pose_graph_creator,
     const std::unordered_map<
         FrameId,
         std::unordered_map<CameraId, sensor_msgs::Image::ConstPtr>> &images,
@@ -44,8 +43,45 @@ bool runFullOptimization(
     const std::string &jacobian_debug_output_dir,
     const std::function<
         bool(const FrameId &,
+             const MainProbData &input_prob_data,
              std::unordered_map<CameraId, std::vector<RawBoundingBox>> &)>
-        &bb_retriever,
+        &input_data_dependent_bb_retriever,
+    const std::function<void(
+        const std::unordered_map<CameraId, std::pair<double, double>> &,
+        const std::shared_ptr<std::unordered_map<
+            FrameId,
+            std::unordered_map<CameraId,
+                               std::vector<std::pair<BbCornerPair<double>,
+                                                     std::optional<double>>>>>>
+            &,
+        const std::shared_ptr<std::unordered_map<
+            FrameId,
+            std::unordered_map<
+                CameraId,
+                std::unordered_map<ObjectId,
+                                   std::pair<BbCornerPair<double>,
+                                             std::optional<double>>>>>> &,
+        const std::shared_ptr<std::vector<std::unordered_map<
+            FrameId,
+            std::unordered_map<CameraId,
+                               std::pair<BbCornerPair<double>, double>>>>> &,
+        const std::shared_ptr<std::vector<
+            std::pair<std::string, std::optional<EllipsoidState<double>>>>> &,
+        const std::unordered_map<
+            FrameId,
+            std::unordered_map<
+                CameraId,
+                std::unordered_map<FeatureId, PixelCoord<double>>>> &,
+        const MainProbData &,
+        const MainPgPtr &,
+        const FrameId &,
+        const FrameId &,
+        const VisualizationTypeEnum &,
+        const int &)> &visualization_callback,
+    IndependentEllipsoidsLongTermObjectMapFactorCreator<util::EmptyStruct,
+                                                        util::EmptyStruct>
+        &ltm_factor_creator,
+    LongTermObjectMapAndResults<MainLtm> &output_results,
     const FrameId &start_opt_at_frame = 0,
     const bool &run_data_adder_for_first_frame = true) {
 #ifdef RUN_TIMERS
@@ -136,79 +172,19 @@ bool runFullOptimization(
       long_term_map,
       images);
 
-  //  SaveToFileVisualizerConfig save_to_file_visualizer_config;
-  //  save_to_file_visualizer_config.bb_assoc_visualizer_config_
-  //      .bounding_box_inflation_size_ =
-  //      config.bounding_box_front_end_params_.feature_based_bb_association_params_
-  //          .bounding_box_inflation_size_;
-  //  save_to_file_visualizer_config.bb_assoc_visualizer_config_
-  //      .feature_validity_window_ =
-  //      config.bounding_box_front_end_params_.feature_based_bb_association_params_
-  //          .feature_validity_window_;
-
-  // Connect up functions needed for the optimizer --------------------------
-  //  std::shared_ptr<RosVisualization> vis_manager =
-  //      std::make_shared<RosVisualization>(
-  //          node_handle, param_prefix, node_prefix);
-  //  SaveToFileVisualizer save_to_file_visualizer(
-  //      FLAGS_debug_images_output_directory, save_to_file_visualizer_config);
-  //    RawEllipsoid<double> ellipsoid;
-  //    ellipsoid << -0.164291, 0.41215, -0.0594742, 79.9495, 209.015, 248.223,
-  //        0.432929, 0.450756, 2.05777;
-  //    RawPose3d<double> robot_pose;
-  //    robot_pose << 0.135177, -0.000860353, 0.0109102, 0.00145096,
-  //    -0.000676748,
-  //        -0.00533544;
-  //    EllipsoidState<double> publishable_ellipsoid =
-  //        convertToEllipsoidState(ellipsoid);
-  //    Pose3D<double> publishable_robot_pose =
-  //    convertToPose3D(robot_pose);
-  //    vis_manager->visualizeEllipsoids({{1,std::make_pair("chair",
-  //    publishable_ellipsoid)}},
-  //                                     PlotType::INITIAL, false);
-  //    for (const auto &extrinsics_entry : camera_extrinsics_by_camera) {
-  //      LOG(INFO) << "Publishing transforms for camera " <<
-  //      extrinsics_entry.first; vis_manager->publishTransformsForEachCamera(
-  //          0, {{0, publishable_robot_pose}}, camera_extrinsics_by_camera,
-  //          "init_");
-  //      LOG(INFO) << "Publishing empty image for camera " <<
-  //      extrinsics_entry.first;
-  //      vis_manager->publishLatestImageWithReprojectionResiduals(
-  //          0,
-  //          extrinsics_entry.first,
-  //          camera_intrinsics_by_camera.at(extrinsics_entry.first),
-  //          PlotType::INITIAL,
-  //          {},
-  //          {},
-  //          std::nullopt,
-  //          img_heights_and_widths.at(extrinsics_entry.first),
-  //          true);
-  //      vis_manager->visualizeFrustum(publishable_robot_pose,
-  //                            camera_intrinsics_by_camera.at(extrinsics_entry.first),
-  //                            extrinsics_entry.second,
-  //                            img_heights_and_widths.at(extrinsics_entry.first),
-  //                            PlotType::INITIAL);
-  //      LOG(INFO) << "Done with camera " << extrinsics_entry.first;
-  //    }
-  //    ros::Duration(2).sleep();
-  //    exit(1);
-
-  IndependentEllipsoidsLongTermObjectMapFactorCreator<
-      util::EmptyStruct,
-      //      std::unordered_map<ObjectId, RoshanAggregateBbInfo>>
-      util::EmptyStruct>
-      ltm_factor_creator(long_term_map);
+  std::function<bool(
+      const FrameId &,
+      std::unordered_map<CameraId, std::vector<RawBoundingBox>> &)>
+      bb_retriever = std::bind(input_data_dependent_bb_retriever,
+                               std::placeholders::_1,
+                               input_problem_data,
+                               std::placeholders::_2);
 
   std::function<bool()> continue_opt_checker = []() { return ros::ok(); };
 
   FrameId max_frame_id = 0;
   for (const auto &frame_and_pose : robot_poses) {
     max_frame_id = std::max(max_frame_id, frame_and_pose.first);
-  }
-  FrameId effective_max_frame_id = max_frame_id;
-  if (config.limit_traj_eval_params_.should_limit_trajectory_evaluation_) {
-    effective_max_frame_id =
-        std::min(max_frame_id, config.limit_traj_eval_params_.max_frame_id_);
   }
 
   std::function<FrameId(const FrameId &)> window_provider_func =
@@ -282,8 +258,8 @@ bool runFullOptimization(
       ceres::Problem *,
       ceres::ResidualBlockId &,
       util::EmptyStruct &)>
-      residual_creator =
-          generateResidualCreator(long_term_map_residual_creator_func);
+      residual_creator = generateResidualCreator(
+          long_term_map_residual_creator_func, cached_info_creator);
   std::function<bool(
       const MainFactorInfo &,
       const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,
@@ -306,17 +282,6 @@ bool runFullOptimization(
                                     problem,
                                     residual_id,
                                     cached_info);
-          };
-
-  std::function<bool(
-      const std::unordered_set<ObjectId> &,
-      util::BoostHashMap<MainFactorInfo, std::unordered_set<ObjectId>> &)>
-      long_term_map_factor_provider =
-          [&](const std::unordered_set<ObjectId> &objects_to_include,
-              util::BoostHashMap<MainFactorInfo, std::unordered_set<ObjectId>>
-                  &factor_data) {
-            return ltm_factor_creator.getFactorsToInclude(objects_to_include,
-                                                          factor_data);
           };
 
   std::function<double(const MainProbData &,
@@ -384,8 +349,6 @@ bool runFullOptimization(
                                    .rot_error_mult_for_rot_error_);
       };
 
-  //  std::unordered_map<ObjectId, RoshanAggregateBbInfo>
-  //      long_term_map_front_end_data;
   std::unordered_map<ObjectId, util::EmptyStruct> long_term_map_front_end_data;
   if (long_term_map != nullptr) {
     long_term_map->getFrontEndObjMapData(long_term_map_front_end_data);
@@ -418,37 +381,6 @@ bool runFullOptimization(
       pending_objects = std::make_shared<std::vector<
           std::pair<std::string, std::optional<EllipsoidState<double>>>>>();
 
-  //    std::function<std::pair<bool,
-  //    std::optional<sensor_msgs::Image::ConstPtr>>(
-  //        const FrameId &, const CameraId &, const MainProbData &)>
-  //        bb_context_retriever = [](const FrameId &frame_id,
-  //                                  const CameraId &camera_id,
-  //                                  const MainProbData &problem_data) {
-  //      //            LOG(INFO) << "Getting image for frame " << frame_id
-  //      //                      << " and camera " << camera_id;
-  //      std::optional<sensor_msgs::Image::ConstPtr> image =
-  //          problem_data.getImageForFrameAndCamera(frame_id, camera_id);
-  //      return std::make_pair(image.has_value(), image);
-  //    };
-  //    RoshanBbFrontEndCreator<ReprojectionErrorFactor>
-  //        roshan_associator_creator = generateRoshanBbCreator(
-  //            associated_observed_corner_locations,
-  //            all_observed_corner_locations_with_uncertainty,
-  //            img_heights_and_widths,
-  //            cov_gen_params,
-  //            long_term_map_front_end_data);
-  //    std::function<std::shared_ptr<AbstractBoundingBoxFrontEnd<
-  //        ReprojectionErrorFactor,
-  //        RoshanAggregateBbInfo,
-  //        std::optional<sensor_msgs::Image::ConstPtr>,
-  //        RoshanImageSummaryInfo,
-  //        RoshanBbInfo,
-  //        std::unordered_map<ObjectId, RoshanAggregateBbInfo>>>(
-  //        const MainPgPtr &, const MainProbData &)>
-  //        bb_associator_retriever =
-  //        [&](const MainPgPtr &pg, const MainProbData &input_prob) {
-  //          return roshan_associator_creator.getDataAssociator(pg);
-  //        };
   std::function<std::pair<bool, FeatureBasedContextInfo>(
       const FrameId &, const CameraId &, const MainProbData &)>
       bb_context_retriever = [&](const FrameId &frame_id,
@@ -493,35 +425,6 @@ bool runFullOptimization(
             return feature_based_associator_creator.getDataAssociator(pg);
           };
 
-  //  YoloBoundingBoxQuerier bb_querier(node_handle);
-  //  std::function<bool(
-  //      const FrameId &,
-  //      std::unordered_map<CameraId, std::vector<RawBoundingBox>> &)>
-  //      bb_retriever =
-  //          [&](const FrameId &frame_id_to_query_for,
-  //              std::unordered_map<CameraId, std::vector<RawBoundingBox>>
-  //                  &bounding_boxes_by_cam) {
-  //#ifdef RUN_TIMERS
-  //            CumulativeFunctionTimer::Invocation invoc(
-  //                CumulativeTimerFactory::getInstance()
-  //                    .getOrCreateFunctionTimer(kTimerNameBbQuerier)
-  //                    .get());
-  //#endif
-  //            return bb_querier.retrieveBoundingBoxes(frame_id_to_query_for,
-  //                                                    input_problem_data,
-  //                                                    bounding_boxes_by_cam);
-  //          };
-  //  std::function<bool(
-  //      const FrameId &,
-  //      std::unordered_map<CameraId, std::vector<RawBoundingBox>>
-  //      &)> bb_retriever = [&](const FrameId &frame_id_to_query_for,
-  //                         std::unordered_map<CameraId,
-  //                                            std::vector<RawBoundingBox>>
-  //                             &bounding_boxes_by_cam) {
-  //        return retrievePrecomputedBoundingBoxes(
-  //            frame_id_to_query_for, input_problem_data,
-  //            bounding_boxes_by_cam);
-  //      };
   std::function<void(const MainProbData &,
                      const MainPgPtr &,
                      const FrameId &,
@@ -547,26 +450,6 @@ bool runFullOptimization(
                                           bb_associator_retriever,
                                           bb_context_retriever);
       };
-
-  //  std::function<void(
-  //      const UnassociatedBoundingBoxOfflineProblemData<
-  //          StructuredVisionFeatureTrack,
-  //          sensor_msgs::Image::ConstPtr> &,
-  //      const std::shared_ptr<const
-  //      MainPg> &, ceres::Problem *,
-  //      SpatialEstimateOnlyResults &)>
-  //      output_data_extractor =
-  //          [](const UnassociatedBoundingBoxOfflineProblemData<
-  //                 StructuredVisionFeatureTrack,
-  //                 sensor_msgs::Image::ConstPtr> &input_problem_data,
-  //             const std::shared_ptr<
-  //                 const MainPg>
-  //                 &pose_graph,
-  //             ceres::Problem *problem,
-  //             SpatialEstimateOnlyResults &output_problem_data) {
-  //            extractSpatialEstimateOnlyResults(pose_graph,
-  //                                                   output_problem_data);
-  //          };
 
   CovarianceExtractorParams ltm_covariance_params;
 
@@ -699,64 +582,26 @@ bool runFullOptimization(
       const FrameId &,
       const FrameId &)>
       ceres_callback_creator = dummyCeresCallbackCreator;
-    std::function<void(const MainProbData &,
-                       const MainPgPtr &,
-                       const FrameId &,
-                       const FrameId &,
-                       const VisualizationTypeEnum &,
-                       const int &)>
-        visualization_callback = [&](const MainProbData &input_problem_data,
-                                     const MainPgPtr &pose_graph,
-                                     const FrameId &min_frame_id,
-                                     const FrameId &max_frame_id_to_opt,
-                                     const VisualizationTypeEnum
-                                         &visualization_type,
-                                     const int &attempt_num) {
-          std::shared_ptr<ObjAndLowLevelFeaturePoseGraph<ReprojectionErrorFactor>>
-              superclass_ptr = pose_graph;
-          visualizationStub(
-              vis_manager,
-              save_to_file_visualizer,
-              camera_extrinsics_by_camera,
-              camera_intrinsics_by_camera,
-              img_heights_and_widths,
-              images,
-              all_observed_corner_locations_with_uncertainty,
-              associated_observed_corner_locations,
-              bounding_boxes_for_pending_object,
-              pending_objects,
-              low_level_features_map,
-              initial_feat_positions,
-              input_problem_data,
-              superclass_ptr,
-              min_frame_id,
-              max_frame_id_to_opt,
-              visualization_type,
-              config.bounding_box_covariance_generator_params_
-                  .near_edge_threshold_,
-              config.bounding_box_front_end_params_
-                  .feature_based_bb_association_params_.min_observations_,
-              gt_trajectory,
-              effective_max_frame_id,
-              FLAGS_output_checkpoints_dir,
-              attempt_num);
-        };
-  if ((!config.optimization_factors_enabled_params_
-            .use_visual_features_on_global_ba_) &&
-      (!config.optimization_factors_enabled_params_
-            .use_pose_graph_on_global_ba_)) {
-    LOG(ERROR) << "Must have either visual features or pose graph (or both) "
-                  "for global ba; review/fix your config";
-    exit(1);
-  }
-  if ((!config.optimization_factors_enabled_params_
-            .use_visual_features_on_final_global_ba_) &&
-      (!config.optimization_factors_enabled_params_
-            .use_pose_graph_on_final_global_ba_)) {
-    LOG(ERROR) << "Must have either visual features or pose graph (or both) "
-                  "for final global ba; review/fix your config";
-    exit(1);
-  }
+  std::function<void(const MainProbData &,
+                     const MainPgPtr &,
+                     const FrameId &,
+                     const FrameId &,
+                     const VisualizationTypeEnum &,
+                     const int &)>
+      bound_visualization_callback =
+          std::bind(visualization_callback,
+                    img_heights_and_widths,
+                    all_observed_corner_locations_with_uncertainty,
+                    associated_observed_corner_locations,
+                    bounding_boxes_for_pending_object,
+                    pending_objects,
+                    low_level_features_map,
+                    std::placeholders::_1,
+                    std::placeholders::_2,
+                    std::placeholders::_3,
+                    std::placeholders::_4,
+                    std::placeholders::_5,
+                    std::placeholders::_6);
 
   OfflineProblemRunner<MainProbData,
                        ReprojectionErrorFactor,
@@ -774,14 +619,12 @@ bool runFullOptimization(
                              frame_data_adder,
                              output_data_extractor,
                              ceres_callback_creator,
-                             visualization_callback,
+                             bound_visualization_callback,
                              solver_params_provider_func,
                              object_merger,
                              gba_checker);
 
-  //  SpatialEstimateOnlyResults output_results;
-  LongTermObjectMapAndResults<MainLtm> output_results;
-  return offline_problem_runner.runOptimization(
+  bool optimization_result = offline_problem_runner.runOptimization(
       input_problem_data,
       config.optimization_factors_enabled_params_,
       opt_logger,
@@ -789,74 +632,9 @@ bool runFullOptimization(
       start_opt_at_frame,
       run_data_adder_for_first_frame);
 
-  //  if (!FLAGS_visual_feature_results_file.empty()) {
-  //    cv::FileStorage visual_feature_fs(FLAGS_visual_feature_results_file,
-  //                                      cv::FileStorage::WRITE);
-  //
-  //    visual_feature_fs << "visual_feats"
-  //                      << SerializableVisualFeatureResults(
-  //                             output_results.visual_feature_results_);
-  //    visual_feature_fs.release();
-  //    //    for (const auto &feat_and_pos :
-  //    // output_results.visual_feature_results_.visual_feature_positions_)
-  //    //         {
-  //    //      if (feat_and_pos.second.norm() > 10000) {
-  //    //        LOG(WARNING) << "High norm for feature " << feat_and_pos.first
-  //    <<
-  //    //        ": "
-  //    //                     << feat_and_pos.second.norm();
-  //    //      }
-  //    //    }
-  //  }
-
-  //  cv::FileStorage ltm_out_fs(FLAGS_long_term_map_output,
-  //                             cv::FileStorage::WRITE);
-  //  ltm_out_fs
-  //      << "long_term_map"
-  //      << SerializableIndependentEllipsoidsLongTermObjectMap<
-  //             //             std::unordered_map<ObjectId,
-  //             //             RoshanAggregateBbInfo>,
-  //             //             SerializableMap<ObjectId,
-  //             //                                  SerializableObjectId,
-  //             //                                  RoshanAggregateBbInfo,
-  //             // SerializableRoshanAggregateBbInfo>>( util::EmptyStruct,
-  //             SerializableEmptyStruct>(output_results.long_term_map_);
-  //  ltm_out_fs.release();
-  //  LOG(INFO) << "Num ellipsoids "
-  //            << output_results.ellipsoid_results_.ellipsoids_.size();
-
-  // TODO fix long term map
-  // Output robot poses
-  // Output ellipsoids
-
-  //  if (!FLAGS_bb_associations_out_file.empty()) {
-  //    cv::FileStorage bb_associations_out(FLAGS_bb_associations_out_file,
-  //                                        cv::FileStorage::WRITE);
-  //    ObjectDataAssociationResults data_assoc_results;
-  //    data_assoc_results.ellipsoid_pose_results_ =
-  //        output_results.ellipsoid_results_;
-  //    data_assoc_results.associated_bounding_boxes_ =
-  //        *associated_observed_corner_locations;
-  //    bb_associations_out << "bounding_box_associations"
-  //                        << SerializableObjectDataAssociationResults(
-  //                               data_assoc_results);
-  //    bb_associations_out.release();
-  //  }
-
-  //  if (!FLAGS_ellipsoids_results_file.empty()) {
-  //    cv::FileStorage ellipsoids_results_out(FLAGS_ellipsoids_results_file,
-  //                                           cv::FileStorage::WRITE);
-  //    EllipsoidResults ellipsoid_results = output_results.ellipsoid_results_;
-  //    ellipsoids_results_out << "ellipsoids"
-  //                           <<
-  //                           SerializableEllipsoidResults(ellipsoid_results);
-  //    ellipsoids_results_out.release();
-  //  }
-  //
-  //  if (!FLAGS_robot_poses_results_file.empty()) {
-  //    writeRobotPoseResults(FLAGS_robot_poses_results_file,
-  //                          output_results.robot_pose_results_);
-  //  }
+  output_results.associated_observed_corner_locations_ =
+      associated_observed_corner_locations;
+  return optimization_result;
 
 }
 

@@ -144,8 +144,8 @@ target_link_libraries(ltm_extraction_only ut_vslam ${LIBS})
 ROSBUILD_ADD_EXECUTABLE(ltm_extraction_only src/refactoring/ltm_extraction_only.cpp)
 target_link_libraries(ltm_extraction_only ut_vslam ${LIBS})
 
-#ROSBUILD_ADD_EXECUTABLE(run_opt_from_pg_state src/refactoring/run_opt_from_pg_state.cpp)
-#target_link_libraries(run_opt_from_pg_state ut_vslam ${LIBS})
+ROSBUILD_ADD_EXECUTABLE(run_opt_from_pg_state src/refactoring/run_opt_from_pg_state.cpp)
+target_link_libraries(run_opt_from_pg_state ut_vslam ${LIBS})
 
 ROSBUILD_ADD_EXECUTABLE(waypoint_timestamp_extractor src/data_preprocessing_utils/waypoint_timestamp_extractor.cpp)
 target_link_libraries(waypoint_timestamp_extractor ut_vslam ${LIBS})

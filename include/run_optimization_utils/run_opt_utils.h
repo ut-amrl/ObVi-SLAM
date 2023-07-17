@@ -35,14 +35,13 @@ dummyCeresCallbackCreator(const MainProbData &input_problem_data,
                           const MainPgPtr &pose_graph,
                           const FrameId &min_frame_optimized,
                           const FrameId &max_frame_optimized) {
-  // TODO replace with actual code later
   return {};
 }
 
 bool dummyCachedInfoCreator(const MainFactorInfo &,
                             const MainPgPtr &,
                             util::EmptyStruct &) {
-  return true;  // TODO maybe fill in with real info some day
+  return true;
 }
 
 std::function<
@@ -63,10 +62,10 @@ generateResidualCreator(
             const MainFactorInfo &, const MainPgPtr &, util::EmptyStruct &)> &,
         ceres::Problem *,
         ceres::ResidualBlockId &,
-        util::EmptyStruct &)> &long_term_map_residual_creator_func) {
-  std::function<bool(
-      const MainFactorInfo &, const MainPgPtr &, util::EmptyStruct &)>
-      cached_info_creator = dummyCachedInfoCreator;
+        util::EmptyStruct &)> &long_term_map_residual_creator_func,
+    const std::function<bool(
+        const MainFactorInfo &, const MainPgPtr &, util::EmptyStruct &)> &
+    cached_info_creator) {
 
   std::function<bool(
       const MainFactorInfo &,

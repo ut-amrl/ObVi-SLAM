@@ -36,6 +36,13 @@ struct LongTermObjectMapAndResults {
   RobotPoseResults robot_pose_results_;
   VisualFeatureResults visual_feature_results_;
   EllipsoidResults ellipsoid_results_;
+  std::shared_ptr<std::unordered_map<
+      FrameId,
+      std::unordered_map<CameraId,
+                         std::unordered_map<ObjectId,
+                                            std::pair<BbCornerPair<double>,
+                                                      std::optional<double>>>>>>
+      associated_observed_corner_locations_;
 };
 
 struct ObjectDataAssociationResults {
