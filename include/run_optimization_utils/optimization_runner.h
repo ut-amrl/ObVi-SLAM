@@ -635,7 +635,6 @@ bool runFullOptimization(
   output_results.associated_observed_corner_locations_ =
       associated_observed_corner_locations;
   return optimization_result;
-
 }
 
 }  // namespace vslam_types_refactor

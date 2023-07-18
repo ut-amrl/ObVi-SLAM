@@ -13,8 +13,8 @@
 #include <file_io/cv_file_storage/output_problem_data_file_storage_io.h>
 #include <file_io/cv_file_storage/vslam_basic_types_file_storage_io.h>
 #include <file_io/node_id_and_timestamp_io.h>
-#include <file_io/pose_io_utils.h>
 #include <file_io/pose_3d_with_timestamp_io.h>
+#include <file_io/pose_io_utils.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 #include <refactoring/bounding_box_frontend/bounding_box_retriever.h>

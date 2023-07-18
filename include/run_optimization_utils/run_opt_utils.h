@@ -30,6 +30,7 @@ bool checkFactorRefresh(const MainFactorInfo &factor,
                         const util::EmptyStruct &) {
   return false;
 }
+
 std::vector<std::shared_ptr<ceres::IterationCallback>>
 dummyCeresCallbackCreator(const MainProbData &input_problem_data,
                           const MainPgPtr &pose_graph,
@@ -63,10 +64,9 @@ generateResidualCreator(
         ceres::Problem *,
         ceres::ResidualBlockId &,
         util::EmptyStruct &)> &long_term_map_residual_creator_func,
-    const std::function<bool(
-        const MainFactorInfo &, const MainPgPtr &, util::EmptyStruct &)> &
-    cached_info_creator) {
-
+    const std::function<bool(const MainFactorInfo &,
+                             const MainPgPtr &,
+                             util::EmptyStruct &)> &cached_info_creator) {
   std::function<bool(
       const MainFactorInfo &,
       const pose_graph_optimization::ObjectVisualPoseGraphResidualParams &,

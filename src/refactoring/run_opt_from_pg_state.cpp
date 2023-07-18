@@ -5,6 +5,7 @@
 #include <file_io/cv_file_storage/object_and_reprojection_feature_pose_graph_file_storage_io.h>
 #include <file_io/cv_file_storage/vslam_basic_types_file_storage_io.h>
 #include <file_io/node_id_and_timestamp_io.h>
+#include <file_io/pose_3d_with_node_id_io.h>
 #include <file_io/pose_io_utils.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
@@ -19,8 +20,6 @@
 #include <ros/ros.h>
 #include <run_optimization_utils/optimization_runner.h>
 #include <sensor_msgs/Image.h>
-#include <file_io/pose_3d_with_node_id_io.h>
-
 
 namespace vtr = vslam_types_refactor;
 
@@ -126,7 +125,8 @@ int main(int argc, char **argv) {
   // Read necessary data in from file
   // -----------------------------------------
   MainLtmPtr long_term_map;
-  LOG(INFO) << "Reading optional long term map input " << FLAGS_long_term_map_input;
+  LOG(INFO) << "Reading optional long term map input "
+            << FLAGS_long_term_map_input;
   if (!FLAGS_long_term_map_input.empty()) {
     cv::FileStorage ltm_in_fs(FLAGS_long_term_map_input, cv::FileStorage::READ);
     vtr::SerializableIndependentEllipsoidsLongTermObjectMap<

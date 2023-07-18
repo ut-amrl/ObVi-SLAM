@@ -1,7 +1,6 @@
 #ifndef UT_VSLAM_REFACTORING_REPROJECTION_COST_FUNCTOR_H
 #define UT_VSLAM_REFACTORING_REPROJECTION_COST_FUNCTOR_H
 
-
 #include <analysis/cumulative_timer_constants.h>
 #include <analysis/cumulative_timer_factory.h>
 #include <ceres/autodiff_cost_function.h>
@@ -98,13 +97,13 @@ class ReprojectionCostFunctor {
   bool operator()(const double *pose,
                   const double *point,
                   double *residual) const {
-//#ifdef RUN_TIMERS
-//    CumulativeFunctionTimer::Invocation invoc(
-//        CumulativeTimerFactory::getInstance()
-//            .getOrCreateFunctionTimer(
-//                kTimerNameFactorReprojectionCostFunctorDouble)
-//            .get());
-//#endif
+    //#ifdef RUN_TIMERS
+    //    CumulativeFunctionTimer::Invocation invoc(
+    //        CumulativeTimerFactory::getInstance()
+    //            .getOrCreateFunctionTimer(
+    //                kTimerNameFactorReprojectionCostFunctorDouble)
+    //            .get());
+    //#endif
     return runOperator<double>(pose, point, residual);
   }
 
@@ -112,13 +111,13 @@ class ReprojectionCostFunctor {
   bool operator()(const ceres::Jet<double, JetDim> *pose,
                   const ceres::Jet<double, JetDim> *point,
                   ceres::Jet<double, JetDim> *residual) const {
-//#ifdef RUN_TIMERS
-//    CumulativeFunctionTimer::Invocation invoc(
-//        CumulativeTimerFactory::getInstance()
-//            .getOrCreateFunctionTimer(
-//                kTimerNameFactorReprojectionCostFunctorJacobian)
-//            .get());
-//#endif
+    //#ifdef RUN_TIMERS
+    //    CumulativeFunctionTimer::Invocation invoc(
+    //        CumulativeTimerFactory::getInstance()
+    //            .getOrCreateFunctionTimer(
+    //                kTimerNameFactorReprojectionCostFunctorJacobian)
+    //            .get());
+    //#endif
     return runOperator<ceres::Jet<double, JetDim>>(pose, point, residual);
   }
 

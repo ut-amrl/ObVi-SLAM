@@ -1384,10 +1384,11 @@ class RosVisualization {
     LOG(INFO) << "Publishing ellipsoids for plot type " << topic;
     visualizeEllipsoids(ltm_ellipsoids, topic, ltm_obj_color_, false);
 
-//    int next_marker = ltm_ellipsoids.size();
-//    for (const auto &obj_info : initial_ests_and_cov) {
-//      next_marker = visualizeCovForObj(obj_info.second.second, next_marker);
-//    }
+    //    int next_marker = ltm_ellipsoids.size();
+    //    for (const auto &obj_info : initial_ests_and_cov) {
+    //      next_marker = visualizeCovForObj(obj_info.second.second,
+    //      next_marker);
+    //    }
   }
 
  private:

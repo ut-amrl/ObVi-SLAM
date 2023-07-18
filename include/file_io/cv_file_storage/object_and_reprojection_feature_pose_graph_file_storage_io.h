@@ -15,10 +15,13 @@
 namespace vslam_types_refactor {
 
 const std::string kLtmCheckpointOutputFileBaseName = "long_term_map_checkpoint";
-const std::string kPreOptimizationCheckpointOutputFileBaseName = "pose_graph_state_checkpoint_pre_optimization_";
+const std::string kPreOptimizationCheckpointOutputFileBaseName =
+    "pose_graph_state_checkpoint_pre_optimization_";
 const std::string kAttemptSuffix = "_attempt_";
-const std::string kPostFrameAddCheckpointOutputFileBaseName = "pose_graph_state_checkpoint_post_frame_add";
-const std::string kPostPostprocessingCheckpointOutputFileBaseName = "pose_graph_state_checkpoint_post_postprocessing";
+const std::string kPostFrameAddCheckpointOutputFileBaseName =
+    "pose_graph_state_checkpoint_post_frame_add";
+const std::string kPostPostprocessingCheckpointOutputFileBaseName =
+    "pose_graph_state_checkpoint_post_postprocessing";
 const std::string kPoseGraphStateKey = "pose_graph";
 
 using SerializableFeatureFactorId = SerializableUint64;

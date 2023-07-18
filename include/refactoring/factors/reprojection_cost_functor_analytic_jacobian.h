@@ -39,22 +39,22 @@ class ReprojectionCostFunctorAnalyticJacobian
   virtual bool Evaluate(double const *const *parameters,
                         double *residuals,
                         double **jacobians) const {
-//#ifdef RUN_TIMERS
-//    std::shared_ptr<CumulativeFunctionTimer::Invocation> invoc;
-//    if (jacobians != nullptr) {
-//      invoc = std::make_shared<CumulativeFunctionTimer::Invocation>(
-//          CumulativeTimerFactory::getInstance()
-//              .getOrCreateFunctionTimer(
-//                  kTimerNameFactorAnalyticalReprojectionCostFunctorJacobian)
-//              .get());
-//    } else {
-//      invoc = std::make_shared<CumulativeFunctionTimer::Invocation>(
-//          CumulativeTimerFactory::getInstance()
-//              .getOrCreateFunctionTimer(
-//                  kTimerNameFactorAnalyticalReprojectionCostFunctorDouble)
-//              .get());
-//    }
-//#endif
+    //#ifdef RUN_TIMERS
+    //    std::shared_ptr<CumulativeFunctionTimer::Invocation> invoc;
+    //    if (jacobians != nullptr) {
+    //      invoc = std::make_shared<CumulativeFunctionTimer::Invocation>(
+    //          CumulativeTimerFactory::getInstance()
+    //              .getOrCreateFunctionTimer(
+    //                  kTimerNameFactorAnalyticalReprojectionCostFunctorJacobian)
+    //              .get());
+    //    } else {
+    //      invoc = std::make_shared<CumulativeFunctionTimer::Invocation>(
+    //          CumulativeTimerFactory::getInstance()
+    //              .getOrCreateFunctionTimer(
+    //                  kTimerNameFactorAnalyticalReprojectionCostFunctorDouble)
+    //              .get());
+    //    }
+    //#endif
 
     const double *robot_pose_block = parameters[0];
     const double *point_block = parameters[1];
