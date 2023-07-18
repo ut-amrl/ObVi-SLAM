@@ -672,6 +672,9 @@ class ObjAndLowLevelFeaturePoseGraph
           &objects_to_merge) {
     std::unordered_set<ObjectId> objects_to_remove;
     for (const auto &merge_group : objects_to_merge) {
+      LOG(INFO) << "Object being merged into originally has "
+                << observation_factors_by_object_.at(merge_group.first).size()
+                << " factors.";
       for (const ObjectId &merge_obj : merge_group.second) {
         if (objects_to_remove.find(merge_obj) != objects_to_remove.end()) {
           LOG(ERROR)
@@ -689,6 +692,9 @@ class ObjAndLowLevelFeaturePoseGraph
         util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
             observation_factors_for_merge_target =
                 observation_factors_by_object_.at(merge_obj);
+        LOG(INFO) << "Merging " << observation_factors_for_merge_target.size()
+                  << " factors from object " << merge_obj << " into "
+                  << merge_group.first;
         for (const std::pair<FactorType, FeatureFactorId> &
                  observation_factor_id : observation_factors_for_merge_target) {
           if (observation_factor_id.first == kObjectObservationFactorTypeId) {
@@ -709,6 +715,8 @@ class ObjAndLowLevelFeaturePoseGraph
                   first_observed_frame_by_object_[merge_group.first],
                   object_observation_factors_[observation_factor_id.second]
                       .frame_id_);
+              observation_factors_by_object_[merge_group.first].insert(
+                  observation_factor_id);
             }
           } else {
             LOG(WARNING) << "Unexpected factor type for object only factor "
@@ -718,6 +726,9 @@ class ObjAndLowLevelFeaturePoseGraph
       }
       objects_to_remove.insert(merge_group.second.begin(),
                                merge_group.second.end());
+      LOG(INFO) << "Object " << merge_group.first << " now has "
+                << observation_factors_by_object_.at(merge_group.first).size()
+                << " factors";
     }
 
     for (const ObjectId &object_to_remove : objects_to_remove) {
@@ -745,6 +756,7 @@ class ObjAndLowLevelFeaturePoseGraph
         }
       }
       object_only_factors_by_object_.erase(object_to_remove);
+      observation_factors_by_object_.erase(object_to_remove);
     }
 
     ObjectId tmp_min = std::numeric_limits<ObjectId>::max();

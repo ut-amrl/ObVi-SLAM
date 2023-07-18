@@ -13,7 +13,7 @@
 #include <file_io/cv_file_storage/output_problem_data_file_storage_io.h>
 #include <file_io/cv_file_storage/vslam_basic_types_file_storage_io.h>
 #include <file_io/node_id_and_timestamp_io.h>
-#include <file_io/pose_3d_with_node_id_io.h>
+#include <file_io/pose_io_utils.h>
 #include <file_io/pose_3d_with_timestamp_io.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
@@ -144,21 +144,6 @@ readBoundingBoxesFromFile(const std::string &file_name) {
     }
   }
   return bb_map;
-}
-
-std::unordered_map<vtr::FrameId, vtr::Pose3D<double>> readRobotPosesFromFile(
-    const std::string &file_name) {
-  std::vector<std::pair<uint64_t, pose::Pose3d>> robot_poses_by_node_id;
-  file_io::readPose3dsAndNodeIdFromFile(file_name, robot_poses_by_node_id);
-  std::unordered_map<vtr::FrameId, vtr::Pose3D<double>> robot_poses_by_node_num;
-  for (const std::pair<uint64, pose::Pose3d> &pose_3d_with_frame :
-       robot_poses_by_node_id) {
-    vtr::Pose3D<double> pose(
-        pose_3d_with_frame.second.first,
-        vtr::Orientation3D<double>(pose_3d_with_frame.second.second));
-    robot_poses_by_node_num[pose_3d_with_frame.first] = pose;
-  }
-  return robot_poses_by_node_num;
 }
 
 void createPoseGraph(
@@ -730,7 +715,7 @@ int main(int argc, char **argv) {
   }
 
   std::unordered_map<vtr::FrameId, vtr::Pose3D<double>> robot_poses =
-      readRobotPosesFromFile(FLAGS_poses_by_node_id_file);
+      file_io::readRobotPosesFromFile(FLAGS_poses_by_node_id_file);
 
   vtr::FrameId max_frame_id = vtr::getMaxFrame(robot_poses);
 

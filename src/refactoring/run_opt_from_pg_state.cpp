@@ -5,23 +5,22 @@
 #include <file_io/cv_file_storage/object_and_reprojection_feature_pose_graph_file_storage_io.h>
 #include <file_io/cv_file_storage/vslam_basic_types_file_storage_io.h>
 #include <file_io/node_id_and_timestamp_io.h>
+#include <file_io/pose_io_utils.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 #include <refactoring/bounding_box_frontend/bounding_box_retriever.h>
 #include <refactoring/bounding_box_frontend/feature_based_bounding_box_front_end.h>
 #include <refactoring/configuration/full_ov_slam_config.h>
 #include <refactoring/long_term_map/long_term_map_factor_creator.h>
-#include <refactoring/long_term_map/long_term_object_map_extraction.h>
 #include <refactoring/offline/offline_problem_data.h>
 #include <refactoring/offline/offline_problem_runner.h>
-#include <refactoring/optimization/residual_creator.h>
 #include <refactoring/output_problem_data.h>
 #include <refactoring/output_problem_data_extraction.h>
-#include <refactoring/visualization/ros_visualization.h>
 #include <ros/ros.h>
 #include <run_optimization_utils/optimization_runner.h>
-#include <run_optimization_utils/run_opt_utils.h>
 #include <sensor_msgs/Image.h>
+#include <file_io/pose_3d_with_node_id_io.h>
+
 
 namespace vtr = vslam_types_refactor;
 
@@ -62,6 +61,9 @@ DEFINE_string(logs_directory,
               "",
               "If specified, where logs are written (in addition to stderr)");
 DEFINE_string(input_checkpoint_file, "", "File to read state from");
+DEFINE_string(poses_by_node_id_file,
+              "",
+              "File with initial robot pose estimates");
 
 int main(int argc, char **argv) {
   google::InitGoogleLogging(argv[0]);
@@ -100,7 +102,9 @@ int main(int argc, char **argv) {
   ros::NodeHandle node_handle;
 
   vtr::FullOVSLAMConfig config;
+  LOG(INFO) << "Reading config " << FLAGS_params_config_file;
   vtr::readConfiguration(FLAGS_params_config_file, config);
+  LOG(INFO) << "Done reading config";
 
   if ((!config.optimization_factors_enabled_params_
             .use_visual_features_on_global_ba_) &&
@@ -122,6 +126,7 @@ int main(int argc, char **argv) {
   // Read necessary data in from file
   // -----------------------------------------
   MainLtmPtr long_term_map;
+  LOG(INFO) << "Reading optional long term map input " << FLAGS_long_term_map_input;
   if (!FLAGS_long_term_map_input.empty()) {
     cv::FileStorage ltm_in_fs(FLAGS_long_term_map_input, cv::FileStorage::READ);
     vtr::SerializableIndependentEllipsoidsLongTermObjectMap<
@@ -143,10 +148,13 @@ int main(int argc, char **argv) {
               << ellipsoid_results_ltm.ellipsoids_.size();
     long_term_map = std::make_shared<MainLtm>(ltm_from_serializable);
   }
+  LOG(INFO) << "Done reading long term map";
 
   vtr::ObjectAndReprojectionFeaturePoseGraphState pose_graph_state;
+  LOG(INFO) << "Reading pose graph from " << FLAGS_input_checkpoint_file;
   vtr::readPoseGraphStateFromFile(FLAGS_input_checkpoint_file,
                                   pose_graph_state);
+  LOG(INFO) << "Done reading pose graph from file";
 
   vtr::IndependentEllipsoidsLongTermObjectMapFactorCreator<util::EmptyStruct,
                                                            util::EmptyStruct>
@@ -280,6 +288,9 @@ int main(int argc, char **argv) {
 
           };
 
+  std::unordered_map<vtr::FrameId, vtr::Pose3D<double>> robot_poses =
+      file_io::readRobotPosesFromFile(FLAGS_poses_by_node_id_file);
+
   vtr::LongTermObjectMapAndResults<MainLtm> output_results;
   if (!runFullOptimization(opt_logger,
                            config,
@@ -287,7 +298,7 @@ int main(int argc, char **argv) {
                            camera_extrinsics_by_camera,
                            {},  // bounding_boxes,
                            {},  // visual_features,
-                           {},  // robot_poses,
+                           robot_poses,
                            long_term_map,
                            pose_graph_creator,
                            {},  // images,
