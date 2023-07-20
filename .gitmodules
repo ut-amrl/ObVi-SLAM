@@ -1,3 +1,4 @@
 [submodule "src/shared"]
 	path = src/shared
 	url = git@github.com:ut-amrl/amrl_shared_lib
+	branch = glogTimer
