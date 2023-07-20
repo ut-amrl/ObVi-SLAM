@@ -522,6 +522,15 @@ bool runFullOptimization(
                     const pose_graph_optimizer::OptimizationFactorsEnabledParams
                         &ltm_optimization_factors_enabled_params,
                     MainLtm &ltm_extractor_out) {
+#ifdef RUN_TIMERS
+                  CumulativeFunctionTimer::Invocation invoc(
+                      vslam_types_refactor::CumulativeTimerFactory::
+                          getInstance()
+                              .getOrCreateFunctionTimer(
+                                  vslam_types_refactor::
+                                      kTimerNameLongTermMapExtraction)
+                              .get());
+#endif
                   return ltm_extractor.extractLongTermObjectMap(
                       ltm_pose_graph,
                       ltm_optimization_factors_enabled_params,

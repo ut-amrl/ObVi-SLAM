@@ -8,6 +8,8 @@
 #include <string>
 
 namespace vslam_types_refactor {
+const std::string kTimerNameFullTrajectoryExecution =
+    "full_trajectory_execution";
 const std::string kTimerNameVisFunction = "visualization_top_level";
 const std::string kTimerNameVisualFrontendFunction =
     "visual_frontend_top_level";
@@ -18,10 +20,32 @@ const std::string kTimerNameFrameDataAdderTopLevel =
     "frame_data_adder_top_level";
 const std::string kTimerNameOptimizationIteration = "optimization_iteration";
 const std::string kTimerNameGlobalBundleAdjustment = "global_bundle_adjustment";
+const std::string kTimerNameObjOnlyPgoFullProcess = "obj_only_pgo_full_process";
+const std::string kTimerNameObjOnlyPgoLocalTrackBuild =
+    "obj_only_pgo_local_track_build";
+const std::string kTimerNameObjOnlyPgoLocalTrackSolve =
+    "obj_only_pgo_local_track_solve";
+const std::string kTimerNameObjOnlyPgoBuildPgo = "obj_only_pgo_build_pgo";
+const std::string kTimerNameObjOnlyPgoSolvePgo = "obj_only_pgo_solve_pgo";
+const std::string kTimerNameObjOnlyPgoManualFeatAdjust =
+    "obj_only_pgo_manual_feat_adjust";
+const std::string kTimerNameObjOnlyPgoOptFeatAdjustBuild =
+    "obj_only_pgo_opt_feat_adjust_build";
+const std::string kTimerNameObjOnlyPgoOptFeatAdjustSolve =
+    "obj_only_pgo_opt_feat_adjust_solve";
+
 const std::string kTimerNameLocalBundleAdjustment = "local_bundle_adjustment";
 const std::string kTimerNameConsecutivePosesStable = "consecutive_pose_stable";
-const std::string kTimerNamePhaseOneLbaOpt = "phase_one_lba_opt";
-const std::string kTimerNamePhaseTwoLbaOpt = "phase_two_lba_opt";
+const std::string kTimerNamePhaseOneLbaBuildOpt = "phase_one_lba_build_opt";
+const std::string kTimerNamePhaseOneGbaBuildOpt = "phase_one_gba_build_opt";
+const std::string kTimerNamePhaseOneLbaSolveOpt = "phase_one_lba_solve_opt";
+const std::string kTimerNamePhaseOneGbaSolveOpt = "phase_one_gba_solve_opt";
+
+const std::string kTimerNamePhaseTwoLbaBuildOpt = "phase_two_lba_build_opt";
+const std::string kTimerNamePhaseTwoGbaBuildOpt = "phase_two_gba_build_opt";
+const std::string kTimerNamePhaseTwoLbaSolveOpt = "phase_two_lba_solve_opt";
+const std::string kTimerNamePhaseTwoGbaSolveOpt = "phase_two_gba_solve_opt";
+
 const std::string kTimerNamePostOptResidualCompute =
     "post_opt_residual_compute";
 const std::string kTimerNameTwoPhaseOptOutlierIdentification =
@@ -109,7 +133,7 @@ const std::string kTimerNamePgFrameDataAdderAddFrameDataAssociatedBoundingBox =
 const std::string kTimerNamePgFrameDataAdderAddVisualFeatureFactors =
     "pg_frame_data_adder_add_visual_feature_factors";
 const std::string kTimerNamePgFrameDataAdderAddConsecutiveRelativePoseFactors =
-    "pg_frame_data_adder_add_visual_feature_factors";
+    "pg_frame_data_adder_add_relative_pose_factors";
 
 // Residual creator
 const std::string kTimerNameResidualCreatorObject = "residual_creator_object";
@@ -157,6 +181,10 @@ const std::string kTimerNameMathUtilGetCornerLocationsVector =
     "math_util_get_corner_locations_vector";
 const std::string kTimerNameMathUtilGetProjectedPixelLocation =
     "math_util_get_projected_pixel_location";
+
+const std::string kTimerNamePostSessionMapMerge = "post_session_map_merge";
+
+const std::string kTimerNameLongTermMapExtraction = "long_term_map_extraction";
 }  // namespace vslam_types_refactor
 
 #endif  // UT_VSLAM_CUMULATIVE_TIMER_CONSTANTS_H

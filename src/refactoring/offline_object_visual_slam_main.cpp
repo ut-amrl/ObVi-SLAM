@@ -656,14 +656,18 @@ int main(int argc, char **argv) {
   ros::init(argc, argv, "a_" + node_prefix + "ellipsoid_estimator_real_data");
   ros::NodeHandle node_handle;
 
-  vtr::FullOVSLAMConfig config;
-  vtr::readConfiguration(FLAGS_params_config_file, config);
-
 #ifdef RUN_TIMERS
   // Create an instance so that the factory never goes out of scope
   vtr::CumulativeTimerFactory &instance =
       vtr::CumulativeTimerFactory::getInstance();
+
+  CumulativeFunctionTimer::Invocation full_opt_invoc(
+      instance.getOrCreateFunctionTimer(vtr::kTimerNameFullTrajectoryExecution)
+          .get());
 #endif
+
+  vtr::FullOVSLAMConfig config;
+  vtr::readConfiguration(FLAGS_params_config_file, config);
 
   // Hard-coded values -----------------------------------------------------
 
