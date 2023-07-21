@@ -384,9 +384,12 @@ class OfflineProblemRunner {
       if (run_pgo) {
         {
 #ifdef RUN_TIMERS
+          std::string gba_timer_name =
+              attempt_num == 0 ? kTimerNameObjOnlyPgoFullProcess
+                               : kTimerNameMapMergeObjOnlyPgoFullProcess;
           CumulativeFunctionTimer::Invocation gba_invoc(
               CumulativeTimerFactory::getInstance()
-                  .getOrCreateFunctionTimer(kTimerNameObjOnlyPgoFullProcess)
+                  .getOrCreateFunctionTimer(gba_timer_name)
                   .get());
 #endif
           // TODO Need to run 1 iteration of tracking first
@@ -401,10 +404,13 @@ class OfflineProblemRunner {
           {
             {
 #ifdef RUN_TIMERS
+              std::string local_track_build_timer_name =
+                  attempt_num == 0
+                      ? kTimerNameObjOnlyPgoLocalTrackBuild
+                      : kTimerNameMapMergeObjOnlyPgoLocalTrackBuild;
               CumulativeFunctionTimer::Invocation local_track_build_invoc(
                   CumulativeTimerFactory::getInstance()
-                      .getOrCreateFunctionTimer(
-                          kTimerNameObjOnlyPgoLocalTrackBuild)
+                      .getOrCreateFunctionTimer(local_track_build_timer_name)
                       .get());
 #endif
               optimizer_.buildPoseGraphOptimization(tracking_params,
@@ -415,10 +421,13 @@ class OfflineProblemRunner {
             }
             {
 #ifdef RUN_TIMERS
+              std::string local_track_solve_timer_name =
+                  attempt_num == 0
+                      ? kTimerNameObjOnlyPgoLocalTrackSolve
+                      : kTimerNameMapMergeObjOnlyPgoLocalTrackSolve;
               CumulativeFunctionTimer::Invocation local_track_solve_invoc(
                   CumulativeTimerFactory::getInstance()
-                      .getOrCreateFunctionTimer(
-                          kTimerNameObjOnlyPgoLocalTrackSolve)
+                      .getOrCreateFunctionTimer(local_track_solve_timer_name)
                       .get());
 #endif
               if (!optimizer_.solveOptimization(
@@ -442,7 +451,8 @@ class OfflineProblemRunner {
                                {},
                                next_frame_id == max_frame_id,
                                opt_logger,
-                               pose_graph);
+                               pose_graph,
+                               attempt_num != 0);
         }
         visualization_callback_(
             problem_data,
@@ -457,9 +467,16 @@ class OfflineProblemRunner {
     if (run_visual_feature_opt) {
       {
 #ifdef RUN_TIMERS
-        std::string bundle_adjustment_timer_name =
-            global_ba ? kTimerNameGlobalBundleAdjustment
-                      : kTimerNameLocalBundleAdjustment;
+        std::string bundle_adjustment_timer_name;
+        if (global_ba) {
+          if (attempt_num == 0) {
+            bundle_adjustment_timer_name = kTimerNameGlobalBundleAdjustment;
+          } else {
+            bundle_adjustment_timer_name = kTimerNameMapMergeGba;
+          }
+        } else {
+          bundle_adjustment_timer_name = kTimerNameLocalBundleAdjustment;
+        }
 
         CumulativeFunctionTimer::Invocation invoc_ba(
             CumulativeTimerFactory::getInstance()
@@ -476,9 +493,17 @@ class OfflineProblemRunner {
             current_residual_block_info;
         {
 #ifdef RUN_TIMERS
-          std::string phase_one_build_opt_timer_name =
-              global_ba ? kTimerNamePhaseOneGbaBuildOpt
-                        : kTimerNamePhaseOneLbaBuildOpt;
+          std::string phase_one_build_opt_timer_name;
+          if (global_ba) {
+            if (attempt_num == 0) {
+              phase_one_build_opt_timer_name = kTimerNamePhaseOneGbaBuildOpt;
+            } else {
+              phase_one_build_opt_timer_name =
+                  kTimerNameMapMergePhaseOneGbaBuildOpt;
+            }
+          } else {
+            phase_one_build_opt_timer_name = kTimerNamePhaseOneLbaBuildOpt;
+          }
 
           CumulativeFunctionTimer::Invocation phase_one_build(
               CumulativeTimerFactory::getInstance()
@@ -499,9 +524,17 @@ class OfflineProblemRunner {
         std::vector<ceres::ResidualBlockId> residual_block_ids;
         std::vector<double> residuals;
 #ifdef RUN_TIMERS
-        std::string phase_one_solve_invoc = global_ba
-                                                ? kTimerNamePhaseOneGbaSolveOpt
-                                                : kTimerNamePhaseOneLbaSolveOpt;
+        std::string phase_one_solve_invoc;
+        if (global_ba) {
+          if (attempt_num == 0) {
+            phase_one_solve_invoc = kTimerNamePhaseOneGbaSolveOpt;
+          } else {
+            phase_one_solve_invoc = kTimerNameMapMergePhaseOneGbaSolveOpt;
+          }
+        } else {
+          phase_one_solve_invoc = kTimerNamePhaseOneLbaSolveOpt;
+        }
+
 #endif
         if (visual_feature_opt_enable_two_phase) {
 #ifdef RUN_TIMERS
@@ -672,9 +705,20 @@ class OfflineProblemRunner {
           pose_graph->setValuesFromAnotherPoseGraph(pose_graph_copy);
           {
 #ifdef RUN_TIMERS
-            std::string phase_two_build_invoc_timer_name =
-                global_ba ? kTimerNamePhaseTwoGbaBuildOpt
-                          : kTimerNamePhaseTwoLbaBuildOpt;
+
+            std::string phase_two_build_invoc_timer_name;
+            if (global_ba) {
+              if (attempt_num == 0) {
+                phase_two_build_invoc_timer_name =
+                    kTimerNamePhaseTwoGbaBuildOpt;
+              } else {
+                phase_two_build_invoc_timer_name =
+                    kTimerNameMapMergePhaseTwoGbaBuildOpt;
+              }
+            } else {
+              phase_two_build_invoc_timer_name = kTimerNamePhaseTwoLbaBuildOpt;
+            }
+
             CumulativeFunctionTimer::Invocation phase_two_invoc(
                 CumulativeTimerFactory::getInstance()
                     .getOrCreateFunctionTimer(phase_two_build_invoc_timer_name)
@@ -690,9 +734,18 @@ class OfflineProblemRunner {
           }
           {
 #ifdef RUN_TIMERS
-            std::string phase_two_solve_invoc_timer_name =
-                global_ba ? kTimerNamePhaseTwoGbaSolveOpt
-                          : kTimerNamePhaseTwoLbaSolveOpt;
+            std::string phase_two_solve_invoc_timer_name;
+            if (global_ba) {
+              if (attempt_num == 0) {
+                phase_two_solve_invoc_timer_name =
+                    kTimerNamePhaseTwoGbaSolveOpt;
+              } else {
+                phase_two_solve_invoc_timer_name =
+                    kTimerNameMapMergePhaseTwoGbaSolveOpt;
+              }
+            } else {
+              phase_two_solve_invoc_timer_name = kTimerNamePhaseTwoLbaSolveOpt;
+            }
             CumulativeFunctionTimer::Invocation phase_two_solve_invoc(
                 CumulativeTimerFactory::getInstance()
                     .getOrCreateFunctionTimer(phase_two_solve_invoc_timer_name)

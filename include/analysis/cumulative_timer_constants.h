@@ -20,31 +20,56 @@ const std::string kTimerNameFrameDataAdderTopLevel =
     "frame_data_adder_top_level";
 const std::string kTimerNameOptimizationIteration = "optimization_iteration";
 const std::string kTimerNameGlobalBundleAdjustment = "global_bundle_adjustment";
+const std::string kTimerNameMapMergeGba = "map_merge_global_bundle_adjustment";
 const std::string kTimerNameObjOnlyPgoFullProcess = "obj_only_pgo_full_process";
+const std::string kTimerNameMapMergeObjOnlyPgoFullProcess =
+    "map_merge_obj_only_pgo_full_process";
 const std::string kTimerNameObjOnlyPgoLocalTrackBuild =
     "obj_only_pgo_local_track_build";
+const std::string kTimerNameMapMergeObjOnlyPgoLocalTrackBuild =
+    "map_merge_obj_only_pgo_local_track_build";
 const std::string kTimerNameObjOnlyPgoLocalTrackSolve =
     "obj_only_pgo_local_track_solve";
+const std::string kTimerNameMapMergeObjOnlyPgoLocalTrackSolve =
+    "map_merge_obj_only_pgo_local_track_solve";
 const std::string kTimerNameObjOnlyPgoBuildPgo = "obj_only_pgo_build_pgo";
+const std::string kTimerNameMapMergeObjOnlyPgoBuildPgo =
+    "map_merge_obj_only_pgo_build_pgo";
 const std::string kTimerNameObjOnlyPgoSolvePgo = "obj_only_pgo_solve_pgo";
+const std::string kTimerNameMapMergeObjOnlyPgoSolvePgo =
+    "map_merge_obj_only_pgo_solve_pgo";
 const std::string kTimerNameObjOnlyPgoManualFeatAdjust =
     "obj_only_pgo_manual_feat_adjust";
+const std::string kTimerNameMapMergeObjOnlyPgoManualFeatAdjust =
+    "map_merge_obj_only_pgo_manual_feat_adjust";
 const std::string kTimerNameObjOnlyPgoOptFeatAdjustBuild =
     "obj_only_pgo_opt_feat_adjust_build";
+const std::string kTimerNameMapMergeObjOnlyPgoOptFeatAdjustBuild =
+    "map_merge_obj_only_pgo_opt_feat_adjust_build";
 const std::string kTimerNameObjOnlyPgoOptFeatAdjustSolve =
     "obj_only_pgo_opt_feat_adjust_solve";
+const std::string kTimerNameMapMergeObjOnlyPgoOptFeatAdjustSolve =
+    "map_merge_obj_only_pgo_opt_feat_adjust_solve";
 
 const std::string kTimerNameLocalBundleAdjustment = "local_bundle_adjustment";
 const std::string kTimerNameConsecutivePosesStable = "consecutive_pose_stable";
 const std::string kTimerNamePhaseOneLbaBuildOpt = "phase_one_lba_build_opt";
 const std::string kTimerNamePhaseOneGbaBuildOpt = "phase_one_gba_build_opt";
+const std::string kTimerNameMapMergePhaseOneGbaBuildOpt =
+    "map_merge_phase_one_gba_build_opt";
 const std::string kTimerNamePhaseOneLbaSolveOpt = "phase_one_lba_solve_opt";
 const std::string kTimerNamePhaseOneGbaSolveOpt = "phase_one_gba_solve_opt";
+const std::string kTimerNameMapMergePhaseOneGbaSolveOpt =
+    "map_merge_phase_one_gba_solve_opt";
 
 const std::string kTimerNamePhaseTwoLbaBuildOpt = "phase_two_lba_build_opt";
 const std::string kTimerNamePhaseTwoGbaBuildOpt = "phase_two_gba_build_opt";
+const std::string kTimerNameMapMergePhaseTwoGbaBuildOpt =
+    "map_merge_phase_two_gba_build_opt";
 const std::string kTimerNamePhaseTwoLbaSolveOpt = "phase_two_lba_solve_opt";
 const std::string kTimerNamePhaseTwoGbaSolveOpt = "phase_two_gba_solve_opt";
+const std::string kTimerNameMapMergePhaseTwoGbaSolveOpt =
+    "map_merge_phase_two_gba_solve_opt";
 
 const std::string kTimerNamePostOptResidualCompute =
     "post_opt_residual_compute";

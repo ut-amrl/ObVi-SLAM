@@ -43,7 +43,8 @@ bool runPgoPlusEllipsoids(
         &non_local_relative_pose_factors,  // Loop closure
     const bool &final_run,
     std::optional<vslam_types_refactor::OptimizationLogger> &opt_logger,
-    std::shared_ptr<PoseGraphType> &pose_graph) {
+    std::shared_ptr<PoseGraphType> &pose_graph,
+    const bool &for_map_merge = false) {
   // Construct set of relative pose factors
   std::vector<RelativePoseFactorInfoWithFrames> relative_pose_factors;
   relative_pose_factors.insert(relative_pose_factors.end(),
@@ -77,9 +78,12 @@ bool runPgoPlusEllipsoids(
 
   {
 #ifdef RUN_TIMERS
+    std::string build_pgo_timer_name =
+        for_map_merge ? kTimerNameMapMergeObjOnlyPgoBuildPgo
+                      : kTimerNameObjOnlyPgoBuildPgo;
     CumulativeFunctionTimer::Invocation build_pgo_invoc(
         CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(kTimerNameObjOnlyPgoBuildPgo)
+            .getOrCreateFunctionTimer(build_pgo_timer_name)
             .get());
 #endif
 
@@ -203,9 +207,12 @@ bool runPgoPlusEllipsoids(
   }
   {
 #ifdef RUN_TIMERS
+    std::string solve_pgo_timer_name =
+        for_map_merge ? kTimerNameMapMergeObjOnlyPgoSolvePgo
+                      : kTimerNameObjOnlyPgoSolvePgo;
     CumulativeFunctionTimer::Invocation solve_pgo_invoc(
         CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(kTimerNameObjOnlyPgoSolvePgo)
+            .getOrCreateFunctionTimer(solve_pgo_timer_name)
             .get());
 #endif
     // Run optimization
@@ -228,9 +235,12 @@ bool runPgoPlusEllipsoids(
 
   if (pgo_solver_params.enable_visual_non_opt_feature_adjustment_post_pgo_) {
 #ifdef RUN_TIMERS
+    std::string non_opt_vf_adjust_timer_name =
+        for_map_merge ? kTimerNameMapMergeObjOnlyPgoManualFeatAdjust
+                      : kTimerNameObjOnlyPgoManualFeatAdjust;
     CumulativeFunctionTimer::Invocation non_opt_vf_adjust_invoc(
         CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(kTimerNameObjOnlyPgoManualFeatAdjust)
+            .getOrCreateFunctionTimer(non_opt_vf_adjust_timer_name)
             .get());
 #endif
     if (opt_logger.has_value()) {
@@ -277,9 +287,12 @@ bool runPgoPlusEllipsoids(
     optimization_scope_params_for_vf_adjustment.include_object_factors_ = false;
     {
 #ifdef RUN_TIMERS
+      std::string opt_vf_adjust_build_timer_name =
+          for_map_merge ? kTimerNameMapMergeObjOnlyPgoOptFeatAdjustBuild
+                        : kTimerNameObjOnlyPgoOptFeatAdjustBuild;
       CumulativeFunctionTimer::Invocation opt_vf_adjust_build_invoc(
           CumulativeTimerFactory::getInstance()
-              .getOrCreateFunctionTimer(kTimerNameObjOnlyPgoOptFeatAdjustBuild)
+              .getOrCreateFunctionTimer(opt_vf_adjust_build_timer_name)
               .get());
 #endif
       optimizer.buildPoseGraphOptimization(
@@ -291,9 +304,12 @@ bool runPgoPlusEllipsoids(
     }
     {
 #ifdef RUN_TIMERS
+      std::string opt_vf_adjust_solve_timer_name =
+          for_map_merge ? kTimerNameMapMergeObjOnlyPgoOptFeatAdjustSolve
+                        : kTimerNameObjOnlyPgoOptFeatAdjustSolve;
       CumulativeFunctionTimer::Invocation opt_vf_adjust_solve_invoc(
           CumulativeTimerFactory::getInstance()
-              .getOrCreateFunctionTimer(kTimerNameObjOnlyPgoOptFeatAdjustSolve)
+              .getOrCreateFunctionTimer(opt_vf_adjust_solve_timer_name)
               .get());
 #endif
       // Run optimization
