@@ -550,6 +550,9 @@ void addPriorToProblemParams(
   if (!insufficient_rank_info.features_with_rank_deficient_entries.empty()) {
     std::unordered_map<FeatureId, Position3d<double>> visual_feature_estimates;
     pose_graph_copy->getVisualFeatureEstimates(visual_feature_estimates);
+
+    // Find the features for which there are rank deficient entries (can be
+    // multiple entries for a single feature)
     for (const auto &problem_feat_info :
          insufficient_rank_info.features_with_rank_deficient_entries) {
       double *feature_position_block;
@@ -568,6 +571,7 @@ void addPriorToProblemParams(
       }
       Position3d<double> feat_pos =
           visual_feature_estimates.at(problem_feat_info.first);
+      // Iterate over the entries that are rank deficient
       for (const std::pair<size_t, double> &problem_param_info :
            problem_feat_info.second) {
         double mean_val;
@@ -586,7 +590,8 @@ void addPriorToProblemParams(
             ParameterPrior::createParameterPrior<3>(
                 problem_param_info.first,
                 mean_val,
-                1 / sqrt(long_term_map_tunable_params.min_col_norm_)),
+                1 / sqrt(long_term_map_tunable_params.min_col_norm_ -
+                         problem_param_info.second)),
             nullptr,
             feature_position_block);
       }
@@ -628,7 +633,8 @@ void addPriorToProblemParams(
             ParameterPrior::createParameterPrior<kEllipsoidParamterizationSize>(
                 problem_param_info.first,
                 mean_val,
-                1 / sqrt(long_term_map_tunable_params.min_col_norm_)),
+                1 / sqrt(long_term_map_tunable_params.min_col_norm_ -
+                         problem_param_info.second)),
             nullptr,
             obj_pose_block);
       }
@@ -665,7 +671,8 @@ void addPriorToProblemParams(
             ParameterPrior::createParameterPrior<6>(
                 problem_param_info.first,
                 mean_val,
-                1 / sqrt(long_term_map_tunable_params.min_col_norm_)),
+                1 / sqrt(long_term_map_tunable_params.min_col_norm_ -
+                         problem_param_info.second)),
             nullptr,
             frame_block);
       }
