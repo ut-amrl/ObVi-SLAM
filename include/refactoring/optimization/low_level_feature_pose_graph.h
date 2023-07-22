@@ -18,6 +18,9 @@ typedef uint8_t FactorType;
 static const FactorType kReprojectionErrorFactorTypeId = 0;
 static const FactorType kPairwiseErrorFactorTypeId = 1;
 static const FactorType kPairwiseRobotPoseFactorTypeId = 5;
+static const FactorType kParamPriorFrameFactorTypeId = 6;
+static const FactorType kParamPriorFeatFactorTypeId = 7;
+static const FactorType kParamPriorObjFactorTypeId = 8;
 
 struct RobotPoseNode {
   RawPose3dPtr<double> pose_;

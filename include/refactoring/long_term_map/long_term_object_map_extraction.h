@@ -93,12 +93,15 @@ std::pair<bool, std::shared_ptr<ceres::Covariance>> extractCovariance(
     const std::function<
         std::vector<std::pair<const double *, const double *>>()>
         &parameter_block_cov_retriever,
+    const std::vector<std::pair<ceres::ResidualBlockId, ParamPriorFactor>>
+        &added_factors,
     std::unordered_map<ceres::ResidualBlockId,
                        std::pair<vslam_types_refactor::FactorType,
                                  vslam_types_refactor::FeatureFactorId>>
         &residual_info,
     std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph_copy,
-    ceres::Problem &problem_for_ltm);
+    ceres::Problem &problem_for_ltm,
+    const int &attempt_num = 0);
 
 void getFramesFeaturesAndObjectsForFactor(
     const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
@@ -112,6 +115,8 @@ void getFramesFeaturesAndObjectsForFactor(
     std::unordered_set<FeatureId> &added_features);
 
 InsufficientRankInfo findRankDeficiencies(
+    const std::vector<std::pair<ceres::ResidualBlockId, ParamPriorFactor>>
+        &added_factors,
     const std::unordered_map<ceres::ResidualBlockId,
                              std::pair<vslam_types_refactor::FactorType,
                                        vslam_types_refactor::FeatureFactorId>>
@@ -127,7 +132,9 @@ void addPriorToProblemParams(
     const InsufficientRankInfo &insufficient_rank_info,
     const LongTermMapExtractionTunableParams &long_term_map_tunable_params,
     std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph_copy,
-    ceres::Problem &problem_for_ltm);
+    ceres::Problem &problem_for_ltm,
+    std::vector<std::pair<ceres::ResidualBlockId, ParamPriorFactor>>
+        &added_factors);
 
 std::pair<bool, std::shared_ptr<ceres::Covariance>>
 extractCovarianceWithRankDeficiencyHandling(

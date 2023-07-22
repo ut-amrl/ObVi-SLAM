@@ -23,7 +23,10 @@ class SerializableGenericFactorInfo
     fs << "{";
     fs << kFactorTypeLabel << data_.factor_type_;
     fs << kFrameIdLabel
-       << SerializableOptional<FrameId, SerializableFrameId>(data_.frame_id_);
+       << SerializableOptional<
+              std::unordered_set<FrameId>,
+              SerializableUnorderedSet<FrameId, SerializableFrameId>>(
+              data_.frame_ids_);
     fs << kCameraIdLabel
        << SerializableOptional<CameraId, SerializableCameraId>(
               data_.camera_id_);
@@ -41,24 +44,36 @@ class SerializableGenericFactorInfo
   virtual void read(const cv::FileNode &node) override {
     node[kFactorTypeLabel] >> data_.factor_type_;
 
-    SerializableOptional<FrameId, SerializableFrameId> serializable_frame_id;
     SerializableOptional<CameraId, SerializableCameraId> serializable_camera_id;
     SerializableOptional<ObjectId, SerializableObjectId> serializable_obj_id;
     SerializableOptional<FeatureId, SerializableFeatureId>
         serializable_feature_id;
 
-    node[kFrameIdLabel] >> serializable_frame_id;
     node[kCameraIdLabel] >> serializable_camera_id;
     node[kObjIdLabel] >> serializable_obj_id;
     node[kFeatureIdLabel] >> serializable_feature_id;
 
-    data_.frame_id_ = serializable_frame_id.getEntry();
     data_.camera_id_ = serializable_camera_id.getEntry();
     data_.obj_id_ = serializable_obj_id.getEntry();
     data_.feature_id_ = serializable_feature_id.getEntry();
 
     for (const std::string &key : node.keys()) {
-      if (key == kFinalResidualValLabel) {
+      if (key == kFrameIdLabel) {
+        SerializableOptional<FrameId, SerializableFrameId>
+            serializable_frame_id;
+        node[kFrameIdLabel] >> serializable_frame_id;
+        std::optional<FrameId> frame = serializable_frame_id.getEntry();
+        if (frame.has_value()) {
+          data_.frame_ids_ = {frame.value()};
+        }
+      } else if (key == kFrameIdsLabel) {
+        SerializableOptional<
+            std::unordered_set<FrameId>,
+            SerializableUnorderedSet<FrameId, SerializableFrameId>>
+            serializable_frame_ids;
+        node[kFrameIdsLabel] >> serializable_frame_ids;
+        data_.frame_ids_ = serializable_frame_ids.getEntry();
+      } else if (key == kFinalResidualValLabel) {
         SerializableOptional<double, SerializableDouble> ser_final_residual_val;
         node[kFinalResidualValLabel] >> ser_final_residual_val;
         data_.final_residual_val_ = ser_final_residual_val.getEntry();
@@ -73,6 +88,7 @@ class SerializableGenericFactorInfo
  private:
   inline static const std::string kFactorTypeLabel = "type";
   inline static const std::string kFrameIdLabel = "frame";
+  inline static const std::string kFrameIdsLabel = "frames";
   inline static const std::string kCameraIdLabel = "cam";
   inline static const std::string kObjIdLabel = "obj";
   inline static const std::string kFeatureIdLabel = "feat";

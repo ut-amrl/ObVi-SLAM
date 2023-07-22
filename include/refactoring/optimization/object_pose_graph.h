@@ -145,6 +145,51 @@ struct ShapeDimPriorFactor {
   }
 };
 
+struct ParamPriorFactor {
+  std::optional<FrameId> frame_id_;
+  std::optional<FeatureId> feat_id_;
+  std::optional<ObjectId> obj_id_;
+
+  size_t param_idx_;
+  double param_mean_;
+  double param_std_dev_;
+
+  ParamPriorFactor() = default;
+
+  ParamPriorFactor(const std::optional<FrameId> &frame_id,
+                   const std::optional<FeatureId> &feat_id,
+                   const std::optional<ObjectId> &obj_id,
+                   const size_t &param_idx,
+                   const double &param_mean,
+                   const double &param_std_dev)
+      : frame_id_(frame_id),
+        feat_id_(feat_id),
+        obj_id_(obj_id),
+        param_idx_(param_idx),
+        param_mean_(param_mean),
+        param_std_dev_(param_std_dev) {}
+
+  [[nodiscard]] FactorType getFactorType() const {
+    if (frame_id_.has_value()) {
+      return kParamPriorFrameFactorTypeId;
+    } else if (feat_id_.has_value()) {
+      return kParamPriorFeatFactorTypeId;
+    } else if (obj_id_.has_value()) {
+      return kParamPriorObjFactorTypeId;
+    }
+    LOG(ERROR) << "Param prior wasn't for frame, feat, or obj; returning "
+                  "nonsense factor type";
+    return std::numeric_limits<uint8_t>::max();
+  }
+
+  bool operator==(const ParamPriorFactor &rhs) const {
+    return (frame_id_ == rhs.frame_id_) && (feat_id_ == rhs.feat_id_) &&
+           (obj_id_ == rhs.obj_id_) && (param_idx_ == rhs.param_idx_) &&
+           (param_mean_ == rhs.param_mean_) &&
+           (param_std_dev_ == rhs.param_std_dev_);
+  }
+};
+
 struct ObjOnlyPoseGraphState {
   std::unordered_map<std::string,
                      std::pair<ObjectDim<double>, Covariance<double, 3>>>

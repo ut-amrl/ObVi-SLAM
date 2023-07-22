@@ -20,7 +20,7 @@ struct GenericFactorInfo {
   // time. If we move to more complex long-term maps or pairwise feature
   // factors, we'll need to rework this.
   FactorType factor_type_;
-  std::optional<FrameId> frame_id_;
+  std::optional<std::unordered_set<FrameId>> frame_ids_;
   std::optional<CameraId> camera_id_;
   std::optional<ObjectId> obj_id_;
   std::optional<FeatureId> feature_id_;
@@ -29,13 +29,13 @@ struct GenericFactorInfo {
   GenericFactorInfo() = default;
 
   GenericFactorInfo(const FactorType &factor_type,
-                    const std::optional<FrameId> &frame_id,
+                    const std::optional<std::unordered_set<FrameId>> &frame_ids,
                     const std::optional<CameraId> &camera_id,
                     const std::optional<ObjectId> &obj_id,
                     const std::optional<FeatureId> &feature_id,
                     const std::optional<double> &final_residual_val)
       : factor_type_(factor_type),
-        frame_id_(frame_id),
+        frame_ids_(frame_ids),
         camera_id_(camera_id),
         obj_id_(obj_id),
         feature_id_(feature_id),
