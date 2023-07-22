@@ -989,13 +989,23 @@ int main(int argc, char **argv) {
     visual_feature_fs.release();
   }
 
+  MainLtm output_long_term_map = output_results.long_term_map_;
+  vtr::EllipsoidResults ltm_ellipsoid_results;
+  output_long_term_map.getEllipsoidResults(ltm_ellipsoid_results);
+  if (ltm_ellipsoid_results.ellipsoids_.empty()) {
+    LOG(ERROR) << "Long term map extraction failed; falling back to previous "
+                  "long-term map if provided";
+    if (long_term_map != nullptr) {
+      output_long_term_map = *long_term_map;
+    }
+  }
+
   cv::FileStorage ltm_out_fs(FLAGS_long_term_map_output,
                              cv::FileStorage::WRITE);
   ltm_out_fs << "long_term_map"
              << vtr::SerializableIndependentEllipsoidsLongTermObjectMap<
                     util::EmptyStruct,
-                    vtr::SerializableEmptyStruct>(
-                    output_results.long_term_map_);
+                    vtr::SerializableEmptyStruct>(output_long_term_map);
   ltm_out_fs.release();
   LOG(INFO) << "Num ellipsoids "
             << output_results.ellipsoid_results_.ellipsoids_.size();
