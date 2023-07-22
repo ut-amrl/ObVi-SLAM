@@ -11,16 +11,18 @@
 #include <refactoring/optimization/jacobian_extraction.h>
 
 namespace vslam_types_refactor {
-const std::string kSparseJacobianOutBaseFileName = "sparse_jacobian.csv";
+const std::string kSparseJacobianOutBaseFileName = "sparse_jacobian";
 const std::string kSparseJacobianMatlabOutBaseFileName =
-    "sparse_jacobian_matlab.csv";
+    "sparse_jacobian_matlab";
 const std::string kSparseJacobianOrderedMatlabOutBaseFileName =
-    "ordered_sparse_jacobian_matlab.csv";
-const std::string kResidualInfoForJacobianFile = "jacobian_residual_info.json";
+    "ordered_sparse_jacobian_matlab";
+const std::string kResidualInfoForJacobianFile = "jacobian_residual_info";
 const std::string kResidualInfoOrderedForJacobianFile =
-    "ordered_jacobian_residual_info.json";
+    "ordered_jacobian_residual_info";
 const std::string kSparseJacobianOrderedOutBaseFileName =
-    "ordered_sparse_jacobian.csv";
+    "ordered_sparse_jacobian";
+
+const std::string kJacobianFileAttemptSuffix = "_attempt_";
 
 std::pair<std::pair<std::vector<int>, std::vector<int>>, std::vector<int>>
 writeJacobianToFile(const ceres::CRSMatrix &crs_matrix,
@@ -206,7 +208,7 @@ void generateGenericFactorInfoForFactor(
                  << feature_factor_id << "; not adding to pose graph";
       return;
     }
-    generic_factor_info.frame_id_ = factor.frame_id_;
+    generic_factor_info.frame_ids_ = {factor.frame_id_};
     generic_factor_info.camera_id_ = factor.camera_id_;
     generic_factor_info.obj_id_ = factor.object_id_;
     if (factor.object_id_ == 45) {
@@ -230,7 +232,7 @@ void generateGenericFactorInfoForFactor(
                  << feature_factor_id << "; not adding to pose graph";
       return;
     }
-    generic_factor_info.frame_id_ = factor.frame_id_;
+    generic_factor_info.frame_ids_ = {factor.frame_id_};
     generic_factor_info.camera_id_ = factor.camera_id_;
     generic_factor_info.feature_id_ = factor.feature_id_;
 
@@ -271,6 +273,26 @@ void generateGenericFactorInfoForFactor(
       param_block.obj_id_ = ltm_obj_id;
       new_param_block_info.emplace_back(param_block);
     }
+  } else if (factor_type == kPairwiseRobotPoseFactorTypeId) {
+    RelPoseFactor factor;
+    if (!pose_graph->getPoseFactor(feature_factor_id, factor)) {
+      LOG(ERROR) << "Could not find relative pose factor with id "
+                 << feature_factor_id << "; not adding to pose graph";
+      return;
+    }
+
+    generic_factor_info.frame_ids_ = {factor.frame_id_1_, factor.frame_id_2_};
+
+    if (added_frames.find(factor.frame_id_1_) == added_frames.end()) {
+      ParameterBlockInfo param_block;
+      param_block.frame_id_ = factor.frame_id_1_;
+      new_param_block_info.emplace_back(param_block);
+    }
+    if (added_frames.find(factor.frame_id_2_) == added_frames.end()) {
+      ParameterBlockInfo param_block;
+      param_block.frame_id_ = factor.frame_id_2_;
+      new_param_block_info.emplace_back(param_block);
+    }
   } else if (factor_type == kPairwiseErrorFactorTypeId) {
     LOG(ERROR) << "Pairwise error observation type not supported with a "
                   "reprojection error factor graph";
@@ -279,6 +301,44 @@ void generateGenericFactorInfoForFactor(
     LOG(ERROR) << "Unrecognized factor type " << factor_type
                << "; not adding residual";
     return;
+  }
+}
+
+void generateGenericFactorInfoForPriorFactor(
+    const ParamPriorFactor &param_prior_factor,
+    const std::unordered_set<FrameId> &added_frames,
+    const std::unordered_set<ObjectId> &added_objects,
+    const std::unordered_set<FeatureId> &added_features,
+    GenericFactorInfo &generic_factor_info,
+    std::vector<ParameterBlockInfo> &new_param_block_info) {
+  generic_factor_info.factor_type_ = param_prior_factor.getFactorType();
+
+  if (param_prior_factor.obj_id_.has_value() &&
+      (added_objects.find(param_prior_factor.obj_id_.value()) ==
+       added_objects.end())) {
+    ParameterBlockInfo param_block;
+    param_block.obj_id_ = param_prior_factor.obj_id_.value();
+    new_param_block_info.emplace_back(param_block);
+
+    generic_factor_info.obj_id_ = param_prior_factor.obj_id_.value();
+  }
+  if (param_prior_factor.frame_id_.has_value() &&
+      (added_frames.find(param_prior_factor.frame_id_.value()) ==
+       added_frames.end())) {
+    ParameterBlockInfo param_block;
+    param_block.frame_id_ = param_prior_factor.frame_id_.value();
+    new_param_block_info.emplace_back(param_block);
+
+    generic_factor_info.frame_ids_ = {param_prior_factor.frame_id_.value()};
+  }
+  if (param_prior_factor.feat_id_.has_value() &&
+      (added_features.find(param_prior_factor.feat_id_.value()) ==
+       added_features.end())) {
+    ParameterBlockInfo param_block;
+    param_block.feature_id_ = param_prior_factor.feat_id_.value();
+    new_param_block_info.emplace_back(param_block);
+
+    generic_factor_info.feature_id_ = param_prior_factor.feat_id_.value();
   }
 }
 
@@ -326,9 +386,11 @@ void displayInfoForObj(
   FrameId max_frame_id = 0;
   for (const size_t &factor_info_num : factor_info_nums) {
     GenericFactorInfo factor = generic_factor_infos[factor_info_num];
-    if (factor.frame_id_.has_value()) {
-      min_frame_id = std::min(factor.frame_id_.value(), min_frame_id);
-      max_frame_id = std::max(factor.frame_id_.value(), max_frame_id);
+    if (factor.frame_ids_.has_value()) {
+      for (const FrameId &frame_id : factor.frame_ids_.value()) {
+        min_frame_id = std::min(frame_id, min_frame_id);
+        max_frame_id = std::max(frame_id, max_frame_id);
+      }
     }
   }
   LOG(INFO) << "Min frame for obj " << min_frame_id;
@@ -340,9 +402,9 @@ void displayInfoForObj(
     } else if (factor.factor_type_ == kShapeDimPriorFactorTypeId) {
       LOG(INFO) << "Shape dim prior";
     } else if (factor.factor_type_ == kObjectObservationFactorTypeId) {
-      LOG(INFO) << "Bounding box observation at " << factor.frame_id_.value()
-                << " with camera " << factor.camera_id_.value() << " for obj "
-                << obj;
+      FrameId frame_id = *std::next(factor.frame_ids_.value().begin());
+      LOG(INFO) << "Bounding box observation at " << frame_id << " with camera "
+                << factor.camera_id_.value() << " for obj " << obj;
     }
     ceres::Problem::EvaluateOptions options;
     options.apply_loss_function = true;
@@ -604,14 +666,14 @@ void validateZeroColumnEntries(
       associated_factor_infos_for_feat[factor_info.feature_id_.value()].insert(
           factor_info_num);
     }
-    if (factor_info.frame_id_.has_value()) {
-      if (associated_factor_infos_for_frame.find(
-              factor_info.frame_id_.value()) ==
-          associated_factor_infos_for_frame.end()) {
-        associated_factor_infos_for_frame[factor_info.frame_id_.value()] = {};
+    if (factor_info.frame_ids_.has_value()) {
+      for (const FrameId &frame_id : factor_info.frame_ids_.value()) {
+        if (associated_factor_infos_for_frame.find(frame_id) ==
+            associated_factor_infos_for_frame.end()) {
+          associated_factor_infos_for_frame[frame_id] = {};
+        }
+        associated_factor_infos_for_frame[frame_id].insert(factor_info_num);
       }
-      associated_factor_infos_for_frame[factor_info.frame_id_.value()].insert(
-          factor_info_num);
     }
     if (factor_info.obj_id_.has_value()) {
       if (associated_factor_infos_for_obj.find(factor_info.obj_id_.value()) ==
@@ -754,10 +816,10 @@ void validateZeroColumnEntries(
         associated_factor_infos_for_feat[feat];
     for (const size_t &factor_info_num : factor_info_nums) {
       GenericFactorInfo factor = generic_factor_infos[factor_info_num];
+      FrameId frame_id = *(std::next(factor.frame_ids_.value().begin()));
       if (factor.factor_type_ == kReprojectionErrorFactorTypeId) {
-        LOG(INFO) << "Reprojection error of feature at frame "
-                  << factor.frame_id_.value() << " with camera "
-                  << factor.camera_id_.value();
+        LOG(INFO) << "Reprojection error of feature at frame " << frame_id
+                  << " with camera " << factor.camera_id_.value();
       }
       ceres::Problem::EvaluateOptions options;
       options.apply_loss_function = true;
@@ -828,9 +890,9 @@ void validateZeroColumnEntries(
     for (const size_t &factor_info_num : factor_info_nums) {
       GenericFactorInfo factor = generic_factor_infos[factor_info_num];
       if (factor.factor_type_ == kReprojectionErrorFactorTypeId) {
-        LOG(INFO) << "Reprojection error of feature at frame "
-                  << factor.frame_id_.value() << " with camera "
-                  << factor.camera_id_.value();
+        FrameId frame_id = *(std::next(factor.frame_ids_.value().begin()));
+        LOG(INFO) << "Reprojection error of feature at frame " << frame_id
+                  << " with camera " << factor.camera_id_.value();
       }
       ceres::Problem::EvaluateOptions options;
       options.apply_loss_function = true;
@@ -854,11 +916,14 @@ void outputJacobianInfo(
         &residual_info,
     const std::unordered_map<ceres::ResidualBlockId, double>
         &block_ids_and_residuals,
+    const std::vector<std::pair<ceres::ResidualBlockId, ParamPriorFactor>>
+        &added_factors,
     const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
     const std::function<bool(const FactorType &,
                              const FeatureFactorId &,
                              ObjectId &)> &long_term_map_obj_retriever,
-    ceres::Problem &problem_for_ltm) {
+    ceres::Problem &problem_for_ltm,
+    const int &attempt_num) {
   ceres::Problem::EvaluateOptions options;
   options.apply_loss_function = true;
 
@@ -891,6 +956,44 @@ void outputJacobianInfo(
       generic_factor_info.final_residual_val_ =
           block_ids_and_residuals.at(residual_info_entry.first);
     }
+    generic_factor_infos.emplace_back(generic_factor_info);
+    for (const ParameterBlockInfo &param_block : new_parameter_blocks) {
+      unordered_parameter_block_infos.emplace_back(param_block);
+      if (param_block.frame_id_.has_value()) {
+        added_frames.insert(param_block.frame_id_.value());
+        double *robot_pose_ptr;
+        pose_graph->getPosePointers(param_block.frame_id_.value(),
+                                    &robot_pose_ptr);
+        unordered_parameter_blocks.emplace_back(robot_pose_ptr);
+      }
+      if (param_block.feature_id_.has_value()) {
+        added_features.insert(param_block.feature_id_.value());
+        double *feature_ptr;
+        pose_graph->getFeaturePointers(param_block.feature_id_.value(),
+                                       &feature_ptr);
+        unordered_parameter_blocks.emplace_back(feature_ptr);
+      }
+      if (param_block.obj_id_.has_value()) {
+        added_objects.insert(param_block.obj_id_.value());
+        double *obj_ptr;
+        pose_graph->getObjectParamPointers(param_block.obj_id_.value(),
+                                           &obj_ptr);
+        unordered_parameter_blocks.emplace_back(obj_ptr);
+      }
+    }
+  }
+
+  for (const std::pair<ceres::ResidualBlockId, ParamPriorFactor>
+           &added_factor_entry : added_factors) {
+    residual_block_ids.emplace_back(added_factor_entry.first);
+    GenericFactorInfo generic_factor_info;
+    std::vector<ParameterBlockInfo> new_parameter_blocks;
+    generateGenericFactorInfoForPriorFactor(added_factor_entry.second,
+                                            added_frames,
+                                            added_objects,
+                                            added_features,
+                                            generic_factor_info,
+                                            new_parameter_blocks);
     generic_factor_infos.emplace_back(generic_factor_info);
     for (const ParameterBlockInfo &param_block : new_parameter_blocks) {
       unordered_parameter_block_infos.emplace_back(param_block);
@@ -977,23 +1080,64 @@ void outputJacobianInfo(
   problem_for_ltm.Evaluate(
       options, nullptr, nullptr, nullptr, &sparse_jacobian_ordered);
 
+  std::string sparse_jacobian_out_file_base_name;
+  if (attempt_num != 0) {
+    sparse_jacobian_out_file_base_name =
+        kSparseJacobianOutBaseFileName + kJacobianFileAttemptSuffix +
+        std::to_string(attempt_num) + file_io::kCsvExtension;
+  } else {
+    sparse_jacobian_out_file_base_name =
+        kSparseJacobianOutBaseFileName + file_io::kCsvExtension;
+  }
+
   writeJacobianToFile(
       sparse_jacobian_unordered,
       file_io::ensureDirectoryPathEndsWithSlash(jacobian_output_dir) +
-          kSparseJacobianOutBaseFileName);
+          sparse_jacobian_out_file_base_name);
+
+  std::string sparse_jacobian_ordered_out_file_base_name;
+  if (attempt_num != 0) {
+    sparse_jacobian_ordered_out_file_base_name =
+        kSparseJacobianOrderedOutBaseFileName + kJacobianFileAttemptSuffix +
+        std::to_string(attempt_num) + file_io::kCsvExtension;
+  } else {
+    sparse_jacobian_ordered_out_file_base_name =
+        kSparseJacobianOrderedOutBaseFileName + file_io::kCsvExtension;
+  }
   std::pair<std::pair<std::vector<int>, std::vector<int>>, std::vector<int>>
       problem_cols = writeJacobianToFile(
           sparse_jacobian_ordered,
           file_io::ensureDirectoryPathEndsWithSlash(jacobian_output_dir) +
-              kSparseJacobianOrderedOutBaseFileName);
+              sparse_jacobian_ordered_out_file_base_name);
+
+  std::string sparse_jacobian_matlab_out_file_base_name;
+  if (attempt_num != 0) {
+    sparse_jacobian_matlab_out_file_base_name =
+        kSparseJacobianMatlabOutBaseFileName + kJacobianFileAttemptSuffix +
+        std::to_string(attempt_num) + file_io::kCsvExtension;
+  } else {
+    sparse_jacobian_matlab_out_file_base_name =
+        kSparseJacobianMatlabOutBaseFileName + file_io::kCsvExtension;
+  }
   writeJacobianMatlabFormatToFile(
       sparse_jacobian_unordered,
       file_io::ensureDirectoryPathEndsWithSlash(jacobian_output_dir) +
-          kSparseJacobianMatlabOutBaseFileName);
+          sparse_jacobian_matlab_out_file_base_name);
+
+  std::string sparse_jacobian_ordered_matlab_out_file_base_name;
+  if (attempt_num != 0) {
+    sparse_jacobian_ordered_matlab_out_file_base_name =
+        kSparseJacobianOrderedMatlabOutBaseFileName +
+        kJacobianFileAttemptSuffix + std::to_string(attempt_num) +
+        file_io::kCsvExtension;
+  } else {
+    sparse_jacobian_ordered_matlab_out_file_base_name =
+        kSparseJacobianOrderedMatlabOutBaseFileName + file_io::kCsvExtension;
+  }
   writeJacobianMatlabFormatToFile(
       sparse_jacobian_ordered,
       file_io::ensureDirectoryPathEndsWithSlash(jacobian_output_dir) +
-          kSparseJacobianOrderedMatlabOutBaseFileName);
+          sparse_jacobian_ordered_matlab_out_file_base_name);
 
   //  if (!all_zero_columns.empty()) {
   // Get jacobian for param blocks corresponding to zero entries one at a time
@@ -1005,9 +1149,17 @@ void outputJacobianInfo(
                             problem_for_ltm);
   //  }
 
-  std::string jacobian_residual_file_name =
-      file_io::ensureDirectoryPathEndsWithSlash(jacobian_output_dir) +
-      kResidualInfoForJacobianFile;
+  std::string jacobian_residual_file_name;
+  if (attempt_num != 0) {
+    jacobian_residual_file_name =
+        file_io::ensureDirectoryPathEndsWithSlash(jacobian_output_dir) +
+        kResidualInfoForJacobianFile + kJacobianFileAttemptSuffix +
+        std::to_string(attempt_num) + file_io::kJsonExtension;
+  } else {
+    jacobian_residual_file_name =
+        file_io::ensureDirectoryPathEndsWithSlash(jacobian_output_dir) +
+        kResidualInfoForJacobianFile + file_io::kJsonExtension;
+  }
   cv::FileStorage jacobian_residual_info_out(jacobian_residual_file_name,
                                              cv::FileStorage::WRITE);
   jacobian_residual_info_out
@@ -1020,9 +1172,17 @@ void outputJacobianInfo(
              generic_factor_infos);
   jacobian_residual_info_out.release();
 
-  std::string ordered_jacobian_residual_file_name =
-      file_io::ensureDirectoryPathEndsWithSlash(jacobian_output_dir) +
-      kResidualInfoOrderedForJacobianFile;
+  std::string ordered_jacobian_residual_file_name;
+  if (attempt_num != 0) {
+    ordered_jacobian_residual_file_name =
+        file_io::ensureDirectoryPathEndsWithSlash(jacobian_output_dir) +
+        kResidualInfoOrderedForJacobianFile + kJacobianFileAttemptSuffix +
+        std::to_string(attempt_num) + file_io::kJsonExtension;
+  } else {
+    ordered_jacobian_residual_file_name =
+        file_io::ensureDirectoryPathEndsWithSlash(jacobian_output_dir) +
+        kResidualInfoOrderedForJacobianFile + file_io::kJsonExtension;
+  }
   cv::FileStorage ordered_jacobian_residual_info_out(
       ordered_jacobian_residual_file_name, cv::FileStorage::WRITE);
   ordered_jacobian_residual_info_out

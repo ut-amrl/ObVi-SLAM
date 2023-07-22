@@ -225,12 +225,15 @@ std::pair<bool, std::shared_ptr<ceres::Covariance>> extractCovariance(
     const std::function<
         std::vector<std::pair<const double *, const double *>>()>
         &parameter_block_cov_retriever,
+    const std::vector<std::pair<ceres::ResidualBlockId, ParamPriorFactor>>
+        &added_factors,
     std::unordered_map<ceres::ResidualBlockId,
                        std::pair<vslam_types_refactor::FactorType,
                                  vslam_types_refactor::FeatureFactorId>>
         &residual_info,
     std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph_copy,
-    ceres::Problem &problem_for_ltm) {
+    ceres::Problem &problem_for_ltm,
+    const int &attempt_num) {
   std::unordered_map<ceres::ResidualBlockId, double> block_ids_and_residuals;
   runOptimizationForLtmExtraction(
       residual_creator,
@@ -248,9 +251,11 @@ std::pair<bool, std::shared_ptr<ceres::Covariance>> extractCovariance(
     outputJacobianInfo(jacobian_output_dir,
                        residual_info,
                        block_ids_and_residuals,
+                       added_factors,
                        pose_graph_copy,
                        long_term_map_obj_retriever,
-                       problem_for_ltm);
+                       problem_for_ltm,
+                       attempt_num);
   }
 
   ceres::Covariance::Options covariance_options;
@@ -341,6 +346,8 @@ void getFramesFeaturesAndObjectsForFactor(
 }
 
 InsufficientRankInfo findRankDeficiencies(
+    const std::vector<std::pair<ceres::ResidualBlockId, ParamPriorFactor>>
+        &added_factors,
     const std::unordered_map<ceres::ResidualBlockId,
                              std::pair<vslam_types_refactor::FactorType,
                                        vslam_types_refactor::FeatureFactorId>>
@@ -362,8 +369,6 @@ InsufficientRankInfo findRankDeficiencies(
 
   for (const auto &residual_info_entry : residual_info) {
     residual_block_ids.emplace_back(residual_info_entry.first);
-    GenericFactorInfo generic_factor_info;
-    std::vector<ParameterBlockInfo> new_parameter_blocks;
     getFramesFeaturesAndObjectsForFactor(pose_graph_copy,
                                          residual_info_entry.second.first,
                                          residual_info_entry.second.second,
@@ -371,6 +376,19 @@ InsufficientRankInfo findRankDeficiencies(
                                          added_frames,
                                          added_objects,
                                          added_features);
+  }
+  for (const std::pair<ceres::ResidualBlockId, ParamPriorFactor> &added_factor :
+       added_factors) {
+    residual_block_ids.emplace_back(added_factor.first);
+    if (added_factor.second.frame_id_.has_value()) {
+      added_frames.insert(added_factor.second.frame_id_.value());
+    } else if (added_factor.second.feat_id_.has_value()) {
+      added_features.insert(added_factor.second.feat_id_.value());
+    } else if (added_factor.second.obj_id_.has_value()) {
+      added_objects.insert(added_factor.second.obj_id_.value());
+    } else {
+      LOG(ERROR) << "Param prior for unknown block type";
+    }
   }
 
   std::vector<FeatureId> added_features_vec;
@@ -546,7 +564,9 @@ void addPriorToProblemParams(
     const InsufficientRankInfo &insufficient_rank_info,
     const LongTermMapExtractionTunableParams &long_term_map_tunable_params,
     std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph_copy,
-    ceres::Problem &problem_for_ltm) {
+    ceres::Problem &problem_for_ltm,
+    std::vector<std::pair<ceres::ResidualBlockId, ParamPriorFactor>>
+        &added_factors) {
   if (!insufficient_rank_info.features_with_rank_deficient_entries.empty()) {
     std::unordered_map<FeatureId, Position3d<double>> visual_feature_estimates;
     pose_graph_copy->getVisualFeatureEstimates(visual_feature_estimates);
@@ -586,14 +606,23 @@ void addPriorToProblemParams(
                         "visual feature. Skipping";
           continue;
         }
-        problem_for_ltm.AddResidualBlock(
+        ParamPriorFactor param_prior_factor(
+            std::nullopt,
+            problem_feat_info.first,
+            std::nullopt,
+            problem_param_info.first,
+            mean_val,
+            1 / sqrt(long_term_map_tunable_params.min_col_norm_ -
+                     problem_param_info.second));
+        ceres::ResidualBlockId res_block_id = problem_for_ltm.AddResidualBlock(
             ParameterPrior::createParameterPrior<3>(
                 problem_param_info.first,
-                mean_val,
-                1 / sqrt(long_term_map_tunable_params.min_col_norm_ -
-                         problem_param_info.second)),
+                param_prior_factor.param_mean_,
+                param_prior_factor.param_std_dev_),
             nullptr,
             feature_position_block);
+        added_factors.emplace_back(
+            std::make_pair(res_block_id, param_prior_factor));
       }
     }
   }
@@ -629,14 +658,24 @@ void addPriorToProblemParams(
           continue;
         }
         double mean_val = obj_est(problem_param_info.first);
-        problem_for_ltm.AddResidualBlock(
+
+        ParamPriorFactor param_prior_factor(
+            std::nullopt,
+            std::nullopt,
+            problem_obj_info.first,
+            problem_param_info.first,
+            mean_val,
+            1 / sqrt(long_term_map_tunable_params.min_col_norm_ -
+                     problem_param_info.second));
+        ceres::ResidualBlockId res_block_id = problem_for_ltm.AddResidualBlock(
             ParameterPrior::createParameterPrior<kEllipsoidParamterizationSize>(
                 problem_param_info.first,
-                mean_val,
-                1 / sqrt(long_term_map_tunable_params.min_col_norm_ -
-                         problem_param_info.second)),
+                param_prior_factor.param_mean_,
+                param_prior_factor.param_std_dev_),
             nullptr,
             obj_pose_block);
+        added_factors.emplace_back(
+            std::make_pair(res_block_id, param_prior_factor));
       }
     }
   }
@@ -675,6 +714,24 @@ void addPriorToProblemParams(
                          problem_param_info.second)),
             nullptr,
             frame_block);
+
+        ParamPriorFactor param_prior_factor(
+            problem_frame_info.first,
+            std::nullopt,
+            std::nullopt,
+            problem_param_info.first,
+            mean_val,
+            1 / sqrt(long_term_map_tunable_params.min_col_norm_ -
+                     problem_param_info.second));
+        ceres::ResidualBlockId res_block_id = problem_for_ltm.AddResidualBlock(
+            ParameterPrior::createParameterPrior<6>(
+                problem_param_info.first,
+                param_prior_factor.param_mean_,
+                param_prior_factor.param_std_dev_),
+            nullptr,
+            frame_block);
+        added_factors.emplace_back(
+            std::make_pair(res_block_id, param_prior_factor));
       }
     }
   }
@@ -712,6 +769,8 @@ extractCovarianceWithRankDeficiencyHandling(
                      std::pair<vslam_types_refactor::FactorType,
                                vslam_types_refactor::FeatureFactorId>>
       residual_info;
+  std::vector<std::pair<ceres::ResidualBlockId, ParamPriorFactor>>
+      added_factors;
   std::pair<bool, std::shared_ptr<ceres::Covariance>> covariance_result =
       extractCovariance(residual_creator,
                         ltm_residual_params,
@@ -723,6 +782,7 @@ extractCovarianceWithRankDeficiencyHandling(
                         long_term_map_obj_retriever,
                         covariance_extractor_params,
                         parameter_block_cov_retriever,
+                        added_factors,
                         residual_info,
                         pose_graph_copy,
                         problem_for_ltm);
@@ -730,7 +790,8 @@ extractCovarianceWithRankDeficiencyHandling(
   if (!covariance_result.first) {
     // Identify bad parameter blocks + values
     InsufficientRankInfo insufficient_rank_info =
-        findRankDeficiencies(residual_info,
+        findRankDeficiencies(added_factors,
+                             residual_info,
                              long_term_map_obj_retriever,
                              long_term_map_tunable_params.min_col_norm_,
                              pose_graph_copy,
@@ -776,7 +837,8 @@ extractCovarianceWithRankDeficiencyHandling(
     addPriorToProblemParams(insufficient_rank_info,
                             long_term_map_tunable_params,
                             pose_graph_copy,
-                            problem_for_ltm);
+                            problem_for_ltm,
+                            added_factors);
 
     // Rerun covariance extraction
     covariance_result = extractCovariance(residual_creator,
@@ -789,9 +851,11 @@ extractCovarianceWithRankDeficiencyHandling(
                                           long_term_map_obj_retriever,
                                           covariance_extractor_params,
                                           parameter_block_cov_retriever,
+                                          added_factors,
                                           residual_info,
                                           pose_graph_copy,
-                                          problem_for_ltm);
+                                          problem_for_ltm,
+                                          1);
     if (!covariance_result.first) {
       LOG(ERROR) << "Covariance extraction failed on the second try with "
                     "additional priors; consider revising minimum column norm, "
@@ -800,7 +864,8 @@ extractCovarianceWithRankDeficiencyHandling(
 
       // Identify bad parameter blocks + values
       InsufficientRankInfo insufficient_rank_info =
-          findRankDeficiencies(residual_info,
+          findRankDeficiencies(added_factors,
+                               residual_info,
                                long_term_map_obj_retriever,
                                long_term_map_tunable_params.min_col_norm_,
                                pose_graph_copy,

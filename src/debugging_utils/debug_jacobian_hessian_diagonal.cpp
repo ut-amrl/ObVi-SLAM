@@ -366,10 +366,10 @@ int main(int argc, char **argv) {
         objs_with_factors[obj_id] = {};
       }
       if (factor.final_residual_val_.has_value() &&
-          factor.frame_id_.has_value() && factor.camera_id_.has_value()) {
-        objs_with_residuals[obj_id][factor.frame_id_.value()]
-                           [factor.camera_id_.value()] =
-                               factor.final_residual_val_.value();
+          factor.frame_ids_.has_value() && factor.camera_id_.has_value()) {
+        FrameId frame_id = *std::next(factor.frame_ids_.value().begin());
+        objs_with_residuals[obj_id][frame_id][factor.camera_id_.value()] =
+            factor.final_residual_val_.value();
       }
       objs_with_factors[obj_id].emplace_back(
           std::make_pair(factor.factor_type_, factor.final_residual_val_));

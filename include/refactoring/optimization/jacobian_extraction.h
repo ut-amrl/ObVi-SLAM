@@ -33,6 +33,14 @@ void generateGenericFactorInfoForFactor(
     GenericFactorInfo &generic_factor_info,
     std::vector<ParameterBlockInfo> &new_param_block_info);
 
+void generateGenericFactorInfoForPriorFactor(
+    const ParamPriorFactor &param_prior_factor,
+    const std::unordered_set<FrameId> &added_frames,
+    const std::unordered_set<ObjectId> &added_objects,
+    const std::unordered_set<FeatureId> &added_features,
+    GenericFactorInfo &generic_factor_info,
+    std::vector<ParameterBlockInfo> &new_param_block_info);
+
 void displayInfoForSmallJacobian(const ceres::CRSMatrix &jacobian_mat);
 
 void validateZeroColumnEntries(
@@ -53,11 +61,14 @@ void outputJacobianInfo(
         &residual_info,
     const std::unordered_map<ceres::ResidualBlockId, double>
         &block_ids_and_residuals,
+    const std::vector<std::pair<ceres::ResidualBlockId, ParamPriorFactor>>
+        &added_factors,
     const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
     const std::function<bool(const FactorType &,
                              const FeatureFactorId &,
                              ObjectId &)> &long_term_map_obj_retriever,
-    ceres::Problem &problem_for_ltm);
+    ceres::Problem &problem_for_ltm,
+    const int &attempt_num);
 }  // namespace vslam_types_refactor
 
 #endif  // UT_VSLAM_JACOBIAN_EXTRACTION_H
