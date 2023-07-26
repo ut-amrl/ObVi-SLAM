@@ -402,7 +402,7 @@ void displayInfoForObj(
     } else if (factor.factor_type_ == kShapeDimPriorFactorTypeId) {
       LOG(INFO) << "Shape dim prior";
     } else if (factor.factor_type_ == kObjectObservationFactorTypeId) {
-      FrameId frame_id = *std::next(factor.frame_ids_.value().begin());
+      FrameId frame_id = *(factor.frame_ids_.value().begin());
       LOG(INFO) << "Bounding box observation at " << frame_id << " with camera "
                 << factor.camera_id_.value() << " for obj " << obj;
     }
@@ -816,7 +816,7 @@ void validateZeroColumnEntries(
         associated_factor_infos_for_feat[feat];
     for (const size_t &factor_info_num : factor_info_nums) {
       GenericFactorInfo factor = generic_factor_infos[factor_info_num];
-      FrameId frame_id = *(std::next(factor.frame_ids_.value().begin()));
+      FrameId frame_id = *(factor.frame_ids_.value().begin());
       if (factor.factor_type_ == kReprojectionErrorFactorTypeId) {
         LOG(INFO) << "Reprojection error of feature at frame " << frame_id
                   << " with camera " << factor.camera_id_.value();
@@ -890,7 +890,7 @@ void validateZeroColumnEntries(
     for (const size_t &factor_info_num : factor_info_nums) {
       GenericFactorInfo factor = generic_factor_infos[factor_info_num];
       if (factor.factor_type_ == kReprojectionErrorFactorTypeId) {
-        FrameId frame_id = *(std::next(factor.frame_ids_.value().begin()));
+        FrameId frame_id = *(factor.frame_ids_.value().begin());
         LOG(INFO) << "Reprojection error of feature at frame " << frame_id
                   << " with camera " << factor.camera_id_.value();
       }

@@ -367,7 +367,7 @@ int main(int argc, char **argv) {
       }
       if (factor.final_residual_val_.has_value() &&
           factor.frame_ids_.has_value() && factor.camera_id_.has_value()) {
-        FrameId frame_id = *std::next(factor.frame_ids_.value().begin());
+        FrameId frame_id = *(factor.frame_ids_.value().begin());
         objs_with_residuals[obj_id][frame_id][factor.camera_id_.value()] =
             factor.final_residual_val_.value();
       }
