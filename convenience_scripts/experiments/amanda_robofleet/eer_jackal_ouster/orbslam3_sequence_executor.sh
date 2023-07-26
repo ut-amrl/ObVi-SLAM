@@ -9,7 +9,7 @@ orb_slam_vocabulary_file=/root/LTOV-SLAM-Evaluation/ORB_SLAM3/Vocabulary/ORBvoc.
 orb_slam_3_out_root_dir=${root_data_dir}orb_slam_3_out/
 
 #sequence_file_base_name="20230218_1a_4a"
-sequence_file_base_name="amazon_0523_v0"
+sequence_file_base_name="evaluation_2023_07_v1"
 
 python3 src/evaluation/run_multi_session_orb_slam_3.py \
     --orb_slam_configuration_file=${orb_slam_configuration_file} \
