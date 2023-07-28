@@ -126,7 +126,7 @@ int main(int argc, char **argv) {
   for (auto &cam_id_and_detection_ofile : cam_ids_and_detection_ofiles) {
     const vtr::CameraId &cam_id = cam_id_and_detection_ofile.first;
     auto &ofile = cam_id_and_detection_ofile.second;
-    ofile << "FrameId xmin ymin width height prob" << std::endl;
+    ofile << "FrameId ClassId xmin ymin width height prob" << std::endl;
   }
 
   std::vector<vtr::FrameId> ordered_frame_ids;
@@ -173,6 +173,7 @@ int main(int argc, char **argv) {
       }
       for (const auto &bbox : cam_id_and_bboxes.second) {
         ofile << frame_id << " " 
+          << class_names_and_class_ids.at(bbox.semantic_class_) << " "
           << bbox.pixel_corner_locations_.first.x() << " "
           << bbox.pixel_corner_locations_.first.y() << " "
           << bbox.pixel_corner_locations_.second.x() - bbox.pixel_corner_locations_.first.x() << " "
