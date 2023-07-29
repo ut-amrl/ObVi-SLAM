@@ -2,8 +2,14 @@
 // Created by amanda on 5/17/23.
 //
 
+#include <ceres/crs_matrix.h>
+#include <ceres/problem.h>
 #include <refactoring/factors/parameter_prior.h>
 #include <refactoring/long_term_map/long_term_object_map_extraction.h>
+
+#include <eigen3/Eigen/SparseCore>
+#include <eigen3/Eigen/SparseQR>
+#include <suitesparse/SuiteSparseQR.hpp>
 
 namespace vslam_types_refactor {
 bool runOptimizationForLtmExtraction(
@@ -200,6 +206,159 @@ bool runOptimizationForLtmExtraction(
   return true;
 }
 
+bool getRankDeficiency(const ceres::Covariance::Options &cov_options,
+                       ceres::Problem &problem,
+                       int &rank_deficiency) {
+  using EigenSparseMatrix = Eigen::SparseMatrix<double, Eigen::ColMajor>;
+
+  ceres::Problem::EvaluateOptions eval_options;
+  eval_options.apply_loss_function = cov_options.apply_loss_function;
+  eval_options.num_threads = cov_options.num_threads;
+
+  // Code based on
+  // https://github.com/ceres-solver/ceres-solver/blob/master/internal/ceres/covariance_impl.cc
+  // Determine an ordering for the parameter block, by sorting the
+  // parameter blocks by their pointers.
+  std::vector<double *> all_parameter_blocks;
+  problem.GetParameterBlocks(&all_parameter_blocks);
+  std::unordered_set<double *> parameter_blocks_in_use;
+  std::vector<ceres::ResidualBlockId> residual_blocks;
+  problem.GetResidualBlocks(&residual_blocks);
+
+  for (int i = 0; i < residual_blocks.size(); ++i) {
+    ceres::ResidualBlockId residual_block = residual_blocks[i];
+    std::vector<double *> parameter_blocks_for_res;
+    problem.GetParameterBlocksForResidualBlock(residual_block,
+                                               &parameter_blocks_for_res);
+    parameter_blocks_in_use.insert(parameter_blocks_for_res.begin(),
+                                   parameter_blocks_for_res.end());
+  }
+
+  std::vector<double *> &active_parameter_blocks =
+      eval_options.parameter_blocks;
+  active_parameter_blocks.clear();
+  for (int i = 0; i < all_parameter_blocks.size(); ++i) {
+    double *parameter_block = all_parameter_blocks[i];
+
+    if (!problem.IsParameterBlockConstant(parameter_block) &&
+        (parameter_blocks_in_use.count(parameter_block) > 0)) {
+      active_parameter_blocks.push_back(parameter_block);
+    }
+  }
+
+  std::sort(active_parameter_blocks.begin(), active_parameter_blocks.end());
+
+  ceres::CRSMatrix jacobian;
+  problem.Evaluate(eval_options, NULL, NULL, NULL, &jacobian);
+  if (cov_options.sparse_linear_algebra_library_type == ceres::SUITE_SPARSE) {
+    LOG(INFO) << "Rank detection using suite sparse";
+    // Construct a compressed column form of the Jacobian.
+    const int num_rows = jacobian.num_rows;
+    const int num_cols = jacobian.num_cols;
+    const int num_nonzeros = jacobian.values.size();
+
+    std::vector<SuiteSparse_long> transpose_rows(num_cols + 1, 0);
+    std::vector<SuiteSparse_long> transpose_cols(num_nonzeros, 0);
+    std::vector<double> transpose_values(num_nonzeros, 0);
+
+    for (int idx = 0; idx < num_nonzeros; ++idx) {
+      transpose_rows[jacobian.cols[idx] + 1] += 1;
+    }
+
+    for (int i = 1; i < transpose_rows.size(); ++i) {
+      transpose_rows[i] += transpose_rows[i - 1];
+    }
+
+    for (int r = 0; r < num_rows; ++r) {
+      for (int idx = jacobian.rows[r]; idx < jacobian.rows[r + 1]; ++idx) {
+        const int c = jacobian.cols[idx];
+        const int transpose_idx = transpose_rows[c];
+        transpose_cols[transpose_idx] = r;
+        transpose_values[transpose_idx] = jacobian.values[idx];
+        ++transpose_rows[c];
+      }
+    }
+
+    for (int i = transpose_rows.size() - 1; i > 0; --i) {
+      transpose_rows[i] = transpose_rows[i - 1];
+    }
+    transpose_rows[0] = 0;
+
+    cholmod_sparse cholmod_jacobian;
+    cholmod_jacobian.nrow = num_rows;
+    cholmod_jacobian.ncol = num_cols;
+    cholmod_jacobian.nzmax = num_nonzeros;
+    cholmod_jacobian.nz = NULL;
+    cholmod_jacobian.p = reinterpret_cast<void *>(&transpose_rows[0]);
+    cholmod_jacobian.i = reinterpret_cast<void *>(&transpose_cols[0]);
+    cholmod_jacobian.x = reinterpret_cast<void *>(&transpose_values[0]);
+    cholmod_jacobian.z = NULL;
+    cholmod_jacobian.stype = 0;  // Matrix is not symmetric.
+    cholmod_jacobian.itype = CHOLMOD_LONG;
+    cholmod_jacobian.xtype = CHOLMOD_REAL;
+    cholmod_jacobian.dtype = CHOLMOD_DOUBLE;
+    cholmod_jacobian.sorted = 1;
+    cholmod_jacobian.packed = 1;
+
+    cholmod_common cc;
+    cholmod_l_start(&cc);
+
+    cholmod_sparse *R = NULL;
+    SuiteSparse_long *permutation = NULL;
+
+    // Compute a Q-less QR factorization of the Jacobian. Since we are
+    // only interested in inverting J'J = R'R, we do not need Q. This
+    // saves memory and gives us R as a permuted compressed column
+    // sparse matrix.
+    //
+    // TODO(sameeragarwal): Currently the symbolic factorization and the
+    // numeric factorization is done at the same time, and this does not
+    // explicitly account for the block column and row structure in the
+    // matrix. When using AMD, we have observed in the past that
+    // computing the ordering with the block matrix is significantly
+    // more efficient, both in runtime as well as the quality of
+    // ordering computed. So, it maybe worth doing that analysis
+    // separately.
+    const SuiteSparse_long rank = SuiteSparseQR<double>(SPQR_ORDERING_BESTAMD,
+                                                        SPQR_DEFAULT_TOL,
+                                                        cholmod_jacobian.ncol,
+                                                        &cholmod_jacobian,
+                                                        &R,
+                                                        &permutation,
+                                                        &cc);
+    CHECK_NOTNULL(permutation);
+    CHECK_NOTNULL(R);
+
+    rank_deficiency = cholmod_jacobian.ncol - rank;
+
+    free(permutation);
+    cholmod_l_free_sparse(&R, &cc);
+    cholmod_l_finish(&cc);
+
+  } else {
+    LOG(INFO) << "Rank detection using eigen sparse";
+
+    typedef Eigen::SparseMatrix<double, Eigen::ColMajor> EigenSparseMatrix;
+
+    // Convert the matrix to column major order as required by SparseQR.
+    EigenSparseMatrix sparse_jacobian =
+        Eigen::MappedSparseMatrix<double, Eigen::RowMajor>(
+            jacobian.num_rows,
+            jacobian.num_cols,
+            static_cast<int>(jacobian.values.size()),
+            jacobian.rows.data(),
+            jacobian.cols.data(),
+            jacobian.values.data());
+
+    Eigen::SparseQR<EigenSparseMatrix, Eigen::COLAMDOrdering<int>> qr_solver(
+        sparse_jacobian);
+
+    rank_deficiency = jacobian.num_cols - qr_solver.rank();
+  }
+  LOG(INFO) << "Rank deficiency: " << rank_deficiency;
+  return true;
+}
+
 std::pair<bool, std::shared_ptr<ceres::Covariance>> extractCovariance(
     const std::function<bool(
         const std::pair<vslam_types_refactor::FactorType,
@@ -346,6 +505,7 @@ void getFramesFeaturesAndObjectsForFactor(
 }
 
 InsufficientRankInfo findRankDeficiencies(
+    const CovarianceExtractorParams &covariance_extractor_params,
     const std::vector<std::pair<ceres::ResidualBlockId, ParamPriorFactor>>
         &added_factors,
     const std::unordered_map<ceres::ResidualBlockId,
@@ -447,15 +607,53 @@ InsufficientRankInfo findRankDeficiencies(
     norm_for_cols[col_num] += pow(sparse_jacobian_ordered.values[val_num], 2);
   }
 
+  ceres::Covariance::Options covariance_options;
+
+  covariance_options.num_threads = covariance_extractor_params.num_threads_;
+  covariance_options.algorithm_type =
+      covariance_extractor_params.covariance_estimation_algorithm_type_;
+
+  int rank_deficiency;
+  getRankDeficiency(covariance_options, problem_for_ltm, rank_deficiency);
+
+  // TODO consider adding this buffer to the config
+  // In the past, there are columns close to those with the minimum rank
+  // adding some buffer allows us to add a prior for those as well to hopefully
+  // fix the rank issue with less retries
+  size_t rank_deficiency_compensation_count =
+      std::min((size_t)rank_deficiency + kRankDeficiencyColsBuffer + 1, norm_for_cols.size());
+  std::vector<std::pair<size_t, double>> smallest_n(
+      rank_deficiency_compensation_count);
+  std::partial_sort_copy(norm_for_cols.begin(),
+                         norm_for_cols.end(),
+                         smallest_n.begin(),
+                         smallest_n.end(),
+                         [](std::pair<const size_t, double> const &l,
+                            std::pair<const size_t, double> const &r) {
+                           return l.second < r.second;
+                         });
+
   std::vector<size_t> rank_deficient_cols;
-  for (const auto &col_and_norm : norm_for_cols) {
-    if (col_and_norm.second < min_col_norm) {
-      rank_deficient_cols.emplace_back(col_and_norm.first);
-    }
+  //  for (const auto &col_and_norm : norm_for_cols) {
+  //    if (col_and_norm.second < min_col_norm) {
+  //      rank_deficient_cols.emplace_back(col_and_norm.first);
+  //    }
+  //  }
+
+  for (size_t col_size_idx = 0; col_size_idx < smallest_n.size() - 1;
+       col_size_idx++) {
+    rank_deficient_cols.emplace_back(smallest_n.at(col_size_idx).first);
+    LOG(INFO) << "Col num " << smallest_n.at(col_size_idx).first;
+    LOG(INFO) << "Norm: " << smallest_n.at(col_size_idx).second;
   }
   std::sort(rank_deficient_cols.begin(), rank_deficient_cols.end());
 
   InsufficientRankInfo insufficient_rank_info;
+
+  insufficient_rank_info.min_non_prob_col_norm_ = smallest_n.back().second;
+
+  LOG(INFO) << "Minimum non-problem column norm "
+            << insufficient_rank_info.min_non_prob_col_norm_;
   if (rank_deficient_cols.empty()) {
     LOG(WARNING) << "No rank deficient columns identified ";
     return insufficient_rank_info;
@@ -567,6 +765,8 @@ void addPriorToProblemParams(
     ceres::Problem &problem_for_ltm,
     std::vector<std::pair<ceres::ResidualBlockId, ParamPriorFactor>>
         &added_factors) {
+  double min_col_norm = insufficient_rank_info.min_non_prob_col_norm_;
+  //  double min_col_norm = long_term_map_tunable_params.min_col_norm_;
   if (!insufficient_rank_info.features_with_rank_deficient_entries.empty()) {
     std::unordered_map<FeatureId, Position3d<double>> visual_feature_estimates;
     pose_graph_copy->getVisualFeatureEstimates(visual_feature_estimates);
@@ -612,8 +812,7 @@ void addPriorToProblemParams(
             std::nullopt,
             problem_param_info.first,
             mean_val,
-            1 / sqrt(long_term_map_tunable_params.min_col_norm_ -
-                     problem_param_info.second));
+            1 / sqrt(min_col_norm - problem_param_info.second));
         ceres::ResidualBlockId res_block_id = problem_for_ltm.AddResidualBlock(
             ParameterPrior::createParameterPrior<3>(
                 problem_param_info.first,
@@ -665,8 +864,7 @@ void addPriorToProblemParams(
             problem_obj_info.first,
             problem_param_info.first,
             mean_val,
-            1 / sqrt(long_term_map_tunable_params.min_col_norm_ -
-                     problem_param_info.second));
+            1 / sqrt(min_col_norm - problem_param_info.second));
         ceres::ResidualBlockId res_block_id = problem_for_ltm.AddResidualBlock(
             ParameterPrior::createParameterPrior<kEllipsoidParamterizationSize>(
                 problem_param_info.first,
@@ -706,14 +904,6 @@ void addPriorToProblemParams(
           continue;
         }
         double mean_val = raw_pose(problem_param_info.first);
-        problem_for_ltm.AddResidualBlock(
-            ParameterPrior::createParameterPrior<6>(
-                problem_param_info.first,
-                mean_val,
-                1 / sqrt(long_term_map_tunable_params.min_col_norm_ -
-                         problem_param_info.second)),
-            nullptr,
-            frame_block);
 
         ParamPriorFactor param_prior_factor(
             problem_frame_info.first,
@@ -721,8 +911,7 @@ void addPriorToProblemParams(
             std::nullopt,
             problem_param_info.first,
             mean_val,
-            1 / sqrt(long_term_map_tunable_params.min_col_norm_ -
-                     problem_param_info.second));
+            1 / sqrt(min_col_norm - problem_param_info.second));
         ceres::ResidualBlockId res_block_id = problem_for_ltm.AddResidualBlock(
             ParameterPrior::createParameterPrior<6>(
                 problem_param_info.first,
@@ -787,10 +976,15 @@ extractCovarianceWithRankDeficiencyHandling(
                         pose_graph_copy,
                         problem_for_ltm);
 
-  if (!covariance_result.first) {
+  int retry_count = 0;
+  // TODO consider adding retry maximum to
+  while ((!covariance_result.first) && (retry_count < kMaxJacobianExtractionRetries)) {
+    retry_count++;
+    LOG(INFO) << "Retrying rank deficient jacobian, retry num " << retry_count;
     // Identify bad parameter blocks + values
     InsufficientRankInfo insufficient_rank_info =
-        findRankDeficiencies(added_factors,
+        findRankDeficiencies(covariance_extractor_params,
+                             added_factors,
                              residual_info,
                              long_term_map_obj_retriever,
                              long_term_map_tunable_params.min_col_norm_,
@@ -855,58 +1049,12 @@ extractCovarianceWithRankDeficiencyHandling(
                                           residual_info,
                                           pose_graph_copy,
                                           problem_for_ltm,
-                                          1);
+                                          retry_count);
+
     if (!covariance_result.first) {
-      LOG(ERROR) << "Covariance extraction failed on the second try with "
-                    "additional priors; consider revising minimum column norm, "
-                    "currently "
-                 << long_term_map_tunable_params.min_col_norm_;
-
-      // Identify bad parameter blocks + values
-      InsufficientRankInfo insufficient_rank_info =
-          findRankDeficiencies(added_factors,
-                               residual_info,
-                               long_term_map_obj_retriever,
-                               long_term_map_tunable_params.min_col_norm_,
-                               pose_graph_copy,
-                               problem_for_ltm);
-
-      if (!insufficient_rank_info.features_with_rank_deficient_entries
-               .empty()) {
-        LOG(INFO) << "Features with problems ";
-        for (const auto &insufficient_feat_info :
-             insufficient_rank_info.features_with_rank_deficient_entries) {
-          for (const auto &indiv_param_info : insufficient_feat_info.second) {
-            LOG(INFO) << "Feat: " << insufficient_feat_info.first
-                      << ", param idx: " << indiv_param_info.first << ";, norm"
-                      << indiv_param_info.second;
-          }
-        }
-      }
-
-      if (!insufficient_rank_info.objects_with_rank_deficient_entries.empty()) {
-        LOG(INFO) << "Objects with problems ";
-        for (const auto &insufficient_obj_info :
-             insufficient_rank_info.objects_with_rank_deficient_entries) {
-          for (const auto &indiv_param_info : insufficient_obj_info.second) {
-            LOG(INFO) << "Obj: " << insufficient_obj_info.first
-                      << ", param idx: " << indiv_param_info.first << ";, norm "
-                      << indiv_param_info.second;
-          }
-        }
-      }
-
-      if (!insufficient_rank_info.frames_with_rank_deficient_entries.empty()) {
-        LOG(INFO) << "Frames with problems ";
-        for (const auto &insufficient_frame_info :
-             insufficient_rank_info.frames_with_rank_deficient_entries) {
-          for (const auto &indiv_param_info : insufficient_frame_info.second) {
-            LOG(INFO) << "Frame: " << insufficient_frame_info.first
-                      << ", param idx: " << indiv_param_info.first << ";, norm"
-                      << indiv_param_info.second;
-          }
-        }
-      }
+      LOG(ERROR) << "Covariance extraction failed on retry " << retry_count
+                 << " with additional priors; consider revising buffer "
+                 << kRankDeficiencyColsBuffer;
     }
   }
   return covariance_result;

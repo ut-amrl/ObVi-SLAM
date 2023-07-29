@@ -17,6 +17,9 @@
 
 namespace vslam_types_refactor {
 
+const static int kMaxJacobianExtractionRetries = 5;
+const static int kRankDeficiencyColsBuffer = 20;
+
 /**
  * Parameters used in pairwise covariance extraction process.
  */
@@ -40,6 +43,8 @@ struct InsufficientRankInfo {
       frames_with_rank_deficient_entries;
   std::unordered_map<FeatureId, util::BoostHashSet<std::pair<size_t, double>>>
       features_with_rank_deficient_entries;
+
+  double min_non_prob_col_norm_;
 };
 
 bool runOptimizationForLtmExtraction(
@@ -114,7 +119,12 @@ void getFramesFeaturesAndObjectsForFactor(
     std::unordered_set<ObjectId> &added_objects,
     std::unordered_set<FeatureId> &added_features);
 
+bool getRankDeficiency(const ceres::Covariance::Options &cov_options,
+                       ceres::Problem &problem,
+                       int &rank_deficiency);
+
 InsufficientRankInfo findRankDeficiencies(
+    const CovarianceExtractorParams &covariance_extractor_params,
     const std::vector<std::pair<ceres::ResidualBlockId, ParamPriorFactor>>
         &added_factors,
     const std::unordered_map<ceres::ResidualBlockId,
@@ -126,11 +136,13 @@ InsufficientRankInfo findRankDeficiencies(
                              ObjectId &)> &long_term_map_obj_retriever,
     const double &min_col_norm,
     std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph_copy,
-    ceres::Problem &problem_for_ltm);
+    ceres::Problem &problem_for_ltm,
+    double &min_non_prob_norm);
 
 void addPriorToProblemParams(
     const InsufficientRankInfo &insufficient_rank_info,
     const LongTermMapExtractionTunableParams &long_term_map_tunable_params,
+    const double &min_non_prob_col_norm,
     std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph_copy,
     ceres::Problem &problem_for_ltm,
     std::vector<std::pair<ceres::ResidualBlockId, ParamPriorFactor>>

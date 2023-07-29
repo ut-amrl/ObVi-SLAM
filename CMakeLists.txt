@@ -28,6 +28,8 @@ ROSBUILD_INIT()
 SET(ROS_BUILD_STATIC_LIBS true)
 SET(ROS_BUILD_SHARED_LIBS false)
 
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
@@ -43,6 +45,7 @@ find_package(OpenCV 4.2 EXACT REQUIRED)
 find_package(Boost COMPONENTS filesystem REQUIRED)
 find_package(pcl_conversions)
 find_package(pcl_ros)
+find_package(SuiteSparse)
 
 #find_package(darknet_ros_msgs)
 #find_package(catkin REQUIRED COMPONENTS darknet_ros_msgs)
@@ -141,8 +144,6 @@ target_link_libraries(debug_jacobian_hessian_diagonal ut_vslam ${LIBS})
 ROSBUILD_ADD_EXECUTABLE(ltm_extraction_only src/refactoring/ltm_extraction_only.cpp)
 target_link_libraries(ltm_extraction_only ut_vslam ${LIBS})
 
-ROSBUILD_ADD_EXECUTABLE(ltm_extraction_only src/refactoring/ltm_extraction_only.cpp)
-target_link_libraries(ltm_extraction_only ut_vslam ${LIBS})
 
 ROSBUILD_ADD_EXECUTABLE(run_opt_from_pg_state src/refactoring/run_opt_from_pg_state.cpp)
 target_link_libraries(run_opt_from_pg_state ut_vslam ${LIBS})
