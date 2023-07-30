@@ -307,7 +307,8 @@ void identifyMergeObjectsBasedOnCenterProximity(
            compare_obj_idx++) {
         std::pair<ObjectId, Position3d<double>> second_obj =
             sem_class_and_objs.second.at(compare_obj_idx);
-        double center_dist = (first_obj.second - second_obj.second).norm();
+//        double center_dist = (first_obj.second - second_obj.second).norm();
+        double center_dist = (first_obj.second.topRows(2) - second_obj.second.topRows(2)).norm();
         if (center_dist <= max_distance_for_merge) {
           if ((long_term_map_objects.find(first_obj.first) ==
                long_term_map_objects.end()) ||
