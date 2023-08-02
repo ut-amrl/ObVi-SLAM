@@ -245,6 +245,11 @@ class PairwiseCovarianceLongTermObjectMapExtractor {
           &override_min_max_frame_id,
       IndependentEllipsoidsLongTermObjectMap<FrontEndObjMapData>
           &long_term_obj_map) {
+    if (!optimization_factor_configuration.include_object_factors_) {
+      LOG(INFO) << "Object factors are disabled, so skipping long-term map "
+                   "extraction";
+      return true;
+    }
     EllipsoidResults prev_run_ellipsoid_results;
     extractEllipsoidEstimates(pose_graph, prev_run_ellipsoid_results);
 
@@ -436,6 +441,11 @@ class IndependentEllipsoidsLongTermObjectMapExtractor {
           &override_min_max_frame_id,
       IndependentEllipsoidsLongTermObjectMap<FrontEndObjMapData>
           &long_term_obj_map) {
+    if (!optimization_factor_configuration.include_object_factors_) {
+      LOG(INFO) << "Object factors are disabled, so skipping long-term map "
+                   "extraction";
+      return true;
+    }
     EllipsoidResults prev_run_ellipsoid_results;
     extractEllipsoidEstimates(pose_graph, prev_run_ellipsoid_results);
     std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> pose_graph_copy =

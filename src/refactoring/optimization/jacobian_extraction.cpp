@@ -211,9 +211,6 @@ void generateGenericFactorInfoForFactor(
     generic_factor_info.frame_ids_ = {factor.frame_id_};
     generic_factor_info.camera_id_ = factor.camera_id_;
     generic_factor_info.obj_id_ = factor.object_id_;
-    if (factor.object_id_ == 45) {
-      LOG(INFO) << "Adding observation factor for object " << factor.object_id_;
-    }
 
     if (added_objects.find(factor.object_id_) == added_objects.end()) {
       ParameterBlockInfo param_block;
@@ -741,26 +738,6 @@ void validateZeroColumnEntries(
     }
   }
 
-  LOG(INFO) << "Okay object examples";
-  if (associated_factor_infos_for_obj.find(40) !=
-      associated_factor_infos_for_obj.end()) {
-    displayInfoForObj(40,
-                      generic_factor_infos,
-                      pose_graph,
-                      residual_block_ids,
-                      associated_factor_infos_for_obj,
-                      problem_for_ltm);
-  }
-  if (associated_factor_infos_for_obj.find(29) !=
-      associated_factor_infos_for_obj.end()) {
-    displayInfoForObj(29,
-                      generic_factor_infos,
-                      pose_graph,
-                      residual_block_ids,
-                      associated_factor_infos_for_obj,
-                      problem_for_ltm);
-  }
-
   LOG(INFO) << "Getting jacobian info for problematic frames";
   for (const auto &frames_and_problem_cols : problem_frames) {
     FrameId frame = frames_and_problem_cols.first;
@@ -1150,6 +1127,7 @@ void outputJacobianInfo(
   //  }
 
   std::string jacobian_residual_file_name;
+
   if (attempt_num != 0) {
     jacobian_residual_file_name =
         file_io::ensureDirectoryPathEndsWithSlash(jacobian_output_dir) +
@@ -1160,6 +1138,8 @@ void outputJacobianInfo(
         file_io::ensureDirectoryPathEndsWithSlash(jacobian_output_dir) +
         kResidualInfoForJacobianFile + file_io::kJsonExtension;
   }
+
+  LOG(INFO) << "Outputting jacobian residuals to file " << jacobian_residual_file_name;
   cv::FileStorage jacobian_residual_info_out(jacobian_residual_file_name,
                                              cv::FileStorage::WRITE);
   jacobian_residual_info_out
@@ -1171,6 +1151,8 @@ void outputJacobianInfo(
       << SerializableVector<GenericFactorInfo, SerializableGenericFactorInfo>(
              generic_factor_infos);
   jacobian_residual_info_out.release();
+
+  LOG(INFO) << "Done outputting jacobian residuals to file " << jacobian_residual_file_name;
 
   std::string ordered_jacobian_residual_file_name;
   if (attempt_num != 0) {
@@ -1194,5 +1176,6 @@ void outputJacobianInfo(
       << SerializableVector<GenericFactorInfo, SerializableGenericFactorInfo>(
              generic_factor_infos);
   ordered_jacobian_residual_info_out.release();
+  LOG(INFO) << "Done outputting ordered jacobian to file " << ordered_jacobian_residual_file_name;
 }
 }  // namespace vslam_types_refactor
