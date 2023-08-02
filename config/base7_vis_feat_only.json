@@ -1,7 +1,7 @@
 {
     "config": {
         "config_schema_version": 11,
-        "config_version_id": "base7",
+        "config_version_id": "base7_vis_feat_only",
         "visual_feature_params": {
             "reprojection_error_std_dev": 2.0,
             "min_visual_feature_parallax_pixel_requirement": 5.0,
@@ -410,12 +410,12 @@
             "image_boundary_variance": 40000.0
         },
         "sliding_window_params": {
-            "global_ba_frequency": "30",
+            "global_ba_frequency": "10000",
             "local_ba_window_size": "50"
         },
         "optimization_factors_enabled_params": {
             "min_low_level_feature_observations_per_frame": 50,
-            "include_object_factors": 1,
+            "include_object_factors": 0,
             "include_visual_factors": 1,
             "fix_poses": 0,
             "fix_objects": 0,
@@ -427,7 +427,7 @@
             "min_low_level_feature_observations": 5,
             "use_pose_graph_on_global_ba": 1,
             "use_visual_features_on_global_ba": 0,
-            "use_pose_graph_on_final_global_ba": 1,
+            "use_pose_graph_on_final_global_ba": 0,
             "use_visual_features_on_final_global_ba": 1
         },
         "object_visual_pose_graph_residual_params": {
