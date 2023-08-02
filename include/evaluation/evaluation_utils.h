@@ -23,6 +23,7 @@ struct RawWaypointConsistencyResults {
   std::unordered_map<WaypointId, std::vector<std::vector<double>>>
       orientation_deviations_by_waypoint_by_trajectory_;
   // TODO how to handle lost nodes
+
 };
 
 ATEResults combineSingleTrajectoryResults(
@@ -54,16 +55,16 @@ RawWaypointConsistencyResults computeWaypointConsistencyResults(
     const std::vector<
         std::vector<std::pair<pose::Timestamp, std::optional<Pose3D<double>>>>>
         &comparison_trajectories_rel_baselink,
-    const std::vector<util::BoostHashMap<pose::Timestamp, Pose3D<double>>>
+    const std::vector<util::BoostHashMap<pose::Timestamp, std::optional<Pose3D<double>>>>
         &poses_by_timestamp_by_trajectory,
     const std::vector<std::vector<std::pair<pose::Timestamp, pose::Pose2d>>>
         &odom_poses_by_trajectory,
     const std::shared_ptr<RosVisualization> &vis_manager = nullptr);
 
-Pose3D<double> getMeanPose(const std::vector<Pose3D<double>> &poses);
+Pose3D<double> getMeanPose(const std::vector<std::optional<Pose3D<double>>> &poses);
 
 void getDeviationFromMeanPose(const Pose3D<double> &mean_pose,
-                              const Pose3D<double> &compare_pose,
+                              const std::optional<Pose3D<double>> &compare_pose,
                               double &transl_deviation,
                               double &rot_deviation);
 
