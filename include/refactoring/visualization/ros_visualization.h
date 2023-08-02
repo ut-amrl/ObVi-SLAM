@@ -313,7 +313,7 @@ class RosVisualization {
   }
 
   void visualizeWaypoints(
-      const std::unordered_map<WaypointId, std::vector<Pose3D<double>>>
+      const std::unordered_map<WaypointId, std::vector<std::optional<Pose3D<double>>>>
           &waypoints) {
     int32_t next_robot_pose_id = 1;
     std::string topic_name =
@@ -343,8 +343,14 @@ class RosVisualization {
       waypoint_idx++;
       LOG(INFO) << "Publishing wp " << data_for_wp.first << " num points "
                 << data_for_wp.second.size();
+      std::vector<Pose3D<double>> non_opt_wp_poses;
+      for (const std::optional<Pose3D<double>> &wp_pose : data_for_wp.second) {
+        if (wp_pose.has_value()) {
+          non_opt_wp_poses.emplace_back(wp_pose.value());
+        }
+      }
       publishRobotPoses(waypoint_pub_,
-                        data_for_wp.second,
+                        non_opt_wp_poses,
                         color,
                         next_robot_pose_id,
                         std::numeric_limits<int32_t>::max(),

@@ -32,6 +32,22 @@ struct timestamp_sort {
   }
 };
 
+inline Timestamp getAbsTimeDifference(const Timestamp &t1, const Timestamp &t2) {
+  Timestamp earlier_timestamp = t1;
+  Timestamp later_timestamp = t2;
+  if (!timestamp_sort()(t1, t2)) {
+    earlier_timestamp = t2;
+    later_timestamp = t1;
+  }
+  uint32_t seconds_diff = later_timestamp.first - earlier_timestamp.first;
+  uint32_t later_ns = later_timestamp.second;
+  if (later_ns < earlier_timestamp.second) {
+    later_ns += 1e9;
+    seconds_diff -= 1;
+  }
+  return std::make_pair(seconds_diff, later_ns - earlier_timestamp.second);
+}
+
 inline bool posesSame(const pose::Pose2d &p1, const pose::Pose2d &p2) {
   pose::Pose2d rel_pose = pose::getPoseOfObj1RelToObj2(p1, p2);
   return ((rel_pose.first.norm() == 0) && (rel_pose.second == 0));

@@ -136,6 +136,10 @@ ATEResults generateATEforRotAndTranslForSyncedAlignedTrajectories(
   CHECK_EQ(est_traj.size(), gt_traj.size())
       << "Trajectories must be the same size to calculate ATE";
 
+  if (est_traj.empty()) {
+    return ATEResults(0, 0, 0, 0);
+  }
+
   // Position error from here (assuming already aligned)
   // http://www2.informatik.uni-freiburg.de/~endres/files/publications/sturm12iros.pdf
   // https://arxiv.org/pdf/1910.04755.pdf
@@ -173,13 +177,16 @@ RawWaypointConsistencyResults computeWaypointConsistencyResults(
     const std::vector<
         std::vector<std::pair<pose::Timestamp, std::optional<Pose3D<double>>>>>
         &comparison_trajectories_rel_baselink,
-    const std::vector<util::BoostHashMap<pose::Timestamp, Pose3D<double>>>
+    const std::vector<
+        util::BoostHashMap<pose::Timestamp, std::optional<Pose3D<double>>>>
         &poses_by_timestamp_by_trajectory,
     const std::vector<std::vector<std::pair<pose::Timestamp, pose::Pose2d>>>
         &odom_poses_by_trajectory,
     const std::shared_ptr<vslam_types_refactor::RosVisualization>
         &vis_manager) {
-  std::unordered_map<WaypointId, std::vector<std::pair<size_t, Pose3D<double>>>>
+  std::unordered_map<
+      WaypointId,
+      std::vector<std::pair<size_t, std::optional<Pose3D<double>>>>>
       poses_by_waypoint_with_trajectory;
 
   std::function<void(
@@ -195,11 +202,12 @@ RawWaypointConsistencyResults computeWaypointConsistencyResults(
        traj_num++) {
     bool all_found = true;
 
+    // Get the waypoint timestamps and waypoints for the trajectory
     std::vector<pose::Timestamp> required_timestamps_for_traj;
     std::vector<WaypointInfo> waypoints_for_traj =
         waypoints_by_trajectory.at(traj_num);
-    util::BoostHashMap<pose::Timestamp, Pose3D<double>> raw_poses_by_stamp =
-        poses_by_timestamp_by_trajectory.at(traj_num);
+    util::BoostHashMap<pose::Timestamp, std::optional<Pose3D<double>>>
+        raw_poses_by_stamp = poses_by_timestamp_by_trajectory.at(traj_num);
     for (const WaypointInfo &waypoint_info : waypoints_for_traj) {
       required_timestamps_for_traj.emplace_back(
           waypoint_info.waypoint_timestamp_);
@@ -211,10 +219,40 @@ RawWaypointConsistencyResults computeWaypointConsistencyResults(
     std::sort(required_timestamps_for_traj.begin(),
               required_timestamps_for_traj.end(),
               pose::timestamp_sort());
-    if (!all_found) {
+    if (comparison_trajectories_rel_baselink.at(traj_num).empty()) {
+      util::BoostHashMap<pose::Timestamp, Pose3D<double>> empty_map;
+      aligned_poses_by_timestamp_by_trajectory.emplace_back(empty_map);
+    } else if (!all_found) {
+      // If there weren't exact timestamp matches for the waypoints,
+      // interpolate using odometry
       std::vector<std::pair<pose::Timestamp, Pose3D<double>>> est_traj_not_lost;
+
+      util::BoostHashMap<pose::Timestamp,
+                         std::pair<pose::Timestamp, pose::Timestamp>>
+          closest_stamp_to_wp_with_time_diff;
+      {
+        pose::Timestamp first_stamp =
+            comparison_trajectories_rel_baselink.at(traj_num).front().first;
+        for (const WaypointInfo &wp : waypoints_for_traj) {
+          closest_stamp_to_wp_with_time_diff[wp.waypoint_timestamp_] =
+              std::make_pair(first_stamp,
+                             pose::getAbsTimeDifference(wp.waypoint_timestamp_,
+                                                        first_stamp));
+        }
+      }
       for (const std::pair<pose::Timestamp, std::optional<Pose3D<double>>>
                &pose : comparison_trajectories_rel_baselink.at(traj_num)) {
+        for (const WaypointInfo &wp : waypoints_for_traj) {
+          pose::Timestamp curr_stamp_diff =
+              pose::getAbsTimeDifference(wp.waypoint_timestamp_, pose.first);
+          if (pose::timestamp_sort()(
+                  curr_stamp_diff,
+                  closest_stamp_to_wp_with_time_diff[wp.waypoint_timestamp_]
+                      .second)) {
+            closest_stamp_to_wp_with_time_diff[wp.waypoint_timestamp_] =
+                std::make_pair(pose.first, curr_stamp_diff);
+          }
+        }
         if (pose.second.has_value()) {
           est_traj_not_lost.emplace_back(
               std::make_pair(pose.first, pose.second.value()));
@@ -233,10 +271,29 @@ RawWaypointConsistencyResults computeWaypointConsistencyResults(
                                   vis_function,
                                   interpolated_poses,
                                   odom_poses_adjusted_3d);
-      aligned_poses_by_timestamp_by_trajectory.emplace_back(interpolated_poses);
-    } else {
+      util::BoostHashMap<pose::Timestamp, Pose3D<double>>
+          interpolated_poses_lost_removed = interpolated_poses;
+      for (const auto &closest_stamp_for_wp_stamp :
+           closest_stamp_to_wp_with_time_diff) {
+        if (interpolated_poses.find(closest_stamp_for_wp_stamp.second.first) ==
+            interpolated_poses.end()) {
+          interpolated_poses_lost_removed.erase(
+              closest_stamp_for_wp_stamp.first);
+        }
+      }
       aligned_poses_by_timestamp_by_trajectory.emplace_back(
-          poses_by_timestamp_by_trajectory.at(traj_num));
+          interpolated_poses_lost_removed);
+    } else {
+      util::BoostHashMap<pose::Timestamp, Pose3D<double>>
+          non_opt_poses_by_stamp;
+      for (const auto &pose_by_stamp : raw_poses_by_stamp) {
+        if (pose_by_stamp.second.has_value()) {
+          non_opt_poses_by_stamp[pose_by_stamp.first] =
+              pose_by_stamp.second.value();
+        }
+      }
+      aligned_poses_by_timestamp_by_trajectory.emplace_back(
+          non_opt_poses_by_stamp);
     }
   }
 
@@ -247,14 +304,17 @@ RawWaypointConsistencyResults computeWaypointConsistencyResults(
     util::BoostHashMap<pose::Timestamp, Pose3D<double>> poses_by_stamp =
         aligned_poses_by_timestamp_by_trajectory.at(traj_num);
     for (const WaypointInfo &waypoint_info : waypoints_for_traj) {
-      Pose3D<double> pose_at_waypoint =
-          poses_by_stamp.at(waypoint_info.waypoint_timestamp_);
-      if (waypoint_info.reversed_) {
-        pose_at_waypoint = combinePoses(
-            pose_at_waypoint,
-            Pose3D<double>(
-                Position3d<double>(),
-                Orientation3D<double>(M_PI, Eigen::Vector3d::UnitZ())));
+      std::optional<Pose3D<double>> pose_at_waypoint;
+      if (poses_by_stamp.find(waypoint_info.waypoint_timestamp_) !=
+          poses_by_stamp.end()) {
+        pose_at_waypoint = poses_by_stamp.at(waypoint_info.waypoint_timestamp_);
+        if (waypoint_info.reversed_) {
+          pose_at_waypoint = combinePoses(
+              pose_at_waypoint.value(),
+              Pose3D<double>(
+                  Position3d<double>(),
+                  Orientation3D<double>(M_PI, Eigen::Vector3d::UnitZ())));
+        }
       }
       poses_by_waypoint_with_trajectory[waypoint_info.waypoint_id_]
           .emplace_back(std::make_pair(traj_num, pose_at_waypoint));
@@ -262,10 +322,11 @@ RawWaypointConsistencyResults computeWaypointConsistencyResults(
   }
 
   if (vis_manager != nullptr) {
-    std::unordered_map<WaypointId, std::vector<Pose3D<double>>> waypoints;
+    std::unordered_map<WaypointId, std::vector<std::optional<Pose3D<double>>>>
+        waypoints;
     for (const auto &wp_info : poses_by_waypoint_with_trajectory) {
-      std::vector<Pose3D<double>> wp_poses;
-      for (const std::pair<size_t, Pose3D<double>> &pose_info :
+      std::vector<std::optional<Pose3D<double>>> wp_poses;
+      for (const std::pair<size_t, std::optional<Pose3D<double>>> &pose_info :
            wp_info.second) {
         wp_poses.emplace_back(pose_info.second);
       }
@@ -282,8 +343,8 @@ RawWaypointConsistencyResults computeWaypointConsistencyResults(
     std::vector<std::vector<double>> orientation_devs;
     orientation_devs.resize(waypoints_by_trajectory.size());
 
-    std::vector<Pose3D<double>> poses_for_waypoint;
-    for (const std::pair<size_t, Pose3D<double>>
+    std::vector<std::optional<Pose3D<double>>> poses_for_waypoint;
+    for (const std::pair<size_t, std::optional<Pose3D<double>>>
              &traj_num_and_pose_for_waypoint : waypoint_and_poses.second) {
       poses_for_waypoint.emplace_back(traj_num_and_pose_for_waypoint.second);
     }
@@ -291,8 +352,8 @@ RawWaypointConsistencyResults computeWaypointConsistencyResults(
     //    LOG(INFO) << "Waypoint: " << waypoint_and_poses.first;
     //    LOG(INFO) << "Mean pose: " << mean_pose.transl_.x() << ", "
     //              << mean_pose.transl_.y() << ", " << mean_pose.transl_.z();
-    for (const std::pair<size_t, Pose3D<double>> &pose_for_waypoint_with_traj :
-         waypoint_and_poses.second) {
+    for (const std::pair<size_t, std::optional<Pose3D<double>>>
+             &pose_for_waypoint_with_traj : waypoint_and_poses.second) {
       double transl_dev;
       double rot_dev;
       //      LOG(INFO) << pose_for_waypoint_with_traj.second.transl_.x() << ",
@@ -315,8 +376,15 @@ RawWaypointConsistencyResults computeWaypointConsistencyResults(
   return consistency_results;
 }
 
-Pose3D<double> getMeanPose(const std::vector<Pose3D<double>> &poses) {
-  if (poses.empty()) {
+Pose3D<double> getMeanPose(
+    const std::vector<std::optional<Pose3D<double>>> &poses) {
+  std::vector<Pose3D<double>> not_lost_poses;
+  for (const std::optional<Pose3D<double>> &pose : poses) {
+    if (pose.has_value()) {
+      not_lost_poses.emplace_back(pose.value());
+    }
+  }
+  if (not_lost_poses.empty()) {
     return Pose3D<double>();
   }
   Position3d<double> position_mean(0, 0, 0);
@@ -324,12 +392,12 @@ Pose3D<double> getMeanPose(const std::vector<Pose3D<double>> &poses) {
   // Using rotation averaging method found here
   // https://stackoverflow.com/a/27410865
   // (References http://www.acsu.buffalo.edu/%7Ejohnc/ave_quat07.pdf)
-  Eigen::Matrix<double, 4, Eigen::Dynamic> quat_mat(4, poses.size());
-  for (size_t pose_idx = 0; pose_idx < poses.size(); pose_idx++) {
-    Pose3D<double> pose = poses.at(pose_idx);
+  Eigen::Matrix<double, 4, Eigen::Dynamic> quat_mat(4, not_lost_poses.size());
+  for (size_t pose_idx = 0; pose_idx < not_lost_poses.size(); pose_idx++) {
+    Pose3D<double> pose = not_lost_poses.at(pose_idx);
     position_mean = position_mean + pose.transl_;
-    quat_mat.col(pose_idx) =
-        (1.0 / poses.size()) * Eigen::Quaterniond(pose.orientation_).coeffs();
+    quat_mat.col(pose_idx) = (1.0 / not_lost_poses.size()) *
+                             Eigen::Quaterniond(pose.orientation_).coeffs();
   }
   Eigen::Matrix<double, 4, 4> quat_mult_mat = quat_mat * quat_mat.transpose();
   Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> eigen_solver(quat_mult_mat);
@@ -340,18 +408,24 @@ Pose3D<double> getMeanPose(const std::vector<Pose3D<double>> &poses) {
   Eigen::Vector4d avg_quat_as_vec =
       eigen_solver.eigenvectors().col(largest_eigenvalue_idx);
 
-  position_mean = position_mean / poses.size();
+  position_mean = position_mean / not_lost_poses.size();
 
   return Pose3D<double>(position_mean, Orientation3D<double>(avg_quat_as_vec));
 }
 
 void getDeviationFromMeanPose(const Pose3D<double> &mean_pose,
-                              const Pose3D<double> &compare_pose,
+                              const std::optional<Pose3D<double>> &compare_pose,
                               double &transl_deviation,
                               double &rot_deviation) {
-  Pose3D<double> pose_diff = getPose2RelativeToPose1(mean_pose, compare_pose);
-  transl_deviation = pose_diff.transl_.norm();
-  rot_deviation = pose_diff.orientation_.angle();
+  if (compare_pose.has_value()) {
+    Pose3D<double> pose_diff =
+        getPose2RelativeToPose1(mean_pose, compare_pose.value());
+    transl_deviation = pose_diff.transl_.norm();
+    rot_deviation = pose_diff.orientation_.angle();
+  } else {
+    transl_deviation = -1;
+    rot_deviation = -1;
+  }
 }
 
 }  // namespace vslam_types_refactor

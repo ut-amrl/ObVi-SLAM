@@ -100,19 +100,19 @@ FullSequenceMetrics computeMetrics(
   FullSequenceMetrics full_metrics;
   std::vector<ATEResults> single_traj_ate_results;
 
-  std::vector<util::BoostHashMap<pose::Timestamp, Pose3D<double>>>
+  std::vector<
+      util::BoostHashMap<pose::Timestamp, std::optional<Pose3D<double>>>>
       poses_by_timestamp_by_trajectory;
   for (size_t traj_num = 0;
        traj_num < comparison_trajectories_rel_baselink.size();
        traj_num++) {
-    util::BoostHashMap<pose::Timestamp, Pose3D<double>> poses_by_timestamp;
+    util::BoostHashMap<pose::Timestamp, std::optional<Pose3D<double>>>
+        poses_by_timestamp;
     for (const std::pair<pose::Timestamp, std::optional<Pose3D<double>>>
              &timestamp_and_pose :
          comparison_trajectories_rel_baselink.at(traj_num)) {
-      if (timestamp_and_pose.second.has_value()) {
-        poses_by_timestamp[timestamp_and_pose.first] =
-            timestamp_and_pose.second.value();
-      }
+      poses_by_timestamp[timestamp_and_pose.first] =
+          timestamp_and_pose.second.value();
     }
     poses_by_timestamp_by_trajectory.emplace_back(poses_by_timestamp);
   }
@@ -364,7 +364,9 @@ int main(int argc, char **argv) {
       interp_gt_trajectories;
   for (const std::string &interp_gt_file : full_paths_for_gt_trajectories) {
     std::vector<std::pair<pose::Timestamp, Pose3D<double>>> gt_traj;
-    file_io::readPose3dsWithTimestampFromFile(interp_gt_file, gt_traj);
+    if (std::filesystem::exists(interp_gt_file)) {
+      file_io::readPose3dsWithTimestampFromFile(interp_gt_file, gt_traj);
+    }
     interp_gt_trajectories.emplace_back(gt_traj);
   }
 
@@ -376,8 +378,10 @@ int main(int argc, char **argv) {
        full_paths_for_comparison_trajectories) {
     std::vector<std::pair<pose::Timestamp, std::optional<Pose3D<double>>>>
         comparison_traj;
-    file_io::readOptionalPose3dsWithTimestampFromFile(comparison_traj_file,
-                                                      comparison_traj);
+    if (std::filesystem::exists(comparison_traj_file)) {
+      file_io::readOptionalPose3dsWithTimestampFromFile(comparison_traj_file,
+                                                        comparison_traj);
+    }
     comparison_trajectories.emplace_back(comparison_traj);
     for (const std::pair<pose::Timestamp, std::optional<Pose3D<double>>> &pose :
          comparison_traj) {

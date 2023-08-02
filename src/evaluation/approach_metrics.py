@@ -52,6 +52,7 @@ def readTrajectoryMetricsFromJsonObj(metricsJsonObj):
         raise ValueError(
             "Metrics entry with key " + MetricsFileConstants.allTranslationDeviationsLabel + " was not a list")
     all_translation_deviations = readUtVSLAMVector(metricsJsonObj[MetricsFileConstants.allTranslationDeviationsLabel])
+    all_translation_deviations = [dev if (dev >= 0) else float('inf') for dev in all_translation_deviations]
 
     if MetricsFileConstants.allRotationDeviationsLabel not in metricsJsonObj:
         raise ValueError(
@@ -61,11 +62,13 @@ def readTrajectoryMetricsFromJsonObj(metricsJsonObj):
             "Metrics entry with key " + MetricsFileConstants.allRotationDeviationsLabel + " was not a list")
 
     all_rotation_deviations = readUtVSLAMVector(metricsJsonObj[MetricsFileConstants.allRotationDeviationsLabel])
+    all_rotation_deviations = [dev if (dev >= 0) else float('inf') for dev in all_rotation_deviations]
 
     if MetricsFileConstants.ateResultsLabel not in metricsJsonObj:
         raise ValueError(
             "entry for " + MetricsFileConstants.ateResultsLabel + " was not in the metrics file")
     ateResults = readATEResultsFromJsonObj(metricsJsonObj[MetricsFileConstants.ateResultsLabel])
+
     return TrajectoryMetrics(ate_results=ateResults, all_translation_deviations=all_translation_deviations,
                              all_rotation_deviations=all_rotation_deviations,
                              waypoint_deviations=None)  # TODO fix this one

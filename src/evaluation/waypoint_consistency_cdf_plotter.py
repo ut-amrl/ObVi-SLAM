@@ -69,7 +69,9 @@ def readErrTypesAndSavepathsFile(filepath):
 
 def getCDFData(dataset, num_bins):
     # getting data of the histogram
-    count, bins_count = np.histogram(dataset, bins=num_bins)
+    # non_inf_dataset = [data_entry if (data_entry != float('inf')) else 1e10 for data_entry in dataset]
+    infs_removed_dataset = [data_entry for data_entry in dataset  if (data_entry != float('inf'))]
+    count, bins_count = np.histogram(infs_removed_dataset, bins=num_bins)
 
     # finding the PDF of the histogram using count values
 
@@ -80,12 +82,15 @@ def getCDFData(dataset, num_bins):
     cdf = np.cumsum(pdf)
     cdf = np.insert(cdf, 0, 0)
 
-    max_val = np.amax(dataset)
+    max_val = np.amax(infs_removed_dataset)
+    print("Max")
+    print(max_val)
+    print(bins_count)
 
-    return (cdf, bins_count, max_val)
+    return (cdf * (len(infs_removed_dataset) / len(dataset)), bins_count , max_val)
 
 
-def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins=40, savepath=None):
+def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins=1000, savepath=None):
     plt.figure(fig_num)
     comparison_approach_summary_max = 0
     comparison_approach_summary_min_max = None
@@ -95,6 +100,7 @@ def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins
     primary_approach_max = None
     # getting data of the histogram
     for approach_label, comparison_dataset in approach_results.items():
+        print("Working on " + approach_label)
         approach_cdf, bins_count, comparison_approach_max = getCDFData(comparison_dataset, bins)
         if (approach_label is not primaryApproachName):
             if (comparison_approach_summary_min_max is None):
@@ -110,7 +116,7 @@ def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins
         plt.plot(bins_count, approach_cdf, linestyle=line_style,
                  label=approach_label)
 
-    if (len(approach_results) > 2):
+    if (len(approach_results) >= 2):
         plt.xlim(0, max(primary_approach_max, comparison_approach_summary_min_max))
         # if (primary_approach_max > comparison_approach_summary_max):
         # x_lim = primary_approach_max
@@ -123,6 +129,7 @@ def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins
     plt.xlabel(x_label)
     plt.ylabel("Proportion of data")
     plt.grid(alpha=0.4)
+
     if savepath:
         print("Saving plot to " + savepath)
         plt.savefig(savepath)
@@ -147,6 +154,8 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
     metricsFilesInfo = readApproachesAndMetricsFile(approaches_and_metrics_file_name)
     translationConsistency = {}
     orientationConsistency = {}
+    averageAtes = {}
+    atesByTrajectory = {}
 
     for approachName, metricsFile in metricsFilesInfo.approachNameAndMetricsFileInfo.items():
         print("Reading results for " + approachName)
