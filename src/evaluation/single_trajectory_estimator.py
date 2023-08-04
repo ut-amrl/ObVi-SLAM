@@ -116,7 +116,7 @@ class OfflineRunnerArgs:
 
 
 def runOrbPostProcess(orbDataDirForBag, unsparsifiedUtVslamInDir, sparsifiedUtVslamInDir, calibrationDir,
-                      configFileName, fullWaypointFileName=None, deletePrevData=True):
+                      configFileName, paramPrefix, fullWaypointFileName=None, deletePrevData=True):
     print("Unsparsified ut vslam in dir: ")
     print(unsparsifiedUtVslamInDir)
 
@@ -152,6 +152,8 @@ def runOrbPostProcess(orbDataDirForBag, unsparsifiedUtVslamInDir, sparsifiedUtVs
                                                      configFileName)
     sparsifierArgsString += createCommandStrAddition(OrbTrajectorySparsifierParamConstants.required_timestamps_file,
                                                      fullWaypointFileName)
+    sparsifierArgsString += createCommandStrAddition(SingleTrajectoryExecutableParamConstants.paramPrefix,
+                                                     paramPrefix)
 
     cmd3 = "./bin/orb_trajectory_sparsifier " + sparsifierArgsString
     print("Running command: ")
@@ -160,7 +162,7 @@ def runOrbPostProcess(orbDataDirForBag, unsparsifiedUtVslamInDir, sparsifiedUtVs
 
 
 def ensureOrbDataPostProcessed(orbDataDirForBag, unsparsifiedUtVslamInDir, sparsifiedUtVslamInDir, calibrationDir,
-                               configFileName, forceRunOrbSlamPostProcess, fullWaypointFileName):
+                               configFileName, forceRunOrbSlamPostProcess, fullWaypointFileName, paramPrefix):
     needToRerun = False
     if (forceRunOrbSlamPostProcess):
         needToRerun = True
@@ -175,7 +177,7 @@ def ensureOrbDataPostProcessed(orbDataDirForBag, unsparsifiedUtVslamInDir, spars
 
     if (needToRerun):
         runOrbPostProcess(orbDataDirForBag, unsparsifiedUtVslamInDir, sparsifiedUtVslamInDir, calibrationDir,
-                          configFileName, fullWaypointFileName)
+                          configFileName, paramPrefix, fullWaypointFileName)
 
 
 def generateRequiredStampsFileFromNodesAndTimestampsFile(nodesAndTimestampsFile, requiredStampsFile):
@@ -188,7 +190,7 @@ def generateRequiredStampsFileFromNodesAndTimestampsFile(nodesAndTimestampsFile,
                 timestampsWriter.writerow(timestampsOnly)
 
 
-def runInterpolatorIfNecessary(executionConfig, postProcessingDir, sparsifiedUtVslamInDir):
+def runInterpolatorIfNecessary(executionConfig, postProcessingDir, sparsifiedUtVslamInDir, paramPrefix):
     if (executionConfig.lego_loam_root_dir is None):
         print("Lego loam root directory not provided, so not getting GT")
         return (None, None)
@@ -209,7 +211,8 @@ def runInterpolatorIfNecessary(executionConfig, postProcessingDir, sparsifiedUtV
                                                     executionConfig.calibrationFileDirectory) + CalibrationFileConstants.odomCalibFile,
                                                 executionConfig.odometryTopic,
                                                 executionConfig.forceRerunInterpolator,
-                                                requiredStampsFile)
+                                                requiredStampsFile,
+                                                paramPrefix)
     return (interpolatedPosesFileName, gtExtrinsicsRelBlFile)
 
 
@@ -237,20 +240,19 @@ def generateOfflineRunnerArgsFromExecutionConfigAndPreprocessOrbDataIfNecessary(
     rosbag_file_name = FileStructureUtils.ensureDirectoryEndsWithSlash(
         executionConfig.rosbagDirectory) + rosbagBaseName + FileStructureConstants.bagSuffix
 
+    bag_results_dir_name = executionConfig.resultsForBagDirPrefix + executionConfig.rosbagBaseName
+
+    # Param prefix
+    param_prefix = executionConfig.sequenceFileBaseName + "_" + executionConfig.configFileBaseName + "_" + \
+                   bag_results_dir_name
+
     fullWaypointFileName = None
     if (executionConfig.waypointFileBaseName is not None):
         fullWaypointFileName = FileStructureUtils.createWaypointTimestampsFileName(executionConfig.rosbagDirectory,
                                                                                    executionConfig.waypointFileBaseName)
     ensureOrbDataPostProcessed(orbOutputDirForBag, unsparsifiedUtVslamInDir, sparsifiedUtVslamInDir,
                                calibrationFileDirectory, fullConfigFileName, executionConfig.forceRunOrbSlamPostProcess,
-                               fullWaypointFileName)
-
-    bag_results_dir_name = executionConfig.resultsForBagDirPrefix + executionConfig.rosbagBaseName
-
-    # Param prefix
-
-    param_prefix = executionConfig.sequenceFileBaseName + "_" + executionConfig.configFileBaseName + "_" + \
-                   bag_results_dir_name
+                               fullWaypointFileName, param_prefix)
 
     intrinsicsFile = calibrationFileDirectory + FileStructureConstants.intrinsicsBaseName
     extrinsicsFile = calibrationFileDirectory + FileStructureConstants.extrinsicsBaseName
@@ -265,7 +267,7 @@ def generateOfflineRunnerArgsFromExecutionConfigAndPreprocessOrbDataIfNecessary(
         bag_results_dir_name)
 
     (interpolatedPosesFileName, gtExtrinsicsRelBlFile) = runInterpolatorIfNecessary(executionConfig, postProcessingDir,
-                                                                                    sparsifiedUtVslamInDir)
+                                                                                    sparsifiedUtVslamInDir, param_prefix)
 
     jacobianDebuggingDir = None
     if (executionConfig.outputJacobianDebugInfo):

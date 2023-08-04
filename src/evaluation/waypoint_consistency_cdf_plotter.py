@@ -31,7 +31,8 @@ kATEErrorYLabelDict = {
 kObViSLAMApproachName = "ObVi-SLAM"
 kORBSLAM3ApproachName = "ORB-SLAM3"
 kOASLAMApproachName = "OA-SLAM"
-kGTApproachName = "Pseudo-Groundtruth"
+# kGTApproachName = "Pseudo-Groundtruth"
+kGTApproachName="ObVi-SLAM_vis_only"
 
 kApproachNames = set([
     kObViSLAMApproachName, \
@@ -79,15 +80,18 @@ kApproachLinewidthDict = {
 kObViSLAMMarker = "X"
 kORBSLAM3Marker = "o"
 kOASLAMMarker = "P"
+kGTApproachMarker = "v"
 kApproachMarkerDict = {
     kObViSLAMApproachName: kObViSLAMMarker, \
     kORBSLAM3ApproachName: kORBSLAM3Marker, \
-    kOASLAMApproachName: kOASLAMMarker
+    kOASLAMApproachName: kOASLAMMarker, \
+    kGTApproachName: kGTApproachMarker
 }
 
 kObViSLAMMakerSize = 100
 kORBSLAM3MMakerSize = 100
 kOASLAMMarkerSize = 100
+kGTApproachMarkerSize = 100
 
 kAxisFontsize = 20
 kGridAlpha = .4
@@ -96,7 +100,8 @@ kGridAlpha = .4
 kApproachMarkerSizeDict = {
     kObViSLAMApproachName: kObViSLAMMakerSize, \
     kORBSLAM3ApproachName: kORBSLAM3MMakerSize, \
-    kOASLAMApproachName: kOASLAMMarkerSize
+    kOASLAMApproachName: kOASLAMMarkerSize, \
+    kGTApproachName: kGTApproachMarkerSize
 }
 
 class MetricsFilesInfo:
@@ -169,8 +174,8 @@ def getCDFData(dataset, num_bins):
     print(max_val)
     print(bins_count)
 
-    # return (cdf * (len(infs_removed_dataset) / len(dataset)), bins_count , max_val)
-    return (cdf , bins_count , max_val)
+    return (cdf * (len(infs_removed_dataset) / len(dataset)), bins_count , max_val)
+    # return (cdf , bins_count , max_val)
 
 
 def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins=1000, savepath=None):
@@ -285,13 +290,13 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
         translationConsistency[approachName] = translationDeviations
         orientationConsistency[approachName] = rotationDeviations
         averageTranslAtes[approachName] = approachMetrics.sequence_metrics.ate_results.rmse_transl_err
-        averageRotAtes[approachName] = approachMetrics.sequence_metrics.ate_results.rmse_rot_err
+        averageRotAtes[approachName] = np.degrees(approachMetrics.sequence_metrics.ate_results.rmse_rot_err)
 
         translAtePerTraj = []
         rotAtePerTraj = []
         for indiv_traj_metric_set in approachMetrics.indiv_trajectory_metrics:
             translAtePerTraj.append(indiv_traj_metric_set.ate_results.rmse_transl_err)
-            rotAtePerTraj.append(indiv_traj_metric_set.ate_results.rmse_rot_err)
+            rotAtePerTraj.append(np.degrees(indiv_traj_metric_set.ate_results.rmse_rot_err))
         translAtesByTrajectory[approachName] = translAtePerTraj
         rotAtesByTrajectory[approachName] = rotAtePerTraj
 
@@ -301,7 +306,9 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
     plotOrientationConsistency(metricsFilesInfo.primaryApproachName, orientationConsistency, errorTypesAndSavepaths[kCDFOrientErrorType])
 
     plotRMSEs(metricsFilesInfo.primaryApproachName, translAtesByTrajectory, kATETranslErrorType, ylims=[(0, 6.0), (19.5, 22)], legend_loc="upper left", savepath=None)
-    plotRMSEs(metricsFilesInfo.primaryApproachName, rotAtesByTrajectory, kATEOrientErrorType, ylims=[(0, 0.6), (1.0, 1.4)], legend_loc="upper left", savepath=None)
+    # orient_y_lims=[(0, 10)]
+    orient_y_lims=[(0, 30), (64, 71)]
+    plotRMSEs(metricsFilesInfo.primaryApproachName, rotAtesByTrajectory, kATEOrientErrorType, ylims=orient_y_lims, legend_loc="upper left", savepath=None)
 
     plt.show()
 

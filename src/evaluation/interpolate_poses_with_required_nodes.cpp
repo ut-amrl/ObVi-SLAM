@@ -49,6 +49,7 @@ DEFINE_string(odom_frame_rel_bl_file,
               "",
               "File containing the extrinsics representing the frame of the "
               "odom poses file (one to interpolate) relative to the base link");
+DEFINE_string(param_prefix, "", "Prefix for published topics");
 
 struct sort_pose3d_timestamp_pair {
   inline bool operator()(const std::pair<Timestamp, Pose3D<double>> &pose_1,
@@ -240,10 +241,17 @@ int main(int argc, char **argv) {
 
   LOG(INFO) << "Setting up ros stuff";
 
-  ros::init(argc, argv, "interpolator");
+  std::string param_prefix = FLAGS_param_prefix;
+  std::string node_prefix = FLAGS_param_prefix;
+  if (!param_prefix.empty()) {
+    param_prefix = "/" + param_prefix + "/";
+    node_prefix += "_";
+  }
+
+  ros::init(argc, argv, "a_" + node_prefix + "interpolator");
   ros::NodeHandle node_handle;
   std::shared_ptr<RosVisualization> vis_manager =
-      std::make_shared<RosVisualization>(node_handle);
+      std::make_shared<RosVisualization>(node_handle, param_prefix, node_prefix);
   ros::Publisher pub = node_handle.advertise<visualization_msgs::Marker>(
       "/pose_graph_constraints", 5000);
 

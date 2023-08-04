@@ -44,7 +44,6 @@ class FullSequenceMetrics:
 
 
 def readATEResultsFromJsonObj(ateResultsJson):
-    print(ateResultsJson)
     transl_err = ateResultsJson[MetricsFileConstants.rmseTranslErrLabel]
     rot_err = ateResultsJson[MetricsFileConstants.rmseRotErrLabel]
     if (transl_err < 0):
@@ -56,7 +55,6 @@ def readATEResultsFromJsonObj(ateResultsJson):
                                valid_poses_used_in_score=ateResultsJson[
                                    MetricsFileConstants.validPosesUsedInScoreLabel],
                                lost_poses=ateResultsJson[MetricsFileConstants.lostPosesLabel])
-    print(ateResultsObj)
     return ateResultsObj
 
 
