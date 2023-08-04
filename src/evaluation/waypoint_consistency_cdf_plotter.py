@@ -7,6 +7,8 @@ import warnings
 import os
 
 import matplotlib.pyplot as plt
+from brokenaxes import brokenaxes
+
 import numpy as np
 import pandas as pd
 
@@ -15,7 +17,87 @@ from approach_metrics import *
 kMaxXAxisBoundsMultiplier = 1.2
 kCDFTranslErrorType = "transl_cdf"
 kCDFOrientErrorType = "orient_cdf"
+kATETranslErrorType = "transl_ate"
+kATEOrientErrorType = "orient_ate"
 
+kATETranslErrorYLabel = "RMSE (m)"
+kATEOrientErrorYLabel = "RMSE (deg)"
+
+kATEErrorYLabelDict = {
+    kATETranslErrorType: kATETranslErrorYLabel, \
+    kATEOrientErrorType: kATEOrientErrorYLabel
+}
+
+kObViSLAMApproachName = "ObVi-SLAM"
+kORBSLAM3ApproachName = "ORB-SLAM3"
+kOASLAMApproachName = "OA-SLAM"
+kGTApproachName = "Pseudo-Groundtruth"
+
+kApproachNames = set([
+    kObViSLAMApproachName, \
+    kORBSLAM3ApproachName, \
+    kOASLAMApproachName, \
+    kGTApproachName
+])
+
+kObViSLAMColor = "tab:blue"
+kORBSLAM3Color = "tab:orange"
+kOASLAMColor = "tab:green"
+kGTColor = "tab:red"
+
+kApproachColorDict = {
+    kObViSLAMApproachName: kObViSLAMColor, \
+    kORBSLAM3ApproachName: kORBSLAM3Color, \
+    kOASLAMApproachName: kOASLAMColor, \
+    kGTApproachName: kGTColor
+}
+
+kObViSLAMLineStyle = "solid"
+kORBSLAM3LineStyle = "dotted"
+kOASLAMLineStyle = "dashdot"
+kGTLineStyle = "dashed"
+
+kApproachLineStyleDict = {
+    kObViSLAMApproachName: kObViSLAMLineStyle, \
+    kORBSLAM3ApproachName: kORBSLAM3LineStyle, \
+    kOASLAMApproachName: kOASLAMLineStyle, \
+    kGTApproachName: kGTLineStyle
+}
+
+kObViSLAMLinewidth = 3
+kORBSLAM3Linewidth = 4
+kOASLAMLinewidth = 2
+kGTLinewidth = 3
+
+kApproachLinewidthDict = {
+    kObViSLAMApproachName: kObViSLAMLinewidth, \
+    kORBSLAM3ApproachName: kORBSLAM3Linewidth, \
+    kOASLAMApproachName: kOASLAMLinewidth, \
+    kGTApproachName: kGTLinewidth
+}
+
+kObViSLAMMarker = "X"
+kORBSLAM3Marker = "o"
+kOASLAMMarker = "P"
+kApproachMarkerDict = {
+    kObViSLAMApproachName: kObViSLAMMarker, \
+    kORBSLAM3ApproachName: kORBSLAM3Marker, \
+    kOASLAMApproachName: kOASLAMMarker
+}
+
+kObViSLAMMakerSize = 100
+kORBSLAM3MMakerSize = 100
+kOASLAMMarkerSize = 100
+
+kAxisFontsize = 20
+kGridAlpha = .4
+
+
+kApproachMarkerSizeDict = {
+    kObViSLAMApproachName: kObViSLAMMakerSize, \
+    kORBSLAM3ApproachName: kORBSLAM3MMakerSize, \
+    kOASLAMApproachName: kOASLAMMarkerSize
+}
 
 class MetricsFilesInfo:
     def __init__(self, approachNameAndMetricsFileInfo, primaryApproachName):
@@ -23,10 +105,10 @@ class MetricsFilesInfo:
         self.approachNameAndMetricsFileInfo = approachNameAndMetricsFileInfo
 
 
-def readTranslationAndOrientationConsistencyFromFile(metrics_file):
-    approachMetrics = readMetricsFile(metrics_file)
-    return (approachMetrics.sequence_metrics.all_translation_deviations,
-            approachMetrics.sequence_metrics.all_rotation_deviations)
+# def readTranslationAndOrientationConsistencyFromFile(metrics_file):
+#     approachMetrics = readMetricsFile(metrics_file)
+#     return (approachMetrics.sequence_metrics.all_translation_deviations,
+#             approachMetrics.sequence_metrics.all_rotation_deviations)
 
 
 def readApproachesAndMetricsFile(approaches_and_metrics_file_name):
@@ -87,7 +169,8 @@ def getCDFData(dataset, num_bins):
     print(max_val)
     print(bins_count)
 
-    return (cdf * (len(infs_removed_dataset) / len(dataset)), bins_count , max_val)
+    # return (cdf * (len(infs_removed_dataset) / len(dataset)), bins_count , max_val)
+    return (cdf , bins_count , max_val)
 
 
 def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins=1000, savepath=None):
@@ -118,6 +201,7 @@ def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins
 
     if (len(approach_results) >= 2):
         plt.xlim(0, max(primary_approach_max, comparison_approach_summary_min_max))
+        # plt.xlim(0, primary_approach_max)
         # if (primary_approach_max > comparison_approach_summary_max):
         # x_lim = primary_approach_max
         # else:
@@ -137,6 +221,38 @@ def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins
         plt.show()
 
 
+def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="upper left", savepath=None):
+    plt.figure()
+
+    if (len(ylims) == 0):
+        non_inf_max = 0
+        for approach_name, errs in errs_dict.items():
+            for err_val in errs:
+                if (err_val != float('inf')):
+                    non_inf_max = max(err_val, non_inf_max)
+        ylims = [(0, non_inf_max*1.05)]
+
+    bax = brokenaxes(ylims=ylims)
+    for approach_name, errs in errs_dict.items():
+        # if approach_name not in kApproachNames:
+        #     warnings.warn("Undefined approach name " + approach_name + ". Skip plotting trajectory...")
+        #     continue
+        xx = np.arange(len(errs)) + 1
+        bax.scatter(xx, errs, label=approach_name, \
+                    # color=kApproachColorDict[approach_name], \
+                    marker=kApproachMarkerDict[approach_name], \
+                    s=kApproachMarkerSizeDict[approach_name])
+    bax.set_xlabel("Bagfile Index", fontsize=kAxisFontsize)
+    bax.set_ylabel(kATEErrorYLabelDict[err_type], fontsize=kAxisFontsize)
+    bax.legend(loc=legend_loc)
+    bax.grid(alpha=0.4)
+    # Note: cannot use tight_layout. It'll break the brokenaxis
+    if savepath:
+        print("Saving figure to " + savepath)
+        plt.savefig(savepath)
+    else:
+        plt.show()
+
 def plotTranslationConsistency(primaryApproachName, translationConsistency, savepath=None):
     plotCDF(primaryApproachName, translationConsistency,
             "CDF of Position Deviation from Waypoint Estimate Centroid", "Meters from Respective Centroid", 1, savepath=savepath)
@@ -154,19 +270,38 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
     metricsFilesInfo = readApproachesAndMetricsFile(approaches_and_metrics_file_name)
     translationConsistency = {}
     orientationConsistency = {}
-    averageAtes = {}
-    atesByTrajectory = {}
+    averageTranslAtes = {}
+    averageRotAtes = {}
+    translAtesByTrajectory = {}
+    rotAtesByTrajectory = {}
+
 
     for approachName, metricsFile in metricsFilesInfo.approachNameAndMetricsFileInfo.items():
         print("Reading results for " + approachName)
-        translationDeviations, rotationDeviations = readTranslationAndOrientationConsistencyFromFile(metricsFile)
+        approachMetrics = readMetricsFile(metricsFile)
+        translationDeviations = approachMetrics.sequence_metrics.all_translation_deviations
+        rotationDeviations = approachMetrics.sequence_metrics.all_rotation_deviations
+
         translationConsistency[approachName] = translationDeviations
         orientationConsistency[approachName] = rotationDeviations
+        averageTranslAtes[approachName] = approachMetrics.sequence_metrics.ate_results.rmse_transl_err
+        averageRotAtes[approachName] = approachMetrics.sequence_metrics.ate_results.rmse_rot_err
+
+        translAtePerTraj = []
+        rotAtePerTraj = []
+        for indiv_traj_metric_set in approachMetrics.indiv_trajectory_metrics:
+            translAtePerTraj.append(indiv_traj_metric_set.ate_results.rmse_transl_err)
+            rotAtePerTraj.append(indiv_traj_metric_set.ate_results.rmse_rot_err)
+        translAtesByTrajectory[approachName] = translAtePerTraj
+        rotAtesByTrajectory[approachName] = rotAtePerTraj
 
     errorTypesAndSavepaths = readErrTypesAndSavepathsFile(error_types_and_savepaths_file_name)
 
     plotTranslationConsistency(metricsFilesInfo.primaryApproachName, translationConsistency, errorTypesAndSavepaths[kCDFTranslErrorType])
     plotOrientationConsistency(metricsFilesInfo.primaryApproachName, orientationConsistency, errorTypesAndSavepaths[kCDFOrientErrorType])
+
+    plotRMSEs(metricsFilesInfo.primaryApproachName, translAtesByTrajectory, kATETranslErrorType, ylims=[(0, 6.0), (19.5, 22)], legend_loc="upper left", savepath=None)
+    plotRMSEs(metricsFilesInfo.primaryApproachName, rotAtesByTrajectory, kATEOrientErrorType, ylims=[(0, 0.6), (1.0, 1.4)], legend_loc="upper left", savepath=None)
 
     plt.show()
 

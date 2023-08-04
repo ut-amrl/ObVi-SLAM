@@ -136,10 +136,6 @@ ATEResults generateATEforRotAndTranslForSyncedAlignedTrajectories(
   CHECK_EQ(est_traj.size(), gt_traj.size())
       << "Trajectories must be the same size to calculate ATE";
 
-  if (est_traj.empty()) {
-    return ATEResults(0, 0, 0, 0);
-  }
-
   // Position error from here (assuming already aligned)
   // http://www2.informatik.uni-freiburg.de/~endres/files/publications/sturm12iros.pdf
   // https://arxiv.org/pdf/1910.04755.pdf
@@ -163,8 +159,13 @@ ATEResults generateATEforRotAndTranslForSyncedAlignedTrajectories(
     }
   }
 
-  avg_position_error = sqrt(avg_position_error / valid_results_num);
-  avg_rot_error = sqrt(avg_rot_error / valid_results_num);
+  if (valid_results_num == 0) {
+    avg_position_error = -1;
+    avg_rot_error = -1;
+  } else {
+    avg_position_error = sqrt(avg_position_error / valid_results_num);
+    avg_rot_error = sqrt(avg_rot_error / valid_results_num);
+  }
   ATEResults single_traj_ate_results(avg_position_error,
                                      avg_rot_error,
                                      valid_results_num,
