@@ -81,6 +81,7 @@ DEFINE_string(rosbag_files_directory,
               "",
               "Directory where the rosbags are stored");
 DEFINE_string(odometry_topic, "", "Topic on which odometry is published");
+DEFINE_string(param_prefix, "", "Prefix for published topics");
 
 const std::string kIndivTrajectoryBaseFileName = "trajectory.csv";
 const std::string kGTIndivTrajectoryBaseFileName =
@@ -111,8 +112,7 @@ FullSequenceMetrics computeMetrics(
     for (const std::pair<pose::Timestamp, std::optional<Pose3D<double>>>
              &timestamp_and_pose :
          comparison_trajectories_rel_baselink.at(traj_num)) {
-      poses_by_timestamp[timestamp_and_pose.first] =
-          timestamp_and_pose.second;
+      poses_by_timestamp[timestamp_and_pose.first] = timestamp_and_pose.second;
     }
     poses_by_timestamp_by_trajectory.emplace_back(poses_by_timestamp);
   }
@@ -241,10 +241,18 @@ int main(int argc, char **argv) {
   FLAGS_logtostderr = true;
   FLAGS_colorlogtostderr = true;
 
-  ros::init(argc, argv, "metrics_generator");
+  std::string param_prefix = FLAGS_param_prefix;
+  std::string node_prefix = FLAGS_param_prefix;
+  if (!param_prefix.empty()) {
+    param_prefix = "/" + param_prefix + "/";
+    node_prefix += "_";
+  }
+
+  ros::init(argc, argv, "a_" + node_prefix + "metrics_generator");
   ros::NodeHandle node_handle;
   std::shared_ptr<RosVisualization> vis_manager =
-      std::make_shared<RosVisualization>(node_handle);
+      std::make_shared<RosVisualization>(
+          node_handle, param_prefix, node_prefix);
   ros::Duration(2).sleep();
 
   if (FLAGS_sequence_file.empty() ==
@@ -582,5 +590,5 @@ int main(int argc, char **argv) {
                      waypoint_info_by_trajectory,
                      vis_manager);
 
-  writeFullSequenceMetrics(FLAGS_metrics_out_file, full_metrics);
+    writeFullSequenceMetrics(FLAGS_metrics_out_file, full_metrics);
 }

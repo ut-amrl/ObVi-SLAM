@@ -49,13 +49,14 @@ class TrajectoryMetricsGeneratorParamConstants:
     waypoints_files_directory = "waypoints_files_directory"
     rosbag_files_directory = "rosbag_files_directory"
     odometry_topic = "odometry_topic"
+    param_prefix = "param_prefix"
 
 
 class TrajectoryMetricsGeneratorConfig:
     def __init__(self, interpolated_gt_traj_dir, lego_loam_frame_to_bl_extrinsics, comparison_alg_traj_est_dir,
                  comparison_alg_to_bl_extrinsics, trajectory_results_dir_suffix, gt_dir_suffix, sequence_file,
                  metrics_out_file, waypoints_files_directory,
-                 rosbag_files_directory, odometry_topic):
+                 rosbag_files_directory, odometry_topic, param_prefix):
         self.interpolated_gt_traj_dir = interpolated_gt_traj_dir
         self.lego_loam_frame_to_bl_extrinsics = lego_loam_frame_to_bl_extrinsics
         self.comparison_alg_traj_est_dir = comparison_alg_traj_est_dir
@@ -67,6 +68,7 @@ class TrajectoryMetricsGeneratorConfig:
         self.waypoints_files_directory = waypoints_files_directory
         self.rosbag_files_directory = rosbag_files_directory
         self.odometry_topic = odometry_topic
+        self.param_prefix = param_prefix
 
 
 def runMetricsGeneratorWithGeneratorConfig(generator_config):
@@ -96,6 +98,8 @@ def runMetricsGeneratorWithGeneratorConfig(generator_config):
                                            generator_config.rosbag_files_directory)
     argsString += createCommandStrAddition(TrajectoryMetricsGeneratorParamConstants.odometry_topic,
                                            generator_config.odometry_topic)
+    argsString += createCommandStrAddition(TrajectoryMetricsGeneratorParamConstants.param_prefix,
+                                           generator_config.param_prefix)
 
 
     cmdToRun = "./bin/trajectory_metrics_generator " + argsString
@@ -156,6 +160,9 @@ def generateMetricsForApproach(metrics_for_approach_config):
         print("Metrics file already generated. Skipping metrics generator")
         return
 
+    param_prefix = metrics_for_approach_config.sequence_file_base_name
+    if (metrics_for_approach_config.within_sequence_dir_subdir is not None):
+        param_prefix = param_prefix + "_" + metrics_for_approach_config.within_sequence_dir_subdir
     metrics_generator_config = TrajectoryMetricsGeneratorConfig(
         interpolated_gt_traj_dir=dirForSequenceResults,
         comparison_alg_traj_est_dir=dirForSequenceResults,
@@ -168,7 +175,8 @@ def generateMetricsForApproach(metrics_for_approach_config):
         comparison_alg_to_bl_extrinsics=metrics_for_approach_config.comparison_alg_to_bl_extrinsics,
         waypoints_files_directory=metrics_for_approach_config.rosbag_dir,
         rosbag_files_directory=metrics_for_approach_config.rosbag_dir,
-        odometry_topic=metrics_for_approach_config.odometry_topic)
+        odometry_topic=metrics_for_approach_config.odometry_topic,
+        param_prefix=param_prefix)
     runMetricsGeneratorWithGeneratorConfig(metrics_generator_config)
 
 

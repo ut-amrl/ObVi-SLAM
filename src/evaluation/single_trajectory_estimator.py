@@ -116,7 +116,8 @@ class OfflineRunnerArgs:
 
 
 def runOrbPostProcess(orbDataDirForBag, unsparsifiedUtVslamInDir, sparsifiedUtVslamInDir, calibrationDir,
-                      configFileName, paramPrefix, fullWaypointFileName=None, deletePrevData=True):
+                      configFileName, paramPrefix, fullWaypointFileName=None, forceRunOrbSlamPostProcess=False,
+                      deletePrevData=True):
     print("Unsparsified ut vslam in dir: ")
     print(unsparsifiedUtVslamInDir)
 
@@ -132,16 +133,29 @@ def runOrbPostProcess(orbDataDirForBag, unsparsifiedUtVslamInDir, sparsifiedUtVs
     FileStructureUtils.makeDirectory(unsparsifiedUtVslamInDir)
     FileStructureUtils.makeDirectory(sparsifiedUtVslamInDir)
 
-    cmd1 = "python3 src/data_preprocessing_utils/orb_stereo_reformat_data.py -i " + orbDataDirForBag + " -o " + unsparsifiedUtVslamInDir
-    print("Running command: ")
-    print(cmd1)
-    os.system(cmd1)
+    needToRerunOrbReformatter = False
+    if (forceRunOrbSlamPostProcess):
+        needToRerunOrbReformatter = True
+    else:
+        if (os.path.exists(unsparsifiedUtVslamInDir)):
+            num_files = len(os.listdir(unsparsifiedUtVslamInDir))
+            if (num_files < 5):
+                # If we have less than this many files there's probably something wrong
+                needToRerunOrbReformatter = True
+        else:
+            needToRerunOrbReformatter = True
 
-    cmd2 = "./bin/initialize_traj_and_feats_from_orb_out --raw_data_path " + orbDataDirForBag + \
-           " --calibration_path " + calibrationDir + " --processed_data_path " + unsparsifiedUtVslamInDir
-    print("Running command: ")
-    print(cmd2)
-    os.system(cmd2)
+    if (needToRerunOrbReformatter):
+        cmd1 = "python3 src/data_preprocessing_utils/orb_stereo_reformat_data.py -i " + orbDataDirForBag + " -o " + unsparsifiedUtVslamInDir
+        print("Running command: ")
+        print(cmd1)
+        os.system(cmd1)
+
+        cmd2 = "./bin/initialize_traj_and_feats_from_orb_out --raw_data_path " + orbDataDirForBag + \
+               " --calibration_path " + calibrationDir + " --processed_data_path " + unsparsifiedUtVslamInDir
+        print("Running command: ")
+        print(cmd2)
+        os.system(cmd2)
 
     sparsifierArgsString = ""
     sparsifierArgsString += createCommandStrAddition(OrbTrajectorySparsifierParamConstants.input_processed_data_path,
@@ -176,8 +190,10 @@ def ensureOrbDataPostProcessed(orbDataDirForBag, unsparsifiedUtVslamInDir, spars
             needToRerun = True
 
     if (needToRerun):
+        # Only delete if we're force rerunning
         runOrbPostProcess(orbDataDirForBag, unsparsifiedUtVslamInDir, sparsifiedUtVslamInDir, calibrationDir,
-                          configFileName, paramPrefix, fullWaypointFileName)
+                          configFileName, paramPrefix, fullWaypointFileName, forceRunOrbSlamPostProcess,
+                          forceRunOrbSlamPostProcess)
 
 
 def generateRequiredStampsFileFromNodesAndTimestampsFile(nodesAndTimestampsFile, requiredStampsFile):
@@ -267,7 +283,8 @@ def generateOfflineRunnerArgsFromExecutionConfigAndPreprocessOrbDataIfNecessary(
         bag_results_dir_name)
 
     (interpolatedPosesFileName, gtExtrinsicsRelBlFile) = runInterpolatorIfNecessary(executionConfig, postProcessingDir,
-                                                                                    sparsifiedUtVslamInDir, param_prefix)
+                                                                                    sparsifiedUtVslamInDir,
+                                                                                    param_prefix)
 
     jacobianDebuggingDir = None
     if (executionConfig.outputJacobianDebugInfo):
