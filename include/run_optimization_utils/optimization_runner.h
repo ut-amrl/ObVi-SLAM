@@ -556,6 +556,8 @@ bool runFullOptimization(
                 pose_graph,
                 config.bounding_box_front_end_params_
                     .post_session_object_merge_params_.max_merge_distance_,
+                config.bounding_box_front_end_params_
+                    .post_session_object_merge_params_.x_y_only_merge_,
                 merge_results);
             return true;
           };

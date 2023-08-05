@@ -78,6 +78,7 @@ BoundingBoxFrontEndParams generateBoundingBoxFrontEndParams(
         &baseline_solver_params) {
   BoundingBoxFrontEndParams params;
   params.geometric_similarity_scorer_params_.max_merge_distance_ = 4;
+  params.geometric_similarity_scorer_params_.x_y_only_merge_ = true;
 
   PendingObjectEstimatorParams pending_obj_estimator_params;
   pending_obj_estimator_params.object_residual_params_ =
@@ -103,6 +104,7 @@ BoundingBoxFrontEndParams generateBoundingBoxFrontEndParams(
 
   // Post session merge
   params.post_session_object_merge_params_.max_merge_distance_ = -1;
+  params.post_session_object_merge_params_.x_y_only_merge_ = true;
 
   return params;
 }
@@ -238,6 +240,7 @@ int main(int argc, char **argv) {
   configuration.ltm_tunable_params_.min_col_norm_ = 5e-9;
   configuration.ltm_solver_params_ =
       base_solver_params;  // TODO is this the one we want?
+  configuration.ltm_tunable_params_.fallback_to_prev_for_failed_extraction_ = true;
   configuration.ltm_solver_params_.max_num_iterations_ = 300;
 
   pose_graph_optimization::ObjectVisualPoseGraphResidualParams residual_params;

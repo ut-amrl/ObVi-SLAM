@@ -40,9 +40,11 @@ struct GeometricSimilarityScorerParams {
   // the config and if necessary, regenerate the config with a new
   // config_version_id_
   double max_merge_distance_ = 1.5;
+  bool x_y_only_merge_;
 
   bool operator==(const GeometricSimilarityScorerParams &rhs) const {
-    return (max_merge_distance_ == rhs.max_merge_distance_);
+    return (max_merge_distance_ == rhs.max_merge_distance_) &&
+           (x_y_only_merge_ == rhs.x_y_only_merge_);
   }
 
   bool operator!=(const GeometricSimilarityScorerParams &rhs) const {
@@ -181,11 +183,18 @@ generateFeatureBasedBbCreator(
             // plane?
             //            double dist = (ellipsoid_1.pose_.transl_ -
             //            ellipsoid_2.pose_.transl_).norm();
-            Eigen::Vector2d projected_center_1 =
-                ellipsoid_1.pose_.transl_.topRows(2);
-            Eigen::Vector2d projected_center_2 =
-                ellipsoid_2.pose_.transl_.topRows(2);
-            double dist = (projected_center_1 - projected_center_2).norm();
+            double dist;
+            if (similarity_scorer_params.x_y_only_merge_) {
+              Eigen::Vector2d projected_center_1 =
+                  ellipsoid_1.pose_.transl_.topRows(2);
+              Eigen::Vector2d projected_center_2 =
+                  ellipsoid_2.pose_.transl_.topRows(2);
+
+              dist = (projected_center_1 - projected_center_2).norm();
+            } else {
+              dist = (ellipsoid_1.pose_.transl_ - ellipsoid_2.pose_.transl_)
+                         .norm();
+            }
             if (dist > similarity_scorer_params.max_merge_distance_) {
               return false;
             }

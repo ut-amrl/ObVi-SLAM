@@ -267,6 +267,7 @@ template <typename ObjectPoseGraphType>
 void identifyMergeObjectsBasedOnCenterProximity(
     const std::shared_ptr<ObjectPoseGraphType> &pose_graph,
     const double &max_distance_for_merge,
+    const bool &x_y_only_merge,
     std::unordered_map<ObjectId, std::unordered_set<ObjectId>> &merge_results) {
   if (max_distance_for_merge < 0) {
     return;
@@ -307,8 +308,14 @@ void identifyMergeObjectsBasedOnCenterProximity(
            compare_obj_idx++) {
         std::pair<ObjectId, Position3d<double>> second_obj =
             sem_class_and_objs.second.at(compare_obj_idx);
-//        double center_dist = (first_obj.second - second_obj.second).norm();
-        double center_dist = (first_obj.second.topRows(2) - second_obj.second.topRows(2)).norm();
+        double center_dist;
+        if (x_y_only_merge) {
+          center_dist =
+              (first_obj.second.topRows(2) - second_obj.second.topRows(2))
+                  .norm();
+        } else {
+          center_dist = (first_obj.second - second_obj.second).norm();
+        }
         if (center_dist <= max_distance_for_merge) {
           if ((long_term_map_objects.find(first_obj.first) ==
                long_term_map_objects.end()) ||

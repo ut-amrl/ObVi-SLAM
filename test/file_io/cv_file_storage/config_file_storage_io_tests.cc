@@ -133,6 +133,7 @@ TEST(FullOVSLAMConfigIO, ReadWriteFullOBSLAMConfig) {
   LongTermMapExtractionTunableParams ltm_tunable_params;
   ltm_tunable_params.far_feature_threshold_ = 2.4;
   ltm_tunable_params.min_col_norm_ = 32.3;
+  ltm_tunable_params.fallback_to_prev_for_failed_extraction_ = false;
   orig_config.ltm_tunable_params_ = ltm_tunable_params;
 
   pose_graph_optimization::ObjectVisualPoseGraphResidualParams
@@ -178,6 +179,8 @@ TEST(FullOVSLAMConfigIO, ReadWriteFullOBSLAMConfig) {
   BoundingBoxFrontEndParams bounding_box_front_end_params;
   bounding_box_front_end_params.geometric_similarity_scorer_params_
       .max_merge_distance_ = 2.3;
+  bounding_box_front_end_params.geometric_similarity_scorer_params_
+      .x_y_only_merge_ = true;
   bounding_box_front_end_params.feature_based_bb_association_params_
       .min_overlapping_features_for_match_ = 21;
   bounding_box_front_end_params.feature_based_bb_association_params_
@@ -211,6 +214,8 @@ TEST(FullOVSLAMConfigIO, ReadWriteFullOBSLAMConfig) {
       .pending_obj_estimator_params_ = pending_est_params;
   bounding_box_front_end_params.post_session_object_merge_params_
       .max_merge_distance_ = 1.23;
+  bounding_box_front_end_params.post_session_object_merge_params_
+      .x_y_only_merge_ = false;
   orig_config.bounding_box_front_end_params_ = bounding_box_front_end_params;
 
   BoundingBoxCovGenParams bounding_box_covariance_generator_params;

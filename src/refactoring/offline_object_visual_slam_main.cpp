@@ -990,13 +990,15 @@ int main(int argc, char **argv) {
   }
 
   MainLtm output_long_term_map = output_results.long_term_map_;
-  vtr::EllipsoidResults ltm_ellipsoid_results;
-  output_long_term_map.getEllipsoidResults(ltm_ellipsoid_results);
-  if (ltm_ellipsoid_results.ellipsoids_.empty()) {
-    LOG(ERROR) << "Long term map extraction failed; falling back to previous "
-                  "long-term map if provided";
-    if (long_term_map != nullptr) {
-      output_long_term_map = *long_term_map;
+  if (config.ltm_tunable_params_.fallback_to_prev_for_failed_extraction_) {
+    vtr::EllipsoidResults ltm_ellipsoid_results;
+    output_long_term_map.getEllipsoidResults(ltm_ellipsoid_results);
+    if (ltm_ellipsoid_results.ellipsoids_.empty()) {
+      LOG(ERROR) << "Long term map extraction failed; falling back to previous "
+                    "long-term map if provided";
+      if (long_term_map != nullptr) {
+        output_long_term_map = *long_term_map;
+      }
     }
   }
 

@@ -13,9 +13,13 @@ struct LongTermMapExtractionTunableParams {
 
   double min_col_norm_ = 5e-9;
 
+  bool fallback_to_prev_for_failed_extraction_ = true;
+
   bool operator==(const LongTermMapExtractionTunableParams &rhs) const {
     return (far_feature_threshold_ == rhs.far_feature_threshold_) &&
-           (min_col_norm_ == rhs.min_col_norm_);
+           (min_col_norm_ == rhs.min_col_norm_) &&
+           (fallback_to_prev_for_failed_extraction_ ==
+            rhs.fallback_to_prev_for_failed_extraction_);
   }
 
   bool operator!=(const LongTermMapExtractionTunableParams &rhs) const {

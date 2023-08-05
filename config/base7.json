@@ -1,6 +1,6 @@
 {
     "config": {
-        "config_schema_version": 11,
+        "config_schema_version": 12,
         "config_version_id": "base7",
         "visual_feature_params": {
             "reprojection_error_std_dev": 2.0,
@@ -116,7 +116,8 @@
         },
         "ltm_tunable_params": {
             "far_feature_threshold": 75.0,
-            "min_col_norm": 5.0000000000000001e-04
+            "min_col_norm": 5.0000000000000001e-04,
+            "fallback_to_prev_for_failed_extraction": 0
         },
         "ltm_solver_residual_params": {
             "object_residual_params": {
@@ -351,7 +352,8 @@
         },
         "bounding_box_front_end_params": {
             "geometric_similarity_scorer_params": {
-                "max_merge_distance": 4.0
+                "max_merge_distance": 4.0,
+                "x_y_only_merge": 1
             },
             "feature_based_bb_association_params": {
                 "min_observations_for_local_est": 3,
@@ -380,7 +382,8 @@
                 "bounding_box_inflation_size": 10.0
             },
             "post_session_object_merge_params": {
-                "max_merge_distance": 2
+                "max_merge_distance": 2,
+                "x_y_only_merge": 1
             }
         },
         "bounding_box_covariance_generator_params": {

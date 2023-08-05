@@ -21,7 +21,7 @@ namespace vslam_types_refactor {
 
 // NOTE: This should be incremented every time the format of the configuration
 // data changes
-const static int kCurrentConfigSchemaVersion = 11;
+const static int kCurrentConfigSchemaVersion = 12;
 
 struct VisualFeatureParams {
   double reprojection_error_std_dev_;
@@ -100,9 +100,11 @@ struct SlidingWindowParams {
 
 struct PostSessionObjectMergeParams {
   double max_merge_distance_;
+  bool x_y_only_merge_;
 
   bool operator==(const PostSessionObjectMergeParams &rhs) const {
-    return (max_merge_distance_ == rhs.max_merge_distance_);
+    return (max_merge_distance_ == rhs.max_merge_distance_) &&
+           (x_y_only_merge_ == rhs.x_y_only_merge_);
   }
 
   bool operator!=(const PostSessionObjectMergeParams &rhs) const {

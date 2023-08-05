@@ -764,11 +764,16 @@ class SerializableGeometricSimilarityScorerParams
   virtual void write(cv::FileStorage &fs) const override {
     fs << "{";
     fs << kMaxMergeDistanceLabel << data_.max_merge_distance_;
+    int x_y_only_merge_int = data_.x_y_only_merge_ ? 1 : 0;
+    fs << kXYOnlyMergeLabel << x_y_only_merge_int;
     fs << "}";
   }
 
   virtual void read(const cv::FileNode &node) override {
     data_.max_merge_distance_ = node[kMaxMergeDistanceLabel];
+
+    int x_y_only_merge_int = node[kXYOnlyMergeLabel];
+    data_.x_y_only_merge_ = x_y_only_merge_int != 0;
   }
 
  protected:
@@ -776,6 +781,7 @@ class SerializableGeometricSimilarityScorerParams
 
  private:
   inline static const std::string kMaxMergeDistanceLabel = "max_merge_distance";
+  inline static const std::string kXYOnlyMergeLabel = "x_y_only_merge";
 };
 
 static void write(cv::FileStorage &fs,
@@ -1009,11 +1015,16 @@ class SerializablePostSessionObjectMergeParams
   virtual void write(cv::FileStorage &fs) const override {
     fs << "{";
     fs << kMaxMergeDistanceLabel << data_.max_merge_distance_;
+    int x_y_only_merge_int = data_.x_y_only_merge_ ? 1 : 0;
+    fs << kXYOnlyMergeLabel << x_y_only_merge_int;
     fs << "}";
   }
 
   virtual void read(const cv::FileNode &node) override {
     data_.max_merge_distance_ = (double)node[kMaxMergeDistanceLabel];
+
+    int x_y_only_merge_int = node[kXYOnlyMergeLabel];
+    data_.x_y_only_merge_ = x_y_only_merge_int != 0;
   }
 
  protected:
@@ -1021,6 +1032,7 @@ class SerializablePostSessionObjectMergeParams
 
  private:
   inline static const std::string kMaxMergeDistanceLabel = "max_merge_distance";
+  inline static const std::string kXYOnlyMergeLabel = "x_y_only_merge";
 };
 
 static void write(cv::FileStorage &fs,
@@ -1375,12 +1387,22 @@ class SerializableLongTermMapExtractionTunableParams
     fs << "{";
     fs << kFarFeatureThresholdLabel << data_.far_feature_threshold_;
     fs << kMinColNormLabel << data_.min_col_norm_;
+
+    int fallback_to_prev_for_failed_extraction_int =
+        data_.fallback_to_prev_for_failed_extraction_ ? 1 : 0;
+    fs << kFallbackToPrevForFailedExtractionLabel
+       << (int)fallback_to_prev_for_failed_extraction_int;
     fs << "}";
   }
 
   virtual void read(const cv::FileNode &node) override {
     data_.far_feature_threshold_ = node[kFarFeatureThresholdLabel];
     data_.min_col_norm_ = node[kMinColNormLabel];
+
+    int fallback_to_prev_for_failed_extraction_int =
+        node[kFallbackToPrevForFailedExtractionLabel];
+    data_.fallback_to_prev_for_failed_extraction_ =
+        fallback_to_prev_for_failed_extraction_int != 0;
   }
 
  protected:
@@ -1390,6 +1412,8 @@ class SerializableLongTermMapExtractionTunableParams
   inline static const std::string kFarFeatureThresholdLabel =
       "far_feature_threshold";
   inline static const std::string kMinColNormLabel = "min_col_norm";
+  inline static const std::string kFallbackToPrevForFailedExtractionLabel =
+      "fallback_to_prev_for_failed_extraction";
 };
 
 static void write(cv::FileStorage &fs,
