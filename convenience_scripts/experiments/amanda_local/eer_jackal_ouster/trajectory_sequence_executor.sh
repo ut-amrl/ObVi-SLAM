@@ -9,14 +9,15 @@ orb_post_process_base_directory=${root_data_dir}orb_post_process/
 results_root_directory=${root_data_dir}ut_vslam_results/
 trajectory_sequence_file_directory=/home/amanda/workspaces/ut_vslam/sequences/
 lego_loam_out_root_dir=${root_data_dir}lego_loam_out/
+bounding_box_post_process_base_directory=${root_data_dir}bounding_box_data/
 
 odometry_topic="/jackal_velocity_controller/odom"
 
 #sequence_file_base_name="end_of_may_demo_v1"
-sequence_file_base_name="amazon_0523_v0_bag2_only"
+sequence_file_base_name="_2023_06_22_21_51_46"
 #config_file_base_name="tentative_11"
 #config_file_base_name="tentative_11_wider_trees_lamps"
-config_file_base_name="base4_old_single_thread_higher_jacobian_threshold"
+config_file_base_name="base7a_2_first_10"
 
 python3 src/evaluation/ltm_trajectory_sequence_executor.py \
     --config_file_directory ${config_file_directory} \
@@ -31,4 +32,6 @@ python3 src/evaluation/ltm_trajectory_sequence_executor.py \
     --lego_loam_out_root_dir ${lego_loam_out_root_dir} \
     --odometry_topic ${odometry_topic} \
     --output_ellipsoid_debug --output_jacobian_debug --output_bb_assoc --run_rviz --record_viz_rosbag --log_to_file \
-    --output_checkpoints
+    --output_checkpoints \
+#    --bounding_box_post_process_base_directory ${bounding_box_post_process_base_directory} \
+#

@@ -24,7 +24,7 @@ class SingleTrajectoryExecutableParamConstants:
     visualFeatureResultsFile = "visual_feature_results_file"
     debugImagesOutputDirectory = "debug_images_output_directory"
     paramsConfigFile = "params_config_file"
-    boundingBoxesByNodeIdFile = "bounding_boxes_by_node_id_file"
+    boundingBoxesByTimestampFile = "bounding_boxes_by_timestamp_file"
     ellipsoidsResultsFile = "ellipsoids_results_file"
     robotPosesResultsFile = "robot_poses_results_file"
     logsDirectory = "logs_directory"
@@ -54,7 +54,7 @@ class SingleTrajectoryExecutionConfig:
                  forceRunOrbSlamPostProcess=False, outputEllipsoidDebugInfo=True, outputJacobianDebugInfo=True,
                  outputBbAssocInfo=True, runRviz=False, recordVisualizationRosbag=False, logToFile=False,
                  forceRerunInterpolator=False, outputCheckpoints=False, readCheckpoints=False,
-                 disableLogToStdErr=False):
+                 disableLogToStdErr=False, boundingBoxesPostProcessBaseDirectory=None):
         self.configFileDirectory = configFileDirectory
         self.orbSlamOutDirectory = orbSlamOutDirectory
         self.rosbagDirectory = rosbagDirectory
@@ -80,6 +80,7 @@ class SingleTrajectoryExecutionConfig:
         self.outputCheckpoints = outputCheckpoints
         self.readCheckpoints = readCheckpoints
         self.disableLogToStdErr = disableLogToStdErr
+        self.boundingBoxesPostProcessBaseDirectory = boundingBoxesPostProcessBaseDirectory
 
 
 class OfflineRunnerArgs:
@@ -89,7 +90,7 @@ class OfflineRunnerArgs:
                  ltm_opt_jacobian_info_directory, visual_feature_results_file, debug_images_output_directory,
                  params_config_file, ellipsoids_results_file, robot_poses_results_file, logs_directory, gt_poses_file,
                  gt_extrinsics_file, output_checkpoints_dir, input_checkpoints_dir, disable_log_to_stderr,
-                 bounding_boxes_by_node_id_file=None):
+                 bounding_boxes_by_timestamp_file=None):
         self.param_prefix = param_prefix
         self.intrinsics_file = intrinsics_file
         self.extrinsics_file = extrinsics_file
@@ -107,7 +108,7 @@ class OfflineRunnerArgs:
         self.ellipsoids_results_file = ellipsoids_results_file
         self.robot_poses_results_file = robot_poses_results_file
         self.logs_directory = logs_directory
-        self.bounding_boxes_by_node_id_file = bounding_boxes_by_node_id_file
+        self.bounding_boxes_by_timestamp_file = bounding_boxes_by_timestamp_file
         self.gt_poses_file = gt_poses_file
         self.gt_extrinsics_file = gt_extrinsics_file
         self.output_checkpoints_dir = output_checkpoints_dir
@@ -345,6 +346,12 @@ def generateOfflineRunnerArgsFromExecutionConfigAndPreprocessOrbDataIfNecessary(
         gt_poses_file = interpolatedPosesFileName
         gt_extrinsics_file = gtExtrinsicsRelBlFile
 
+    boundingBoxesByTimestampFile = None
+    if (executionConfig.boundingBoxesPostProcessBaseDirectory is not None):
+        boundingBoxesByTimestampFile = FileStructureUtils.ensureDirectoryEndsWithSlash(
+            executionConfig.boundingBoxesPostProcessBaseDirectory) + FileStructureConstants.boundingBoxFilePrefix + \
+                                       rosbagBaseName + FileStructureConstants.csvExtension
+
     offlineArgs = OfflineRunnerArgs(param_prefix=param_prefix,
                                     intrinsics_file=intrinsicsFile,
                                     extrinsics_file=extrinsicsFile,
@@ -366,7 +373,8 @@ def generateOfflineRunnerArgsFromExecutionConfigAndPreprocessOrbDataIfNecessary(
                                     gt_extrinsics_file=gt_extrinsics_file,
                                     output_checkpoints_dir=outputCheckpointsDir,
                                     input_checkpoints_dir=inputCheckpointsDir,
-                                    disable_log_to_stderr=executionConfig.disableLogToStdErr)
+                                    disable_log_to_stderr=executionConfig.disableLogToStdErr,
+                                    bounding_boxes_by_timestamp_file=boundingBoxesByTimestampFile)
     return (param_prefix, offlineArgs)
 
 
@@ -399,8 +407,8 @@ def runTrajectoryFromOfflineArgs(offlineArgs):
                                            offlineArgs.debug_images_output_directory)
     argsString += createCommandStrAddition(SingleTrajectoryExecutableParamConstants.paramsConfigFile,
                                            offlineArgs.params_config_file)
-    argsString += createCommandStrAddition(SingleTrajectoryExecutableParamConstants.boundingBoxesByNodeIdFile,
-                                           offlineArgs.bounding_boxes_by_node_id_file)
+    argsString += createCommandStrAddition(SingleTrajectoryExecutableParamConstants.boundingBoxesByTimestampFile,
+                                           offlineArgs.bounding_boxes_by_timestamp_file)
     argsString += createCommandStrAddition(SingleTrajectoryExecutableParamConstants.ellipsoidsResultsFile,
                                            offlineArgs.ellipsoids_results_file)
     argsString += createCommandStrAddition(SingleTrajectoryExecutableParamConstants.robotPosesResultsFile,
@@ -546,6 +554,10 @@ def singleTrajectoryArgParse():
     parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.odometryTopicBaseArgName),
                         required=False,
                         help=CmdLineArgConstants.odometryTopicHelp)
+    parser.add_argument(
+        CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.boundingBoxesPostProcessBaseDirectoryBaseArgName),
+        required=False,
+        help=CmdLineArgConstants.boundingBoxesPostProcessBaseDirectoryHelp)
 
     # Boolean arguments
     parser.add_argument(
@@ -674,7 +686,9 @@ def singleTrajectoryArgParse():
         forceRerunInterpolator=args_dict[CmdLineArgConstants.forceRerunInterpolatorBaseArgName],
         outputCheckpoints=args_dict[CmdLineArgConstants.outputCheckpointsBaseArgName],
         readCheckpoints=args_dict[CmdLineArgConstants.readCheckpointsBaseArgName],
-        disableLogToStdErr=args_dict[CmdLineArgConstants.disableLogToStdErrBaseArgName])
+        disableLogToStdErr=args_dict[CmdLineArgConstants.disableLogToStdErrBaseArgName],
+        boundingBoxesPostProcessBaseDirectory=args_dict[
+            CmdLineArgConstants.boundingBoxesPostProcessBaseDirectoryBaseArgName])
 
 
 if __name__ == "__main__":

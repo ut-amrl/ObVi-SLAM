@@ -113,21 +113,21 @@ bool runFullOptimization(
                   CameraId,
                   std::vector<std::pair<BbCornerPair<double>,
                                         std::optional<double>>>>>>();
-  for (const auto &bounding_boxes_for_frame : bounding_boxes) {
-    for (const auto &bounding_boxes_for_frame_and_cam :
-         bounding_boxes_for_frame.second) {
-      std::vector<std::pair<BbCornerPair<double>, std::optional<double>>>
-          observed_corners_for_frame_and_cam;
-      for (const RawBoundingBox &bb : bounding_boxes_for_frame_and_cam.second) {
-        observed_corners_for_frame_and_cam.emplace_back(std::make_pair(
-            bb.pixel_corner_locations_, bb.detection_confidence_));
-      }
-      (*all_observed_corner_locations_with_uncertainty)
-          [bounding_boxes_for_frame.first]
-          [bounding_boxes_for_frame_and_cam.first] =
-              observed_corners_for_frame_and_cam;
-    }
-  }
+//  for (const auto &bounding_boxes_for_frame : bounding_boxes) {
+//    for (const auto &bounding_boxes_for_frame_and_cam :
+//         bounding_boxes_for_frame.second) {
+//      std::vector<std::pair<BbCornerPair<double>, std::optional<double>>>
+//          observed_corners_for_frame_and_cam;
+//      for (const RawBoundingBox &bb : bounding_boxes_for_frame_and_cam.second) {
+//        observed_corners_for_frame_and_cam.emplace_back(std::make_pair(
+//            bb.pixel_corner_locations_, bb.detection_confidence_));
+//      }
+//      (*all_observed_corner_locations_with_uncertainty)
+//          [bounding_boxes_for_frame.first]
+//          [bounding_boxes_for_frame_and_cam.first] =
+//              observed_corners_for_frame_and_cam;
+//    }
+//  }
 
   std::unordered_map<CameraId, std::pair<double, double>>
       img_heights_and_widths;

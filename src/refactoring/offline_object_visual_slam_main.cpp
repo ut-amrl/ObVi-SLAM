@@ -4,6 +4,7 @@
 #include <base_lib/pose_utils.h>
 #include <debugging/ground_truth_utils.h>
 #include <file_io/bounding_box_by_node_id_io.h>
+#include <file_io/bounding_box_by_timestamp_io.h>
 #include <file_io/camera_extrinsics_with_id_io.h>
 #include <file_io/camera_info_io_utils.h>
 #include <file_io/camera_intrinsics_with_id_io.h>
@@ -57,9 +58,9 @@ typedef std::pair<vslam_types_refactor::FactorType,
 DEFINE_string(param_prefix, "", "param_prefix");
 DEFINE_string(intrinsics_file, "", "File with camera intrinsics");
 DEFINE_string(extrinsics_file, "", "File with camera extrinsics");
-DEFINE_string(bounding_boxes_by_node_id_file,
+DEFINE_string(bounding_boxes_by_timestamp_file,
               "",
-              "File with bounding box observations by node id");
+              "File with bounding box observations by timestamp");
 DEFINE_string(poses_by_node_id_file,
               "",
               "File with initial robot pose estimates");
@@ -77,7 +78,6 @@ DEFINE_string(
 DEFINE_string(long_term_map_output,
               "",
               "File name to output the long-term map to.");
-DEFINE_double(min_confidence, 0.2, "Minimum confidence");
 DEFINE_string(low_level_feats_dir,
               "",
               "Directory that contains low level features");
@@ -123,6 +123,60 @@ DEFINE_bool(disable_log_to_stderr,
 std::unordered_map<
     vtr::FrameId,
     std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>>
+readBoundingBoxesByTimestampFromFile(
+    const std::string &bounding_boxes_file_name,
+    const std::string &nodes_by_timestamp_file) {
+  std::vector<file_io::BoundingBoxWithTimestamp> bounding_boxes_by_timestamp;
+  file_io::readBoundingBoxWithTimestampsFromFile(bounding_boxes_file_name,
+                                                 bounding_boxes_by_timestamp);
+  LOG(INFO) << bounding_boxes_by_timestamp.size() << " bounding boxes read";
+
+  std::vector<file_io::NodeIdAndTimestamp> nodes_by_timestamps_vec;
+  util::BoostHashMap<pose::Timestamp, vslam_types_refactor::FrameId>
+      nodes_for_timestamps_map;
+  file_io::readNodeIdsAndTimestampsFromFile(nodes_by_timestamp_file,
+                                            nodes_by_timestamps_vec);
+  std::unordered_map<
+      vtr::FrameId,
+      std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>>
+      bb_map;
+  for (const file_io::NodeIdAndTimestamp &raw_node_id_and_timestamp :
+       nodes_by_timestamps_vec) {
+    nodes_for_timestamps_map[std::make_pair(
+        raw_node_id_and_timestamp.seconds_,
+        raw_node_id_and_timestamp.nano_seconds_)] =
+        raw_node_id_and_timestamp.node_id_;
+    bb_map[raw_node_id_and_timestamp.node_id_] = {};
+  }
+
+
+  for (const file_io::BoundingBoxWithTimestamp &raw_bb :
+       bounding_boxes_by_timestamp) {
+    vtr::RawBoundingBox bb;
+    pose::Timestamp stamp_for_bb =
+        std::make_pair(raw_bb.seconds, raw_bb.nano_seconds);
+    if (nodes_for_timestamps_map.find(stamp_for_bb) ==
+        nodes_for_timestamps_map.end()) {
+      // No frame for timestamp
+      continue;
+    }
+
+    bb.pixel_corner_locations_ = std::make_pair(
+        vtr::PixelCoord<double>(raw_bb.min_pixel_x, raw_bb.min_pixel_y),
+        vtr::PixelCoord<double>(raw_bb.max_pixel_x, raw_bb.max_pixel_y));
+    bb.semantic_class_ = raw_bb.semantic_class;
+    bb.detection_confidence_ = raw_bb.detection_confidence;
+
+    bb_map[nodes_for_timestamps_map.at(stamp_for_bb)][raw_bb.camera_id]
+        .emplace_back(bb);
+  }
+
+  return bb_map;
+}
+
+std::unordered_map<
+    vtr::FrameId,
+    std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>>
 readBoundingBoxesFromFile(const std::string &file_name) {
   std::vector<file_io::BoundingBoxWithNodeId> bounding_boxes_by_node_id;
   file_io::readBoundingBoxesWithNodeIdFromFile(file_name,
@@ -133,15 +187,13 @@ readBoundingBoxesFromFile(const std::string &file_name) {
       bb_map;
   for (const file_io::BoundingBoxWithNodeId &raw_bb :
        bounding_boxes_by_node_id) {
-    if (raw_bb.detection_confidence >= FLAGS_min_confidence) {
-      vtr::RawBoundingBox bb;
-      bb.pixel_corner_locations_ = std::make_pair(
-          vtr::PixelCoord<double>(raw_bb.min_pixel_x, raw_bb.min_pixel_y),
-          vtr::PixelCoord<double>(raw_bb.max_pixel_x, raw_bb.max_pixel_y));
-      bb.semantic_class_ = raw_bb.semantic_class;
-      bb.detection_confidence_ = raw_bb.detection_confidence;
-      bb_map[raw_bb.node_id][raw_bb.camera_id].emplace_back(bb);
-    }
+    vtr::RawBoundingBox bb;
+    bb.pixel_corner_locations_ = std::make_pair(
+        vtr::PixelCoord<double>(raw_bb.min_pixel_x, raw_bb.min_pixel_y),
+        vtr::PixelCoord<double>(raw_bb.max_pixel_x, raw_bb.max_pixel_y));
+    bb.semantic_class_ = raw_bb.semantic_class;
+    bb.detection_confidence_ = raw_bb.detection_confidence;
+    bb_map[raw_bb.node_id][raw_bb.camera_id].emplace_back(bb);
   }
   return bb_map;
 }
@@ -697,9 +749,11 @@ int main(int argc, char **argv) {
       vtr::FrameId,
       std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>>
       init_bounding_boxes;
-  if (!FLAGS_bounding_boxes_by_node_id_file.empty()) {
-    init_bounding_boxes =
-        readBoundingBoxesFromFile(FLAGS_bounding_boxes_by_node_id_file);
+  if (!FLAGS_bounding_boxes_by_timestamp_file.empty() &&
+      std::filesystem::exists(FLAGS_bounding_boxes_by_timestamp_file)) {
+    init_bounding_boxes = readBoundingBoxesByTimestampFromFile(
+        FLAGS_bounding_boxes_by_timestamp_file, FLAGS_nodes_by_timestamp_file);
+//            readBoundingBoxesFromFile(FLAGS_bounding_boxes_by_node_id_file);
   }
   std::unordered_map<
       vtr::FrameId,
@@ -823,13 +877,20 @@ int main(int argc, char **argv) {
                                             std::vector<vtr::RawBoundingBox>>
                              &bounding_boxes_by_cam) {
 #ifdef RUN_TIMERS
-        CumulativeFunctionTimer::Invocation invoc(
-            vtr::CumulativeTimerFactory::getInstance()
-                .getOrCreateFunctionTimer(vtr::kTimerNameBbQuerier)
-                .get());
+    CumulativeFunctionTimer::Invocation invoc(
+        vtr::CumulativeTimerFactory::getInstance()
+            .getOrCreateFunctionTimer(vtr::kTimerNameBbQuerier)
+            .get());
 #endif
-        return bb_querier.retrieveBoundingBoxes(
-            frame_id_to_query_for, input_prob_data, bounding_boxes_by_cam);
+        if (vtr::retrievePrecomputedBoundingBoxes(frame_id_to_query_for,
+                                                  input_prob_data,
+                                                  bounding_boxes_by_cam)) {
+          return true;
+
+        } else {
+          return bb_querier.retrieveBoundingBoxes(
+              frame_id_to_query_for, input_prob_data, bounding_boxes_by_cam);
+        }
       };
 
   std::optional<std::vector<vtr::Pose3D<double>>> gt_trajectory =

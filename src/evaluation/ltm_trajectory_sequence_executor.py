@@ -14,7 +14,8 @@ class TrajectorySequenceExecutionConfig:
                  forceRunOrbSlamPostProcess=False, outputEllipsoidDebugInfo=True, outputJacobianDebugInfo=True,
                  outputBbAssocInfo=True, runRviz=False, recordVisualizationRosbag=False, logToFile=False,
                  forceRerunInterpolator=False, outputCheckpoints=False, readCheckpoints=False,
-                 disableLogToStdErr=False):
+                 disableLogToStdErr=False,
+                 boundingBoxesPostProcessBaseDirectory=None):
         self.configFileDirectory = configFileDirectory
         self.orbSlamOutDirectory = orbSlamOutDirectory
         self.rosbagDirectory = rosbagDirectory
@@ -37,6 +38,7 @@ class TrajectorySequenceExecutionConfig:
         self.outputCheckpoints = outputCheckpoints
         self.readCheckpoints = readCheckpoints
         self.disableLogToStdErr = disableLogToStdErr
+        self.boundingBoxesPostProcessBaseDirectory = boundingBoxesPostProcessBaseDirectory
 
 
 def runTrajectorySequence(sequenceExecutionConfig):
@@ -75,7 +77,8 @@ def runTrajectorySequence(sequenceExecutionConfig):
             forceRerunInterpolator=sequenceExecutionConfig.forceRerunInterpolator,
             outputCheckpoints=sequenceExecutionConfig.outputCheckpoints,
             readCheckpoints=sequenceExecutionConfig.readCheckpoints,
-            disableLogToStdErr=sequenceExecutionConfig.disableLogToStdErr)
+            disableLogToStdErr=sequenceExecutionConfig.disableLogToStdErr,
+            boundingBoxesPostProcessBaseDirectory=sequenceExecutionConfig.boundingBoxesPostProcessBaseDirectory)
         runSingleTrajectory(trajectoryExecutionConfig)
         prevTrajectoryIdentifier = bagPrefix + bagName
 
@@ -118,6 +121,10 @@ def trajectorySequenceArgParse():
     parser.add_argument(CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.odometryTopicBaseArgName),
                         required=False,
                         help=CmdLineArgConstants.odometryTopicHelp)
+    parser.add_argument(
+        CmdLineArgConstants.prefixWithDashDash(CmdLineArgConstants.boundingBoxesPostProcessBaseDirectoryBaseArgName),
+        required=False,
+        help=CmdLineArgConstants.boundingBoxesPostProcessBaseDirectoryHelp)
 
     # Boolean arguments
     parser.add_argument(
@@ -240,7 +247,8 @@ def trajectorySequenceArgParse():
         forceRerunInterpolator=args_dict[CmdLineArgConstants.forceRerunInterpolatorBaseArgName],
         outputCheckpoints=args_dict[CmdLineArgConstants.outputCheckpointsBaseArgName],
         readCheckpoints=args_dict[CmdLineArgConstants.readCheckpointsBaseArgName],
-        disableLogToStdErr=args_dict[CmdLineArgConstants.disableLogToStdErrBaseArgName])
+        disableLogToStdErr=args_dict[CmdLineArgConstants.disableLogToStdErrBaseArgName],
+        boundingBoxesPostProcessBaseDirectory=args_dict[CmdLineArgConstants.boundingBoxesPostProcessBaseDirectoryBaseArgName])
 
 
 if __name__ == "__main__":
