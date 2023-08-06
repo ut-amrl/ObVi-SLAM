@@ -31,6 +31,8 @@ class FileStructureConstants:
 
     waypointsTimestampFilePrefix = "waypoint_stamps_v"
 
+    boundingBoxFilePrefix = "bounding_boxes_by_timestamp_"
+
     # File extensions
     jsonExtension = ".json"
     bagSuffix = ".bag"

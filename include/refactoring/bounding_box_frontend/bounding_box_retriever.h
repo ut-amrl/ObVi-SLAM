@@ -24,8 +24,10 @@ bool retrievePrecomputedBoundingBoxes(
       bb_obs = input_problem_data.getBoundingBoxes();
   if (bb_obs.find(frame_to_query_for) != bb_obs.end()) {
     bounding_boxes_for_frame = bb_obs.at(frame_to_query_for);
+    return true;
+  } else {
+    return false;
   }
-  return true;
 }
 
 class YoloBoundingBoxQuerier {
@@ -62,6 +64,59 @@ class YoloBoundingBoxQuerier {
         frame_to_query_for, images_by_cam_for_frame, bounding_boxes_for_frame);
   }
 
+  bool retrieveBoundingBoxesForImage(
+      const sensor_msgs::Image::ConstPtr &curr_img,
+      std::vector<RawBoundingBox> &bounding_boxes_for_image) {
+    amrl_msgs::ObjectDetectionSrv obj_det_srv_call;
+    obj_det_srv_call.request.query_image = *curr_img;
+    if (!bounding_box_client_.isValid()) {
+      if (!regenerateClient()) {
+        LOG(ERROR) << "Tried to regenerate bounding box query client, but "
+                      "failed. Exiting. ";
+        exit(1);
+      }
+    }
+    if (bounding_box_client_.call(obj_det_srv_call)) {
+      for (size_t bb_idx = 0;
+           bb_idx < obj_det_srv_call.response.bounding_boxes.bboxes.size();
+           bb_idx++) {
+        amrl_msgs::BBox2DMsg bb =
+            obj_det_srv_call.response.bounding_boxes.bboxes[bb_idx];
+        RawBoundingBox bounding_box;
+        bool valid_corners = true;
+        for (size_t corner_idx = 0; corner_idx < 4; corner_idx++) {
+          if (bb.xyxy[corner_idx] < 0) {
+            LOG(WARNING) << "Bounding box corner pixel has coordinate less "
+                            "than 0. Discarding";
+            valid_corners = false;
+            break;
+          }
+          double corner_max_dimension =
+              (corner_idx % 2) ? curr_img->height : curr_img->width;
+          if (bb.xyxy[corner_idx] > corner_max_dimension) {
+            LOG(WARNING) << "Bounding box corner pixel has coordinate "
+                         << bb.xyxy[corner_idx] << " higher than max dimension "
+                         << corner_max_dimension << ". Discarding";
+            valid_corners = false;
+            break;
+          }
+        }
+        if (!valid_corners) {
+          continue;
+        }
+        bounding_box.semantic_class_ = bb.label;
+        bounding_box.detection_confidence_ = bb.conf;
+        bounding_box.pixel_corner_locations_ =
+            std::make_pair(PixelCoord<double>(bb.xyxy[0], bb.xyxy[1]),
+                           PixelCoord<double>(bb.xyxy[2], bb.xyxy[3]));
+        bounding_boxes_for_image.emplace_back(bounding_box);
+      }
+      return true;
+    } else {
+      return false;
+    }
+  }
+
  private:
   constexpr const static double kWaitForServiceMaxDuration = 10;
 
@@ -94,53 +149,11 @@ class YoloBoundingBoxQuerier {
       std::unordered_map<CameraId, std::vector<RawBoundingBox>>
           &bounding_boxes_for_frame) {
     for (const auto &cam_id_and_img : cam_ids_and_images) {
-      amrl_msgs::ObjectDetectionSrv obj_det_srv_call;
       sensor_msgs::Image::ConstPtr curr_img = cam_id_and_img.second;
-      obj_det_srv_call.request.query_image = *curr_img;
-      if (!bounding_box_client_.isValid()) {
-        if (!regenerateClient()) {
-          LOG(ERROR) << "Tried to regenerate bounding box query client, but "
-                        "failed. Exiting. ";
-          exit(1);
-        }
-      }
-      if (bounding_box_client_.call(obj_det_srv_call)) {
-        std::vector<RawBoundingBox> bounding_boxes_for_camera;
-        for (size_t bb_idx = 0;
-             bb_idx < obj_det_srv_call.response.bounding_boxes.bboxes.size();
-             bb_idx++) {
-          amrl_msgs::BBox2DMsg bb =
-              obj_det_srv_call.response.bounding_boxes.bboxes[bb_idx];
-          RawBoundingBox bounding_box;
-          bool valid_corners = true;
-          for (size_t corner_idx = 0; corner_idx < 4; corner_idx++) {
-            if (bb.xyxy[corner_idx] < 0) {
-              LOG(WARNING) << "Bounding box corner pixel has coordinate less "
-                              "than 0. Discarding";
-              valid_corners = false;
-              break;
-            }
-            double corner_max_dimension =
-                (corner_idx % 2) ? curr_img->height : curr_img->width;
-            if (bb.xyxy[corner_idx] >= corner_max_dimension) {
-              LOG(WARNING) << "Bounding box corner pixel has coordinate "
-                           << bb.xyxy[corner_idx]
-                           << " higher than max dimension "
-                           << corner_max_dimension << ". Discarding";
-              valid_corners = false;
-              break;
-            }
-          }
-          if (!valid_corners) {
-            continue;
-          }
-          bounding_box.semantic_class_ = bb.label;
-          bounding_box.detection_confidence_ = bb.conf;
-          bounding_box.pixel_corner_locations_ =
-              std::make_pair(PixelCoord<double>(bb.xyxy[0], bb.xyxy[1]),
-                             PixelCoord<double>(bb.xyxy[2], bb.xyxy[3]));
-          bounding_boxes_for_camera.emplace_back(bounding_box);
-        }
+
+      std::vector<RawBoundingBox> bounding_boxes_for_camera;
+
+      if (retrieveBoundingBoxesForImage(curr_img, bounding_boxes_for_camera)) {
         bounding_boxes_for_frame[cam_id_and_img.first] =
             bounding_boxes_for_camera;
       } else {

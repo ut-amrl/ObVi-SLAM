@@ -154,6 +154,9 @@ target_link_libraries(waypoint_timestamp_extractor ut_vslam ${LIBS})
 ROSBUILD_ADD_EXECUTABLE(sequence_file_writer src/data_preprocessing_utils/sequence_file_writer.cpp)
 target_link_libraries(sequence_file_writer ut_vslam ${LIBS})
 
+ROSBUILD_ADD_EXECUTABLE(write_bounding_boxes_for_rosbag_to_file src/data_preprocessing_utils/write_bounding_boxes_for_rosbag_to_file.cpp)
+target_link_libraries(write_bounding_boxes_for_rosbag_to_file ut_vslam ${LIBS})
+
 IF (GENERATE_UNITTESTS)
     MESSAGE("Adding test executable")
     SET(UT_VSLAM_UNITTEST_NAME "ut_vslam_tests"

@@ -169,7 +169,7 @@ int main(int argc, char **argv) {
 
   LOG(INFO) << "Prefix: " << param_prefix;
 
-  ros::init(argc, argv, node_prefix + "orb_trajectory_sparsifier");
+  ros::init(argc, argv, "a_" + node_prefix + "orb_trajectory_sparsifier");
   ros::NodeHandle n;
 
   std::string input_data_path = file_io::ensureDirectoryPathEndsWithSlash(

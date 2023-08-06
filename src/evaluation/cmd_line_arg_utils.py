@@ -4,6 +4,7 @@ class CmdLineArgConstants:
     orbSlamOutDirectoryBaseArgName = 'orb_slam_out_directory'
     rosbagDirectoryBaseArgName = 'rosbag_file_directory'
     orbPostProcessBaseDirectoryBaseArgName = 'orb_post_process_base_directory'
+    boundingBoxesPostProcessBaseDirectoryBaseArgName = 'bounding_box_post_process_base_directory'
     calibrationFileDirectoryBaseArgName = 'calibration_file_directory'
     resultsRootDirectoryBaseArgName = 'results_root_directory'
     configFileBaseNameBaseArgName = 'config_file_base_name'
@@ -18,6 +19,7 @@ class CmdLineArgConstants:
 
     # Boolean arg names
     forceRunOrbSlamPostProcessBaseArgName = 'force_run_orb_post_process'
+    forceRerunBoundingBoxGenerationBaseArgName = 'force_rerun_bounding_box_generation'
     outputEllipsoidDebugInfoBaseArgName = 'output_ellipsoid_debug'
     outputJacobianDebugInfoBaseArgName = 'output_jacobian_debug'
     outputBbAssocInfoBaseArgName = 'output_bb_assoc'
@@ -40,6 +42,8 @@ class CmdLineArgConstants:
         "Base directory where orbslam post processing files will be stored. Under this directory, there should be a " \
         "directory for each configuration (directory will have config file name) and beneath that, there will be a " \
         "directory for each bag"
+    boundingBoxesPostProcessBaseDirectoryHelp = \
+        "Base directory where bounding boxes will be stored for each rosbag"
     calibrationFileDirectoryHelp = \
         "Directory containing the intrinsics and extrinsics files. In this directory, the intrinsics file is named " \
         "'camera_matrix.txt' and the extrinsics file is named 'extrinsics.txt'"
@@ -77,6 +81,7 @@ class CmdLineArgConstants:
     maxFrameIdHelp = "Maximum frame id to use"
 
     forceRunOrbSlamPostProcessHelp = "Force running the orb slam post processor even if there is data there"
+    forceRerunBoundingBoxGenerationHelp = "Force running the bounding box writer"
     outputEllipsoidDebugInfoHelp = "Output the ellipsoid debug data to file while running"
     outputJacobianDebugInfoHelp = "Output the jacobian debug data to file while running"
     outputBbAssocInfoHelp = "Output the bounding box associations at the end of the trajectory"
