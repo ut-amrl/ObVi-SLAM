@@ -149,7 +149,6 @@ readBoundingBoxesByTimestampFromFile(
     bb_map[raw_node_id_and_timestamp.node_id_] = {};
   }
 
-
   for (const file_io::BoundingBoxWithTimestamp &raw_bb :
        bounding_boxes_by_timestamp) {
     vtr::RawBoundingBox bb;
@@ -748,27 +747,16 @@ int main(int argc, char **argv) {
   std::unordered_map<
       vtr::FrameId,
       std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>>
-      init_bounding_boxes;
-  if (!FLAGS_bounding_boxes_by_timestamp_file.empty() &&
-      std::filesystem::exists(FLAGS_bounding_boxes_by_timestamp_file)) {
-    init_bounding_boxes = readBoundingBoxesByTimestampFromFile(
-        FLAGS_bounding_boxes_by_timestamp_file, FLAGS_nodes_by_timestamp_file);
-//            readBoundingBoxesFromFile(FLAGS_bounding_boxes_by_node_id_file);
-  }
-  std::unordered_map<
-      vtr::FrameId,
-      std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>>
       bounding_boxes;
-  // tODO fix this
-  for (const auto &frame_id_bb_entry : init_bounding_boxes) {
-    for (const auto &camera_bb_entry : frame_id_bb_entry.second) {
-      for (const vtr::RawBoundingBox &bb : camera_bb_entry.second) {
-        if ((bb.pixel_corner_locations_.second.x() < 1280) &&
-            (bb.pixel_corner_locations_.second.y() < 720)) {
-          bounding_boxes[frame_id_bb_entry.first][camera_bb_entry.first]
-              .emplace_back(bb);
-        }
-      }
+  if (!FLAGS_bounding_boxes_by_timestamp_file.empty()) {
+    if (std::filesystem::exists(FLAGS_bounding_boxes_by_timestamp_file)) {
+      bounding_boxes = readBoundingBoxesByTimestampFromFile(
+          FLAGS_bounding_boxes_by_timestamp_file,
+          FLAGS_nodes_by_timestamp_file);
+      //            readBoundingBoxesFromFile(FLAGS_bounding_boxes_by_node_id_file);
+    } else {
+      LOG(WARNING) << "Bounding box file was provided but does not exist "
+                   << FLAGS_bounding_boxes_by_timestamp_file;
     }
   }
 
@@ -877,10 +865,10 @@ int main(int argc, char **argv) {
                                             std::vector<vtr::RawBoundingBox>>
                              &bounding_boxes_by_cam) {
 #ifdef RUN_TIMERS
-    CumulativeFunctionTimer::Invocation invoc(
-        vtr::CumulativeTimerFactory::getInstance()
-            .getOrCreateFunctionTimer(vtr::kTimerNameBbQuerier)
-            .get());
+        CumulativeFunctionTimer::Invocation invoc(
+            vtr::CumulativeTimerFactory::getInstance()
+                .getOrCreateFunctionTimer(vtr::kTimerNameBbQuerier)
+                .get());
 #endif
         if (vtr::retrievePrecomputedBoundingBoxes(frame_id_to_query_for,
                                                   input_prob_data,
@@ -888,6 +876,12 @@ int main(int argc, char **argv) {
           return true;
 
         } else {
+#ifdef RUN_TIMERS
+          CumulativeFunctionTimer::Invocation invoc(
+              vtr::CumulativeTimerFactory::getInstance()
+                  .getOrCreateFunctionTimer(vtr::kTimerNameFromYoloBbQuerier)
+                  .get());
+#endif
           return bb_querier.retrieveBoundingBoxes(
               frame_id_to_query_for, input_prob_data, bounding_boxes_by_cam);
         }

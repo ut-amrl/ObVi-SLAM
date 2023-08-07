@@ -15,6 +15,7 @@ orb_post_process_base_directory=${root_data_dir}orb_post_process/
 results_root_directory=${root_data_dir}ut_vslam_results/
 trajectory_sequence_file_directory=${SLAM_DIR}sequences/
 lego_loam_out_root_dir=${root_data_dir}lego_loam_out/
+bounding_box_post_process_base_directory=${root_data_dir}bounding_box_data/
 
 cd $YOLO_DIR
 (python3 detect_ros.py --weights $yolo_weight --img 960 --conf 0.01 --device 4) &
@@ -43,6 +44,7 @@ python3 src/evaluation/ltm_trajectory_sequence_executor.py \
     --sequence_file_base_name ${sequence_file_base_name} \
     --lego_loam_out_root_dir ${lego_loam_out_root_dir} \
     --odometry_topic ${odometry_topic} \
+    --bounding_box_post_process_base_directory ${bounding_box_post_process_base_directory} \
     --output_ellipsoid_debug --output_jacobian_debug --output_bb_assoc --record_viz_rosbag --log_to_file \
     --output_checkpoints --disable_log_to_stderr
 

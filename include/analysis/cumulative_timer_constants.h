@@ -16,6 +16,7 @@ const std::string kTimerNameVisualFrontendFunction =
 const std::string kTimerNameResidualCreator = "residual_creator_top";
 const std::string kTimerNameBbContextRetriever = "bb_context_retriever";
 const std::string kTimerNameBbQuerier = "bb_querier";
+const std::string kTimerNameFromYoloBbQuerier = "from_yolo_bb_querier";
 const std::string kTimerNameFrameDataAdderTopLevel =
     "frame_data_adder_top_level";
 const std::string kTimerNameOptimizationIteration = "optimization_iteration";
