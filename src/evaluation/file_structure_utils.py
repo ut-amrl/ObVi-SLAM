@@ -45,6 +45,11 @@ class FileStructureUtils:
         os.system("mkdir -p " + directoryName)
 
     @staticmethod
+    def makeDirectoryIfNotExists(directoryName):
+        if (not os.path.exists(directoryName)):
+            FileStructureUtils.makeDirectory(directoryName)
+
+    @staticmethod
     def ensureDirectoryEndsWithSlash(directoryName):
         if (len(directoryName) == 0):
             raise Exception("Directory name can't be empty")

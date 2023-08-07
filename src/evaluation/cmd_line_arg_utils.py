@@ -29,6 +29,8 @@ class CmdLineArgConstants:
     outputCheckpointsBaseArgName = 'output_checkpoints'
     readCheckpointsBaseArgName = 'read_checkpoints'
     disableLogToStdErrBaseArgName = "disable_log_to_stderr"
+    serverResultsDirBaseArgName = "server_results_dir"
+    copiedFromServerDestDirBaseArgName = "copied_from_server_dest_dir"
 
     configFileDirectoryHelp = \
         "Directory where config files are stored"
@@ -93,6 +95,9 @@ class CmdLineArgConstants:
                             "is running, false if the optimization should "
     readFromCheckpointsHelp = "True if the optimization should resume from current checkpoints if available, false if" \
                               " the optimization should start from the beginning"
+
+    serverResultsDirHelp = "location of the main results directory on the server"
+    copiedFromServerDestDirHelp = "location to which to copy results on the server"
 
     # Constants specific to running lego loam--------------------------------
     legoLoamOutRootDirBaseArgName = 'lego_loam_out_root_dir'
