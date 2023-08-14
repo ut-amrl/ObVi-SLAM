@@ -6,6 +6,7 @@
 #define UT_VSLAM_VSLAM_TYPES_MATH_UTIL_H
 
 #include <base_lib/basic_utils.h>
+#include <math/math_util.h>
 #include <refactoring/types/vslam_basic_types_refactor.h>
 #include <refactoring/types/vslam_math_util.h>
 
@@ -66,6 +67,24 @@ Pose3D<NumType> combinePoses(const Pose3D<NumType>& pose_1,
   Transform6Dof<NumType> pose_2_rel_to_1_mat = convertToAffine(pose_2_rel_to_1);
   Transform6Dof<NumType> pose_2_mat = pose_1_mat * pose_2_rel_to_1_mat;
   return convertAffineToPose3D(pose_2_mat);
+}
+
+template <typename NumType>
+Pose3DYawOnly<NumType> combinePoses(
+    const Pose3DYawOnly<NumType>& pose_1,
+    const Pose3DYawOnly<NumType>& pose_2_rel_to_1) {
+  Eigen::Rotation2D<NumType> p1_rot(pose_1.yaw_);
+  Eigen::Matrix<NumType, 2, 1> p2_transl_2d(pose_2_rel_to_1.transl_.x(),
+                                            pose_2_rel_to_1.transl_.y());
+  Eigen::Matrix<NumType, 2, 1> p2_transl_2d_transformed = p1_rot * p2_transl_2d;
+  Position3d<NumType> new_pos(p2_transl_2d_transformed.x(),
+                              p2_transl_2d_transformed.y(),
+                              pose_2_rel_to_1.transl_.z());
+  new_pos += pose_1.transl_;
+
+  NumType new_angle = math_util::AngleMod(pose_1.yaw_ + pose_2_rel_to_1.yaw_);
+
+  return Pose3DYawOnly<NumType>(new_pos, new_angle);
 }
 
 template <typename NumType>

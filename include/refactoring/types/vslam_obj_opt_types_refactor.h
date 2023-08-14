@@ -40,6 +40,13 @@ using RawEllipsoidPtr = std::shared_ptr<RawEllipsoid<NumType>>;
 
 template <typename NumType>
 #ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+using EllipsoidPose = Pose3DYawOnly<NumType>;
+#else
+using EllipsoidPose = Pose3D<NumType>;
+#endif
+
+template <typename NumType>
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
 struct EllipsoidState {
   Pose3DYawOnly<NumType> pose_;
   ObjectDim<NumType> dimensions_;
