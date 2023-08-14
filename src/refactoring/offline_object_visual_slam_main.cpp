@@ -1044,7 +1044,8 @@ int main(int argc, char **argv) {
     visual_feature_fs.release();
   }
 
-  MainLtm output_long_term_map = output_results.long_term_map_;
+//  MainLtm output_long_term_map = output_results.long_term_map_;
+  MainLtm output_long_term_map;
   if (config.ltm_tunable_params_.fallback_to_prev_for_failed_extraction_) {
     vtr::EllipsoidResults ltm_ellipsoid_results;
     output_long_term_map.getEllipsoidResults(ltm_ellipsoid_results);
