@@ -404,6 +404,8 @@ bool createResidual(
                                            cached_info,
                                            min_max_frame);
   } else if (factor_info.first == kShapeDimPriorFactorTypeId) {
+    LOG(INFO) << "Creating shape dim prior";
+    exit(1);
     return createObjectShapeDimPriorResidual(factor_info.second,
                                              pose_graph,
                                              residual_params,

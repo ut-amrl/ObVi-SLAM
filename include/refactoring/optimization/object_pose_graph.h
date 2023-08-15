@@ -352,7 +352,7 @@ class ObjAndLowLevelFeaturePoseGraph
     object_only_factors_by_object_[obj_id] = {};
     observation_factors_by_object_[obj_id] = {};
 
-    addShapeDimPriorBasedOnSemanticClass(obj_id);
+//    addShapeDimPriorBasedOnSemanticClass(obj_id);
   }
 
   virtual void updateEllipsoid(const ObjectId &object_id,
