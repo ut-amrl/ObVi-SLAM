@@ -238,6 +238,8 @@ class ObjectPoseGraphOptimizer {
     }
 
     if (use_relative_pose_factors) {
+      LOG(INFO) << "Using relative pose factors ";
+      exit(1);
       // frame_ids_and_feat_obs_nums: find how many low-level feature
       // observations we have per frame in features_to_include; Backtrace frame
       // ids from ReprojectionErrorFactors stored in the pose graph

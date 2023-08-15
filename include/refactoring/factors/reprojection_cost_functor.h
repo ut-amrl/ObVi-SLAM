@@ -55,6 +55,8 @@ class ReprojectionCostFunctor {
    */
   template <typename T>
   bool runOperator(const T *pose, const T *point, T *residual) const {
+    LOG(INFO) << "Called reprojection factor";
+    exit(1);
     //    // Transform from world to current robot pose
     //    Eigen::Transform<T, 3, Eigen::Affine> world_to_robot_current =
     //        vslam_types_refactor::PoseArrayToAffine(&(pose[3]), &(pose[0]))
