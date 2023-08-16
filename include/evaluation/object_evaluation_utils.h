@@ -9,40 +9,46 @@
 
 namespace vslam_types_refactor {
 
-void associateObjects(const EllipsoidResults &estimated_objects,
-                      const EllipsoidResults &gt_objects,
+using FullDOFEllipsoidResults =
+    std::unordered_map<ObjectId,
+                       std::pair<std::string, FullDOFEllipsoidState<double>>>;
+
+void associateObjects(const FullDOFEllipsoidResults &estimated_objects,
+                      const FullDOFEllipsoidResults &gt_objects,
+                      const bool &one_to_one,
                       std::unordered_map<ObjectId, std::optional<ObjectId>>
                           &gt_objects_for_est_objs);
 
 void findTransformationForAssociatedObjects(
-    const EllipsoidResults &estimated_objects,
-    const EllipsoidResults &gt_objects,
+    const FullDOFEllipsoidResults &estimated_objects,
+    const FullDOFEllipsoidResults &gt_objects,
     const std::unordered_map<ObjectId, std::optional<ObjectId>>
         &gt_objects_for_est_objs,
-    EllipsoidPose<double> &est_obj_transformation);
+    Pose3D<double> &est_obj_transformation);
 
 void associateObjectsAndFindTransformation(
-    const EllipsoidResults &estimated_objects,
-    const EllipsoidResults &gt_objects,
+    const FullDOFEllipsoidResults &estimated_objects,
+    const FullDOFEllipsoidResults &gt_objects,
+    const bool &one_to_one,
     std::unordered_map<ObjectId, std::optional<ObjectId>>
         &gt_objects_for_est_objs,
     Pose3D<double> &est_obj_transformation);
 
-void alignEstObjects(const EllipsoidResults &estimated_objects,
+void alignEstObjects(const FullDOFEllipsoidResults &estimated_objects,
                      const Pose3D<double> &est_obj_transformation,
-                     EllipsoidResults &aligned_objects);
+                     FullDOFEllipsoidResults &aligned_objects);
 
 void getPositionDistancesList(
-    const EllipsoidResults &aligned_estimated_objects,
-    const EllipsoidResults &gt_objects,
+    const FullDOFEllipsoidResults &aligned_estimated_objects,
+    const FullDOFEllipsoidResults &gt_objects,
     const std::unordered_map<ObjectId, std::optional<ObjectId>>
         &gt_objects_for_est_objs,
     const Pose3D<double> &est_obj_transformation,
     std::unordered_map<ObjectId, std::optional<double>> &dist_from_gt_by_obj);
 
 void getIoUsForObjects(
-    const EllipsoidResults &aligned_estimated_objects,
-    const EllipsoidResults &gt_objects,
+    const FullDOFEllipsoidResults &aligned_estimated_objects,
+    const FullDOFEllipsoidResults &gt_objects,
     const std::unordered_map<ObjectId, std::optional<ObjectId>>
         &gt_objects_for_est_objs,
     const Pose3D<double> &est_obj_transformation,

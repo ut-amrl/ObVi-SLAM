@@ -103,6 +103,33 @@ Eigen::Matrix<T, 4, 4> createDualRepresentationForEllipsoid(
   return dual_rep;
 }
 
+template <typename T>
+Eigen::Matrix<T, 4, 4> createDualRepresentationForFullDOFEllipsoid(
+    const FullDOFEllipsoidState<T> &ellipsoid_state) {
+  Eigen::DiagonalMatrix<T, 3> diag_mat(
+      pow(ellipsoid_state.dimensions_.x() / T(2), 2) +
+          T(kDimensionRegularizationConstant),
+      pow(ellipsoid_state.dimensions_.y() / T(2), 2) +
+          T(kDimensionRegularizationConstant),
+      pow(ellipsoid_state.dimensions_.z() / T(2), 2) +
+          T(kDimensionRegularizationConstant));
+
+  Eigen::Matrix<T, 3, 3> rot_mat =
+      Eigen::Quaternion<T>(ellipsoid_state.pose_.orientation_).matrix();
+
+  Eigen::Matrix<T, 4, 4> dual_rep;
+  dual_rep(3, 3) = T(-1);
+  Eigen::Matrix<T, 3, 1> transl = ellipsoid_state.pose_.translation_;
+  Eigen::Matrix<T, 3, 1> neg_transl = T(-1) * transl;
+  dual_rep.bottomLeftCorner(1, 3) = neg_transl.transpose();
+  dual_rep.topRightCorner(3, 1) = neg_transl;
+
+  dual_rep.topLeftCorner(3, 3) = (rot_mat * diag_mat * (rot_mat.transpose())) +
+                                 (neg_transl * transl.transpose());
+
+  return dual_rep;
+}
+
 /**
  * Get the predicted bounding box for an ellipsoid observed by a camera on a
  * robot at the given robot pose.

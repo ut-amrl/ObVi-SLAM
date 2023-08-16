@@ -40,13 +40,6 @@ using RawEllipsoidPtr = std::shared_ptr<RawEllipsoid<NumType>>;
 
 template <typename NumType>
 #ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
-using EllipsoidPose = Pose3DYawOnly<NumType>;
-#else
-using EllipsoidPose = Pose3D<NumType>;
-#endif
-
-template <typename NumType>
-#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
 struct EllipsoidState {
   Pose3DYawOnly<NumType> pose_;
   ObjectDim<NumType> dimensions_;
@@ -69,6 +62,25 @@ struct EllipsoidState {
       : pose_(pose), dimensions_(dimensions) {}
 };
 #endif
+
+template <typename NumType>
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+struct FullDOFEllipsoidState {
+  Pose3D<NumType> pose_;
+  ObjectDim<NumType> dimensions_;
+
+  FullDOFEllipsoidState() = default;
+
+  FullDOFEllipsoidState(const Pose3D<NumType> &pose,
+                        const ObjectDim<double> &dimensions)
+      : pose_(pose), dimensions_(dimensions) {}
+};
+#else
+using FullDOFEllipsoidState = EllipsoidState<NumType>;
+#endif
+
+template <typename NumType>
+using FullDOFRawEllipsoid = Eigen::Matrix<NumType, 9, 1>;
 
 struct RawBoundingBox {
   /**
