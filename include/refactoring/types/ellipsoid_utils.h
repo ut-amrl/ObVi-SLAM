@@ -119,7 +119,7 @@ Eigen::Matrix<T, 4, 4> createDualRepresentationForFullDOFEllipsoid(
 
   Eigen::Matrix<T, 4, 4> dual_rep;
   dual_rep(3, 3) = T(-1);
-  Eigen::Matrix<T, 3, 1> transl = ellipsoid_state.pose_.translation_;
+  Eigen::Matrix<T, 3, 1> transl = ellipsoid_state.pose_.transl_;
   Eigen::Matrix<T, 3, 1> neg_transl = T(-1) * transl;
   dual_rep.bottomLeftCorner(1, 3) = neg_transl.transpose();
   dual_rep.topRightCorner(3, 1) = neg_transl;

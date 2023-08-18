@@ -33,6 +33,9 @@ class FileStructureConstants:
 
     boundingBoxFilePrefix = "bounding_boxes_by_timestamp_"
 
+    trajectoryMetricsFileBaseName = "metrics.json"
+    objectMetricsFileBaseName = "object_metrics.json"
+
     # File extensions
     jsonExtension = ".json"
     bagSuffix = ".bag"

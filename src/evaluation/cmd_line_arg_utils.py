@@ -144,6 +144,9 @@ class CmdLineArgConstants:
     odometryTopicBaseArgName = 'odometry_topic'
     odometryTopicHelp = "Topic on which odometry is published"
 
+    gtEllipsoidsBaseArgName = 'gt_ellipsoids_file'
+    gtEllipsoidsHelp = "File containing CSV formatted ground truth ellipsoids"
+
     forceRerunInterpolatorBaseArgName = "force_rerun_interpolator"
     forceRerunInterpolatorHelp = "Force rerun the interpolator even if the interpolated file is already generated"
 

@@ -136,6 +136,9 @@ target_link_libraries(oa_slam_data_generator ut_vslam ${LIBS})
 ROSBUILD_ADD_EXECUTABLE(trajectory_metrics_generator src/evaluation/trajectory_metrics_generator.cpp)
 target_link_libraries(trajectory_metrics_generator ut_vslam ${LIBS})
 
+ROSBUILD_ADD_EXECUTABLE(object_metrics_generator src/evaluation/object_metrics_generator.cpp)
+target_link_libraries(object_metrics_generator ut_vslam ${LIBS})
+
 ROSBUILD_ADD_EXECUTABLE(utvslam_out_to_poses_by_timestamp src/evaluation/trajectory_formatting/utvslam_out_to_poses_by_timestamp.cpp)
 target_link_libraries(utvslam_out_to_poses_by_timestamp ut_vslam ${LIBS})
 
@@ -157,6 +160,9 @@ target_link_libraries(sequence_file_writer ut_vslam ${LIBS})
 
 ROSBUILD_ADD_EXECUTABLE(write_bounding_boxes_for_rosbag_to_file src/data_preprocessing_utils/write_bounding_boxes_for_rosbag_to_file.cpp)
 target_link_libraries(write_bounding_boxes_for_rosbag_to_file ut_vslam ${LIBS})
+
+ROSBUILD_ADD_EXECUTABLE(convert_object_detections_from_yaml src/evaluation/objects/convert_object_detections_from_yaml.cpp)
+target_link_libraries(convert_object_detections_from_yaml ut_vslam ${LIBS} yaml-cpp)
 
 IF (GENERATE_UNITTESTS)
     MESSAGE("Adding test executable")

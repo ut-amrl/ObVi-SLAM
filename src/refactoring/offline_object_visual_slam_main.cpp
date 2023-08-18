@@ -1086,13 +1086,8 @@ int main(int argc, char **argv) {
   }
 
   if (!FLAGS_ellipsoids_results_file.empty()) {
-    cv::FileStorage ellipsoids_results_out(FLAGS_ellipsoids_results_file,
-                                           cv::FileStorage::WRITE);
-    vtr::EllipsoidResults ellipsoid_results = output_results.ellipsoid_results_;
-    ellipsoids_results_out << "ellipsoids"
-                           << vtr::SerializableEllipsoidResults(
-                                  ellipsoid_results);
-    ellipsoids_results_out.release();
+    vtr::writeEllipsoidResults(FLAGS_ellipsoids_results_file,
+                               output_results.ellipsoid_results_);
   }
 
   if (!FLAGS_robot_poses_results_file.empty()) {

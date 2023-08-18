@@ -185,7 +185,7 @@ void associateObjectsAndFindTransformation(
     std::unordered_map<ObjectId, std::optional<ObjectId>>
         tmp_gt_objects_for_est_objs;
     FullDOFEllipsoidResults tmp_aligned_objects;
-    alignEstObjects(estimated_objects, curr_transform, tmp_aligned_objects);
+    adjustObjectFrame(estimated_objects, curr_transform, tmp_aligned_objects);
 
     associateObjects(
         tmp_aligned_objects, gt_objects, true, tmp_gt_objects_for_est_objs);
@@ -214,14 +214,14 @@ void associateObjectsAndFindTransformation(
   est_obj_transformation = curr_transform;
 
   FullDOFEllipsoidResults tmp_aligned_objects;
-  alignEstObjects(
+  adjustObjectFrame(
       estimated_objects, est_obj_transformation, tmp_aligned_objects);
 
   associateObjects(
-      tmp_aligned_objects, gt_objects, false, gt_objects_for_est_objs);
+      tmp_aligned_objects, gt_objects, one_to_one, gt_objects_for_est_objs);
 }
 
-void alignEstObjects(const FullDOFEllipsoidResults &estimated_objects,
+void adjustObjectFrame(const FullDOFEllipsoidResults &estimated_objects,
                      const Pose3D<double> &est_obj_transformation,
                      FullDOFEllipsoidResults &aligned_objects) {
   for (const auto &ellipsoid_entry : estimated_objects) {
@@ -238,7 +238,6 @@ void getPositionDistancesList(
     const FullDOFEllipsoidResults &gt_objects,
     const std::unordered_map<ObjectId, std::optional<ObjectId>>
         &gt_objects_for_est_objs,
-    const Pose3D<double> &est_obj_transformation,
     std::unordered_map<ObjectId, std::optional<double>> &dist_from_gt_by_obj) {
   for (const auto &gt_obj_for_est_obj : gt_objects_for_est_objs) {
     ObjectId est_obj_id = gt_obj_for_est_obj.first;
@@ -304,7 +303,18 @@ getAxisAlignedBoundingBoxForEllipsoid(
 }
 
 bool pointInEllipsoid(const FullDOFEllipsoidState<double> &ellipsoid,
-                      const Position3d<double> &point) {}
+                      const Position3d<double> &point) {
+  Position3d<double> p_rel_el =
+      getPositionRelativeToPose(ellipsoid.pose_, point);
+
+  double dx_half = ellipsoid.dimensions_.x() / 2.0;
+  double dy_half = ellipsoid.dimensions_.y() / 2.0;
+  double dz_half = ellipsoid.dimensions_.z() / 2.0;
+
+  return (pow(p_rel_el.x() / dx_half, 2) +
+          pow(p_rel_el.y() / dy_half, 2) +
+          pow(p_rel_el.z() / dz_half, 2)) <= 1;
+}
 
 double getIoUForObjectPair(const FullDOFEllipsoidState<double> &ellipsoid1,
                            const FullDOFEllipsoidState<double> &ellipsoid2) {
@@ -313,6 +323,7 @@ double getIoUForObjectPair(const FullDOFEllipsoidState<double> &ellipsoid1,
   // Could attempt to do this more exactly, but for now, we're just checking if
   // their axis aligned bounding boxes overlap
 
+  // Determine axis aligned bounding box for each ellipsoid
   // Determine axis aligned bounding box for each ellipsoid
   std::pair<Eigen::Vector3d, Eigen::Vector3d> e1_bb =
       getAxisAlignedBoundingBoxForEllipsoid(ellipsoid1);
@@ -440,7 +451,7 @@ double getIoUForObjectPair(const FullDOFEllipsoidState<double> &ellipsoid1,
   return iou;
 }
 
-double getIoUForObjectPair(
+double getIoUForObjectSet(
     const FullDOFEllipsoidState<double> &ellipsoid1,
     const std::vector<FullDOFEllipsoidState<double>> &covering_ellipsoids) {
   // TODO
@@ -604,8 +615,7 @@ void getIoUsForObjects(
     const FullDOFEllipsoidResults &gt_objects,
     const std::unordered_map<ObjectId, std::optional<ObjectId>>
         &gt_objects_for_est_objs,
-    const Pose3D<double> &est_obj_transformation,
-    std::unordered_map<ObjectId, std::optional<double>> &iou_per_gt_obj) {
+    std::unordered_map<ObjectId, double> &iou_per_gt_obj) {
   std::unordered_map<ObjectId, std::unordered_set<ObjectId>>
       est_objs_assoc_with_gt;
   for (const auto &pairing_by_est : gt_objects_for_est_objs) {
@@ -631,7 +641,7 @@ void getIoUsForObjects(
         assoc_obj_geometries.emplace_back(
             aligned_estimated_objects.at(obj_id).second);
       }
-      iou = getIoUForObjectPair(gt_obj_geometry, assoc_obj_geometries);
+      iou = getIoUForObjectSet(gt_obj_geometry, assoc_obj_geometries);
     }
     iou_per_gt_obj[gt_obj_id] = iou;
   }

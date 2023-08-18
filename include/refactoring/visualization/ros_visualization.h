@@ -224,6 +224,24 @@ class RosVisualization {
                         different_colors_per_class);
   }
 
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+  void visualizeEllipsoids(
+      const std::unordered_map<
+          ObjectId,
+          std::pair<std::string, FullDOFEllipsoidState<double>>>
+          &ellipsoid_estimates,
+      const PlotType &plot_type,
+      const bool &different_colors_per_class = true) {
+    std::string topic =
+        createTopicForPlotTypeAndBase(plot_type, kEllipsoidTopicSuffix);
+    LOG(INFO) << "Publishing ellipsoids for plot type " << topic;
+    visualizeEllipsoids(ellipsoid_estimates,
+                        topic,
+                        color_for_plot_type_.at(plot_type),
+                        different_colors_per_class);
+  }
+#endif
+
   void visualizePendingEllipsoids(
       const std::shared_ptr<std::vector<
           std::pair<std::string, std::optional<EllipsoidState<double>>>>>
@@ -279,6 +297,28 @@ class RosVisualization {
     }
   }
 
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+  void visualizeEllipsoids(
+      const std::unordered_map<
+          ObjectId,
+          std::pair<std::string, FullDOFEllipsoidState<double>>>
+          &ellipsoid_estimates,
+      const std::string &topic,
+      const std_msgs::ColorRGBA &color,
+      const bool &different_colors_per_class) {
+    ros::Publisher pub = getOrCreateVisMarkerPublisherAndClearPrevious(
+        topic, kEllipsoidMarkerPubQueueSize);
+    for (const auto &ellipsoid : ellipsoid_estimates) {
+      std_msgs::ColorRGBA color_for_ellipsoid = color;
+      if (different_colors_per_class) {
+        color_for_ellipsoid = getColorForClass(ellipsoid.second.first);
+      }
+      publishEllipsoid(
+          ellipsoid.second.second, ellipsoid.first, pub, color_for_ellipsoid);
+    }
+  }
+#endif
+
   void visualizeTrajectory(const std::vector<Pose3D<double>> &trajectory,
                            const PlotType &plot_type) {
     ros::Publisher pub = getOrCreateVisMarkerPublisherAndClearPrevious(
@@ -313,7 +353,8 @@ class RosVisualization {
   }
 
   void visualizeWaypoints(
-      const std::unordered_map<WaypointId, std::vector<std::optional<Pose3D<double>>>>
+      const std::unordered_map<WaypointId,
+                               std::vector<std::optional<Pose3D<double>>>>
           &waypoints) {
     int32_t next_robot_pose_id = 1;
     std::string topic_name =
@@ -1607,7 +1648,7 @@ class RosVisualization {
     publishMarker(marker, pub);
   }
 
-  void publishEllipsoid(const EllipsoidState<double> &ellipsoid,
+  void publishEllipsoid(const FullDOFEllipsoidState<double> &ellipsoid,
                         const ObjectId &obj_id,
                         ros::Publisher &pub,
                         const std_msgs::ColorRGBA &color,
@@ -1621,12 +1662,7 @@ class RosVisualization {
     marker.pose.position.y = ellipsoid.pose_.transl_.y();
     marker.pose.position.z = ellipsoid.pose_.transl_.z();
 
-#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
-    Eigen::Quaterniond ellipsoid_quat(
-        Eigen::AngleAxisd(ellipsoid.pose_.yaw_, Eigen::Vector3d::UnitZ()));
-#else
     Eigen::Quaterniond ellipsoid_quat(ellipsoid.pose_.orientation_);
-#endif
 
     marker.pose.orientation.x = ellipsoid_quat.x();
     marker.pose.orientation.y = ellipsoid_quat.y();
@@ -1659,6 +1695,20 @@ class RosVisualization {
       publishMarker(text_marker, pub);
     }
   }
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+  void publishEllipsoid(const EllipsoidState<double> &ellipsoid,
+                        const ObjectId &obj_id,
+                        ros::Publisher &pub,
+                        const std_msgs::ColorRGBA &color,
+                        const bool &visualize_id = true) {
+    Pose3D<double> obj_pose(
+        ellipsoid.pose_.transl_,
+        Eigen::AngleAxisd(ellipsoid.pose_.yaw_, Eigen::Vector3d::UnitZ()));
+    FullDOFEllipsoidState<double> full_dof_ellipsoid(obj_pose,
+                                                     ellipsoid.dimensions_);
+    publishEllipsoid(full_dof_ellipsoid, obj_id, pub, color, visualize_id);
+  }
+#endif
 
   std::string createTopicForPlotTypeAndBase(const PlotType &plot_type,
                                             const std::string &base_topic) {

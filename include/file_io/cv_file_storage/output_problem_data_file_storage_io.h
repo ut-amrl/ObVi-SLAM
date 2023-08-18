@@ -14,6 +14,7 @@
 
 namespace vslam_types_refactor {
 const std::string kRobotPosesKey = "robot_poses";
+const std::string kEllipsoidsKey = "ellipsoids";
 
 class SerializableEllipsoidResults
     : public FileStorageSerializable<EllipsoidResults> {
@@ -306,6 +307,30 @@ void readRobotPoseResults(const std::string &robot_pose_file,
   robot_pose_in[kRobotPosesKey] >> serializable_robot_pose_results;
   robot_pose_in.release();
   robot_pose_results = serializable_robot_pose_results.getEntry();
+}
+
+void writeEllipsoidResults(const std::string &ellipsoid_results_file,
+                           const EllipsoidResults &ellipsoid_results) {
+  cv::FileStorage ellipsoids_results_out(ellipsoid_results_file,
+                                         cv::FileStorage::WRITE);
+
+  ellipsoids_results_out << kEllipsoidsKey
+                         << SerializableEllipsoidResults(ellipsoid_results);
+  ellipsoids_results_out.release();
+}
+
+void readEllipsoidResults(const std::string &ellipsoid_results_file,
+                          EllipsoidResults &ellipsoid_results) {
+  if (!std::filesystem::exists(ellipsoid_results_file)) {
+    LOG(ERROR) << "Trying to read file " << ellipsoid_results_file
+               << " that does not exist";
+    return;
+  }
+  cv::FileStorage ellipsoids_in(ellipsoid_results_file, cv::FileStorage::READ);
+  SerializableEllipsoidResults serializable_ellipsoid_results;
+  ellipsoids_in[kEllipsoidsKey] >> serializable_ellipsoid_results;
+  ellipsoids_in.release();
+  ellipsoid_results = serializable_ellipsoid_results.getEntry();
 }
 
 }  // namespace vslam_types_refactor
