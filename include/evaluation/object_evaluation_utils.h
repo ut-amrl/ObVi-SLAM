@@ -6,6 +6,7 @@
 #define UT_VSLAM_OBJECT_EVALUATION_UTILS_H
 
 #include <refactoring/output_problem_data.h>
+//#include <refactoring/visualization/ros_visualization.h>
 
 namespace vslam_types_refactor {
 
@@ -19,6 +20,8 @@ struct SingleTrajectoryObjectMetrics {
 
   double average_pos_deviation_;
   double avg_iou_;
+  double median_pos_deviation_;
+  double median_iou_;
 };
 
 struct FullSequenceObjectMetrics {
@@ -29,11 +32,13 @@ using FullDOFEllipsoidResults =
     std::unordered_map<ObjectId,
                        std::pair<std::string, FullDOFEllipsoidState<double>>>;
 
-void associateObjects(const FullDOFEllipsoidResults &estimated_objects,
-                      const FullDOFEllipsoidResults &gt_objects,
-                      const bool &one_to_one,
-                      std::unordered_map<ObjectId, std::optional<ObjectId>>
-                          &gt_objects_for_est_objs);
+void associateObjects(
+    const FullDOFEllipsoidResults &estimated_objects,
+    const FullDOFEllipsoidResults &gt_objects,
+    const bool &one_to_one,
+    std::unordered_map<ObjectId, std::optional<ObjectId>>
+        &gt_objects_for_est_objs,
+    const double &max_assoc_dist = std::numeric_limits<double>::infinity());
 
 void findTransformationForAssociatedObjects(
     const FullDOFEllipsoidResults &estimated_objects,
@@ -48,11 +53,13 @@ void associateObjectsAndFindTransformation(
     const bool &one_to_one,
     std::unordered_map<ObjectId, std::optional<ObjectId>>
         &gt_objects_for_est_objs,
-    Pose3D<double> &est_obj_transformation);
+    Pose3D<double> &est_obj_transformation
+//    , std::shared_ptr<RosVisualization> &vis_manager
+    );
 
 void adjustObjectFrame(const FullDOFEllipsoidResults &estimated_objects,
-                     const Pose3D<double> &est_obj_transformation,
-                     FullDOFEllipsoidResults &aligned_objects);
+                       const Pose3D<double> &est_obj_transformation,
+                       FullDOFEllipsoidResults &aligned_objects);
 
 void getPositionDistancesList(
     const FullDOFEllipsoidResults &aligned_estimated_objects,
@@ -68,19 +75,22 @@ getAxisAlignedBoundingBoxForEllipsoid(
 bool pointInEllipsoid(const FullDOFEllipsoidState<double> &ellipsoid,
                       const Position3d<double> &point);
 
-double getIoUForObjectPair(const FullDOFEllipsoidState<double> &ellipsoid1,
-                           const FullDOFEllipsoidState<double> &ellipsoid2);
-
 double getIoUForObjectSet(
     const FullDOFEllipsoidState<double> &ellipsoid1,
-    const std::vector<FullDOFEllipsoidState<double>> &covering_ellipsoids);
+    const std::vector<FullDOFEllipsoidState<double>> &covering_ellipsoids
+//    ,const ObjectId &e1_id,
+//    const std::vector<ObjectId> &e2_ids,
+//    std::shared_ptr<RosVisualization> &vis_manager
+    );
 
 void getIoUsForObjects(
     const FullDOFEllipsoidResults &aligned_estimated_objects,
     const FullDOFEllipsoidResults &gt_objects,
     const std::unordered_map<ObjectId, std::optional<ObjectId>>
         &gt_objects_for_est_objs,
-    std::unordered_map<ObjectId, double> &iou_per_gt_obj);
+    std::unordered_map<ObjectId, double> &iou_per_gt_obj
+//    , std::shared_ptr<RosVisualization> &vis_manager
+    );
 
 }  // namespace vslam_types_refactor
 

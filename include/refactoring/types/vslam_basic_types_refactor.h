@@ -56,7 +56,7 @@ struct Pose3D {
   Position3d<NumType> transl_;
   Orientation3D<NumType> orientation_;
 
-  Pose3D() = default;
+  Pose3D() : transl_(Position3d<NumType>::Zero()), orientation_(0, Position3d<NumType>::UnitZ()) {}
   Pose3D(const Position3d<NumType> &transl,
          const Orientation3D<NumType> &orientation)
       : transl_(transl), orientation_(orientation) {}
@@ -71,7 +71,7 @@ struct Pose3DYawOnly {
   Position3d<NumType> transl_;
   NumType yaw_ = NumType(0);
 
-  Pose3DYawOnly() = default;
+  Pose3DYawOnly() : transl_(Position3d<NumType>::Zero()), yaw_(0) {}
   Pose3DYawOnly(const Position3d<NumType> &transl, const NumType &yaw)
       : transl_(transl), yaw_(yaw) {}
 };

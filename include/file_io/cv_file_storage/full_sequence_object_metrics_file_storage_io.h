@@ -47,6 +47,8 @@ class SerializableSingleTrajectoryObjectMetrics
     fs << kObjectsPerGtObjLabel << data_.objects_per_gt_obj_;
     fs << kAveragePosDeviationLabel << data_.average_pos_deviation_;
     fs << kAvgIouLabel << data_.avg_iou_;
+    fs << kMedianPosDeviationLabel << data_.median_pos_deviation_;
+    fs << kMedianIouLabel << data_.median_iou_;
     fs << "}";
   }
 
@@ -76,6 +78,8 @@ class SerializableSingleTrajectoryObjectMetrics
     data_.objects_per_gt_obj_ = node[kObjectsPerGtObjLabel];
     data_.average_pos_deviation_ = node[kAveragePosDeviationLabel];
     data_.avg_iou_ = node[kAvgIouLabel];
+    data_.median_pos_deviation_ = node[kMedianPosDeviationLabel];
+    data_.median_iou_ = node[kMedianIouLabel];
   }
 
  protected:
@@ -92,6 +96,8 @@ class SerializableSingleTrajectoryObjectMetrics
   inline static const std::string kAveragePosDeviationLabel =
       "average_pos_deviation";
   inline static const std::string kAvgIouLabel = "avg_iou";
+  inline static const std::string kMedianPosDeviationLabel = "median_pos_deviation";
+  inline static const std::string kMedianIouLabel = "median_iou";
 };
 
 static void write(cv::FileStorage &fs,

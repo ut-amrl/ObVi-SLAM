@@ -115,6 +115,65 @@ class RosVisualization {
     return frame_prefix_ + "ellipsoid_" + std::to_string(ellipsoid_idx);
   }
 
+  void publishBox(const std::string &topic_base,
+                  const PlotType &plot_type,
+                  const Position3d<double> &box_center,
+                  const Eigen::Quaterniond &box_orientation,
+                  const Eigen::Vector3d &box_dims,
+                  const int &box_id,
+                  const double &alpha = 0.2) {
+    std::string topic = createTopicForPlotTypeAndBase(plot_type, topic_base);
+    ros::Publisher pub = getOrCreatePublisher<visualization_msgs::Marker>(
+        topic, 1000);
+
+    std_msgs::ColorRGBA color = color_for_plot_type_.at(plot_type);
+    publishBox(pub, color, box_center, box_orientation, box_dims, box_id);
+  }
+
+
+  void publishBox(
+      ros::Publisher &marker_pub,
+      const std_msgs::ColorRGBA &color,
+                  const Position3d<double> &box_center,
+                  const Eigen::Quaterniond &box_orientation,
+                  const Eigen::Vector3d &box_dims,
+                  const int &box_id,
+                  const double &alpha = 0.2) {
+
+    visualization_msgs::Marker marker_msg;
+    marker_msg.id = box_id;
+    marker_msg.color = color;
+    marker_msg.color.a = alpha;
+    marker_msg.type = visualization_msgs::Marker::CUBE;
+    marker_msg.scale.x = box_dims.x();
+    marker_msg.scale.y = box_dims.y();
+    marker_msg.scale.z = box_dims.z();
+
+    marker_msg.pose.position.x = box_center.x();
+    marker_msg.pose.position.y = box_center.y();
+    marker_msg.pose.position.z = box_center.z();
+
+    marker_msg.pose.orientation.x = box_orientation.x();
+    marker_msg.pose.orientation.y = box_orientation.y();
+    marker_msg.pose.orientation.z = box_orientation.z();
+    marker_msg.pose.orientation.w = box_orientation.w();
+
+
+    publishMarker(marker_msg, marker_pub);
+  }
+
+  void publishLines(const std::string &topic_base,
+                    const PlotType &plot_type,
+                    const std::vector<std::pair<Position3d<double>, Position3d<double>>>
+                    &lines,
+                    const int32_t &marker_num) {
+    std::string topic = createTopicForPlotTypeAndBase(plot_type, topic_base);
+    ros::Publisher pub = getOrCreateVisMarkerPublisherAndClearPrevious(
+        topic, 1000);
+    std_msgs::ColorRGBA color = color_for_plot_type_.at(plot_type);
+    publishLines(pub, color, lines, marker_num);
+  }
+
   void publishLines(
       ros::Publisher &marker_pub,
       const std_msgs::ColorRGBA &color,

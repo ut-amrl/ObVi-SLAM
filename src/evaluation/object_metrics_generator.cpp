@@ -150,22 +150,27 @@ FullDOFEllipsoidResults readEllipsoidResults(
 FullSequenceObjectMetrics computeMetrics(
     const FullDOFEllipsoidResults &gt_objs,
     const std::vector<FullDOFEllipsoidResults> &est_objs_by_traj,
-    const std::shared_ptr<vslam_types_refactor::RosVisualization> &vis_manager =
-        nullptr) {
+    std::shared_ptr<vslam_types_refactor::RosVisualization> &vis_manager) {
   FullSequenceObjectMetrics full_metrics;
 
   for (size_t traj_num = 0; traj_num < est_objs_by_traj.size(); traj_num++) {
+    LOG(INFO) << "Starting Trajectory " << traj_num
+              << " ------------------------------------------";
+    //    getchar();
     SingleTrajectoryObjectMetrics metrics_for_traj;
     FullDOFEllipsoidResults est_objs_for_traj = est_objs_by_traj.at(traj_num);
 
     std::unordered_map<ObjectId, std::optional<ObjectId>>
         opt_gt_obj_for_est_obj;
     Pose3D<double> est_obj_transformation;
-    associateObjectsAndFindTransformation(est_objs_for_traj,
-                                          gt_objs,
-                                          false,
-                                          opt_gt_obj_for_est_obj,
-                                          est_obj_transformation);
+    associateObjectsAndFindTransformation(
+        est_objs_for_traj,
+        gt_objs,
+        false,
+        opt_gt_obj_for_est_obj,
+        est_obj_transformation
+        //                                          , vis_manager
+    );
 
     FullDOFEllipsoidResults aligned_est_objs;
     adjustObjectFrame(
@@ -185,23 +190,49 @@ FullSequenceObjectMetrics computeMetrics(
 
     std::unordered_map<ObjectId, double> iou_per_gt_obj;
     getIoUsForObjects(
-        aligned_est_objs, gt_objs, opt_gt_obj_for_est_obj, iou_per_gt_obj);
+        aligned_est_objs, gt_objs, opt_gt_obj_for_est_obj, iou_per_gt_obj
+        //                      , vis_manager
+    );
 
     double average_pos_deviation = 0;
     size_t associated_est_objs = 0;
+    std::vector<double> deviations;
     for (const auto &est_obj_dist : dist_from_gt_by_obj) {
       if (est_obj_dist.second.has_value()) {
         associated_est_objs++;
         average_pos_deviation += est_obj_dist.second.value();
+        deviations.emplace_back(est_obj_dist.second.value());
       }
     }
     average_pos_deviation /= associated_est_objs;
+    std::sort(deviations.begin(), deviations.end());
+    if ((deviations.size() % 2) == 1) {
+      metrics_for_traj.median_pos_deviation_ =
+          deviations.at(deviations.size() / 2);
+    } else if (!deviations.empty()) {
+      size_t second_med_component_idx = deviations.size() / 2;
+      metrics_for_traj.median_pos_deviation_ =
+          (deviations.at(second_med_component_idx) +
+           deviations.at(second_med_component_idx - 1)) /
+          2.0;
+    }
 
     double avg_iou = 0;
+    std::vector<double> ious;
     for (const auto &iou_for_obj : iou_per_gt_obj) {
       avg_iou += iou_for_obj.second;
+      ious.emplace_back(iou_for_obj.second);
     }
     avg_iou /= iou_per_gt_obj.size();
+    std::sort(ious.begin(), ious.end());
+    if ((ious.size() % 2) == 1) {
+      metrics_for_traj.median_iou_ = ious.at(ious.size() / 2);
+    } else if (!ious.empty()) {
+      size_t second_med_component_idx = ious.size() / 2;
+      metrics_for_traj.median_iou_ = (ious.at(second_med_component_idx) +
+                                      ious.at(second_med_component_idx - 1)) /
+                                     2.0;
+    }
 
     std::unordered_map<ObjectId, size_t> num_objs_for_gt_objs;
     for (const auto &gt_obj_entry : gt_objs) {
@@ -378,7 +409,7 @@ int main(int argc, char **argv) {
           results_for_comparison_alg.at(traj_num);
       vis_manager->visualizeEllipsoids(
           results_for_traj_comparison, PlotType::INITIAL, false);
-      sleep(2);
+      //      sleep(2);
     }
 
     vis_manager->visualizeEllipsoids(
@@ -387,7 +418,8 @@ int main(int argc, char **argv) {
 
   FullSequenceObjectMetrics full_metrics = computeMetrics(
       gt_objects_bl_frame, results_for_comparison_alg, vis_manager);
-  LOG(INFO) << "Done computing metrics; writing to file " << FLAGS_metrics_out_file;
+  LOG(INFO) << "Done computing metrics; writing to file "
+            << FLAGS_metrics_out_file;
 
   writeFullSequenceObjectMetrics(FLAGS_metrics_out_file, full_metrics);
 }

@@ -92,6 +92,7 @@ add_library(ut_vslam
         src/refactoring/factors/reprojection_cost_functor_analytic_jacobian.cpp
         src/refactoring/factors/reprojection_cost_functor.cpp
         src/refactoring/factors/shape_prior_factor.cpp
+        src/refactoring/image_processing/debugging_image_utils.cpp
         src/refactoring/long_term_map/long_term_object_map_extraction.cpp
         src/refactoring/optimization/jacobian_extraction.cpp
         src/refactoring/types/vslam_obj_opt_types_refactor.cpp
