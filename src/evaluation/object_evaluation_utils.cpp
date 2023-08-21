@@ -17,6 +17,7 @@ const static double kRotationChangeForConvergence = 0.01;
 const static double kTranslationChangeForConvergence = 0.05;
 const static double kIoUSamplingPointsPerMeter = 100;
 const static double kMaxDistanceForInliers = 5.0;
+const static int kMaxPointsPerDirection = 1000;
 }  // namespace
 
 void associateObjects(const FullDOFEllipsoidResults &estimated_objects,
@@ -593,9 +594,12 @@ double getIoUForObjectSet(
   //                          Eigen::Vector3d(x_range, y_range, z_range),
   //                          e1_id);
 
-  int num_x_points = ceil(x_range * kIoUSamplingPointsPerMeter);
-  int num_y_points = ceil(y_range * kIoUSamplingPointsPerMeter);
-  int num_z_points = ceil(z_range * kIoUSamplingPointsPerMeter);
+  int num_x_points = std::min(kMaxPointsPerDirection, (int) ceil(x_range * kIoUSamplingPointsPerMeter));
+  int num_y_points = std::min(kMaxPointsPerDirection, (int) ceil(y_range * kIoUSamplingPointsPerMeter));
+  int num_z_points = std::min(kMaxPointsPerDirection, (int) ceil(z_range * kIoUSamplingPointsPerMeter));
+  LOG(INFO) << "Num x points " << num_x_points;
+  LOG(INFO) << "Num y points " << num_y_points;
+  LOG(INFO) << "Num z points " << num_z_points;
   double x_point_interval = x_range / (num_x_points - 1);
   double y_point_interval = y_range / (num_y_points - 1);
   double z_point_interval = z_range / (num_z_points - 1);
@@ -673,8 +677,10 @@ void getIoUsForObjects(
       est_objs_assoc_with_gt[gt_obj_id].insert(pairing_by_est.first);
     }
   }
+  LOG(INFO) << "Num objects " << gt_objects.size();
   for (const auto &gt_obj : gt_objects) {
     ObjectId gt_obj_id = gt_obj.first;
+    LOG(INFO) << "Gt obj " << gt_obj_id;
     FullDOFEllipsoidState<double> gt_obj_geometry = gt_obj.second.second;
     double iou = 0;
     if (est_objs_assoc_with_gt.find(gt_obj_id) !=
