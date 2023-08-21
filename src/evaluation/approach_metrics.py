@@ -237,10 +237,10 @@ def getCDFData(dataset, num_bins):
     # return (cdf , bins_count , max_val)
 
 
-def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="upper left", savepath=None, height_ratios=None):
+def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="upper left", savepath=None, height_ratios=None, legend_ncol=1):
     plt.figure()
 
-    if (len(ylims) == 0):
+    if (ylims == None) or (len(ylims) == 0):
         non_inf_max = 0
         for approach_name, errs in errs_dict.items():
             for err_val in errs:
@@ -260,21 +260,26 @@ def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="up
         #     warnings.warn("Undefined approach name " + approach_name + ". Skip plotting trajectory...")
         #     continue
         xx = np.arange(len(errs)) + 1
+        zorder =1
+        if (approach_name == primaryApproachName):
+            zorder=2
         bax.scatter(xx, errs, label=approach_name, \
                     # plt.scatter(xx, errs, label=approach_name, \
                     # color=kApproachColorDict[approach_name], \
+                    zorder=zorder,
                     marker=kApproachMarkerDict[approach_name], \
                     s=kApproachMarkerSizeDict[approach_name])
     bax.set_xlabel("Trajectory Number", fontsize=kAxisFontsize)
     bax.set_ylabel(kATEErrorYLabelDict[err_type], fontsize=kAxisFontsize)
-    bax.legend(loc=legend_loc)
+    bax.legend(loc=legend_loc, ncol=legend_ncol)
     bax.grid(alpha=0.4)
 
-    for i in range(len(ylims)):
-        min_tick = math.floor(ylims[i][0])
-        max_tick = math.ceil(ylims[i][-1])
-        tick_inc = math.ceil((max_tick - min_tick) / 3)
-        bax.axs[len(ylims) - 1 - i].set_yticks(np.arange(min_tick, max_tick, tick_inc))
+    if (len(ylims) > 1):
+        for i in range(len(ylims)):
+            min_tick = math.floor(ylims[i][0])
+            max_tick = math.ceil(ylims[i][-1])
+            tick_inc = math.ceil((max_tick - min_tick) / 3)
+            bax.axs[len(ylims) - 1 - i].set_yticks(np.arange(min_tick, max_tick, tick_inc))
 
 
 # Note: cannot use tight_layout. It'll break the brokenaxis
