@@ -298,6 +298,7 @@ RawWaypointConsistencyResults computeWaypointConsistencyResults(
     }
   }
 
+  RawWaypointConsistencyResults consistency_results;
   for (size_t traj_num = 0; traj_num < waypoints_by_trajectory.size();
        traj_num++) {
     std::vector<WaypointInfo> waypoints_for_traj =
@@ -320,6 +321,52 @@ RawWaypointConsistencyResults computeWaypointConsistencyResults(
       poses_by_waypoint_with_trajectory[waypoint_info.waypoint_id_]
           .emplace_back(std::make_pair(traj_num, pose_at_waypoint));
     }
+
+    // Generate the full trajectory including interpolated waypoints
+    std::vector<std::pair<pose::Timestamp, std::optional<Pose3D<double>>>>
+        comparison_traj_rel_baselink =
+            comparison_trajectories_rel_baselink.at(traj_num);
+
+    util::BoostHashMap<pose::Timestamp, PoseAndWaypointInfoForNode>
+        annotated_poses_map;
+
+    for (const auto &comparison_traj_rel_baselink_pose :
+         comparison_traj_rel_baselink) {
+      PoseAndWaypointInfoForNode pose_info;
+      pose_info.pose_ = comparison_traj_rel_baselink_pose.second;
+      pose_info.waypoint_id_and_reversal_ = std::nullopt;
+      annotated_poses_map[comparison_traj_rel_baselink_pose.first] = pose_info;
+    }
+    for (const WaypointInfo &waypoint_info : waypoints_for_traj) {
+      std::optional<Pose3D<double>> pose_at_waypoint;
+      if (poses_by_stamp.find(waypoint_info.waypoint_timestamp_) !=
+          poses_by_stamp.end()) {
+        PoseAndWaypointInfoForNode pose_info;
+        pose_info.pose_ = poses_by_stamp.at(waypoint_info.waypoint_timestamp_);
+        pose_info.waypoint_id_and_reversal_ =
+            std::make_pair(waypoint_info.waypoint_id_, waypoint_info.reversed_);
+        annotated_poses_map[waypoint_info.waypoint_timestamp_] = pose_info;
+      }
+    }
+
+    std::vector<std::pair<pose::Timestamp, PoseAndWaypointInfoForNode>>
+        annotated_poses_list;
+    for (const auto &annotated_pose_entry : annotated_poses_map) {
+      annotated_poses_list.emplace_back(std::make_pair(
+          annotated_pose_entry.first, annotated_pose_entry.second));
+    }
+
+    // Sort
+    std::sort(
+        annotated_poses_list.begin(),
+        annotated_poses_list.end(),
+        [](const std::pair<pose::Timestamp, PoseAndWaypointInfoForNode> &lhs,
+           const std::pair<pose::Timestamp, PoseAndWaypointInfoForNode> &rhs) {
+          return pose::timestamp_sort()(lhs.first, rhs.first);
+        });
+
+    consistency_results.pose_and_waypoint_info_for_nodes_per_trajectory_
+        .emplace_back(annotated_poses_list);
   }
 
   if (vis_manager != nullptr) {
@@ -337,7 +384,6 @@ RawWaypointConsistencyResults computeWaypointConsistencyResults(
     ros::Duration(2).sleep();
   }
 
-  RawWaypointConsistencyResults consistency_results;
   for (const auto &waypoint_and_poses : poses_by_waypoint_with_trajectory) {
     std::vector<std::vector<double>> centroid_devs;
     centroid_devs.resize(waypoints_by_trajectory.size());

@@ -9,6 +9,7 @@
 #include <file_io/cv_file_storage/sequence_file_storage_io.h>
 #include <file_io/file_access_utils.h>
 #include <file_io/pose_3d_io.h>
+#include <file_io/pose_3d_with_timestamp_and_waypoint_annotation_io.h>
 #include <file_io/pose_3d_with_timestamp_io.h>
 #include <file_io/timestamp_and_waypoint_io.h>
 #include <gflags/gflags.h>
@@ -86,6 +87,7 @@ DEFINE_string(param_prefix, "", "Prefix for published topics");
 const std::string kIndivTrajectoryBaseFileName = "trajectory.csv";
 const std::string kGTIndivTrajectoryBaseFileName =
     "interpolated_lego_loam_poses.csv";
+const std::string kWaypointAlignedTrajFileName = "traj_with_waypoints.csv";
 
 FullSequenceMetrics computeMetrics(
     const std::vector<
@@ -96,6 +98,7 @@ FullSequenceMetrics computeMetrics(
     const std::vector<std::string> &ros_bag_names,
     const std::string &odom_topic,
     const std::vector<std::vector<WaypointInfo>> &waypoint_info_by_trajectory,
+    const std::vector<std::string> &traj_with_waypoints_files,
     const std::shared_ptr<vslam_types_refactor::RosVisualization> &vis_manager =
         nullptr) {
   FullSequenceMetrics full_metrics;
@@ -132,6 +135,25 @@ FullSequenceMetrics computeMetrics(
                                         poses_by_timestamp_by_trajectory,
                                         odom_poses_by_trajectory,
                                         vis_manager);
+
+  CHECK(raw_consistency_results.pose_and_waypoint_info_for_nodes_per_trajectory_
+            .size() == traj_with_waypoints_files.size())
+      << "Full trajectory with waypoint annotations structure must match "
+         "number of files to output such information to.";
+  for (size_t traj_num = 0; traj_num < traj_with_waypoints_files.size();
+       traj_num++) {
+    std::string traj_with_wps_name = traj_with_waypoints_files.at(traj_num);
+    if (traj_with_wps_name.empty()) {
+      continue;
+    }
+    std::vector<std::pair<pose::Timestamp, PoseAndWaypointInfoForNode>>
+        pose_and_waypoint_info_for_nodes_for_trajectory =
+            raw_consistency_results
+                .pose_and_waypoint_info_for_nodes_per_trajectory_.at(traj_num);
+
+    file_io::writePose3dWsithWaypointInfoToFile(
+        traj_with_wps_name, pose_and_waypoint_info_for_nodes_for_trajectory);
+  }
 
   for (size_t traj_num = 0;
        traj_num < comparison_trajectories_rel_baselink.size();
@@ -335,6 +357,7 @@ int main(int argc, char **argv) {
 
   std::vector<std::string> full_paths_for_comparison_trajectories;
   std::vector<std::string> full_paths_for_gt_trajectories;
+  std::vector<std::string> full_paths_for_wp_annotated_trajectories;
   for (const std::string &indiv_traj_dir_base_name :
        indiv_traj_dir_base_names) {
     std::string comparison_traj_path_suffix =
@@ -358,6 +381,15 @@ int main(int argc, char **argv) {
         comparison_traj_path_suffix + kIndivTrajectoryBaseFileName;
     full_paths_for_comparison_trajectories.emplace_back(
         comparison_traj_full_path);
+
+    std::string wp_annotated_out_file_full_path =
+        file_io::ensureDirectoryPathEndsWithSlash(
+            file_io::ensureDirectoryPathEndsWithSlash(
+                FLAGS_comparison_alg_traj_est_dir) +
+            indiv_traj_dir_base_name) +
+        comparison_traj_path_suffix + kWaypointAlignedTrajFileName;
+    full_paths_for_wp_annotated_trajectories.emplace_back(
+        wp_annotated_out_file_full_path);
 
     std::string gt_traj_full_path =
         file_io::ensureDirectoryPathEndsWithSlash(
@@ -588,7 +620,8 @@ int main(int argc, char **argv) {
                      rosbag_names,
                      FLAGS_odometry_topic,
                      waypoint_info_by_trajectory,
+                     full_paths_for_wp_annotated_trajectories,
                      vis_manager);
 
-    writeFullSequenceMetrics(FLAGS_metrics_out_file, full_metrics);
+  writeFullSequenceMetrics(FLAGS_metrics_out_file, full_metrics);
 }

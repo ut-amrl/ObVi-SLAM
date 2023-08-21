@@ -16,6 +16,11 @@
 
 namespace vslam_types_refactor {
 
+struct PoseAndWaypointInfoForNode {
+  std::optional<Pose3D<double>> pose_;
+  std::optional<std::pair<WaypointId, bool>> waypoint_id_and_reversal_;
+};
+
 // TODO want to move this to metrics class?
 struct RawWaypointConsistencyResults {
   std::unordered_map<WaypointId, std::vector<std::vector<double>>>
@@ -24,6 +29,9 @@ struct RawWaypointConsistencyResults {
       orientation_deviations_by_waypoint_by_trajectory_;
   // TODO how to handle lost nodes
 
+  std::vector<
+      std::vector<std::pair<pose::Timestamp, PoseAndWaypointInfoForNode>>>
+      pose_and_waypoint_info_for_nodes_per_trajectory_;
 };
 
 ATEResults combineSingleTrajectoryResults(
@@ -55,13 +63,15 @@ RawWaypointConsistencyResults computeWaypointConsistencyResults(
     const std::vector<
         std::vector<std::pair<pose::Timestamp, std::optional<Pose3D<double>>>>>
         &comparison_trajectories_rel_baselink,
-    const std::vector<util::BoostHashMap<pose::Timestamp, std::optional<Pose3D<double>>>>
+    const std::vector<
+        util::BoostHashMap<pose::Timestamp, std::optional<Pose3D<double>>>>
         &poses_by_timestamp_by_trajectory,
     const std::vector<std::vector<std::pair<pose::Timestamp, pose::Pose2d>>>
         &odom_poses_by_trajectory,
     const std::shared_ptr<RosVisualization> &vis_manager = nullptr);
 
-Pose3D<double> getMeanPose(const std::vector<std::optional<Pose3D<double>>> &poses);
+Pose3D<double> getMeanPose(
+    const std::vector<std::optional<Pose3D<double>>> &poses);
 
 void getDeviationFromMeanPose(const Pose3D<double> &mean_pose,
                               const std::optional<Pose3D<double>> &compare_pose,
