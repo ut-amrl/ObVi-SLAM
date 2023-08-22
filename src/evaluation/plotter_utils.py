@@ -2,6 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 from brokenaxes import brokenaxes
+from scipy.spatial.transform import Rotation as R
 
 from collections import defaultdict
 import os
@@ -15,6 +16,7 @@ kOrientNameQx = " quat_x"
 kOrientNameQy = " quat_y"
 kOrientNameQz = " quat_z"
 kOrientNameQw = " quat_w"
+kWaypointName = " waypoint_id"
 
 kATETranslErrorType = "transl_ate"
 kATEOrientErrorType = "orient_ate"
@@ -98,6 +100,16 @@ kApproachMarkerSizeDict = {
     kORBSLAM3ApproachName: kORBSLAM3MMakerSize, \
     kOASLAMApproachName: kOASLAMMarkerSize
 }
+
+kTopdownTrajColor = "#969696"
+kTopdownTrajWaypointColors = ["mediumorchid","maroon","mediumpurple","hotpink","indianred","magenta"]
+kTopdownTrajWaypointHalfWidth = 1.2
+kTopdownTrajWaypointHalfHeight = .6
+kTopdownTrajWaypointCorner0 = [kTopdownTrajWaypointHalfWidth,  kTopdownTrajWaypointHalfHeight]
+kTopdownTrajWaypointCorner1 = [-kTopdownTrajWaypointHalfWidth, kTopdownTrajWaypointHalfHeight]
+kTopdownTrajWaypointCorner2 = [-kTopdownTrajWaypointHalfWidth, -kTopdownTrajWaypointHalfHeight]
+kTopdownTrajWaypointCorner3 = [kTopdownTrajWaypointHalfWidth,  -kTopdownTrajWaypointHalfHeight]
+kTopdownTrajWaypointCorneres = [kTopdownTrajWaypointCorner0, kTopdownTrajWaypointCorner1, kTopdownTrajWaypointCorner2, kTopdownTrajWaypointCorner3]
 
 kAxisFontsize = 20
 kGridAlpha = .4
@@ -207,6 +219,51 @@ def plot_single_sequence_rmse(errs_dict, err_type, ylims=[], legend_loc="upper l
     bax.legend(loc=legend_loc)
     bax.grid(alpha=0.4)
     # Note: cannot use tight_layout. It'll break the brokenaxis
+    if savepath:
+        print("Saving figure to " + savepath)
+        plt.savefig(savepath)
+    else:
+        plt.show()
+
+def plot_topdown_trajectory(poses_dict, xlim=None, ylim=None, figsize=None, show_axis=True, savepath=None):
+    if figsize is None:
+        plt.figure(constrained_layout=True)
+    else:
+        plt.figure(constrained_layout=True, figsize=figsize)
+    waypoints_df = None
+    for bagid, pose_df in poses_dict.items():
+        plt.plot(pose_df[kTranslNameX], pose_df[kTranslNameY], color=kTopdownTrajColor, zorder=-1)
+        if waypoints_df is None:
+            waypoints_df = pose_df[pose_df[kWaypointName] != -1]
+        else:
+            waypoints_df = pd.concat([waypoints_df, pose_df[pose_df[kWaypointName] != -1]])
+    for name, group in waypoints_df.groupby(kWaypointName):
+        for _, data in group.iterrows():
+            points = []
+            transl = np.array([data[kTranslNameX], data[kTranslNameY]])
+            yaw = R.from_quat(data[[kOrientNameQx,kOrientNameQy,kOrientNameQz,kOrientNameQw]]).as_rotvec()[2]
+            for corner in kTopdownTrajWaypointCorneres:
+                rot_mat = np.array([[np.cos(yaw), -np.sin(yaw)], [np.sin(yaw), np.cos(yaw)]])
+                point = transl + rot_mat @ corner
+                points.append(point)
+            points.append(points[0])
+            points = np.array(points)
+            plt.fill(points[:,0], points[:,1], color=kTopdownTrajWaypointColors[int(name) % len(kTopdownTrajWaypointColors)])
+            # plt.plot(points[:,0], points[:,1], color="black", linewidth=0.5)
+    plt.xlabel("x (m)", fontsize=kAxisFontsize)
+    plt.ylabel("y (m)", fontsize=kAxisFontsize)
+    if show_axis:
+        plt.grid(alpha=0.4)
+        plt.axis("equal")
+    else:
+        plt.grid(False)
+        plt.axis('off')
+    if xlim:
+        plt.xlim(xlim)
+        plt.xticks(np.arange(xlim[0], xlim[1]+1, 10))
+    if ylim:
+        plt.ylim(ylim)
+        plt.yticks(np.arange(ylim[0], ylim[1]+1, 10))
     if savepath:
         print("Saving figure to " + savepath)
         plt.savefig(savepath)
