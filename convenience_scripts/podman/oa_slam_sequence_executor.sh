@@ -41,7 +41,7 @@ oa_slam_dir=${WORKDIR}OA-SLAM/
 camera_file=${oa_slam_dir}/Cameras/jackal_zed_rectified.yaml
 root_data_dir=${WORKDIR}data/
 
-sequence_file_base_name="end_of_may_demo_v1"
+sequence_file_base_name="evaluation_2023_07_v1_00_15"
 # TODO fix me
 sequence_file=/root/LTOV-SLAM-Evaluation/ut_vslam/sequences/${sequence_file_base_name}.json
 
