@@ -137,6 +137,12 @@ class CmdLineArgConstants:
                            "subdirectory for each sequence, and within that, a subdirectory for each bag (prefixed " \
                            "with the number in the sequence)"
 
+    # Constants specific to DROIDSLAM
+    droidSlamOutRootDirBaseArgName = 'droid_slam_out_root_dir'
+    droidSlamOutRootDirHelp = "Root directory where DROID-SLAM output files should be stored. There will be a " \
+                           "subdirectory for each sequence, and within that, a subdirectory for each bag (prefixed " \
+                           "with the number in the sequence)"
+
     # Metrics
     forceRerunMetricsGeneratorBaseArgName = 'force_rerun_metrics_generator'
     forceRerunMetricsGeneratorHelp = "Force run the metrics generator even if there is already a metrics file"
