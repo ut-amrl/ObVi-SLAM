@@ -16,25 +16,37 @@ from brokenaxes import brokenaxes
 import numpy as np
 import pandas as pd
 
+kFigSize=(6.5,4)
+kFigBottomSpacing=0.15
+
 kMaxXAxisBoundsMultiplier = 1.2
 kCDFTranslErrorType = "transl_cdf"
 kCDFOrientErrorType = "orient_cdf"
 kATETranslErrorType = "transl_ate"
 kATEOrientErrorType = "orient_ate"
 kAveragePositionDeviationsErrorType = "pos_dev_avg"
+kMedianPositionDeviationsErrorType = "pos_dev_med"
 kAverageIousErrorType = "avg ious"
+kMissedGtsErrorType = "missed_gts"
+kObjRatioErrorType = "obj_ratio"
 
 kATETranslErrorYLabel = "RMSE (m)"
 kATEOrientErrorYLabel = "RMSE (deg)"
 
 kAveragePositionDeviationsYLabel = "Average Deviation (m)"
 kAverageIousYLabel = "Average IoU"
+kMedianDevYLabel = "Median Deviation (m)"
+kMissedGtsYLabel = "Missed Ground Truth Objects"
+kObjsPerGtsYLabel = "Estimated Objects Per GT Object"
 
 kATEErrorYLabelDict = {
     kATETranslErrorType: kATETranslErrorYLabel, \
     kATEOrientErrorType: kATEOrientErrorYLabel, \
     kAveragePositionDeviationsErrorType: kAveragePositionDeviationsYLabel, \
-    kAverageIousErrorType: kAverageIousYLabel
+    kAverageIousErrorType: kAverageIousYLabel, \
+    kMedianPositionDeviationsErrorType: kMedianDevYLabel, \
+    kMissedGtsErrorType: kMissedGtsYLabel, \
+    kObjRatioErrorType: kObjsPerGtsYLabel
 }
 
 kObViSLAMApproachName = "ObVi-SLAM"
@@ -43,9 +55,9 @@ kOASLAMApproachName = "OA-SLAM"
 # kGTApproachName = "Pseudo-Groundtruth"
 kGTApproachName = "ObVi-SLAM_vis_only"
 kDROIDApproachName = "DROID-SLAM"
-kAblationNoShapePriorName = "ObVi-SLAM - No Shape Prior"
-kAblationNoVisFeatName = "ObVi-SLAM - No Vis Feats"
-kAblationNoLtmName = "ObVi-SLAM - No LTM"
+kAblationNoShapePriorName = "ObVi-SLAM - NS"
+kAblationNoVisFeatName = "ObVi-SLAM - NVF"
+kAblationNoLtmName = "ObVi-SLAM - NLTM"
 
 kApproachNames = set([
     kObViSLAMApproachName, \
@@ -146,7 +158,7 @@ kAblationNoShapePriorMarkerSize = 100
 kAblationNoVisFeatMarkerSize = 100
 kAblationNoLtmMarkerSize = 100
 
-kAxisFontsize = 20
+kAxisFontsize = 15
 kGridAlpha = .4
 
 kApproachMarkerSizeDict = {
@@ -238,7 +250,7 @@ def getCDFData(dataset, num_bins):
 
 
 def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="upper left", savepath=None, height_ratios=None, legend_ncol=1):
-    plt.figure()
+    fig = plt.figure(figsize=kFigSize)
 
     if (ylims == None) or (len(ylims) == 0):
         non_inf_max = 0
@@ -269,7 +281,7 @@ def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="up
                     zorder=zorder,
                     marker=kApproachMarkerDict[approach_name], \
                     s=kApproachMarkerSizeDict[approach_name])
-    bax.set_xlabel("Trajectory Number", fontsize=kAxisFontsize)
+    bax.set_xlabel("Trajectory Number", fontsize=kAxisFontsize, labelpad=20)
     bax.set_ylabel(kATEErrorYLabelDict[err_type], fontsize=kAxisFontsize)
     bax.legend(loc=legend_loc, ncol=legend_ncol)
     bax.grid(alpha=0.4)
@@ -281,6 +293,7 @@ def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="up
             tick_inc = math.ceil((max_tick - min_tick) / 3)
             bax.axs[len(ylims) - 1 - i].set_yticks(np.arange(min_tick, max_tick, tick_inc))
 
+    fig.subplots_adjust(bottom=kFigBottomSpacing)
 
 # Note: cannot use tight_layout. It'll break the brokenaxis
     if savepath:
@@ -292,7 +305,7 @@ def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="up
 
 def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins=1000, savepath=None,
             xlims=None, width_ratios=None):
-    plt.figure(fig_num)
+    fig=plt.figure(fig_num, figsize=kFigSize)
     comparison_approach_summary_max = 0
     comparison_approach_summary_min_max = None
 
@@ -366,9 +379,9 @@ def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins
         bax.legend(loc="lower right", prop={'size': 'small'})
         # plt.legend(prop={'size': 'small'})
     # plt.ylim(0, 1)
-    bax.set_title(title)
-    bax.set_xlabel(x_label)
-    bax.set_ylabel("Proportion of data")
+    # bax.set_title(title)
+    bax.set_xlabel(x_label, labelpad=20, fontsize=kAxisFontsize)
+    bax.set_ylabel("Proportion of data", fontsize=kAxisFontsize)
     bax.grid(alpha=0.4)
 
     for i in range(len(xlims)):
@@ -377,6 +390,7 @@ def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins
         tick_inc = math.ceil((max_tick - min_tick) / 5)
         bax.axs[i].set_xticks(np.arange(min_tick, max_tick, tick_inc))
 
+    # fig.subplots_adjust(bottom=kFigBottomSpacing)
     # plt.title(title)
     # plt.xlabel(x_label)
     # plt.ylabel("Proportion of data")
