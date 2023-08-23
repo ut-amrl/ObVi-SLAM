@@ -18,15 +18,15 @@ from approach_metrics import *
 def plotTranslationConsistency(primaryApproachName, translationConsistency, savepath=None):
 
     # For orb, oa, droid and ours
-    xlims=[(0, 5.2)]
-    width_ratios=[1, 1]
+    # xlims=[(0, 5.2)]
+    # width_ratios=[1, 1]
 
     # ablations
-    # xlims = [(0, 6.5)]
-    # width_ratios = [1, 1]
+    xlims = [(0, 6.5)]
+    width_ratios = [1, 1]
 
     plotCDF(primaryApproachName, translationConsistency,
-            "CDF of Position Deviation from Waypoint Estimate Centroid", "Meters from Respective Centroid", 1,
+            "CDF of Position Deviation from Waypoint Estimate Centroid", "Meters from Centroid", 1,
             savepath=savepath, xlims=xlims, width_ratios=width_ratios)
 
 
@@ -35,19 +35,19 @@ def plotOrientationConsistency(primaryApproachName, orientationConsistency, save
                                  orientationConsistency.items()}
 
     # For orb, prev oa and ours
-    xlims=[(0, 10)]
-    width_ratios=[1, 1]
+    # xlims=[(0, 10)]
+    # width_ratios=[1, 1]
 
 
     # ablations
-    # xlims = [(0, 13)]
-    # width_ratios = [1, 1]
+    xlims = [(0, 13)]
+    width_ratios = [1, 1]
 
     # xlims = None
     # width_ratios = None
     plotCDF(primaryApproachName, orientationConsistencyDeg,
             "CDF of Orientation Estimate Deviation from Mean Waypoint Orientation",
-            "Degrees from Mean Waypoint Orientation", 2, savepath=savepath, xlims=xlims, width_ratios=width_ratios)
+            "Degrees from Mean Orientation", 2, savepath=savepath, xlims=xlims, width_ratios=width_ratios)
 
 
 def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_name=None):
@@ -80,10 +80,10 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
 
     errorTypesAndSavepaths = readErrTypesAndSavepathsFile(error_types_and_savepaths_file_name)
 
-    # plotTranslationConsistency(metricsFilesInfo.primaryApproachName, translationConsistency,
-    #                            errorTypesAndSavepaths[kCDFTranslErrorType])
-    # plotOrientationConsistency(metricsFilesInfo.primaryApproachName, orientationConsistency,
-    #                            errorTypesAndSavepaths[kCDFOrientErrorType])
+    plotTranslationConsistency(metricsFilesInfo.primaryApproachName, translationConsistency,
+                               errorTypesAndSavepaths[kCDFTranslErrorType])
+    plotOrientationConsistency(metricsFilesInfo.primaryApproachName, orientationConsistency,
+                               errorTypesAndSavepaths[kCDFOrientErrorType])
 
     # For orb, prev oa and ours
     # transl_y_lims = [(0, 3), (3.5, 8), (20, 22.5)]
@@ -91,16 +91,19 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
 
 
     # ablations
-    # transl_y_lims = [(0, 2.1), (3.9, 5), (10, 40), (22500, 25000)]
-    # transl_height_ratios = [1.5, 1, 1, 2]
-    # transl_legend_ncol=1
+    transl_y_lims = [(0, 4.5), (8, 45), (22500, 24900)]
+    transl_height_ratios = [1, 2, 2.5]
+    transl_legend_ncol=2
+    transl_legend_loc="upper right"
 
     # New comparison results
-    transl_y_lims = [(0,8.5), (14, 25)]
-    transl_legend_ncol=2
-    transl_height_ratios = [1,3.25] # This has reverse order from transl_y_lims
+    # transl_legend_ncol=1
+    # transl_y_lims=None
+    # transl_height_ratios = None
+    # transl_legend_loc="upper left"
+
     plotRMSEs(metricsFilesInfo.primaryApproachName, translAtesByTrajectory, kATETranslErrorType, ylims=transl_y_lims,
-              legend_loc="upper center", savepath=None, height_ratios=transl_height_ratios, legend_ncol=transl_legend_ncol)
+              legend_loc=transl_legend_loc, savepath=None, height_ratios=transl_height_ratios, legend_ncol=transl_legend_ncol)
     # orient_y_lims=[(0, 10)]
     # orient_y_lims=[(0, 30), (64, 71)]
 
@@ -109,18 +112,26 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
     # orient_height_ratios = [1, 1, 2]
 
     # ablations
-    # orient_y_lims=[(0, 13), (17, 24), (43, 200)]
-    # orient_height_ratios=[1, 1, 3]
-    # orient_legend_ncol=1
 
-    orient_y_lims = [(0, 15), (40, 73), (83, 185)]
-    orient_height_ratios = [1, 1, 4]
+    # orient_y_lims=[(0, 10), (10, 24), (41.5, 250)]
+    # orient_height_ratios=[1.5, 1, 3]
+    orient_y_lims=[(0, 13), (18, 25), (40, 130), (150, 180)]
+    orient_height_ratios=[1, 1,  1, 4]
     orient_legend_ncol=2
+    orient_legend_loc="center left"
 
+    # orient_y_lims = [(0, 15), (40, 73), (83, 185)]
+    # orient_height_ratios = [1, 1, 4]
+    # orient_legend_ncol=2
+
+    # orient_y_lims=[(0, 9), (9.5, 24), (40, 60)]
+    # orient_height_ratios=[1, 1, 2]
+    # orient_legend_loc="upper left"
+    # orient_legend_ncol=1
 
     print(rotAtesByTrajectory)
     plotRMSEs(metricsFilesInfo.primaryApproachName, rotAtesByTrajectory, kATEOrientErrorType, ylims=orient_y_lims,
-              legend_loc="upper center", savepath=None, height_ratios=orient_height_ratios, legend_ncol=orient_legend_ncol)
+              legend_loc=orient_legend_loc, savepath=None, height_ratios=orient_height_ratios, legend_ncol=orient_legend_ncol)
 
     plt.show()
 

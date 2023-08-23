@@ -44,10 +44,12 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
     errorTypesAndSavepaths = readErrTypesAndSavepathsFile(error_types_and_savepaths_file_name)
 
     # comparison
-    posDev_y_lims = []
+    posDev_y_lims = None
+    dev_height_ratios = None
 
-    posDev_y_lims=[(0, 7), (20, 80), (1500, 2700), (2700, 9200), (9200, 2600000)]
-    dev_height_ratios=[1, 1, 1, 1, 3]
+    # Ablations
+    # posDev_y_lims=[(0, 7), (20, 80), (1500, 2700), (2700, 9200), (9200, 2600000)]
+    # dev_height_ratios=[1, 1, 1, 1, 3]
     print(avgPosDeviations)
     maxes = {approachLabel:max(dev_list) for approachLabel, dev_list in avgPosDeviations.items()}
     print(maxes)
@@ -55,12 +57,22 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
     plotRMSEs(metricsFilesInfo.primaryApproachName, avgPosDeviations, kAveragePositionDeviationsErrorType,
               ylims=posDev_y_lims, legend_loc="upper left", savepath=None, height_ratios=dev_height_ratios)
 
+
+    plotRMSEs(metricsFilesInfo.primaryApproachName, medianPosDeviations, kMedianPositionDeviationsErrorType,
+              ylims=posDev_y_lims, legend_loc="upper left", savepath=None, height_ratios=dev_height_ratios)
+
     # comparison
-    # iou_y_lims = []
+    iou_y_lims = []
 
     # ablations
-    iou_y_lims=[(0, 0.16)]
+    # iou_y_lims=[(0, 0.16)]
     plotRMSEs(metricsFilesInfo.primaryApproachName, avgIous, kAverageIousErrorType, ylims=iou_y_lims,
+              legend_loc="upper center", savepath=None,  legend_ncol=2)
+
+    plotRMSEs(metricsFilesInfo.primaryApproachName, missedGtObjs, kMissedGtsErrorType, ylims=iou_y_lims,
+              legend_loc="upper center", savepath=None,  legend_ncol=2)
+
+    plotRMSEs(metricsFilesInfo.primaryApproachName, objectsPerGtObj, kObjRatioErrorType, ylims=iou_y_lims,
               legend_loc="upper center", savepath=None,  legend_ncol=2)
 
     plt.show()
