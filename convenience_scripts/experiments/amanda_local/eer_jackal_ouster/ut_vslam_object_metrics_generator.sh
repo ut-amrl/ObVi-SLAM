@@ -16,12 +16,24 @@ gt_ellipsoids_file=${rosbag_file_directory}readable_labeling__2023_05_12_10_40_1
 
 sequence_file_base_name="evaluation_2023_07_v1"
 
+#config_file_strings=("no_ltm_base7a_1_fallback_a_2" "no_ltm_base7a_2_fallback_b_2" "no_ltm_base7a_2_fallback_c_2" "no_shape_prior_base7a_1_fallback_a_2" "no_shape_prior_base7a_2_fallback_b_2" "no_shape_prior_base7a_2_fallback_c_2" "no_vis_feats_base7a_1_fallback_a_2" "no_vis_feats_base7a_2_fallback_b_2" "no_vis_feats_base7a_2_fallback_c_2")
+#config_file_strings=("no_shape_prior_base7a_1_fallback_a_2" "no_shape_prior_base7a_2_fallback_b_2" "no_shape_prior_base7a_2_fallback_c_2" "no_vis_feats_base7a_1_fallback_a_2" "no_vis_feats_base7a_2_fallback_b_2" "no_vis_feats_base7a_2_fallback_c_2")
+#config_file_strings=("no_shape_prior_base7a_2_fallback_b_2" "no_shape_prior_base7a_2_fallback_c_2" "no_vis_feats_base7a_1_fallback_a_2" "no_vis_feats_base7a_2_fallback_b_2" "no_vis_feats_base7a_2_fallback_c_2")
+#config_file_strings=("no_shape_prior_base7a_1_fallback_a_2" "no_shape_prior_base7a_2_fallback_b_2" "no_shape_prior_base7a_2_fallback_c_2")
+#config_file_strings=("no_vis_feats_base7a_1_fallback_a_2" "no_vis_feats_base7a_2_fallback_b_2" "no_vis_feats_base7a_2_fallback_c_2")
 
-make && python3 src/evaluation/compute_object_metrics_for_ut_vslam.py \
-    --gt_ellipsoids_file=${gt_ellipsoids_file} \
-    --results_root_directory=${results_root_directory} \
-    --trajectory_sequence_file_directory=${trajectory_sequence_file_directory} \
-    --sequence_file_base_name=${sequence_file_base_name} \
-    --calibration_file_directory=${calibration_file_directory} \
-    --config_file_base_name=${config_file_base_name} \
-    --force_rerun_metrics_generator \
+#config_file_strings=("base7a_1_fallback_a_2" "no_vis_feats_base7a_1_fallback_a_2" "no_shape_prior_base7a_1_fallback_a_2" "no_ltm_base7a_1_fallback_a_2")
+config_file_strings=("no_shape_prior_base7a_1_fallback_a_2")
+
+for config_file_base_name in ${config_file_strings[@]}; do
+  echo ${config_file_base_name}
+  make && python3 src/evaluation/compute_object_metrics_for_ut_vslam.py \
+      --gt_ellipsoids_file=${gt_ellipsoids_file} \
+      --results_root_directory=${results_root_directory} \
+      --trajectory_sequence_file_directory=${trajectory_sequence_file_directory} \
+      --sequence_file_base_name=${sequence_file_base_name} \
+      --calibration_file_directory=${calibration_file_directory} \
+      --config_file_base_name=${config_file_base_name} \
+      --force_rerun_metrics_generator
+done
+

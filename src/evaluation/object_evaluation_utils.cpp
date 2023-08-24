@@ -15,7 +15,7 @@ namespace {
 const static int kObjectAlignmentMaxIters = 20;
 const static double kRotationChangeForConvergence = 0.01;
 const static double kTranslationChangeForConvergence = 0.05;
-const static double kIoUSamplingPointsPerMeter = 100;
+const static double kIoUSamplingPointsPerMeter = 20;
 const static double kMaxDistanceForInliers = 5.0;
 const static int kMaxPointsPerDirection = 1000;
 }  // namespace
@@ -846,15 +846,25 @@ double getIoUForObjectSet(
     LOG(INFO) << "Num points el y after adjusting " << num_y_points_el;
     LOG(INFO) << "Num points el z after adjusting " << num_z_points_el;
 
-    for (double curr_x_el = bb_for_ellipsoid.first.x();
-         curr_x_el < bb_for_ellipsoid.second.x();
-         curr_x_el += x_inc) {
-      for (double curr_y_el = bb_for_ellipsoid.first.y();
-           curr_y_el < bb_for_ellipsoid.second.y();
-           curr_y_el += y_inc) {
-        for (double curr_z_el = bb_for_ellipsoid.first.z();
-             curr_z_el < bb_for_ellipsoid.second.z();
-             curr_z_el += z_inc) {
+
+//    for (double curr_x_el = bb_for_ellipsoid.first.x();
+//         curr_x_el < bb_for_ellipsoid.second.x();
+//         curr_x_el += x_inc) {
+    for (size_t x_idx = 0; x_idx <= num_x_points_el; x_idx++) {
+      double curr_x_el = bb_for_ellipsoid.first.x() + (x_inc * x_idx);
+      LOG_IF(INFO, (x_idx % 100) == 0) << "x idx: " << x_idx;
+      for (size_t y_idx = 0; y_idx <= num_y_points_el; y_idx++) {
+//      for (double curr_y_el = bb_for_ellipsoid.first.y();
+//           curr_y_el < bb_for_ellipsoid.second.y();
+//           curr_y_el += y_inc) {
+        double curr_y_el = bb_for_ellipsoid.first.y() + (y_inc * y_idx);
+        LOG_IF(INFO, (((x_idx % 100) == 0) && ((y_idx % 100) == 0))) << "y idx: " << y_idx;
+//        for (double curr_z_el = bb_for_ellipsoid.first.z();
+//             curr_z_el < bb_for_ellipsoid.second.z();
+//             curr_z_el += z_inc) {
+        for (size_t z_idx = 0; z_idx <= num_z_points_el; z_idx++) {
+//          LOG_IF(INFO, (z_idx % 100) == 0) << "z idx: " << z_idx;
+          double curr_z_el = bb_for_ellipsoid.first.z() + (z_inc * z_idx);
           Position3d<double> point(curr_x_el, curr_y_el, curr_z_el);
           if (pointInEllipsoid(el_to_check, point)) {
             bool already_counted = false;
