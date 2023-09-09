@@ -156,6 +156,10 @@ target_link_libraries(run_opt_from_pg_state ut_vslam ${LIBS})
 ROSBUILD_ADD_EXECUTABLE(waypoint_timestamp_extractor src/data_preprocessing_utils/waypoint_timestamp_extractor.cpp)
 target_link_libraries(waypoint_timestamp_extractor ut_vslam ${LIBS})
 
+ROSBUILD_ADD_EXECUTABLE(lego_loam_overlay_generator src/evaluation/lego_loam_overlay_generator.cpp)
+target_link_libraries(lego_loam_overlay_generator ut_vslam ${LIBS})
+
+
 ROSBUILD_ADD_EXECUTABLE(sequence_file_writer src/data_preprocessing_utils/sequence_file_writer.cpp)
 target_link_libraries(sequence_file_writer ut_vslam ${LIBS})
 

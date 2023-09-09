@@ -102,6 +102,12 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
     # transl_height_ratios = None
     # transl_legend_loc="upper left"
 
+    # New comparison results v2
+    # transl_legend_ncol=1
+    # transl_y_lims=[(0, 5.8), (6, 12)]
+    # transl_height_ratios = [1, 2]
+    # transl_legend_loc="upper left"
+
     plotRMSEs(metricsFilesInfo.primaryApproachName, translAtesByTrajectory, kATETranslErrorType, ylims=transl_y_lims,
               legend_loc=transl_legend_loc, savepath=None, height_ratios=transl_height_ratios, legend_ncol=transl_legend_ncol)
     # orient_y_lims=[(0, 10)]
@@ -124,10 +130,19 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
     # orient_height_ratios = [1, 1, 4]
     # orient_legend_ncol=2
 
+    # New comparison results
     # orient_y_lims=[(0, 9), (9.5, 24), (40, 60)]
     # orient_height_ratios=[1, 1, 2]
     # orient_legend_loc="upper left"
     # orient_legend_ncol=1
+
+    # New comparison results v2 (slides version)
+    # orient_y_lims=[(0, 3.7), (4.1, 8),  (9.5, 24), (40, 60)]
+    # orient_height_ratios=[1, 1, 1, 1.5]
+    # orient_legend_loc="upper left"
+    # orient_legend_ncol=1
+
+
 
     print(rotAtesByTrajectory)
     plotRMSEs(metricsFilesInfo.primaryApproachName, rotAtesByTrajectory, kATEOrientErrorType, ylims=orient_y_lims,

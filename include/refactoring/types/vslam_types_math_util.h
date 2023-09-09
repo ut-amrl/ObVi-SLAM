@@ -215,6 +215,56 @@ adjustTrajectoryToStartAtOriginWithExtrinsics(
   return new_traj;
 }
 
+template <typename NumType>
+Pose3D<NumType> getAligningTransform(
+    const std::vector<Position3d<double>>& points_1,
+    const std::vector<Position3d<double>>& points_2) {
+  Position3d<double> mean_pos_p2 = Eigen::Vector3d::Zero();
+  Position3d<double> mean_pos_p1 = Eigen::Vector3d::Zero();
+  Covariance<double, 3> object_position_cov = Eigen::Matrix3d::Zero();
+
+  CHECK_EQ(points_1.size(), points_2.size())
+      << "To allign two clouds, we need the size to be equal since "
+         "associations are assumed by index";
+
+  for (size_t point_idx = 0; point_idx < points_1.size(); point_idx++) {
+    mean_pos_p1 += points_1.at(point_idx);
+    mean_pos_p2 += points_2.at(point_idx);
+  }
+  mean_pos_p1 = mean_pos_p1 / points_1.size();
+  mean_pos_p2 = mean_pos_p2 / points_2.size();
+
+  for (size_t point_idx = 0; point_idx < points_1.size(); point_idx++) {
+    Position3d<double> p1_deviation = points_1.at(point_idx) - mean_pos_p1;
+    Position3d<double> p2_deviation = points_2.at(point_idx) - mean_pos_p2;
+
+    object_position_cov += (p1_deviation * (p2_deviation.transpose()));
+  }
+  object_position_cov = object_position_cov / points_1.size();
+
+  Eigen::JacobiSVD<Eigen::Matrix<double, 3, 3>> svd;
+  svd.compute(object_position_cov, Eigen::ComputeFullU | Eigen::ComputeFullV);
+
+  Eigen::Matrix3d uMat = svd.matrixU();
+  Eigen::Matrix3d vMat = svd.matrixV();
+
+  Eigen::Matrix3d wMat = Eigen::Matrix3d::Zero();
+  wMat(0, 0) = 1;
+  wMat(1, 1) = 1;
+  if (uMat.determinant() * vMat.determinant() < 0) {
+    wMat(2, 2) = -1;
+  } else {
+    wMat(2, 2) = 1;
+  }
+
+  Eigen::Matrix3d rotMat = uMat * wMat * vMat.transpose();
+
+  Position3d<double> transl = mean_pos_p1 - (rotMat * mean_pos_p2);
+
+  return Pose3D<double>(transl,
+                        Eigen::AngleAxis<double>(Eigen::Quaterniond(rotMat)));
+}
+
 }  // namespace vslam_types_refactor
 
 #endif  // UT_VSLAM_VSLAM_TYPES_MATH_UTIL_H

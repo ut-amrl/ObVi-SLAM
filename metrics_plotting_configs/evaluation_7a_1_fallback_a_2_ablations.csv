@@ -1,4 +1,4 @@
 ObVi-SLAM,/home/amanda/rosbags/ellipsoid_slam/eer_jackal/ut_vslam_results/copied_from_server/evaluation_2023_07_v1/base7a_1_fallback_a_2/metrics.json
-ObVi-SLAM - NS,/home/amanda/rosbags/ellipsoid_slam/eer_jackal/ut_vslam_results/evaluation_2023_07_v1/no_shape_prior_base7a_1_fallback_a_2/metrics.json
-ObVi-SLAM - NVF,/home/amanda/rosbags/ellipsoid_slam/eer_jackal/ut_vslam_results/evaluation_2023_07_v1/no_vis_feats_base7a_1_fallback_a_2/metrics.json
-ObVi-SLAM - NLTM,/home/amanda/rosbags/ellipsoid_slam/eer_jackal/ut_vslam_results/evaluation_2023_07_v1/no_ltm_base7a_1_fallback_a_2/metrics.json
+ObVi-SLAM-S,/home/amanda/rosbags/ellipsoid_slam/eer_jackal/ut_vslam_results/evaluation_2023_07_v1/no_shape_prior_base7a_1_fallback_a_2/metrics.json
+ObVi-SLAM-VF,/home/amanda/rosbags/ellipsoid_slam/eer_jackal/ut_vslam_results/evaluation_2023_07_v1/no_vis_feats_base7a_1_fallback_a_2/metrics.json
+ObVi-SLAM-LTM,/home/amanda/rosbags/ellipsoid_slam/eer_jackal/ut_vslam_results/evaluation_2023_07_v1/no_ltm_base7a_1_fallback_a_2/metrics.json

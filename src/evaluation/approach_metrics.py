@@ -55,9 +55,9 @@ kOASLAMApproachName = "OA-SLAM"
 # kGTApproachName = "Pseudo-Groundtruth"
 kGTApproachName = "ObVi-SLAM_vis_only"
 kDROIDApproachName = "DROID-SLAM"
-kAblationNoShapePriorName = "ObVi-SLAM - NS"
-kAblationNoVisFeatName = "ObVi-SLAM - NVF"
-kAblationNoLtmName = "ObVi-SLAM - NLTM"
+kAblationNoShapePriorName = "ObVi-SLAM-S"
+kAblationNoVisFeatName = "ObVi-SLAM-VF"
+kAblationNoLtmName = "ObVi-SLAM-LTM"
 
 kApproachNames = set([
     kObViSLAMApproachName, \
@@ -249,7 +249,7 @@ def getCDFData(dataset, num_bins):
     # return (cdf , bins_count , max_val)
 
 
-def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="upper left", savepath=None, height_ratios=None, legend_ncol=1):
+def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="upper left", savepath=None, height_ratios=None, legend_ncol=1, yscaleType=None):
     fig = plt.figure(figsize=kFigSize)
 
     if (ylims == None) or (len(ylims) == 0):
@@ -260,7 +260,7 @@ def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="up
                     non_inf_max = max(err_val, non_inf_max)
         ylims = [(0, non_inf_max * 1.05)]
 
-    bax = brokenaxes(ylims=ylims, height_ratios=height_ratios)
+    bax = brokenaxes(ylims=ylims, height_ratios=height_ratios, yscale=yscaleType)
 
     if (kORBSLAM3ApproachName in errs_dict):
         orb_split_idx = 6
@@ -275,6 +275,14 @@ def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="up
         zorder =1
         if (approach_name == primaryApproachName):
             zorder=2
+        # if (approach_name == kOASLAMApproachName):
+        #     bax.scatter(xx, errs, label=approach_name, \
+        #                 # plt.scatter(xx, errs, label=approach_name, \
+        #                 color='#2ca02c', \
+        #                 zorder=zorder,
+        #                 marker=kApproachMarkerDict[approach_name], \
+        #                 s=kApproachMarkerSizeDict[approach_name])
+        # else:
         bax.scatter(xx, errs, label=approach_name, \
                     # plt.scatter(xx, errs, label=approach_name, \
                     # color=kApproachColorDict[approach_name], \
@@ -285,6 +293,8 @@ def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="up
     bax.set_ylabel(kATEErrorYLabelDict[err_type], fontsize=kAxisFontsize)
     bax.legend(loc=legend_loc, ncol=legend_ncol)
     bax.grid(alpha=0.4)
+    if (yscaleType is not None):
+        bax.set_yscale(yscaleType)
 
     if (len(ylims) > 1):
         for i in range(len(ylims)):

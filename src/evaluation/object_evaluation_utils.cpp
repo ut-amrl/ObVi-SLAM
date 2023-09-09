@@ -15,7 +15,7 @@ namespace {
 const static int kObjectAlignmentMaxIters = 20;
 const static double kRotationChangeForConvergence = 0.01;
 const static double kTranslationChangeForConvergence = 0.05;
-const static double kIoUSamplingPointsPerMeter = 20;
+const static double kIoUSamplingPointsPerMeter = 100;
 const static double kMaxDistanceForInliers = 5.0;
 const static int kMaxPointsPerDirection = 1000;
 }  // namespace
@@ -122,63 +122,18 @@ void findTransformationForAssociatedObjects(
     const std::unordered_map<ObjectId, std::optional<ObjectId>>
         &gt_objects_for_est_objs,
     Pose3D<double> &est_obj_transformation) {
-  Position3d<double> mean_pos_est = Eigen::Vector3d::Zero();
-  Position3d<double> mean_pos_gt = Eigen::Vector3d::Zero();
-  Covariance<double, 3> object_position_cov = Eigen::Matrix3d::Zero();
 
-  size_t total_poses = 0;
+  std::vector<Position3d<double>> gt_points;
+  std::vector<Position3d<double>> est_points;
   for (const auto &gt_obj_for_est : gt_objects_for_est_objs) {
     if (!gt_obj_for_est.second.has_value()) {
       continue;
     }
-    total_poses++;
-    mean_pos_gt +=
-        gt_objects.at(gt_obj_for_est.second.value()).second.pose_.transl_;
-    mean_pos_est +=
-        estimated_objects.at(gt_obj_for_est.first).second.pose_.transl_;
-  }
-  mean_pos_gt = mean_pos_gt / total_poses;
-  mean_pos_est = mean_pos_est / total_poses;
-
-  total_poses = 0;
-  for (const auto &gt_obj_for_est : gt_objects_for_est_objs) {
-    if (!gt_obj_for_est.second.has_value()) {
-      continue;
-    }
-
-    total_poses++;
-    Position3d<double> gt_deviation =
-        gt_objects.at(gt_obj_for_est.second.value()).second.pose_.transl_ -
-        mean_pos_gt;
-    Position3d<double> est_deviation =
-        estimated_objects.at(gt_obj_for_est.first).second.pose_.transl_ -
-        mean_pos_est;
-
-    object_position_cov += (gt_deviation * (est_deviation.transpose()));
-  }
-  object_position_cov = object_position_cov / total_poses;
-
-  Eigen::JacobiSVD<Eigen::Matrix<double, 3, 3>> svd;
-  svd.compute(object_position_cov, Eigen::ComputeFullU | Eigen::ComputeFullV);
-
-  Eigen::Matrix3d uMat = svd.matrixU();
-  Eigen::Matrix3d vMat = svd.matrixV();
-
-  Eigen::Matrix3d wMat = Eigen::Matrix3d::Zero();
-  wMat(0, 0) = 1;
-  wMat(1, 1) = 1;
-  if (uMat.determinant() * vMat.determinant() < 0) {
-    wMat(2, 2) = -1;
-  } else {
-    wMat(2, 2) = 1;
+    gt_points.emplace_back(gt_objects.at(gt_obj_for_est.second.value()).second.pose_.transl_);
+    est_points.emplace_back(estimated_objects.at(gt_obj_for_est.first).second.pose_.transl_);
   }
 
-  Eigen::Matrix3d rotMat = uMat * wMat * vMat.transpose();
-
-  Position3d<double> transl = mean_pos_gt - (rotMat * mean_pos_est);
-
-  est_obj_transformation = Pose3D<double>(
-      transl, Eigen::AngleAxis<double>(Eigen::Quaterniond(rotMat)));
+  est_obj_transformation = getAligningTransform<double>(gt_points, est_points);
 }
 
 void associateObjectsAndFindTransformation(
@@ -238,11 +193,10 @@ void associateObjectsAndFindTransformation(
     //        est_to_gt.emplace_back(
     //            std::make_pair(adjusted_est_position, gt_obj_position));
     //      }
-    //      vis_manager->publishLines("obj_assoc_lines", INITIAL, est_to_init,
-    //      1); vis_manager->publishLines("obj_assoc_lines", ESTIMATED,
-    //      est_to_gt, 1);
-    //      //      sleep(2);
-    //      //      getchar();
+    //      vis_manager->publishLines("obj_assoc_lines", INITIAL, est_to_init, 1);
+    //      vis_manager->publishLines("obj_assoc_lines", ESTIMATED, est_to_gt, 1);
+    //            sleep(2);
+    //            getchar();
     //    }
 
     associateObjects(tmp_aligned_objects,
@@ -279,11 +233,10 @@ void associateObjectsAndFindTransformation(
     //        est_to_gt.emplace_back(
     //            std::make_pair(adjusted_est_position, gt_obj_position));
     //      }
-    ////      vis_manager->publishLines("obj_assoc_lines", GROUND_TRUTH,
-    /// init_to_gt, 1); /      vis_manager->publishLines("obj_assoc_lines",
-    /// ESTIMATED, est_to_gt, 1);
-    //      //      sleep(2);
-    //      //      getchar();
+    //      vis_manager->publishLines("obj_assoc_lines", GROUND_TRUTH, init_to_gt, 1);
+    //      vis_manager->publishLines("obj_assoc_lines",ESTIMATED, est_to_gt, 1);
+    //            sleep(2);
+    //            getchar();
     //    }
 
     Pose3D<double> new_transform;
@@ -354,8 +307,8 @@ void associateObjectsAndFindTransformation(
   //    1); vis_manager->publishLines("obj_assoc_lines", INITIAL, est_to_init,
   //    1); vis_manager->publishLines("obj_assoc_lines", ESTIMATED, est_to_gt,
   //    1);
-  //    //    sleep(2);
-  //    //    getchar();
+  //        sleep(2);
+  //        getchar();
   //  }
 }
 
