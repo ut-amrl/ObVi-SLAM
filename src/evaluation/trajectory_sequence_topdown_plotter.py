@@ -6,9 +6,9 @@ import warnings
 from plotter_utils import *
 
 kTrajWithWaypointsFilename = "traj_with_waypoints.csv"
-kTrajWithWaypointsXlim = []
-kTrajWithWaypointsYlim = []
-kTrajWithWaypointsFigsize = []
+kTrajWithWaypointsXlim = None
+kTrajWithWaypointsYlim = None
+kTrajWithWaypointsFigsize = None
 
 def parseArgs():
     parser = argparse.ArgumentParser(description='Plot topdown view of the trajectories for a single sequence.')
@@ -50,8 +50,8 @@ if __name__ == "__main__":
             filepath = os.path.join(cmdLineArgs.datadir, bag_uid, kTrajWithWaypointsFilename)
         poses_dict[bag_uid] = pd.read_csv(filepath)
     plot_topdown_trajectory(poses_dict, \
-            xlim=tuple(kTrajWithWaypointsXlim), \
-            ylim=tuple(kTrajWithWaypointsYlim), \
+            xlim=kTrajWithWaypointsXlim, \
+            ylim=kTrajWithWaypointsYlim, \
             figsize=kTrajWithWaypointsFigsize, \
             savepath=cmdLineArgs.savepath)
 
