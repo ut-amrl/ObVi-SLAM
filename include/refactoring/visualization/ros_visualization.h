@@ -123,23 +123,20 @@ class RosVisualization {
                   const int &box_id,
                   const double &alpha = 0.2) {
     std::string topic = createTopicForPlotTypeAndBase(plot_type, topic_base);
-    ros::Publisher pub = getOrCreatePublisher<visualization_msgs::Marker>(
-        topic, 1000);
+    ros::Publisher pub =
+        getOrCreatePublisher<visualization_msgs::Marker>(topic, 1000);
 
     std_msgs::ColorRGBA color = color_for_plot_type_.at(plot_type);
     publishBox(pub, color, box_center, box_orientation, box_dims, box_id);
   }
 
-
-  void publishBox(
-      ros::Publisher &marker_pub,
-      const std_msgs::ColorRGBA &color,
+  void publishBox(ros::Publisher &marker_pub,
+                  const std_msgs::ColorRGBA &color,
                   const Position3d<double> &box_center,
                   const Eigen::Quaterniond &box_orientation,
                   const Eigen::Vector3d &box_dims,
                   const int &box_id,
                   const double &alpha = 0.2) {
-
     visualization_msgs::Marker marker_msg;
     marker_msg.id = box_id;
     marker_msg.color = color;
@@ -158,18 +155,18 @@ class RosVisualization {
     marker_msg.pose.orientation.z = box_orientation.z();
     marker_msg.pose.orientation.w = box_orientation.w();
 
-
     publishMarker(marker_msg, marker_pub);
   }
 
-  void publishLines(const std::string &topic_base,
-                    const PlotType &plot_type,
-                    const std::vector<std::pair<Position3d<double>, Position3d<double>>>
-                    &lines,
-                    const int32_t &marker_num) {
+  void publishLines(
+      const std::string &topic_base,
+      const PlotType &plot_type,
+      const std::vector<std::pair<Position3d<double>, Position3d<double>>>
+          &lines,
+      const int32_t &marker_num) {
     std::string topic = createTopicForPlotTypeAndBase(plot_type, topic_base);
-    ros::Publisher pub = getOrCreateVisMarkerPublisherAndClearPrevious(
-        topic, 1000);
+    ros::Publisher pub =
+        getOrCreateVisMarkerPublisherAndClearPrevious(topic, 1000);
     std_msgs::ColorRGBA color = color_for_plot_type_.at(plot_type);
     publishLines(pub, color, lines, marker_num);
   }
@@ -615,8 +612,8 @@ class RosVisualization {
     for (const auto &frame_and_bbs :
          observed_corner_locations_with_uncertainty) {
       FrameId pose_idx = frame_and_bbs.first;
-      //      if (pose_idx != max_frame) {
-      if (pose_idx > max_frame) {
+      if (pose_idx != max_frame) {
+        //      if (pose_idx > max_frame) {
         continue;
       }
 
@@ -636,17 +633,22 @@ class RosVisualization {
       for (const auto &cam_id_and_intrinsics : intrinsics) {
         // If there are no observed bounding boxes for the camera at the pose,
         // sip it
-        if (observed_corner_locations_for_pose.find(
-                cam_id_and_intrinsics.first) ==
-            observed_corner_locations_for_pose.end()) {
-          continue;
-        }
+        //        if (observed_corner_locations_for_pose.find(
+        //                cam_id_and_intrinsics.first) ==
+        //            observed_corner_locations_for_pose.end()) {
+        //          continue;
+        //        }
 
         std::vector<std::pair<BbCornerPair<double>, std::optional<double>>>
-            observed_corners_for_pose_and_cam =
-                observed_corner_locations_for_pose.at(
-                    cam_id_and_intrinsics.first);
+            observed_corners_for_pose_and_cam;
 
+        if (observed_corner_locations_for_pose.find(
+                cam_id_and_intrinsics.first) !=
+            observed_corner_locations_for_pose.end()) {
+          observed_corners_for_pose_and_cam =
+              observed_corner_locations_for_pose.at(
+                  cam_id_and_intrinsics.first);
+        }
         bool has_image_for_cam_at_pose =
             (images_for_pose.find(cam_id_and_intrinsics.first) !=
              images_for_pose.end());
@@ -792,7 +794,6 @@ class RosVisualization {
     //    for (FrameId pose_idx = 0; pose_idx <= max_frame; pose_idx++) {
     for (FrameId pose_idx = max_frame; pose_idx <= max_frame; pose_idx++) {
       Pose3D<double> robot_pose = trajectory.at(pose_idx);
-
       // If we need images to display things, check if there are any images for
       // the robot pose
       if (!display_boxes_if_no_image &&
@@ -801,10 +802,11 @@ class RosVisualization {
       }
 
       // If there are no observed bounding boxes for the pose, skip it
-      if (observed_corner_locations_with_opt_confidence.find(pose_idx) ==
-          observed_corner_locations_with_opt_confidence.end()) {
-        continue;
-      }
+      //      if (observed_corner_locations_with_opt_confidence.find(pose_idx)
+      //      ==
+      //          observed_corner_locations_with_opt_confidence.end()) {
+      //        continue;
+      //      }
 
       std::unordered_map<CameraId, sensor_msgs::Image::ConstPtr>
           empty_images_map;
@@ -818,8 +820,13 @@ class RosVisualization {
                          std::unordered_map<ObjectId,
                                             std::pair<BbCornerPair<double>,
                                                       std::optional<double>>>>
-          observed_corner_locations_for_pose =
-              observed_corner_locations_with_opt_confidence.at(pose_idx);
+          observed_corner_locations_for_pose;
+      if (observed_corner_locations_with_opt_confidence.find(pose_idx) !=
+          observed_corner_locations_with_opt_confidence.end()) {
+        observed_corner_locations_for_pose =
+            observed_corner_locations_with_opt_confidence.at(pose_idx);
+      }
+
       std::unordered_map<CameraId,
                          std::unordered_map<ObjectId, BbCornerPair<double>>>
           gt_corner_locations_for_pose;
@@ -828,20 +835,26 @@ class RosVisualization {
       }
 
       for (const auto &cam_id_and_extrinsics : extrinsics) {
-        // If there are no observed bounding boxes for the camera at the pose,
-        // sip it
-        if (observed_corner_locations_for_pose.find(
-                cam_id_and_extrinsics.first) ==
-            observed_corner_locations_for_pose.end()) {
-          continue;
-        }
+        //        // If there are no observed bounding boxes for the camera at
+        //        the pose,
+        //        // sip it
+        //        if (observed_corner_locations_for_pose.find(
+        //                cam_id_and_extrinsics.first) ==
+        //            observed_corner_locations_for_pose.end()) {
+        //          continue;
+        //        }
 
         std::unordered_map<
             ObjectId,
             std::pair<BbCornerPair<double>, std::optional<double>>>
-            observed_corners_for_pose_and_cam =
-                observed_corner_locations_for_pose.at(
-                    cam_id_and_extrinsics.first);
+            observed_corners_for_pose_and_cam;
+        if (observed_corner_locations_for_pose.find(
+                cam_id_and_extrinsics.first) !=
+            observed_corner_locations_for_pose.end()) {
+          observed_corners_for_pose_and_cam =
+              observed_corner_locations_for_pose.at(
+                  cam_id_and_extrinsics.first);
+        }
 
         bool has_image_for_cam_at_pose =
             (images_for_pose.find(cam_id_and_extrinsics.first) !=
@@ -972,8 +985,7 @@ class RosVisualization {
                 cam_intrinsics,
                 image_height_and_width,
                 image,
-                observed_corner_locations_for_pose.at(
-                    cam_id_and_extrinsics.first),
+                observed_corners_for_pose_and_cam,
                 gt_corners,
                 predicted_corners_from_optimized,
                 predicted_corners_from_initial,
@@ -1179,7 +1191,6 @@ class RosVisualization {
                             predicted_bounding_box_from_gt_color_,
                             cv_ptr);
     }
-
     displayLinesFromEdges(near_edge_threshold, img_height_and_width, cv_ptr);
     optionallyDisplayLeftCornerTextOnImage(
         img_disp_text, img_height_and_width, cv_ptr);
