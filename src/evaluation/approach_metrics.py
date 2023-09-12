@@ -16,7 +16,8 @@ from brokenaxes import brokenaxes
 import numpy as np
 import pandas as pd
 
-kFigSize=(6.5,4)
+kFigSize=(6.5,3.5)
+kCDFFigSize=(6.5,4)
 kFigBottomSpacing=0.15
 
 kMaxXAxisBoundsMultiplier = 1.2
@@ -36,8 +37,11 @@ kATEOrientErrorYLabel = "RMSE (deg)"
 kAveragePositionDeviationsYLabel = "Average Deviation (m)"
 kAverageIousYLabel = "Average IoU"
 kMedianDevYLabel = "Median Deviation (m)"
-kMissedGtsYLabel = "Missed Ground Truth Objects"
+kMissedGtsYLabel = "Object Recall"
 kObjsPerGtsYLabel = "Estimated Objects Per GT Object"
+
+# TODO make this part of config
+kTotalObjects = 72
 
 kATEErrorYLabelDict = {
     kATETranslErrorType: kATETranslErrorYLabel, \
@@ -289,8 +293,8 @@ def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="up
                     zorder=zorder,
                     marker=kApproachMarkerDict[approach_name], \
                     s=kApproachMarkerSizeDict[approach_name])
-    bax.set_xlabel("Trajectory Number", fontsize=kAxisFontsize, labelpad=20)
-    bax.set_ylabel(kATEErrorYLabelDict[err_type], fontsize=kAxisFontsize)
+    # bax.set_xlabel("Trajectory Number", fontsize=kAxisFontsize)
+    # bax.set_ylabel(kATEErrorYLabelDict[err_type], fontsize=kAxisFontsize)
     bax.legend(loc=legend_loc, ncol=legend_ncol)
     bax.grid(alpha=0.4)
     if (yscaleType is not None):
@@ -303,19 +307,34 @@ def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="up
             tick_inc = math.ceil((max_tick - min_tick) / 3)
             bax.axs[len(ylims) - 1 - i].set_yticks(np.arange(min_tick, max_tick, tick_inc))
 
+    bax.axs[0].set_xticks(np.arange(1, 16))
+
     fig.subplots_adjust(bottom=kFigBottomSpacing)
+    bax.set_xlabel("Trajectory Number", labelpad=20)
+    bax.set_ylabel(kATEErrorYLabelDict[err_type])
+
+
+    plt.tight_layout(rect=(-0.08, -0.06, 1, 1))
+    for handle in bax.diag_handles:
+        handle.remove()
+    bax.draw_diags()
+    # bax.set_xlabel(x_label)
 
 # Note: cannot use tight_layout. It'll break the brokenaxis
     if savepath:
         print("Saving figure to " + savepath)
         plt.savefig(savepath)
     else:
+        # plt.tight_layout()
+        # for handle in bax.diag_handles:
+        #     handle.remove()
+        # bax.draw_diags()
         plt.show()
 
 
 def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins=1000, savepath=None,
             xlims=None, width_ratios=None):
-    fig=plt.figure(fig_num, figsize=kFigSize)
+    fig=plt.figure(fig_num, figsize=kCDFFigSize)
     comparison_approach_summary_max = 0
     comparison_approach_summary_min_max = None
 
@@ -372,7 +391,7 @@ def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins
             primary_approach_max = comparison_approach_max
             line_style = 'solid'
         bax.plot(bins_count, approach_cdf, linestyle=line_style,
-                 label=approach_label)
+                 label=approach_label, linewidth=3)
         # plt.plot(bins_count, approach_cdf, linestyle=line_style,
         #          label=approach_label)
 
@@ -387,12 +406,17 @@ def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins
         #     x_lim = min(primary_approach_max * kMaxXAxisBoundsMultiplier, comparison_approach_summary_max)
         # plt.xlim(0, max(primary_approach_max, comparison_approach_summary_min_max))
         bax.legend(loc="lower right", prop={'size': 'small'})
-        # plt.legend(prop={'size': 'small'})
+        # plt.legend(loc="lower right", prop={'size': 'small'})
     # plt.ylim(0, 1)
     # bax.set_title(title)
-    bax.set_xlabel(x_label, labelpad=20, fontsize=kAxisFontsize)
-    bax.set_ylabel("Proportion of data", fontsize=kAxisFontsize)
+    # bax.set_xlabel(x_label, fontsize=kAxisFontsize)
+    # bax.set_xlabel(x_label)
+    # bax.set_ylabel("Proportion of data", fontsize=kAxisFontsize)
     bax.grid(alpha=0.4)
+    # plt.xlabel(x_label, fontsize=kAxisFontsize)
+    # plt.xlabel(x_label, labelpad=100)
+    # plt.ylabel("Proportion of data", fontsize=kAxisFontsize)
+    # plt.grid(alpha=0.4)
 
     for i in range(len(xlims)):
         min_tick = math.floor(xlims[i][0])
@@ -405,11 +429,27 @@ def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins
     # plt.xlabel(x_label)
     # plt.ylabel("Proportion of data")
     # plt.grid(alpha=0.4)
+    # bax.set_xlabel(x_label)
+    # bax.set_ylabel("Proportion of data")
+
+    # plt.xlabel(x_label)
+    # plt.ylabel("Proportion of data")
+
+    # plt.tight_layout(pad=10)
+    bax.set_xlabel(x_label, labelpad=20)
+    bax.set_ylabel("Proportion of data")
+
+    plt.tight_layout(rect=(-0.05, -0.06, 1, 1))
+    for handle in bax.diag_handles:
+        handle.remove()
+    bax.draw_diags()
+    # bax.set_xlabel(x_label)
 
     if savepath:
         print("Saving plot to " + savepath)
         plt.savefig(savepath)
     else:
+
         plt.show()
 
 
