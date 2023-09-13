@@ -225,32 +225,6 @@ def plot_single_sequence_rmse(errs_dict, err_type, ylims=[], legend_loc="upper l
     else:
         plt.show()
 
-def plot_topdown_trajectory_without_waypoints(poses_dict, xlim=None, ylim=None, figsize=None, show_axis=True, savepath=None):
-    if figsize is None:
-        plt.figure(constrained_layout=True)
-    else:
-        plt.figure(constrained_layout=True, figsize=figsize)
-    for bagid, pose_df in poses_dict.items():
-        processed_pose_df = pose_df[pose_df[kWaypointName] == -1]
-        plt.plot(pose_df[kTranslNameX], pose_df[kTranslNameY], color=kTopdownTrajColor, zorder=-1)
-    if show_axis:
-        plt.grid(alpha=0.4)
-        plt.axis("equal")
-    else:
-        plt.grid(False)
-        plt.axis('off')
-    if xlim:
-        plt.xlim(xlim)
-        plt.xticks(np.arange(xlim[0], xlim[1]+1, 10))
-    if ylim:
-        plt.ylim(ylim)
-        plt.yticks(np.arange(ylim[0], ylim[1]+1, 10))
-    if savepath:
-        print("Saving figure to " + savepath)
-        plt.savefig(savepath)
-    else:
-        plt.show()
-
 def plot_topdown_trajectory(poses_dict, xlim=None, ylim=None, figsize=None, show_axis=True, savepath=None, no_duplicate_waypoints=False):
     if figsize is None:
         plt.figure(constrained_layout=True)
@@ -278,6 +252,7 @@ def plot_topdown_trajectory(poses_dict, xlim=None, ylim=None, figsize=None, show
             plt.plot(points[:,0], points[:,1], color="black", linewidth=0.5)
             if no_duplicate_waypoints:
                 break
+
     if show_axis:
         plt.grid(alpha=0.4)
         plt.axis("equal")

@@ -75,6 +75,10 @@ getAxisAlignedBoundingBoxForEllipsoid(
 bool pointInEllipsoid(const FullDOFEllipsoidState<double> &ellipsoid,
                       const Position3d<double> &point);
 
+bool boundingBoxesOverlap(
+    const std::pair<Eigen::Vector3d, Eigen::Vector3d> &bb_1,
+    const std::pair<Eigen::Vector3d, Eigen::Vector3d> &bb_2);
+
 double getIoUForObjectSet(
     const FullDOFEllipsoidState<double> &ellipsoid1,
     const std::vector<FullDOFEllipsoidState<double>> &covering_ellipsoids

@@ -17,6 +17,7 @@ const static double kRotationChangeForConvergence = 0.01;
 const static double kTranslationChangeForConvergence = 0.05;
 const static double kIoUSamplingPointsPerMeter = 100;
 const static double kMaxDistanceForInliers = 5.0;
+const static int kMaxPointsPerDirection = 1000;
 }  // namespace
 
 void associateObjects(const FullDOFEllipsoidResults &estimated_objects,
@@ -121,63 +122,18 @@ void findTransformationForAssociatedObjects(
     const std::unordered_map<ObjectId, std::optional<ObjectId>>
         &gt_objects_for_est_objs,
     Pose3D<double> &est_obj_transformation) {
-  Position3d<double> mean_pos_est = Eigen::Vector3d::Zero();
-  Position3d<double> mean_pos_gt = Eigen::Vector3d::Zero();
-  Covariance<double, 3> object_position_cov = Eigen::Matrix3d::Zero();
 
-  size_t total_poses = 0;
+  std::vector<Position3d<double>> gt_points;
+  std::vector<Position3d<double>> est_points;
   for (const auto &gt_obj_for_est : gt_objects_for_est_objs) {
     if (!gt_obj_for_est.second.has_value()) {
       continue;
     }
-    total_poses++;
-    mean_pos_gt +=
-        gt_objects.at(gt_obj_for_est.second.value()).second.pose_.transl_;
-    mean_pos_est +=
-        estimated_objects.at(gt_obj_for_est.first).second.pose_.transl_;
-  }
-  mean_pos_gt = mean_pos_gt / total_poses;
-  mean_pos_est = mean_pos_est / total_poses;
-
-  total_poses = 0;
-  for (const auto &gt_obj_for_est : gt_objects_for_est_objs) {
-    if (!gt_obj_for_est.second.has_value()) {
-      continue;
-    }
-
-    total_poses++;
-    Position3d<double> gt_deviation =
-        gt_objects.at(gt_obj_for_est.second.value()).second.pose_.transl_ -
-        mean_pos_gt;
-    Position3d<double> est_deviation =
-        estimated_objects.at(gt_obj_for_est.first).second.pose_.transl_ -
-        mean_pos_est;
-
-    object_position_cov += (gt_deviation * (est_deviation.transpose()));
-  }
-  object_position_cov = object_position_cov / total_poses;
-
-  Eigen::JacobiSVD<Eigen::Matrix<double, 3, 3>> svd;
-  svd.compute(object_position_cov, Eigen::ComputeFullU | Eigen::ComputeFullV);
-
-  Eigen::Matrix3d uMat = svd.matrixU();
-  Eigen::Matrix3d vMat = svd.matrixV();
-
-  Eigen::Matrix3d wMat = Eigen::Matrix3d::Zero();
-  wMat(0, 0) = 1;
-  wMat(1, 1) = 1;
-  if (uMat.determinant() * vMat.determinant() < 0) {
-    wMat(2, 2) = -1;
-  } else {
-    wMat(2, 2) = 1;
+    gt_points.emplace_back(gt_objects.at(gt_obj_for_est.second.value()).second.pose_.transl_);
+    est_points.emplace_back(estimated_objects.at(gt_obj_for_est.first).second.pose_.transl_);
   }
 
-  Eigen::Matrix3d rotMat = uMat * wMat * vMat.transpose();
-
-  Position3d<double> transl = mean_pos_gt - (rotMat * mean_pos_est);
-
-  est_obj_transformation = Pose3D<double>(
-      transl, Eigen::AngleAxis<double>(Eigen::Quaterniond(rotMat)));
+  est_obj_transformation = getAligningTransform<double>(gt_points, est_points);
 }
 
 void associateObjectsAndFindTransformation(
@@ -237,11 +193,10 @@ void associateObjectsAndFindTransformation(
     //        est_to_gt.emplace_back(
     //            std::make_pair(adjusted_est_position, gt_obj_position));
     //      }
-    //      vis_manager->publishLines("obj_assoc_lines", INITIAL, est_to_init,
-    //      1); vis_manager->publishLines("obj_assoc_lines", ESTIMATED,
-    //      est_to_gt, 1);
-    //      //      sleep(2);
-    //      //      getchar();
+    //      vis_manager->publishLines("obj_assoc_lines", INITIAL, est_to_init, 1);
+    //      vis_manager->publishLines("obj_assoc_lines", ESTIMATED, est_to_gt, 1);
+    //            sleep(2);
+    //            getchar();
     //    }
 
     associateObjects(tmp_aligned_objects,
@@ -278,11 +233,10 @@ void associateObjectsAndFindTransformation(
     //        est_to_gt.emplace_back(
     //            std::make_pair(adjusted_est_position, gt_obj_position));
     //      }
-    ////      vis_manager->publishLines("obj_assoc_lines", GROUND_TRUTH,
-    ///init_to_gt, 1); /      vis_manager->publishLines("obj_assoc_lines",
-    ///ESTIMATED, est_to_gt, 1);
-    //      //      sleep(2);
-    //      //      getchar();
+    //      vis_manager->publishLines("obj_assoc_lines", GROUND_TRUTH, init_to_gt, 1);
+    //      vis_manager->publishLines("obj_assoc_lines",ESTIMATED, est_to_gt, 1);
+    //            sleep(2);
+    //            getchar();
     //    }
 
     Pose3D<double> new_transform;
@@ -353,8 +307,8 @@ void associateObjectsAndFindTransformation(
   //    1); vis_manager->publishLines("obj_assoc_lines", INITIAL, est_to_init,
   //    1); vis_manager->publishLines("obj_assoc_lines", ESTIMATED, est_to_gt,
   //    1);
-  //    //    sleep(2);
-  //    //    getchar();
+  //        sleep(2);
+  //        getchar();
   //  }
 }
 
@@ -452,6 +406,62 @@ bool pointInEllipsoid(const FullDOFEllipsoidState<double> &ellipsoid,
           pow(p_rel_el.z() / dz_half, 2)) <= 1;
 }
 
+bool boundingBoxesOverlap(
+    const std::pair<Eigen::Vector3d, Eigen::Vector3d> &bb_1,
+    const std::pair<Eigen::Vector3d, Eigen::Vector3d> &bb_2) {
+  double e1_x_min = bb_1.first.x();
+  double e1_x_max = bb_1.second.x();
+
+  double e1_y_min = bb_1.first.y();
+  double e1_y_max = bb_1.second.y();
+
+  double e1_z_min = bb_1.first.z();
+  double e1_z_max = bb_1.second.z();
+
+  double e2_x_min = bb_2.first.x();
+  double e2_x_max = bb_2.second.x();
+
+  double e2_y_min = bb_2.first.y();
+  double e2_y_max = bb_2.second.y();
+
+  double e2_z_min = bb_2.first.z();
+  double e2_z_max = bb_2.second.z();
+
+  // Check if x intervals overlap ---- if no, then ellipsoids don't overlap,
+  // if yes, then check y and z
+  if (e1_x_min > e2_x_max) {  // e1 x range is fully greater than e2 x range
+    // -- no overlap
+    return false;
+  }
+  if (e2_x_min > e1_x_max) {  // e2 x range is fully greater than e1 x range
+    // -- no overlap
+    return false;
+  }
+
+  // Check if y intervals overlap ---- if no, then ellipsoids don't overlap,
+  // if yes, then check z
+  if (e1_y_min > e2_y_max) {  // e1 y range is fully greater than e2 y range
+    // -- no overlap
+    return false;
+  }
+  if (e2_y_min > e1_y_max) {  // e2 y range is fully greater than e1 y range
+    // -- no overlap
+    return false;
+  }
+
+  // Check if z intervals overlap ---- if no, then ellipsoids don't overlap,
+  // if yes, ellipsoids may overlap
+  if (e1_z_min > e2_z_max) {  // e1 z range is fully greater than e2 z range
+    // -- no overlap
+    return false;
+  }
+  if (e2_z_min > e1_z_max) {  // e2 z range is fully greater than e1 z range
+    // -- no overlap
+    return false;
+  }
+  return true;
+}
+
 double getIoUForObjectSet(
     const FullDOFEllipsoidState<double> &ellipsoid1,
     const std::vector<FullDOFEllipsoidState<double>> &covering_ellipsoids
@@ -496,9 +506,16 @@ double getIoUForObjectSet(
   double union_z_min = e1_z_min;
   double union_z_max = e1_z_max;
 
-  std::vector<FullDOFEllipsoidState<double>> potentially_overlapping_ellipsoids;
-  for (const FullDOFEllipsoidState<double> &candidate_covering_ellipsoid :
-       covering_ellipsoids) {
+  //  std::vector<FullDOFEllipsoidState<double>>
+  //  potentially_overlapping_ellipsoids;
+  std::unordered_set<size_t> potentially_overlapping_ellipsoids;
+  std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> e2_bounding_boxes;
+  //  for (const FullDOFEllipsoidState<double> &candidate_covering_ellipsoid :
+  //       covering_ellipsoids) {
+  for (size_t e2_idx = 0; e2_idx < covering_ellipsoids.size(); e2_idx++) {
+    const FullDOFEllipsoidState<double> candidate_covering_ellipsoid =
+        covering_ellipsoids.at(e2_idx);
+
     //  for (size_t covering_el_idx = 0; covering_el_idx <
     //  covering_ellipsoids.size();
     //       covering_el_idx++) {
@@ -506,6 +523,7 @@ double getIoUForObjectSet(
     //        covering_ellipsoids.at(covering_el_idx);
     std::pair<Eigen::Vector3d, Eigen::Vector3d> e2_bb =
         getAxisAlignedBoundingBoxForEllipsoid(candidate_covering_ellipsoid);
+    e2_bounding_boxes.emplace_back(e2_bb);
 
     double e2_x_min = e2_bb.first.x();
     double e2_x_max = e2_bb.second.x();
@@ -526,41 +544,11 @@ double getIoUForObjectSet(
     //                                            (e2_y_max - e2_y_min),
     //                                            (e2_z_max - e2_z_min)),
     //                            e2_ids.at(covering_el_idx));
-
-    // Check if x intervals overlap ---- if no, then ellipsoids don't overlap,
-    // if yes, then check y and z
-    if (e1_x_min > e2_x_max) {  // e1 x range is fully greater than e2 x range
-                                // -- no overlap
+    if (!boundingBoxesOverlap(e1_bb, e2_bb)) {
       continue;
     }
-    if (e2_x_min > e1_x_max) {  // e2 x range is fully greater than e1 x range
-                                // -- no overlap
-      continue;
-    }
-
-    // Check if y intervals overlap ---- if no, then ellipsoids don't overlap,
-    // if yes, then check z
-    if (e1_y_min > e2_y_max) {  // e1 y range is fully greater than e2 y range
-                                // -- no overlap
-      continue;
-    }
-    if (e2_y_min > e1_y_max) {  // e2 y range is fully greater than e1 y range
-                                // -- no overlap
-      continue;
-    }
-
-    // Check if z intervals overlap ---- if no, then ellipsoids don't overlap,
-    // if yes, ellipsoids may overlap
-    if (e1_z_min > e2_z_max) {  // e1 z range is fully greater than e2 z range
-                                // -- no overlap
-      continue;
-    }
-    if (e2_z_min > e1_z_max) {  // e2 z range is fully greater than e1 z range
-                                // -- no overlap
-      continue;
-    }
-    potentially_overlapping_ellipsoids.emplace_back(
-        candidate_covering_ellipsoid);
+    potentially_overlapping_ellipsoids.insert(e2_idx);
+    //        candidate_covering_ellipsoid);
 
     // Take min/max for each coord to get union axis-aligned bounding box
     union_x_min = std::min(union_x_min, e2_x_min);
@@ -593,9 +581,15 @@ double getIoUForObjectSet(
   //                          Eigen::Vector3d(x_range, y_range, z_range),
   //                          e1_id);
 
-  int num_x_points = ceil(x_range * kIoUSamplingPointsPerMeter);
-  int num_y_points = ceil(y_range * kIoUSamplingPointsPerMeter);
-  int num_z_points = ceil(z_range * kIoUSamplingPointsPerMeter);
+  int num_x_points = std::min(kMaxPointsPerDirection,
+                              (int)ceil(x_range * kIoUSamplingPointsPerMeter));
+  int num_y_points = std::min(kMaxPointsPerDirection,
+                              (int)ceil(y_range * kIoUSamplingPointsPerMeter));
+  int num_z_points = std::min(kMaxPointsPerDirection,
+                              (int)ceil(z_range * kIoUSamplingPointsPerMeter));
+  LOG(INFO) << "Num x points " << num_x_points;
+  LOG(INFO) << "Num y points " << num_y_points;
+  LOG(INFO) << "Num z points " << num_z_points;
   double x_point_interval = x_range / (num_x_points - 1);
   double y_point_interval = y_range / (num_y_points - 1);
   double z_point_interval = z_range / (num_z_points - 1);
@@ -619,8 +613,13 @@ double getIoUForObjectSet(
         bool in_e1 = pointInEllipsoid(ellipsoid1, query_point);
 
         bool in_covering_set = false;
-        for (const FullDOFEllipsoidState<double> &candidate_covering_ellipsoid :
+        //        for (const FullDOFEllipsoidState<double>
+        //        &candidate_covering_ellipsoid :
+        //             potentially_overlapping_ellipsoids) {
+        for (const size_t &candidate_covering_idx :
              potentially_overlapping_ellipsoids) {
+          const FullDOFEllipsoidState<double> candidate_covering_ellipsoid =
+              covering_ellipsoids.at(candidate_covering_idx);
           if (pointInEllipsoid(candidate_covering_ellipsoid, query_point)) {
             in_covering_set = true;
             break;
@@ -649,6 +648,199 @@ double getIoUForObjectSet(
     }
   }
 
+  std::unordered_set<size_t> considered_ellipsoids =
+      potentially_overlapping_ellipsoids;
+
+  double min_inc;
+  double mid_inc;
+  double max_inc;
+
+  if (x_point_interval > y_point_interval) {
+    if (y_point_interval > z_point_interval) {
+      min_inc = z_point_interval;
+      mid_inc = y_point_interval;
+      max_inc = x_point_interval;
+    } else {
+      if (z_point_interval > x_point_interval) {
+        max_inc = z_point_interval;
+        min_inc = y_point_interval;
+        mid_inc = x_point_interval;
+      } else {
+        // x is greater than z
+        // z is greater than y
+        max_inc = x_point_interval;
+        mid_inc = z_point_interval;
+        min_inc = y_point_interval;
+      }
+    }
+  } else {
+    // y is greater than x
+    if (x_point_interval > z_point_interval) {
+      min_inc = z_point_interval;
+      max_inc = y_point_interval;
+      mid_inc = x_point_interval;
+    } else {
+      if (z_point_interval > y_point_interval) {
+        max_inc = z_point_interval;
+        min_inc = x_point_interval;
+        mid_inc = y_point_interval;
+      } else {
+        // y greater than x
+        // x is less than z
+        // z is less than y
+        max_inc = y_point_interval;
+        min_inc = x_point_interval;
+        mid_inc = z_point_interval;
+      }
+    }
+  }
+
+  LOG(INFO) << "Number of other objects to consider: "
+            << (covering_ellipsoids.size() -
+                potentially_overlapping_ellipsoids.size());
+  for (size_t ellipsoid_idx = 0; ellipsoid_idx < covering_ellipsoids.size();
+       ellipsoid_idx++) {
+    if (considered_ellipsoids.find(ellipsoid_idx) !=
+        considered_ellipsoids.end()) {
+      continue;
+    }
+
+    std::pair<Eigen::Vector3d, Eigen::Vector3d> bb_for_ellipsoid =
+        e2_bounding_boxes.at(ellipsoid_idx);
+    std::unordered_set<size_t> already_counted_overlapping;
+    for (const size_t &candidate_already_counted : considered_ellipsoids) {
+      std::pair<Eigen::Vector3d, Eigen::Vector3d> bb_for_ellipsoid_2 =
+          e2_bounding_boxes.at(candidate_already_counted);
+      if (boundingBoxesOverlap(bb_for_ellipsoid, bb_for_ellipsoid_2)) {
+        already_counted_overlapping.insert(candidate_already_counted);
+      }
+    }
+
+    double x_range_el =
+        bb_for_ellipsoid.second.x() - bb_for_ellipsoid.first.x();
+    double y_range_el =
+        bb_for_ellipsoid.second.y() - bb_for_ellipsoid.first.y();
+    double z_range_el =
+        bb_for_ellipsoid.second.z() - bb_for_ellipsoid.first.z();
+
+    double x_inc;
+    double y_inc;
+    double z_inc;
+
+    if (x_range_el > y_range_el) {
+      if (y_range_el > z_range_el) {
+        z_inc = min_inc;
+        y_inc = mid_inc;
+        x_inc = max_inc;
+      } else {
+        if (z_range_el > x_range_el) {
+          z_inc = max_inc;
+          y_inc = min_inc;
+          x_inc = mid_inc;
+        } else {
+          // x is greater than z
+          // z is greater than y
+          x_inc = max_inc;
+          z_inc = mid_inc;
+          y_inc = min_inc;
+        }
+      }
+    } else {
+      // y is greater than x
+      if (x_range_el > z_range_el) {
+        z_inc = min_inc;
+        y_inc = max_inc;
+        x_inc = mid_inc;
+      } else {
+        if (z_range_el > y_inc) {
+          z_inc = max_inc;
+          x_inc = min_inc;
+          y_inc = mid_inc;
+        } else {
+          // y greater than x
+          // x is less than z
+          // z is less than y
+          y_inc = max_inc;
+          x_inc = min_inc;
+          z_inc = mid_inc;
+        }
+      }
+    }
+
+    FullDOFEllipsoidState<double> el_to_check =
+        covering_ellipsoids.at(ellipsoid_idx);
+
+    size_t num_x_points_el = x_range / x_inc;
+    size_t num_y_points_el = y_range / y_inc;
+    size_t num_z_points_el = z_range / z_inc;
+
+    LOG(INFO) << "Num points el x " << num_x_points_el;
+    LOG(INFO) << "Num points el y " << num_y_points_el;
+    LOG(INFO) << "Num points el z " << num_z_points_el;
+
+    size_t inc_for_bb = 1;
+    while (num_x_points_el > kMaxPointsPerDirection) {
+      inc_for_bb *= 2;
+      num_x_points_el /= 2;
+      x_inc *= 2;
+    }
+    while (num_y_points_el > kMaxPointsPerDirection) {
+      inc_for_bb *= 2;
+      num_y_points_el /= 2;
+      y_inc *= 2;
+    }
+    while (num_z_points_el > kMaxPointsPerDirection) {
+      inc_for_bb *= 2;
+      num_z_points_el /= 2;
+      z_inc *= 2;
+    }
+
+    LOG(INFO) << "Num points el x after adjusting " << num_x_points_el;
+    LOG(INFO) << "Num points el y after adjusting " << num_y_points_el;
+    LOG(INFO) << "Num points el z after adjusting " << num_z_points_el;
+
+
+//    for (double curr_x_el = bb_for_ellipsoid.first.x();
+//         curr_x_el < bb_for_ellipsoid.second.x();
+//         curr_x_el += x_inc) {
+    for (size_t x_idx = 0; x_idx <= num_x_points_el; x_idx++) {
+      double curr_x_el = bb_for_ellipsoid.first.x() + (x_inc * x_idx);
+      LOG_IF(INFO, (x_idx % 100) == 0) << "x idx: " << x_idx;
+      for (size_t y_idx = 0; y_idx <= num_y_points_el; y_idx++) {
+//      for (double curr_y_el = bb_for_ellipsoid.first.y();
+//           curr_y_el < bb_for_ellipsoid.second.y();
+//           curr_y_el += y_inc) {
+        double curr_y_el = bb_for_ellipsoid.first.y() + (y_inc * y_idx);
+        LOG_IF(INFO, (((x_idx % 100) == 0) && ((y_idx % 100) == 0))) << "y idx: " << y_idx;
+//        for (double curr_z_el = bb_for_ellipsoid.first.z();
+//             curr_z_el < bb_for_ellipsoid.second.z();
+//             curr_z_el += z_inc) {
+        for (size_t z_idx = 0; z_idx <= num_z_points_el; z_idx++) {
+//          LOG_IF(INFO, (z_idx % 100) == 0) << "z idx: " << z_idx;
+          double curr_z_el = bb_for_ellipsoid.first.z() + (z_inc * z_idx);
+          Position3d<double> point(curr_x_el, curr_y_el, curr_z_el);
+          if (pointInEllipsoid(el_to_check, point)) {
+            bool already_counted = false;
+            for (const size_t &overlapping_and_counted_el :
+                 already_counted_overlapping) {
+              if (pointInEllipsoid(
+                      covering_ellipsoids.at(overlapping_and_counted_el),
+                      point)) {
+                already_counted = true;
+                break;
+              }
+            }
+            if (!already_counted) {
+              points_in_either += inc_for_bb;
+            }
+          }
+        }
+      }
+    }
+
+    considered_ellipsoids.insert(ellipsoid_idx);
+  }
+
   double iou = ((double)points_in_both) / (points_in_either);
   return iou;
 }
@@ -673,8 +865,10 @@ void getIoUsForObjects(
       est_objs_assoc_with_gt[gt_obj_id].insert(pairing_by_est.first);
     }
   }
+  LOG(INFO) << "Num objects " << gt_objects.size();
   for (const auto &gt_obj : gt_objects) {
     ObjectId gt_obj_id = gt_obj.first;
+    LOG(INFO) << "Gt obj " << gt_obj_id;
     FullDOFEllipsoidState<double> gt_obj_geometry = gt_obj.second.second;
     double iou = 0;
     if (est_objs_assoc_with_gt.find(gt_obj_id) !=

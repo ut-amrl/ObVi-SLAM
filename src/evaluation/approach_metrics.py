@@ -16,25 +16,37 @@ from brokenaxes import brokenaxes
 import numpy as np
 import pandas as pd
 
+kFigSize=(6.5,4)
+kFigBottomSpacing=0.15
+
 kMaxXAxisBoundsMultiplier = 1.2
 kCDFTranslErrorType = "transl_cdf"
 kCDFOrientErrorType = "orient_cdf"
 kATETranslErrorType = "transl_ate"
 kATEOrientErrorType = "orient_ate"
 kAveragePositionDeviationsErrorType = "pos_dev_avg"
+kMedianPositionDeviationsErrorType = "pos_dev_med"
 kAverageIousErrorType = "avg ious"
+kMissedGtsErrorType = "missed_gts"
+kObjRatioErrorType = "obj_ratio"
 
 kATETranslErrorYLabel = "RMSE (m)"
 kATEOrientErrorYLabel = "RMSE (deg)"
 
 kAveragePositionDeviationsYLabel = "Average Deviation (m)"
 kAverageIousYLabel = "Average IoU"
+kMedianDevYLabel = "Median Deviation (m)"
+kMissedGtsYLabel = "Missed Ground Truth Objects"
+kObjsPerGtsYLabel = "Estimated Objects Per GT Object"
 
 kATEErrorYLabelDict = {
     kATETranslErrorType: kATETranslErrorYLabel, \
     kATEOrientErrorType: kATEOrientErrorYLabel, \
     kAveragePositionDeviationsErrorType: kAveragePositionDeviationsYLabel, \
-    kAverageIousErrorType: kAverageIousYLabel
+    kAverageIousErrorType: kAverageIousYLabel, \
+    kMedianPositionDeviationsErrorType: kMedianDevYLabel, \
+    kMissedGtsErrorType: kMissedGtsYLabel, \
+    kObjRatioErrorType: kObjsPerGtsYLabel
 }
 
 kObViSLAMApproachName = "ObVi-SLAM"
@@ -43,13 +55,19 @@ kOASLAMApproachName = "OA-SLAM"
 # kGTApproachName = "Pseudo-Groundtruth"
 kGTApproachName = "ObVi-SLAM_vis_only"
 kDROIDApproachName = "DROID-SLAM"
+kAblationNoShapePriorName = "ObVi-SLAM-S"
+kAblationNoVisFeatName = "ObVi-SLAM-VF"
+kAblationNoLtmName = "ObVi-SLAM-LTM"
 
 kApproachNames = set([
     kObViSLAMApproachName, \
     kORBSLAM3ApproachName, \
     kOASLAMApproachName, \
     kGTApproachName, \
-    kDROIDApproachName
+    kDROIDApproachName, \
+    kAblationNoShapePriorName, \
+    kAblationNoVisFeatName, \
+    kAblationNoLtmName
 ])
 
 kObViSLAMColor = "tab:blue"
@@ -57,13 +75,19 @@ kORBSLAM3Color = "tab:orange"
 kOASLAMColor = "tab:green"
 kGTColor = "tab:red"
 kDROIDColor = "tab:purple"
+kAblationNoShapePriorColor = kORBSLAM3Color
+kAblationNoVisFeatColor = kOASLAMColor
+kAblationNoLtmColor = kDROIDColor
 
 kApproachColorDict = {
     kObViSLAMApproachName: kObViSLAMColor, \
     kORBSLAM3ApproachName: kORBSLAM3Color, \
     kOASLAMApproachName: kOASLAMColor, \
     kGTApproachName: kGTColor, \
-    kDROIDApproachName: kDROIDColor
+    kDROIDApproachName: kDROIDColor, \
+    kAblationNoShapePriorName: kAblationNoShapePriorColor, \
+    kAblationNoVisFeatName: kAblationNoVisFeatColor, \
+    kAblationNoLtmName: kAblationNoLtmColor
 }
 
 kObViSLAMLineStyle = "solid"
@@ -71,13 +95,19 @@ kORBSLAM3LineStyle = "dotted"
 kOASLAMLineStyle = "dashdot"
 kGTLineStyle = "dashed"
 kDROIDLineStyle = (0, (3, 5, 1, 5, 1, 5))
+kAblationNoShapePriorLineStyle = kORBSLAM3LineStyle
+kAblationNoVisFeatLineStyle = kOASLAMLineStyle
+kAblationNoLtmLineStyle = kDROIDLineStyle
 
 kApproachLineStyleDict = {
     kObViSLAMApproachName: kObViSLAMLineStyle, \
     kORBSLAM3ApproachName: kORBSLAM3LineStyle, \
     kOASLAMApproachName: kOASLAMLineStyle, \
     kGTApproachName: kGTLineStyle, \
-    kDROIDApproachName: kDROIDLineStyle
+    kDROIDApproachName: kDROIDLineStyle, \
+    kAblationNoShapePriorName: kAblationNoShapePriorLineStyle, \
+    kAblationNoVisFeatName: kAblationNoVisFeatLineStyle, \
+    kAblationNoLtmName: kAblationNoLtmLineStyle
 }
 
 kObViSLAMLinewidth = 3
@@ -85,13 +115,19 @@ kORBSLAM3Linewidth = 4
 kOASLAMLinewidth = 2
 kGTLinewidth = 3
 kDROIDLinewidth = 3
+kAblationNoShapePriorLinewidth = kORBSLAM3Linewidth
+kAblationNoVisFeatLinewidth = kOASLAMLinewidth
+kAblationNoLtmLinewitdh = kDROIDLinewidth
 
 kApproachLinewidthDict = {
     kObViSLAMApproachName: kObViSLAMLinewidth, \
     kORBSLAM3ApproachName: kORBSLAM3Linewidth, \
     kOASLAMApproachName: kOASLAMLinewidth, \
     kGTApproachName: kGTLinewidth, \
-    kDROIDApproachName: kDROIDLinewidth
+    kDROIDApproachName: kDROIDLinewidth, \
+    kAblationNoShapePriorName: kAblationNoShapePriorLinewidth, \
+    kAblationNoVisFeatName: kAblationNoVisFeatLinewidth, \
+    kAblationNoLtmName: kAblationNoLtmLinewitdh
 }
 
 kObViSLAMMarker = "X"
@@ -99,21 +135,30 @@ kORBSLAM3Marker = "o"
 kOASLAMMarker = "P"
 kGTApproachMarker = "v"
 kDROIDApproachMarker = "d"
+kAblationNoShapePriorMarker = kORBSLAM3Marker
+kAblationNoVisFeatMarker = kOASLAMMarker
+kAblationNoLtmMarker = kDROIDApproachMarker
 kApproachMarkerDict = {
     kObViSLAMApproachName: kObViSLAMMarker, \
     kORBSLAM3ApproachName: kORBSLAM3Marker, \
     kOASLAMApproachName: kOASLAMMarker, \
     kGTApproachName: kGTApproachMarker, \
-    kDROIDApproachName: kDROIDApproachMarker
+    kDROIDApproachName: kDROIDApproachMarker,
+    kAblationNoShapePriorName: kAblationNoShapePriorMarker, \
+    kAblationNoVisFeatName: kAblationNoVisFeatMarker, \
+    kAblationNoLtmName: kAblationNoLtmMarker
 }
 
 kObViSLAMMakerSize = 100
 kORBSLAM3MMakerSize = 100
 kOASLAMMarkerSize = 100
 kGTApproachMarkerSize = 100
-kDROIDApproachMarkerSize = 100
+kDROIDApproachMarkerSize = 100,
+kAblationNoShapePriorMarkerSize = 100
+kAblationNoVisFeatMarkerSize = 100
+kAblationNoLtmMarkerSize = 100
 
-kAxisFontsize = 20
+kAxisFontsize = 15
 kGridAlpha = .4
 
 kApproachMarkerSizeDict = {
@@ -121,7 +166,10 @@ kApproachMarkerSizeDict = {
     kORBSLAM3ApproachName: kORBSLAM3MMakerSize, \
     kOASLAMApproachName: kOASLAMMarkerSize, \
     kGTApproachName: kGTApproachMarkerSize, \
-    kDROIDApproachName: kDROIDApproachMarkerSize
+    kDROIDApproachName: kDROIDApproachMarkerSize, \
+    kAblationNoShapePriorName: kAblationNoShapePriorMarkerSize, \
+    kAblationNoVisFeatName: kAblationNoVisFeatMarkerSize, \
+    kAblationNoLtmName: kAblationNoLtmMarkerSize
 }
 
 
@@ -201,10 +249,10 @@ def getCDFData(dataset, num_bins):
     # return (cdf , bins_count , max_val)
 
 
-def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="upper left", savepath=None):
-    plt.figure()
+def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="upper left", savepath=None, height_ratios=None, legend_ncol=1, yscaleType=None):
+    fig = plt.figure(figsize=kFigSize)
 
-    if (len(ylims) == 0):
+    if (ylims == None) or (len(ylims) == 0):
         non_inf_max = 0
         for approach_name, errs in errs_dict.items():
             for err_val in errs:
@@ -212,7 +260,7 @@ def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="up
                     non_inf_max = max(err_val, non_inf_max)
         ylims = [(0, non_inf_max * 1.05)]
 
-    bax = brokenaxes(ylims=ylims)
+    bax = brokenaxes(ylims=ylims, height_ratios=height_ratios, yscale=yscaleType)
 
     if (kORBSLAM3ApproachName in errs_dict):
         orb_split_idx = 6
@@ -224,17 +272,40 @@ def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="up
         #     warnings.warn("Undefined approach name " + approach_name + ". Skip plotting trajectory...")
         #     continue
         xx = np.arange(len(errs)) + 1
+        zorder =1
+        if (approach_name == primaryApproachName):
+            zorder=2
+        # if (approach_name == kOASLAMApproachName):
+        #     bax.scatter(xx, errs, label=approach_name, \
+        #                 # plt.scatter(xx, errs, label=approach_name, \
+        #                 color='#2ca02c', \
+        #                 zorder=zorder,
+        #                 marker=kApproachMarkerDict[approach_name], \
+        #                 s=kApproachMarkerSizeDict[approach_name])
+        # else:
         bax.scatter(xx, errs, label=approach_name, \
                     # plt.scatter(xx, errs, label=approach_name, \
                     # color=kApproachColorDict[approach_name], \
+                    zorder=zorder,
                     marker=kApproachMarkerDict[approach_name], \
                     s=kApproachMarkerSizeDict[approach_name])
-    bax.set_xlabel("Trajectory Number", fontsize=kAxisFontsize)
+    bax.set_xlabel("Trajectory Number", fontsize=kAxisFontsize, labelpad=20)
     bax.set_ylabel(kATEErrorYLabelDict[err_type], fontsize=kAxisFontsize)
-    bax.legend(loc=legend_loc)
+    bax.legend(loc=legend_loc, ncol=legend_ncol)
     bax.grid(alpha=0.4)
+    if (yscaleType is not None):
+        bax.set_yscale(yscaleType)
 
-    # Note: cannot use tight_layout. It'll break the brokenaxis
+    if (len(ylims) > 1):
+        for i in range(len(ylims)):
+            min_tick = math.floor(ylims[i][0])
+            max_tick = math.ceil(ylims[i][-1])
+            tick_inc = math.ceil((max_tick - min_tick) / 3)
+            bax.axs[len(ylims) - 1 - i].set_yticks(np.arange(min_tick, max_tick, tick_inc))
+
+    fig.subplots_adjust(bottom=kFigBottomSpacing)
+
+# Note: cannot use tight_layout. It'll break the brokenaxis
     if savepath:
         print("Saving figure to " + savepath)
         plt.savefig(savepath)
@@ -242,8 +313,9 @@ def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="up
         plt.show()
 
 
-def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins=1000, savepath=None):
-    plt.figure(fig_num)
+def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins=1000, savepath=None,
+            xlims=None, width_ratios=None):
+    fig=plt.figure(fig_num, figsize=kFigSize)
     comparison_approach_summary_max = 0
     comparison_approach_summary_min_max = None
 
@@ -251,37 +323,88 @@ def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins
     alternate_line_style_index = 0
     primary_approach_max = None
     # getting data of the histogram
+
+    all_approaches_max = 0
+    approach_data_to_plot = {}
     for approach_label, comparison_dataset in approach_results.items():
         print("Working on " + approach_label)
         approach_cdf, bins_count, comparison_approach_max = getCDFData(comparison_dataset, bins)
+        approach_data_to_plot[approach_label] = (bins_count, approach_cdf)
+        all_approaches_max = max(all_approaches_max, comparison_approach_max)
         if (approach_label is not primaryApproachName):
             if (comparison_approach_summary_min_max is None):
                 comparison_approach_summary_min_max = comparison_approach_max
             else:
                 comparison_approach_summary_min_max = min(comparison_approach_max, comparison_approach_summary_min_max)
             comparison_approach_summary_max = max(comparison_approach_max, comparison_approach_summary_max)
+            # line_style = alternate_line_styles[alternate_line_style_index]
+            # alternate_line_style_index += 1
+        else:
+            primary_approach_max = comparison_approach_max
+            # line_style = 'solid'
+        # plt.plot(bins_count, approach_cdf, linestyle=line_style,
+        #          label=approach_label)
+
+    ylims = [(0, 1)]
+    # xmax = max(primary_approach_max, comparison_approach_summary_min_max)
+    xmax = max(primary_approach_max, all_approaches_max)
+    if (xlims == None):
+        xlims=[(0, xmax)]
+    else:
+        xlims.append((xlims[-1][1], xmax))
+    print(xlims)
+
+    bax = brokenaxes(xlims=xlims, ylims=ylims, width_ratios=width_ratios)
+    for approach_label, comparison_data_entry in approach_data_to_plot.items():
+        print("Working on " + approach_label)
+        bins_count = comparison_data_entry[0]
+        approach_cdf = comparison_data_entry[1]
+        # approach_cdf, bins_count, comparison_approach_max = getCDFData(comparison_dataset, bins)
+        if (approach_label is not primaryApproachName):
+            # if (comparison_approach_summary_min_max is None):
+            #     comparison_approach_summary_min_max = comparison_approach_max
+            # else:
+            #     comparison_approach_summary_min_max = min(comparison_approach_max, comparison_approach_summary_min_max)
+            # comparison_approach_summary_max = max(comparison_approach_max, comparison_approach_summary_max)
             line_style = alternate_line_styles[alternate_line_style_index]
             alternate_line_style_index += 1
         else:
             primary_approach_max = comparison_approach_max
             line_style = 'solid'
-        plt.plot(bins_count, approach_cdf, linestyle=line_style,
+        bax.plot(bins_count, approach_cdf, linestyle=line_style,
                  label=approach_label)
+        # plt.plot(bins_count, approach_cdf, linestyle=line_style,
+        #          label=approach_label)
+
+    print(primary_approach_max)
 
     if (len(approach_results) >= 2):
-        plt.xlim(0, max(primary_approach_max, comparison_approach_summary_min_max))
+        # plt.xlim(0, max(primary_approach_max, comparison_approach_summary_min_max))
         # plt.xlim(0, primary_approach_max)
         # if (primary_approach_max > comparison_approach_summary_max):
         # x_lim = primary_approach_max
         # else:
         #     x_lim = min(primary_approach_max * kMaxXAxisBoundsMultiplier, comparison_approach_summary_max)
-        # plt.xlim(0, x_lim)
-        plt.legend(prop={'size': 'small'})
-    plt.ylim(0, 1)
-    plt.title(title)
-    plt.xlabel(x_label)
-    plt.ylabel("Proportion of data")
-    plt.grid(alpha=0.4)
+        # plt.xlim(0, max(primary_approach_max, comparison_approach_summary_min_max))
+        bax.legend(loc="lower right", prop={'size': 'small'})
+        # plt.legend(prop={'size': 'small'})
+    # plt.ylim(0, 1)
+    # bax.set_title(title)
+    bax.set_xlabel(x_label, labelpad=20, fontsize=kAxisFontsize)
+    bax.set_ylabel("Proportion of data", fontsize=kAxisFontsize)
+    bax.grid(alpha=0.4)
+
+    for i in range(len(xlims)):
+        min_tick = math.floor(xlims[i][0])
+        max_tick = math.ceil(xlims[i][-1])
+        tick_inc = math.ceil((max_tick - min_tick) / 5)
+        bax.axs[i].set_xticks(np.arange(min_tick, max_tick, tick_inc))
+
+    # fig.subplots_adjust(bottom=kFigBottomSpacing)
+    # plt.title(title)
+    # plt.xlabel(x_label)
+    # plt.ylabel("Proportion of data")
+    # plt.grid(alpha=0.4)
 
     if savepath:
         print("Saving plot to " + savepath)
