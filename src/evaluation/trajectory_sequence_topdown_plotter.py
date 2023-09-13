@@ -21,7 +21,8 @@ def parseArgs():
     parser.add_argument('--ylim_max', required=False, default=None, type=int)
     parser.add_argument('--figsize_x', required=False, default=None, type=float)
     parser.add_argument('--figsize_y', required=False, default=None, type=float)
-    parser.add_argument('--is_obvi_slam', required=False, action='store_true')
+    parser.add_argument('--is_obvi_slam', required=False, default=False, action='store_true')
+    parser.add_argument('--no_duplicate_waypoints', required=False, default=False, action='store_true')
     args = parser.parse_args()
     return args
 
@@ -50,9 +51,10 @@ if __name__ == "__main__":
             filepath = os.path.join(cmdLineArgs.datadir, bag_uid, kTrajWithWaypointsFilename)
         poses_dict[bag_uid] = pd.read_csv(filepath)
     plot_topdown_trajectory(poses_dict, \
-            xlim=tuple(kTrajWithWaypointsXlim), \
-            ylim=tuple(kTrajWithWaypointsYlim), \
+            xlim=kTrajWithWaypointsXlim, \
+            ylim=kTrajWithWaypointsYlim, \
             figsize=kTrajWithWaypointsFigsize, \
-            savepath=cmdLineArgs.savepath)
+            savepath=cmdLineArgs.savepath, \
+            no_duplicate_waypoints=cmdLineArgs.no_duplicate_waypoints)
 
 # python src/evaluation/trajectory_sequence_topdown_plotter.py --datadir /root/LTOV-SLAM-Evaluation/data/orb_slam_3_out/evaluation_2023_07_v1_orb_finally_probably/ --sequence_path sequences/evaluation_2023_07_v1.json --savepath orb
