@@ -225,7 +225,7 @@ def plot_single_sequence_rmse(errs_dict, err_type, ylims=[], legend_loc="upper l
     else:
         plt.show()
 
-def plot_topdown_trajectory(poses_dict, xlim=None, ylim=None, figsize=None, show_axis=True, savepath=None):
+def plot_topdown_trajectory(poses_dict, xlim=None, ylim=None, figsize=None, show_axis=True, savepath=None, no_duplicate_waypoints=False):
     if figsize is None:
         plt.figure(constrained_layout=True)
     else:
@@ -249,9 +249,10 @@ def plot_topdown_trajectory(poses_dict, xlim=None, ylim=None, figsize=None, show
             points.append(points[0])
             points = np.array(points)
             plt.fill(points[:,0], points[:,1], color=kTopdownTrajWaypointColors[int(name) % len(kTopdownTrajWaypointColors)])
-            # plt.plot(points[:,0], points[:,1], color="black", linewidth=0.5)
-    plt.xlabel("x (m)", fontsize=kAxisFontsize)
-    plt.ylabel("y (m)", fontsize=kAxisFontsize)
+            plt.plot(points[:,0], points[:,1], color="black", linewidth=0.5)
+            if no_duplicate_waypoints:
+                break
+
     if show_axis:
         plt.grid(alpha=0.4)
         plt.axis("equal")
