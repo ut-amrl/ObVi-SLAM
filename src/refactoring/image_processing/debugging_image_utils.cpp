@@ -174,9 +174,9 @@ void displayBoundingBoxOnImage(
 std_msgs::ColorRGBA brightenColor(const std_msgs::ColorRGBA &original,
                                   const double &brighter_percent) {
   std_msgs::ColorRGBA brighter = original;
-  brighter.r = 1.0 - (1.0 - original.r) * (1 - brighter_percent);
-  brighter.g = 1.0 - (1.0 - original.g) * (1 - brighter_percent);
-  brighter.b = 1.0 - (1.0 - original.b) * (1 - brighter_percent);
+  brighter.r = std::min(1.0, 1.0 - (1.0 - original.r) * (1 - brighter_percent));
+  brighter.g = std::min(1.0, 1.0 - (1.0 - original.g) * (1 - brighter_percent));
+  brighter.b = std::min(1.0, 1.0 - (1.0 - original.b) * (1 - brighter_percent));
   return brighter;
 }
 

@@ -4,6 +4,12 @@ from approach_metrics import *
 
 
 def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_name=None):
+    plt.rcParams.update({
+        "font.family": "serif",  # use serif/main font for text elements
+        # "text.usetex": True,     # use inline math for ticks
+        "pgf.rcfonts": False  # don't setup fonts from rc parameters
+    })
+
     metricsFilesInfo = readApproachesAndMetricsFile(approaches_and_metrics_file_name)
 
     missedGtObjs = {}
@@ -47,9 +53,9 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
     # comparison
     posDev_y_lims = None
     dev_height_ratios = None
-    posDevLegendLoc="upper left"
-    avgDevLegendNcol=2
-    devScaleType=None
+    posDevLegendLoc = "upper left"
+    avgDevLegendNcol = 2
+    devScaleType = None
 
     # # Ablations
     # # posDev_y_lims=[(0, 7), (20, 80), (1500, 2700), (2700, 9200), (9200, 2600000)]
@@ -65,85 +71,86 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
     # # 34289.87480059462, 56979.70088890067, 135887.58326993897, 320073.27785990667, 461991.27553753025, 628519.3234581841, 1201421.3476381698, 2576100.332544633
     # posDev_y_lims=[(0, 12.5), (15, 24), (70, 78), (1600, 10000),(33000, 35000), (50000, 700000), (1150000, 2600000)]
     #
-    # allDevs = []
-    # for approachLabel, dev_list in avgPosDeviations.items():
-    #     allDevs.extend(dev_list)
-    #
-    # sorted(allDevs)
-    # allDevs.sort()
-    # print(allDevs)
+    allDevs = []
+    for approachLabel, dev_list in avgPosDeviations.items():
+        allDevs.extend(dev_list)
+
+    sorted(allDevs)
+    allDevs.sort()
+    print(allDevs)
     #
     # # dev_height_ratios=[1 for i in posDev_y_lims]
     # # posDev_y_lims=[(min(allDevs)/2.5, max(allDevs)*100)]
-    # posDev_y_lims=[(min(allDevs)/2, max(allDevs)*10)]
-    # dev_height_ratios=None
-    # posDevLegendLoc="upper right"
+    posDev_y_lims=[(min(allDevs)/2, max(allDevs)*10)]
+    dev_height_ratios=None
+    posDevLegendLoc="upper right"
     #
     # print(avgPosDeviations)
     # maxes = {approachLabel:max(dev_list) for approachLabel, dev_list in avgPosDeviations.items()}
     # print(maxes)
-    # avgDevLegendNcol=2
-    # devScaleType="log"
-
-
+    avgDevLegendNcol=2
+    devScaleType="log"
 
     plotRMSEs(metricsFilesInfo.primaryApproachName, avgPosDeviations, kAveragePositionDeviationsErrorType,
-              ylims=posDev_y_lims, legend_loc=posDevLegendLoc, savepath=None, height_ratios=dev_height_ratios, yscaleType=devScaleType, legend_ncol=avgDevLegendNcol)
-
-    # Comparisions
-    medianDevYLims = None
-    med_dev_height_ratios=None
-    medianDevLegendLoc="upper left"
-
-    # Ablations
+              ylims=posDev_y_lims, legend_loc=posDevLegendLoc,
+              savepath=errorTypesAndSavepaths[kAveragePositionDeviationsErrorType], height_ratios=dev_height_ratios,
+              yscaleType=devScaleType, legend_ncol=avgDevLegendNcol)
+    #
+    # # Comparisions
     # medianDevYLims = None
-    # med_dev_height_ratios=None
+    # med_dev_height_ratios = None
+    # medianDevLegendLoc = "upper left"
+    #
+    # # Ablations
+    # medianDevYLims = [(0, 9), (11,52)]
+    # med_dev_height_ratios=[1.5, 1]
     # medianDevLegendLoc="upper right"
+    #
+    # plotRMSEs(metricsFilesInfo.primaryApproachName, medianPosDeviations, kMedianPositionDeviationsErrorType,
+    #           ylims=medianDevYLims, legend_loc=medianDevLegendLoc,
+    #           savepath=errorTypesAndSavepaths[kMedianPositionDeviationsErrorType], height_ratios=med_dev_height_ratios)
 
-    plotRMSEs(metricsFilesInfo.primaryApproachName, medianPosDeviations, kMedianPositionDeviationsErrorType,
-              ylims=medianDevYLims, legend_loc=medianDevLegendLoc, savepath=None, height_ratios=med_dev_height_ratios)
-
-    # comparison
-    iou_y_lims = []
-    avgIouLegendLoc = "upper center"
-    avgIouLegendNCol = 2
-
-
-    # ablations
-    # iou_y_lims=[(0, 0.15)]
+    # # comparison
+    # iou_y_lims = [(0, 0.13)]
+    # avgIouLegendLoc = "upper center"
+    # avgIouLegendNCol = 2
+    #
+    # # ablations
+    # iou_y_lims=[(0, 0.2)]
     # avgIouLegendLoc="upper right"
     # avgIouLegendNCol = 2
+    #
+    # plotRMSEs(metricsFilesInfo.primaryApproachName, avgIous, kAverageIousErrorType, ylims=iou_y_lims,
+    #           legend_loc=avgIouLegendLoc, savepath=errorTypesAndSavepaths[kAverageIousErrorType],
+    #           legend_ncol=avgIouLegendNCol)
 
-    plotRMSEs(metricsFilesInfo.primaryApproachName, avgIous, kAverageIousErrorType, ylims=iou_y_lims,
-              legend_loc=avgIouLegendLoc, savepath=None,  legend_ncol=avgIouLegendNCol)
-
-    # Comparison
-    missedGtsYLims = [(0, 1)]
-    missedGtsLegendLoc="lower center"
-    missedGtsLegendNcol =2
-
-    # Ablation
-    missedGtsYLims = [(0, 1)]
+    # # Comparison
+    # missedGtsYLims = [(0, 1)]
+    # missedGtsLegendLoc = "lower center"
+    # missedGtsLegendNcol = 2
+    #
+    # # Ablation
+    # missedGtsYLims = [(0, 1)]
     # missedGtsLegendLoc="lower center"
     # missedGtsLegendNcol =2
-
-
-    plotRMSEs(metricsFilesInfo.primaryApproachName, missedGtObjs, kMissedGtsErrorType, ylims=missedGtsYLims,
-              legend_loc=missedGtsLegendLoc, savepath=None,  legend_ncol=missedGtsLegendNcol)
-
-    # Comparison
-    objsPerGTYLims = None
-    objsPerGTLegendLoc="upper center"
-    objsPerGTLegendNcol =2
-
-    # Ablation
+    #
+    # plotRMSEs(metricsFilesInfo.primaryApproachName, missedGtObjs, kMissedGtsErrorType, ylims=missedGtsYLims,
+    #           legend_loc=missedGtsLegendLoc, savepath=errorTypesAndSavepaths[kMissedGtsErrorType],
+    #           legend_ncol=missedGtsLegendNcol)
+    #
+    # # # Comparison
+    # # objsPerGTYLims = None
+    # # objsPerGTLegendLoc = "upper center"
+    # # objsPerGTLegendNcol = 2
+    #
+    # # Ablation
     # objsPerGTYLims = None
     # objsPerGTLegendLoc="lower center"
     # objsPerGTLegendNcol =2
-
-
-    plotRMSEs(metricsFilesInfo.primaryApproachName, objectsPerGtObj, kObjRatioErrorType, ylims=objsPerGTYLims,
-              legend_loc=objsPerGTLegendLoc, savepath=None,  legend_ncol=objsPerGTLegendNcol)
+    #
+    # plotRMSEs(metricsFilesInfo.primaryApproachName, objectsPerGtObj, kObjRatioErrorType, ylims=objsPerGTYLims,
+    #           legend_loc=objsPerGTLegendLoc, savepath=errorTypesAndSavepaths[kObjRatioErrorType],
+    #           legend_ncol=objsPerGTLegendNcol)
 
     plt.show()
 
