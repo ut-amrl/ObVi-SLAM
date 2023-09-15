@@ -296,7 +296,7 @@ def getCDFData(dataset, num_bins):
     # return (cdf , bins_count , max_val)
 
 
-def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="upper left", savepath=None, height_ratios=None, legend_ncol=1, yscaleType=None):
+def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="upper left", savepath=None, height_ratios=None, legend_ncol=1, yscaleType=None, scatter=True):
     fig = plt.figure(figsize=kFigSize)
     # fig = plt.figure(figsize=set_size(505, 0.2))
 
@@ -309,6 +309,8 @@ def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="up
         ylims = [(0, non_inf_max * 1.05)]
 
     bax = brokenaxes(ylims=ylims, height_ratios=height_ratios, yscale=yscaleType)
+    alternate_line_styles = ['dotted', 'dashdot', 'dashed', (0, (3, 1, 1, 1)), (0, (3, 1, 1, 1, 1, 1))]
+    alternate_line_style_index = 0
 
     if (kORBSLAM3ApproachName in errs_dict):
         orb_split_idx = 6
@@ -331,16 +333,33 @@ def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="up
         #                 marker=kApproachMarkerDict[approach_name], \
         #                 s=kApproachMarkerSizeDict[approach_name])
         # else:
-        bax.scatter(xx, errs, label=approach_name, \
-                    # plt.scatter(xx, errs, label=approach_name, \
-                    # color=kApproachColorDict[approach_name], \
-                    zorder=zorder,
-                    marker=kApproachMarkerDict[approach_name], \
-                    s=kApproachMarkerSizeDict[approach_name])
+        if (approach_name is not primaryApproachName):
+            # if (comparison_approach_summary_min_max is None):
+            #     comparison_approach_summary_min_max = comparison_approach_max
+            # else:
+            #     comparison_approach_summary_min_max = min(comparison_approach_max, comparison_approach_summary_min_max)
+            # comparison_approach_summary_max = max(comparison_approach_max, comparison_approach_summary_max)
+            line_style = alternate_line_styles[alternate_line_style_index]
+            alternate_line_style_index += 1
+        else:
+            line_style = 'solid'
+        if (scatter):
+            bax.scatter(xx, errs, label=approach_name, \
+                        # plt.scatter(xx, errs, label=approach_name, \
+                        # color=kApproachColorDict[approach_name], \
+                        zorder=zorder,
+                        marker=kApproachMarkerDict[approach_name], \
+                        s=kApproachMarkerSizeDict[approach_name])
+        else:
+            bax.plot(xx, errs, linestyle=line_style, zorder=zorder,
+                     label=approach_name, linewidth=3)
     # bax.set_xlabel("Trajectory Number", fontsize=kAxisFontsize)
     # bax.set_ylabel(kATEErrorYLabelDict[err_type], fontsize=kAxisFontsize)
     # bax.legend(loc=legend_loc, ncol=legend_ncol, fontsize=kAxisFontsize)
+
+    # Use this one for trajectory ATEs and object position devs?
     # bax.legend(loc="upper center", ncol=2, fontsize=kAxisFontsize, bbox_to_anchor=(0.5, 1.3))
+
     bax.legend(loc="upper center", ncol=2, fontsize=kAxisFontsize)
     bax.grid(alpha=0.4)
     if (yscaleType is not None):

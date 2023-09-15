@@ -84,20 +84,20 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
 
     errorTypesAndSavepaths = readErrTypesAndSavepathsFile(error_types_and_savepaths_file_name)
 
-    plotTranslationConsistency(metricsFilesInfo.primaryApproachName, translationConsistency,
-                               errorTypesAndSavepaths.get(kCDFTranslErrorType))
-    plotOrientationConsistency(metricsFilesInfo.primaryApproachName, orientationConsistency,
-                               errorTypesAndSavepaths.get(kCDFOrientErrorType))
+    # plotTranslationConsistency(metricsFilesInfo.primaryApproachName, translationConsistency,
+    #                            errorTypesAndSavepaths.get(kCDFTranslErrorType))
+    # plotOrientationConsistency(metricsFilesInfo.primaryApproachName, orientationConsistency,
+    #                            errorTypesAndSavepaths.get(kCDFOrientErrorType))
 
     # For orb, prev oa and ours
     # transl_y_lims = [(0, 3), (3.5, 8), (20, 22.5)]
     # transl_height_ratios = [1, 1, 2]
 
     # ablations
-    transl_y_lims = [(0, 4.5), (8, 45), (22500, 24900)]
-    transl_height_ratios = [1, 2, 2.5]
-    transl_legend_ncol = 2
-    transl_legend_loc = "upper right"
+    # transl_y_lims = [(0, 4.5), (8, 45), (22500, 24900)]
+    # transl_height_ratios = [1, 2, 2.5]
+    # transl_legend_ncol = 2
+    # transl_legend_loc = "upper right"
 
     # New comparison results
     # transl_legend_ncol=1
@@ -106,14 +106,14 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
     # transl_legend_loc="upper left"
 
     # New comparison results v2
-    # transl_legend_ncol=1
-    # transl_y_lims=[(0, 5.8), (6, 12)]
-    # transl_height_ratios = [1, 2]
-    # transl_legend_loc="upper left"
+    transl_legend_ncol=1
+    transl_y_lims=[(0, 5.8), (6, 12)]
+    transl_height_ratios = [1, 2]
+    transl_legend_loc="upper left"
 
     plotRMSEs(metricsFilesInfo.primaryApproachName, translAtesByTrajectory, kATETranslErrorType, ylims=transl_y_lims,
               legend_loc=transl_legend_loc, savepath=errorTypesAndSavepaths.get(kATETranslErrorType),
-              height_ratios=transl_height_ratios, legend_ncol=transl_legend_ncol)
+              height_ratios=transl_height_ratios, legend_ncol=transl_legend_ncol, scatter=False)
     # orient_y_lims=[(0, 10)]
     # orient_y_lims=[(0, 30), (64, 71)]
 
@@ -136,12 +136,12 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
 
     # New comparison results
 
-    # orient_y_lims=[(0, 9), (10, 24), (40, 60)]
-    # orient_height_ratios=[1, 1, 2]
-    # orient_legend_loc="upper left"
-    # orient_legend_ncol=1
+    orient_y_lims=[(0, 9), (10, 24), (40, 60)]
+    orient_height_ratios=[1, 1, 2]
+    orient_legend_loc="upper left"
+    orient_legend_ncol=1
 
-    # New comparison results v2 (slides version)
+    # # New comparison results v2 (slides version)
     # orient_y_lims=[(0, 3.7), (4.1, 8),  (9.5, 24), (40, 60)]
     # orient_height_ratios=[1, 1, 1, 1.5]
     # orient_legend_loc="upper left"
@@ -150,7 +150,7 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
     print(rotAtesByTrajectory)
     plotRMSEs(metricsFilesInfo.primaryApproachName, rotAtesByTrajectory, kATEOrientErrorType, ylims=orient_y_lims,
               legend_loc=orient_legend_loc, savepath=errorTypesAndSavepaths.get(kATEOrientErrorType),
-              height_ratios=orient_height_ratios, legend_ncol=orient_legend_ncol)
+              height_ratios=orient_height_ratios, legend_ncol=orient_legend_ncol, scatter=False)
 
     plt.show()
 

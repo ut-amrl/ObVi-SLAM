@@ -1,0 +1,4 @@
+ObVi-SLAM,/home/amanda/rosbags/ellipsoid_slam/eer_jackal/ut_vslam_results/copied_from_server/evaluation_2023_07_v1/base7a_1_fallback_a_2/metrics.json
+OA-SLAM,/home/amanda/rosbags/ellipsoid_slam/eer_jackal/oa_slam_out/evaluation_2023_07_v1_0821/metrics.json
+ORB-SLAM3,/home/amanda/rosbags/ellipsoid_slam/eer_jackal/orb_slam_3_out/orb_final_probably/metrics.json
+DROID-SLAM,/home/amanda/rosbags/ellipsoid_slam/eer_jackal/droid_slam_out/evaluation_2023_07_v1/metrics.json
