@@ -2,8 +2,8 @@
 // Created by amanda on 2/17/23.
 //
 
-#ifndef UT_VSLAM_EVALUATION_UTILS_H
-#define UT_VSLAM_EVALUATION_UTILS_H
+#ifndef UT_VSLAM_TRAJECTORY_EVALUATION_UTILS_H
+#define UT_VSLAM_TRAJECTORY_EVALUATION_UTILS_H
 
 #include <base_lib/basic_utils.h>
 #include <evaluation/trajectory_metrics.h>
@@ -80,4 +80,4 @@ void getDeviationFromMeanPose(const Pose3D<double> &mean_pose,
 
 }  // namespace vslam_types_refactor
 
-#endif  // UT_VSLAM_EVALUATION_UTILS_H
+#endif  // UT_VSLAM_TRAJECTORY_EVALUATION_UTILS_H

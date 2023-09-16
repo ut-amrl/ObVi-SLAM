@@ -3,7 +3,7 @@
 //
 
 #include <base_lib/pose_utils.h>
-#include <evaluation/evaluation_utils.h>
+#include <evaluation/trajectory_evaluation_utils.h>
 #include <evaluation/trajectory_interpolation_utils.h>
 #include <file_io/cv_file_storage/full_sequence_metrics_file_storage_io.h>
 #include <file_io/cv_file_storage/sequence_file_storage_io.h>
@@ -480,7 +480,7 @@ int main(int argc, char **argv) {
   if (vis_manager != nullptr) {
     std::vector<std::vector<Pose3D<double>>> est_traj;
     std::unordered_map<WaypointId, std::vector<std::optional<Pose3D<double>>>>
-          waypoints;
+        waypoints;
 
     for (size_t traj_num = 0; traj_num < aligned_annotated.size(); traj_num++) {
       const std::vector<std::pair<pose::Timestamp, PoseAndWaypointInfoForNode>>
@@ -488,11 +488,12 @@ int main(int argc, char **argv) {
       std::vector<Pose3D<double>> traj_valid;
 
       for (size_t pose_num = 0; pose_num < traj_est.size(); pose_num++) {
-        const std::pair<pose::Timestamp, PoseAndWaypointInfoForNode>
-            old_entry = traj_est.at(pose_num);
+        const std::pair<pose::Timestamp, PoseAndWaypointInfoForNode> old_entry =
+            traj_est.at(pose_num);
         traj_valid.emplace_back(old_entry.second.pose_.value());
         if (old_entry.second.waypoint_id_and_reversal_.has_value()) {
-          WaypointId wp_id = old_entry.second.waypoint_id_and_reversal_.value().first;
+          WaypointId wp_id =
+              old_entry.second.waypoint_id_and_reversal_.value().first;
           if (waypoints.find(wp_id) == waypoints.end()) {
             waypoints[wp_id] = {};
           }
@@ -502,14 +503,14 @@ int main(int argc, char **argv) {
 
       est_traj.emplace_back(traj_valid);
     }
-//    vis_manager->visualizeWaypoints(waypoints);
+    //    vis_manager->visualizeWaypoints(waypoints);
     vis_manager->visualizeTrajectories(est_traj, ESTIMATED);
   }
 
-//  for (size_t bag_idx = 0; bag_idx < aligned_annotated.size(); bag_idx++) {
-//    file_io::writePose3dWsithWaypointInfoToFile(
-//        full_paths_for_wp_annotated_trajectories.at(bag_idx),
-//        aligned_annotated.at(bag_idx));
-//  }
+  //  for (size_t bag_idx = 0; bag_idx < aligned_annotated.size(); bag_idx++) {
+  //    file_io::writePose3dWsithWaypointInfoToFile(
+  //        full_paths_for_wp_annotated_trajectories.at(bag_idx),
+  //        aligned_annotated.at(bag_idx));
+  //  }
   return 0;
 }

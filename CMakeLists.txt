@@ -81,8 +81,8 @@ add_subdirectory(src/shared)
 include_directories(src)
 
 add_library(ut_vslam
-        src/evaluation/evaluation_utils.cpp
         src/evaluation/object_evaluation_utils.cpp
+        src/evaluation/trajectory_evaluation_utils.cpp
         src/evaluation/trajectory_interpolation_utils.cpp
         src/refactoring/bounding_box_frontend/pending_object_estimator.cpp
         src/refactoring/factors/bounding_box_factor.cpp
