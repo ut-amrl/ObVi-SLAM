@@ -6,6 +6,7 @@
 #define UT_VSLAM_FULL_SEQUENCE_METRICS_FILE_STORAGE_IO_H
 
 #include <evaluation/trajectory_metrics.h>
+#include <file_io/cv_file_storage/base_metrics_file_storage_io.h>
 #include <file_io/cv_file_storage/file_storage_io_utils.h>
 
 #include <filesystem>
@@ -24,6 +25,10 @@ class SerializableATEResults : public FileStorageSerializable<ATEResults> {
     fs << "{";
     fs << kRmseTranslErrLabel << data_.rmse_transl_err_;
     fs << kRmseRotErrLabel << data_.rmse_rot_err_;
+    fs << kTranslStatsLabel
+       << SerializableMetricsDistributionStatistics(data_.transl_stats_);
+    fs << kRotStatsLabel
+       << SerializableMetricsDistributionStatistics(data_.rot_stats_);
     fs << kValidPosesUsedInScoreLabel << data_.valid_poses_used_in_score_;
     fs << kLostPosesLabel << data_.lost_poses_;
     fs << "}";
@@ -32,6 +37,15 @@ class SerializableATEResults : public FileStorageSerializable<ATEResults> {
   virtual void read(const cv::FileNode &node) override {
     data_.rmse_transl_err_ = node[kRmseTranslErrLabel];
     data_.rmse_rot_err_ = node[kRmseRotErrLabel];
+
+    SerializableMetricsDistributionStatistics ser_transl_stats;
+    node[kTranslStatsLabel] >> ser_transl_stats;
+    data_.transl_stats_ = ser_transl_stats.getEntry();
+
+    SerializableMetricsDistributionStatistics ser_rot_stats;
+    node[kRotStatsLabel] >> ser_rot_stats;
+    data_.rot_stats_ = ser_rot_stats.getEntry();
+
     data_.valid_poses_used_in_score_ = node[kValidPosesUsedInScoreLabel];
     data_.lost_poses_ = node[kLostPosesLabel];
   }
@@ -42,6 +56,8 @@ class SerializableATEResults : public FileStorageSerializable<ATEResults> {
  private:
   inline static const std::string kRmseTranslErrLabel = "rmse_transl_err";
   inline static const std::string kRmseRotErrLabel = "rmse_rot_err";
+  inline static const std::string kTranslStatsLabel = "transl_stats";
+  inline static const std::string kRotStatsLabel = "rot_stats";
   inline static const std::string kValidPosesUsedInScoreLabel =
       "valid_poses_used_in_score";
   inline static const std::string kLostPosesLabel = "lost_poses";

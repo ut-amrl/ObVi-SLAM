@@ -8,6 +8,7 @@
 #include <types/timestamped_data_to_frames_utils.h>
 
 #include <vector>
+#include <evaluation/evaluation_utils.h>
 
 namespace vslam_types_refactor {
 
@@ -15,14 +16,20 @@ struct ATEResults {
   ATEResults() = default;
   ATEResults(const double &rmse_transl_err,
              const double &rmse_rot_err,
+             const MetricsDistributionStatistics &transl_stats,
+             const MetricsDistributionStatistics &rot_stats,
              const int &valid_poses_used_in_score,
              const int &lost_poses)
       : rmse_transl_err_(rmse_transl_err),
         rmse_rot_err_(rmse_rot_err),
+        transl_stats_(transl_stats),
+        rot_stats_(rot_stats),
         valid_poses_used_in_score_(valid_poses_used_in_score),
         lost_poses_(lost_poses){};
   double rmse_transl_err_;
   double rmse_rot_err_;
+  MetricsDistributionStatistics transl_stats_;
+  MetricsDistributionStatistics rot_stats_;
   int valid_poses_used_in_score_;
   int lost_poses_;
 };

@@ -6,6 +6,7 @@
 #define UT_VSLAM_FULL_SEQUENCE_OBJECT_METRICS_FILE_STORAGE_IO_H
 
 #include <evaluation/object_evaluation_utils.h>
+#include <file_io/cv_file_storage/base_metrics_file_storage_io.h>
 #include <file_io/cv_file_storage/file_storage_io_utils.h>
 #include <file_io/cv_file_storage/vslam_obj_types_file_storage_io.h>
 
@@ -43,12 +44,18 @@ class SerializableSingleTrajectoryObjectMetrics
                           std::optional<double>,
                           SerializableOptional<double, SerializableDouble>>(
               data_.pos_diff_for_est_obj_);
+    fs << kRecallLabel << data_.recall_;
+    fs << kNumGtObjsLabel << data_.num_gt_objs_;
     fs << kMissedGtObjsLabel << data_.missed_gt_objs_;
     fs << kObjectsPerGtObjLabel << data_.objects_per_gt_obj_;
     fs << kAveragePosDeviationLabel << data_.average_pos_deviation_;
     fs << kAvgIouLabel << data_.avg_iou_;
     fs << kMedianPosDeviationLabel << data_.median_pos_deviation_;
     fs << kMedianIouLabel << data_.median_iou_;
+    fs << kPosDevStatsLabel
+       << SerializableMetricsDistributionStatistics(data_.pos_dev_stats_);
+    fs << kIouStatsLabel
+       << SerializableMetricsDistributionStatistics(data_.iou_stats_);
     fs << "}";
   }
 
@@ -74,12 +81,22 @@ class SerializableSingleTrajectoryObjectMetrics
     node[kPosDiffForEstObjLabel] >> ser_pos_diff_for_est_obj;
     data_.pos_diff_for_est_obj_ = ser_pos_diff_for_est_obj.getEntry();
 
+    data_.recall_ = node[kRecallLabel];
+    data_.num_gt_objs_ = node[kNumGtObjsLabel];
     data_.missed_gt_objs_ = node[kMissedGtObjsLabel];
     data_.objects_per_gt_obj_ = node[kObjectsPerGtObjLabel];
     data_.average_pos_deviation_ = node[kAveragePosDeviationLabel];
     data_.avg_iou_ = node[kAvgIouLabel];
     data_.median_pos_deviation_ = node[kMedianPosDeviationLabel];
     data_.median_iou_ = node[kMedianIouLabel];
+
+    SerializableMetricsDistributionStatistics ser_pos_dev_stats;
+    node[kPosDevStatsLabel] >> ser_pos_dev_stats;
+    data_.pos_dev_stats_ = ser_pos_dev_stats.getEntry();
+
+    SerializableMetricsDistributionStatistics ser_iou_stats;
+    node[kIouStatsLabel] >> ser_iou_stats;
+    data_.iou_stats_ = ser_iou_stats.getEntry();
   }
 
  protected:
@@ -91,13 +108,19 @@ class SerializableSingleTrajectoryObjectMetrics
   inline static const std::string kIouForGtObjLabel = "iou_for_gt_obj";
   inline static const std::string kPosDiffForEstObjLabel =
       "pos_diff_for_est_obj";
+  inline static const std::string kRecallLabel = "recall";
+  inline static const std::string kNumGtObjsLabel = "num_gt_objs";
   inline static const std::string kMissedGtObjsLabel = "missed_gt_objs";
   inline static const std::string kObjectsPerGtObjLabel = "objects_per_gt_obj";
   inline static const std::string kAveragePosDeviationLabel =
       "average_pos_deviation";
   inline static const std::string kAvgIouLabel = "avg_iou";
-  inline static const std::string kMedianPosDeviationLabel = "median_pos_deviation";
+  inline static const std::string kMedianPosDeviationLabel =
+      "median_pos_deviation";
   inline static const std::string kMedianIouLabel = "median_iou";
+
+  inline static const std::string kPosDevStatsLabel = "pos_dev_stats";
+  inline static const std::string kIouStatsLabel = "iou_stats";
 };
 
 static void write(cv::FileStorage &fs,

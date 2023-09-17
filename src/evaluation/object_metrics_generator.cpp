@@ -194,45 +194,22 @@ FullSequenceObjectMetrics computeMetrics(
         //                      , vis_manager
     );
 
-    double average_pos_deviation = 0;
-    size_t associated_est_objs = 0;
     std::vector<double> deviations;
     for (const auto &est_obj_dist : dist_from_gt_by_obj) {
       if (est_obj_dist.second.has_value()) {
-        associated_est_objs++;
-        average_pos_deviation += est_obj_dist.second.value();
         deviations.emplace_back(est_obj_dist.second.value());
       }
     }
-    average_pos_deviation /= associated_est_objs;
-    std::sort(deviations.begin(), deviations.end());
-    if ((deviations.size() % 2) == 1) {
-      metrics_for_traj.median_pos_deviation_ =
-          deviations.at(deviations.size() / 2);
-    } else if (!deviations.empty()) {
-      size_t second_med_component_idx = deviations.size() / 2;
-      metrics_for_traj.median_pos_deviation_ =
-          (deviations.at(second_med_component_idx) +
-           deviations.at(second_med_component_idx - 1)) /
-          2.0;
-    }
 
-    double avg_iou = 0;
+    MetricsDistributionStatistics pos_dev_stats =
+        computeMetricsDistributionStatistics(deviations);
+
     std::vector<double> ious;
     for (const auto &iou_for_obj : iou_per_gt_obj) {
-      avg_iou += iou_for_obj.second;
       ious.emplace_back(iou_for_obj.second);
     }
-    avg_iou /= iou_per_gt_obj.size();
-    std::sort(ious.begin(), ious.end());
-    if ((ious.size() % 2) == 1) {
-      metrics_for_traj.median_iou_ = ious.at(ious.size() / 2);
-    } else if (!ious.empty()) {
-      size_t second_med_component_idx = ious.size() / 2;
-      metrics_for_traj.median_iou_ = (ious.at(second_med_component_idx) +
-                                      ious.at(second_med_component_idx - 1)) /
-                                     2.0;
-    }
+    MetricsDistributionStatistics iou_stats =
+        computeMetricsDistributionStatistics(ious);
 
     std::unordered_map<ObjectId, size_t> num_objs_for_gt_objs;
     for (const auto &gt_obj_entry : gt_objs) {
@@ -254,14 +231,22 @@ FullSequenceObjectMetrics computeMetrics(
         assignments_to_gt_objs += num_objs_for_gt_obj.second;
       }
     }
+    metrics_for_traj.num_gt_objs_ = gt_objs.size();
+    metrics_for_traj.recall_ =
+        ((double)(metrics_for_traj.num_gt_objs_ - missed_gt_objs_)) /
+        metrics_for_traj.num_gt_objs_;
     metrics_for_traj.missed_gt_objs_ = missed_gt_objs_;
     metrics_for_traj.objects_per_gt_obj_ =
         ((double)assignments_to_gt_objs) / (gt_objs.size() - missed_gt_objs_);
     metrics_for_traj.opt_gt_obj_for_est_obj_ = opt_gt_obj_for_est_obj;
     metrics_for_traj.iou_for_gt_obj_ = iou_per_gt_obj;
     metrics_for_traj.pos_diff_for_est_obj_ = dist_from_gt_by_obj;
-    metrics_for_traj.average_pos_deviation_ = average_pos_deviation;
-    metrics_for_traj.avg_iou_ = avg_iou;
+    metrics_for_traj.average_pos_deviation_ = pos_dev_stats.average_;
+    metrics_for_traj.median_pos_deviation_ = pos_dev_stats.median_;
+    metrics_for_traj.pos_dev_stats_ = pos_dev_stats;
+    metrics_for_traj.avg_iou_ = iou_stats.average_;
+    metrics_for_traj.median_iou_ = iou_stats.median_;
+    metrics_for_traj.iou_stats_ = iou_stats;
 
     full_metrics.indiv_trajectory_object_metrics_.emplace_back(
         metrics_for_traj);

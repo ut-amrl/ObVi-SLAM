@@ -20,10 +20,9 @@ import numpy as np
 import pandas as pd
 from matplotlib.ticker import MultipleLocator
 
-
-kFigSize=(6.5,4)
-kCDFFigSize=(6.5,4)
-kFigBottomSpacing=0.15
+kFigSize = (6.5, 4)
+kCDFFigSize = (6.5, 4)
+kFigBottomSpacing = 0.15
 
 kMaxXAxisBoundsMultiplier = 1.2
 kCDFTranslErrorType = "transl_cdf"
@@ -44,9 +43,6 @@ kAverageIousYLabel = "Average IoU"
 kMedianDevYLabel = "Median Deviation (m)"
 kMissedGtsYLabel = "Object Recall"
 kObjsPerGtsYLabel = "Estimated Objs Per GT Obj"
-
-# TODO make this part of config
-kTotalObjects = 72
 
 kATEErrorYLabelDict = {
     kATETranslErrorType: kATETranslErrorYLabel, \
@@ -239,6 +235,7 @@ def readErrTypesAndSavepathsFile(filepath):
     #     errTypesAndSavepaths[df.iloc[1, 0]] = df.iloc[1, 1]
     return errTypesAndSavepaths
 
+
 def set_size(width_pt, fraction=1, subplots=(1, 1)):
     """Set figure dimensions to sit nicely in our document.
 
@@ -261,7 +258,7 @@ def set_size(width_pt, fraction=1, subplots=(1, 1)):
     inches_per_pt = 1 / 72.27
 
     # Golden ratio to set aesthetic figure height
-    golden_ratio = (5**.5 - 1) / 2
+    golden_ratio = (5 ** .5 - 1) / 2
 
     # Figure width in inches
     fig_width_in = fig_width_pt * inches_per_pt
@@ -269,7 +266,6 @@ def set_size(width_pt, fraction=1, subplots=(1, 1)):
     fig_height_in = fig_width_in * golden_ratio * (subplots[0] / subplots[1])
 
     return (fig_width_in, fig_height_in)
-
 
 
 def getCDFData(dataset, num_bins):
@@ -296,7 +292,9 @@ def getCDFData(dataset, num_bins):
     # return (cdf , bins_count , max_val)
 
 
-def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="upper left", savepath=None, height_ratios=None, legend_ncol=1, yscaleType=None, scatter=True):
+def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="upper left", savepath=None,
+              stdDevsDict = None,
+              height_ratios=None, legend_ncol=1, yscaleType=None, scatter=True):
     fig = plt.figure(figsize=kFigSize)
     # fig = plt.figure(figsize=set_size(505, 0.2))
 
@@ -318,13 +316,18 @@ def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="up
         bax.axvline(x=orb_split_display + 0.5, color='purple', ls='--', lw=0.5)
 
     for approach_name, errs in errs_dict.items():
+        approachYerr = None
+        if (stdDevsDict is not None):
+            print(stdDevsDict)
+            approachYerr = stdDevsDict[approach_name]
+            print(approachYerr)
         # if approach_name not in kApproachNames:
         #     warnings.warn("Undefined approach name " + approach_name + ". Skip plotting trajectory...")
         #     continue
         xx = np.arange(len(errs)) + 1
-        zorder =1
+        zorder = 1
         if (approach_name == primaryApproachName):
-            zorder=2
+            zorder = 2
         # if (approach_name == kOASLAMApproachName):
         #     bax.scatter(xx, errs, label=approach_name, \
         #                 # plt.scatter(xx, errs, label=approach_name, \
@@ -351,8 +354,10 @@ def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="up
                         marker=kApproachMarkerDict[approach_name], \
                         s=kApproachMarkerSizeDict[approach_name])
         else:
-            bax.plot(xx, errs, linestyle=line_style, zorder=zorder,
-                     label=approach_name, linewidth=3)
+            # bax.plot(xx, errs, linestyle=line_style, zorder=zorder,
+            #          label=approach_name, linewidth=3)
+            bax.errorbar(xx, errs, yerr=approachYerr, linestyle=line_style, zorder=zorder,
+                     label=approach_name, linewidth=3, capsize=8, capthick=2)
     # bax.set_xlabel("Trajectory Number", fontsize=kAxisFontsize)
     # bax.set_ylabel(kATEErrorYLabelDict[err_type], fontsize=kAxisFontsize)
     # bax.legend(loc=legend_loc, ncol=legend_ncol, fontsize=kAxisFontsize)
@@ -366,7 +371,8 @@ def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="up
         bax.set_yscale(yscaleType)
 
     lastBaxIdx = 0
-    if (len(ylims) > 1):
+
+    if (ylims is not None) and (len(ylims) > 1):
         for i in range(len(ylims)):
             min_tick = math.floor(ylims[i][0])
             max_tick = math.ceil(ylims[i][-1])
@@ -374,15 +380,13 @@ def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="up
             bax.axs[len(ylims) - 1 - i].set_yticks(np.arange(min_tick, max_tick, tick_inc), fontsize=kAxisFontsize,
                                                    labels=[str(i) for i in np.arange(min_tick, max_tick, tick_inc)])
             # bax.axs[i].set_xticks(np.arange(1, 16))
-        lastBaxIdx = len(ylims) -1
+        lastBaxIdx = len(ylims) - 1
     # else:
     # bax.axs[lastBaxIdx].set_xticks(np.arange(1, 16))
-
 
     fig.subplots_adjust(bottom=kFigBottomSpacing)
     bax.set_xlabel("Trajectory Number", labelpad=30, fontsize=kAxisFontsize)
     bax.set_ylabel(kATEErrorYLabelDict[err_type], fontsize=kAxisFontsize)
-
 
     plt.tight_layout(rect=(-0.05, -0.06, 1, 1))
     for handle in bax.diag_handles:
@@ -390,11 +394,11 @@ def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="up
     bax.draw_diags()
 
     lastBaxIdx = 0
-    if (len(ylims) > 1):
+    if (ylims is not None) and (len(ylims) > 1):
         for i in range(len(ylims)):
             # bax.axs[i].set_xticks([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16], labels=[""]*16)
             bax.axs[i].set_xticks(list(np.arange(1, 17)))
-        lastBaxIdx = len(ylims) -1
+        lastBaxIdx = len(ylims) - 1
         for i in range(len(ylims) - 1):
             for tick in bax.axs[i].get_xticklabels():
                 tick.set_visible(False)
@@ -406,7 +410,7 @@ def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="up
 
     # bax.set_xlabel(x_label)
 
-# Note: cannot use tight_layout. It'll break the brokenaxis
+    # Note: cannot use tight_layout. It'll break the brokenaxis
     if savepath:
         print("Saving figure to " + savepath)
 
@@ -425,7 +429,7 @@ def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="up
 
 def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins=1000, savepath=None,
             xlims=None, width_ratios=None):
-    fig=plt.figure(fig_num, figsize=kCDFFigSize)
+    fig = plt.figure(fig_num, figsize=kCDFFigSize)
     # fig = plt.figure(figsize=set_size(505, 0.2))
     comparison_approach_summary_max = 0
     comparison_approach_summary_min_max = None
@@ -460,7 +464,7 @@ def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins
     # xmax = max(primary_approach_max, comparison_approach_summary_min_max)
     xmax = max(primary_approach_max, all_approaches_max)
     if (xlims == None):
-        xlims=[(0, xmax)]
+        xlims = [(0, xmax)]
     else:
         xlims.append((xlims[-1][1], xmax))
     print(xlims)
@@ -516,7 +520,8 @@ def plotCDF(primaryApproachName, approach_results, title, x_label, fig_num, bins
         min_tick = math.floor(xlims[i][0])
         max_tick = math.ceil(xlims[i][-1])
         tick_inc = math.ceil((max_tick - min_tick) / 5)
-        bax.axs[i].set_xticks(np.arange(min_tick, max_tick, tick_inc), fontsize=kAxisFontsize, labels=[str(i) for i in np.arange(min_tick, max_tick, tick_inc)])
+        bax.axs[i].set_xticks(np.arange(min_tick, max_tick, tick_inc), fontsize=kAxisFontsize,
+                              labels=[str(i) for i in np.arange(min_tick, max_tick, tick_inc)])
 
     # fig.subplots_adjust(bottom=kFigBottomSpacing)
     # plt.title(title)
@@ -556,6 +561,8 @@ class MetricsFileConstants:
     metricsKey = "metrics"
     rmseTranslErrLabel = "rmse_transl_err"
     rmseRotErrLabel = "rmse_rot_err"
+    translStatsLabel = "transl_stats"
+    rotStatsLabel = "rot_stats"
     validPosesUsedInScoreLabel = "valid_poses_used_in_score"
     lostPosesLabel = "lost_poses"
     waypointDeviationsLabel = "waypoint_deviations"
@@ -569,17 +576,62 @@ class MetricsFileConstants:
     indivTrajectoryObjectMetricsLabel = "indiv_trajectory_object_metrics"
 
     missedGtObjsKey = "missed_gt_objs"
+    recallKey = "recall"
+    numGtObjsKey = "num_gt_objs"
     objectsPerGtObjKey = "objects_per_gt_obj"
     avgPosDeviationKey = "average_pos_deviation"
     avgIouKey = "avg_iou"
     medianPosDeviationKey = "median_pos_deviation"
     medianIouKey = "median_iou"
+    posDevStatsKey = "pos_dev_stats"
+    iouStatsKey = "iou_stats"
+
+    numValsKey = "num_vals"
+    averageKey = "average"
+    stdDevKey = "std_dev"
+    medianKey = "median"
+    minKey = "min"
+    maxKey = "max"
+    lowerQuartileKey = "lower_quartile"
+    upperQuartileKey = "upper_quartile"
+    rmseKey = "rmse"
+    squaredErrStdDevKey = "squared_err_std_dev"
+    errorsKey = "errors"
+
+
+class MetricsDistributionStatistics:
+    def __init__(self,
+                 numVals,
+                 average,
+                 stdDev,
+                 median,
+                 min,
+                 max,
+                 lowerQuartile,
+                 upperQuartile,
+                 rmse,
+                 squaredErrStdDev,
+                 errors):
+        self.numVals = numVals
+        self.average = average
+        self.stdDev = stdDev
+        self.median = median
+        self.min = min
+        self.max = max
+        self.lowerQuartile = lowerQuartile
+        self.upperQuartile = upperQuartile
+        self.rmse = rmse
+        self.squaredErrStdDev = squaredErrStdDev
+        self.errors = errors
 
 
 class ATEResults:
-    def __init__(self, rmse_transl_err, rmse_rot_err, valid_poses_used_in_score, lost_poses):
+    def __init__(self, rmse_transl_err, rmse_rot_err, transl_stats,
+                 rot_stats, valid_poses_used_in_score, lost_poses):
         self.rmse_transl_err = rmse_transl_err
         self.rmse_rot_err = rmse_rot_err
+        self.transl_stats = transl_stats
+        self.rot_stats = rot_stats
         self.valid_poses_used_in_score = valid_poses_used_in_score
         self.lost_poses = lost_poses
 
@@ -612,10 +664,28 @@ def readATEResultsFromJsonObj(ateResultsJson):
         rot_err = float('inf')
     ateResultsObj = ATEResults(rmse_transl_err=transl_err,
                                rmse_rot_err=rot_err,
+                               transl_stats=readMetricsStatisticsDistributionFromJsonObj(
+                                   ateResultsJson[MetricsFileConstants.translStatsLabel]),
+                               rot_stats=readMetricsStatisticsDistributionFromJsonObj(
+                                   ateResultsJson[MetricsFileConstants.rotStatsLabel]),
                                valid_poses_used_in_score=ateResultsJson[
                                    MetricsFileConstants.validPosesUsedInScoreLabel],
                                lost_poses=ateResultsJson[MetricsFileConstants.lostPosesLabel])
     return ateResultsObj
+
+
+def readMetricsStatisticsDistributionFromJsonObj(statsJsonObj):
+    return MetricsDistributionStatistics(numVals=statsJsonObj[MetricsFileConstants.numValsKey],
+                                         average=statsJsonObj[MetricsFileConstants.averageKey],
+                                         stdDev=statsJsonObj[MetricsFileConstants.stdDevKey],
+                                         median=statsJsonObj[MetricsFileConstants.medianKey],
+                                         min=statsJsonObj[MetricsFileConstants.minKey],
+                                         max=statsJsonObj[MetricsFileConstants.maxKey],
+                                         lowerQuartile=statsJsonObj[MetricsFileConstants.lowerQuartileKey],
+                                         upperQuartile=statsJsonObj[MetricsFileConstants.upperQuartileKey],
+                                         rmse=statsJsonObj[MetricsFileConstants.rmseKey],
+                                         squaredErrStdDev=statsJsonObj[MetricsFileConstants.squaredErrStdDevKey],
+                                         errors=readUtVSLAMVector(statsJsonObj[MetricsFileConstants.errorsKey]))
 
 
 def readTrajectoryMetricsFromJsonObj(metricsJsonObj):
@@ -681,15 +751,21 @@ def readMetricsFile(metricsFile):
 
 
 class SingleTrajectoryObjectMetrics:
-    def __init__(self, missed_gt_objs, objects_per_gt_obj,
+    def __init__(self, missed_gt_objs, recall, num_gt_objs, objects_per_gt_obj,
                  average_pos_deviation, avg_iou,
-                 median_pos_deviation, median_iou):
+                 median_pos_deviation, median_iou,
+                 pos_dev_stats, iou_stats):
+        # TODO maybe add in other quanties here that we currently aren't reading?
         self.missed_gt_objs = missed_gt_objs
+        self.recall = recall
+        self.num_gt_objs = num_gt_objs
         self.objects_per_gt_obj = objects_per_gt_obj
         self.average_pos_deviation = average_pos_deviation
         self.avg_iou = avg_iou
         self.median_pos_deviation = median_pos_deviation
         self.median_iou = median_iou
+        self.pos_dev_stats = pos_dev_stats
+        self.iou_stats = iou_stats
 
 
 class FullSequenceObjectMetrics:
@@ -700,18 +776,26 @@ class FullSequenceObjectMetrics:
 def readSingleTrajectoryObjectMetricsFromJsonObj(metricsJsonObj):
     # TODO reading summary values only -- not looking at per-obj metrics now, may need to revisit this
     missed_gt_objs = metricsJsonObj[MetricsFileConstants.missedGtObjsKey]
+    recall = metricsJsonObj[MetricsFileConstants.recallKey]
+    num_gt_objs = metricsJsonObj[MetricsFileConstants.numGtObjsKey]
     objects_per_gt_obj = metricsJsonObj[MetricsFileConstants.objectsPerGtObjKey]
     average_pos_deviation = metricsJsonObj[MetricsFileConstants.avgPosDeviationKey]
     avg_iou = metricsJsonObj[MetricsFileConstants.avgIouKey]
     median_pos_deviation = metricsJsonObj[MetricsFileConstants.medianPosDeviationKey]
     median_iou = metricsJsonObj[MetricsFileConstants.medianIouKey]
+    posDevStats = readMetricsStatisticsDistributionFromJsonObj(metricsJsonObj[MetricsFileConstants.posDevStatsKey])
+    iouStats = readMetricsStatisticsDistributionFromJsonObj(metricsJsonObj[MetricsFileConstants.iouStatsKey])
 
     return SingleTrajectoryObjectMetrics(missed_gt_objs=missed_gt_objs,
+                                         recall=recall,
+                                         num_gt_objs=num_gt_objs,
                                          objects_per_gt_obj=objects_per_gt_obj,
                                          average_pos_deviation=average_pos_deviation,
                                          avg_iou=avg_iou,
                                          median_pos_deviation=median_pos_deviation,
-                                         median_iou=median_iou)
+                                         median_iou=median_iou,
+                                         pos_dev_stats=posDevStats,
+                                         iou_stats=iouStats)
 
 
 def readObjectsMetricsFile(metricsFile):
@@ -734,3 +818,39 @@ def readObjectsMetricsFile(metricsFile):
                                       sequenceMetricsJson[MetricsFileConstants.indivTrajectoryObjectMetricsLabel])]
 
         return FullSequenceObjectMetrics(indiv_trajectory_object_metrics=indivTrajectoryMetrics)
+
+
+def generateLatexTable(colHeaders, rowHeaders, data, boldFlags):
+
+    colSeparatorString = "|"
+    for _ in range(len(colHeaders) + 1):
+        colSeparatorString += "l|"
+
+    latexString = "\\begin{table}[]\n"
+    latexString += "\\begin{tabular}{" + colSeparatorString + "}\n"
+    latexString += "\\hline \n "
+
+    for colHeader in colHeaders:
+        latexString += " & "
+        latexString += str(colHeader)
+    latexString += " \\\\ \\hline \n"
+
+    for rowIdx in range(len(rowHeaders)):
+        latexString += rowHeaders[rowIdx]
+        for colIdx in range(len(colHeaders)):
+            latexString += " & "
+            dataEntry = data[rowIdx][colIdx]
+            bold = False
+            if (boldFlags[rowIdx][colIdx]):
+                bold = True
+            if (bold):
+                latexString += "\\textbf{"
+            latexString += dataEntry
+            if (bold):
+                latexString += "} "
+        latexString += " \\\\ \\hline \n"
+    latexString += "\\end{tabular}"
+    latexString += "\\end{table}"
+
+    return latexString
+

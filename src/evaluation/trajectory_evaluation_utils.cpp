@@ -16,6 +16,8 @@ ATEResults combineSingleTrajectoryResults(
   int total_valid_poses = 0;
   int total_invalid_poses = 0;
 
+  std::vector<double> all_transl_errs;
+  std::vector<double> all_rot_errs;
   for (const ATEResults &single_traj_ate_result : single_traj_results) {
     double squared_sum_transl_err =
         pow(single_traj_ate_result.rmse_transl_err_, 2) *
@@ -27,13 +29,23 @@ ATEResults combineSingleTrajectoryResults(
     rmse_rot_err += squared_sum_rot_err;
     total_valid_poses += single_traj_ate_result.valid_poses_used_in_score_;
     total_invalid_poses += single_traj_ate_result.lost_poses_;
+    all_transl_errs.insert(all_transl_errs.end(),
+                           single_traj_ate_result.transl_stats_.errors_.begin(),
+                           single_traj_ate_result.transl_stats_.errors_.end());
+    all_rot_errs.insert(all_rot_errs.end(),
+                        single_traj_ate_result.rot_stats_.errors_.begin(),
+                        single_traj_ate_result.rot_stats_.errors_.end());
   }
 
   rmse_transl_err = sqrt(rmse_transl_err / total_valid_poses);
   rmse_rot_err = sqrt(rmse_rot_err / total_valid_poses);
 
-  return ATEResults(
-      rmse_transl_err, rmse_rot_err, total_valid_poses, total_invalid_poses);
+  return ATEResults(rmse_transl_err,
+                    rmse_rot_err,
+                    computeMetricsDistributionStatistics(all_transl_errs),
+                    computeMetricsDistributionStatistics(all_rot_errs),
+                    total_valid_poses,
+                    total_invalid_poses);
 }
 
 // Assumes we've already transformed to baselink (though probably shouldn't
@@ -143,31 +155,31 @@ ATEResults generateATEforRotAndTranslForSyncedAlignedTrajectories(
   // Rot error taken approximately from
   // https://rpg.ifi.uzh.ch/docs/IROS18_Zhang.pdf (get delta R as described in
   // the translation ATE references)
-  double avg_position_error = 0;
-  double avg_rot_error = 0;
+
+  std::vector<double> transl_errs;
+  std::vector<double> rot_errs;
 
   int valid_results_num = 0;
   for (size_t pose_num = 0; pose_num < est_traj.size(); pose_num++) {
     if (est_traj.at(pose_num).has_value()) {
       Pose3D<double> pose_separation = getPose2RelativeToPose1(
           est_traj.at(pose_num).value(), gt_traj.at(pose_num));
-      avg_position_error += pose_separation.transl_.squaredNorm();
-      avg_rot_error += pow(pose_separation.orientation_.angle(), 2);
+      transl_errs.emplace_back(pose_separation.transl_.norm());
+      rot_errs.emplace_back(abs(pose_separation.orientation_.angle()));
       valid_results_num++;
     } else {
       // TODO what do we do with ones that are lost?
     }
   }
 
-  if (valid_results_num == 0) {
-    avg_position_error = -1;
-    avg_rot_error = -1;
-  } else {
-    avg_position_error = sqrt(avg_position_error / valid_results_num);
-    avg_rot_error = sqrt(avg_rot_error / valid_results_num);
-  }
-  ATEResults single_traj_ate_results(avg_position_error,
-                                     avg_rot_error,
+  MetricsDistributionStatistics transl_stats =
+      computeMetricsDistributionStatistics(transl_errs);
+  MetricsDistributionStatistics rot_stats =
+      computeMetricsDistributionStatistics(rot_errs);
+  ATEResults single_traj_ate_results(transl_stats.rmse_,
+                                     rot_stats.rmse_,
+                                     transl_stats,
+                                     rot_stats,
                                      valid_results_num,
                                      (est_traj.size() - valid_results_num));
   return single_traj_ate_results;

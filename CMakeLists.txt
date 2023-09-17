@@ -81,6 +81,7 @@ add_subdirectory(src/shared)
 include_directories(src)
 
 add_library(ut_vslam
+        src/evaluation/evaluation_utils.cpp
         src/evaluation/object_evaluation_utils.cpp
         src/evaluation/trajectory_evaluation_utils.cpp
         src/evaluation/trajectory_interpolation_utils.cpp

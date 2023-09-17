@@ -39,6 +39,8 @@ odometry_topic="/jackal_velocity_controller/odom"
 
 # Best one I think....
 config_file_base_name=base7a_1_fallback_a_2
+
+
 #config_file_base_name=base7a_1_fallback_a_3
 #config_file_base_name=base7a_1_fallback_b_2
 #config_file_base_name=base7a_1_fallback_c_2
@@ -64,6 +66,10 @@ config_file_base_name=base7a_1_fallback_a_2
 #config_file_base_name="base7a_2_fallback_b_2_v2"
 #config_file_base_name="base7a_2_fallback_b_3"
 #config_file_base_name="base7a_2_fallback_c_2_v2"
+
+#config_file_base_name="no_shape_prior_base7a_1_fallback_a_2"
+#config_file_base_name="no_vis_feats_base7a_1_fallback_a_2"
+config_file_base_name="no_ltm_base7a_1_fallback_a_2"
 
 sequence_file_base_name="evaluation_2023_07_v1"
 
