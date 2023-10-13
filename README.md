@@ -12,6 +12,10 @@ Please email amanda.adkins4242@gmail.com with any questions!
 ## Evaluation
 For information on how to set up and run the comparison algorithms, see our [evaluation repo](https://github.com/ut-amrl/ObVi-SLAM-Evaluation).
 
+
+## Extended Results
+See the [version of our paper](https://drive.google.com/file/d/1Cf6QfheKa09mJO8oqgUqdTUC3y12JXRN/view?usp=share_link) with an appendix containing extended results and the full ablation study details.
+
 ## TODOs
 - Add installation instructions
 - Add offline execution instructions
