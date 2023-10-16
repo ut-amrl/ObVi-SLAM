@@ -1,14 +1,14 @@
 #!/bin/bash
 
-root_data_dir="${HOME}/data/"
+root_data_dir=/root/ObVi-SLAM-Evaluation/data/
 rosbag_file_directory=${root_data_dir}original_data/
-trajectory_sequence_file_directory=${HOME}/ut_vslam/sequences/
+trajectory_sequence_file_directory=/root/ObVi-SLAM-Evaluation/ObVi-SLAM/sequences/
 
-orb_slam_configuration_file=${HOME}/ORB_SLAM3/Examples/Stereo/high_res_husky_zed_rectified.yaml
-orb_slam_vocabulary_file=${HOME}/ORB_SLAM3/Vocabulary/ORBvoc.txt
+orb_slam_configuration_file=/root/ObVi-SLAM-Evaluation/ORB_SLAM3/Examples/Stereo/high_res_husky_zed_rectified.yaml
+orb_slam_vocabulary_file=/root/ObVi-SLAM-Evaluation/ORB_SLAM3/Vocabulary/ORBvoc.txt
 orb_slam_3_out_root_dir=${root_data_dir}orb_slam_3_out/
 
-sequence_file_base_name="high_res_20230218_1a_7326"
+sequence_file_base_name="evaluation_2023_07_v1"
 
 python3 src/evaluation/run_multi_session_orb_slam_3.py \
     --orb_slam_configuration_file=${orb_slam_configuration_file} \

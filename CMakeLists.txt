@@ -37,7 +37,7 @@ OPTION(GENERATE_SHARED_LIB_UNITTESTS,
         "Option to enable generation of shared library unit tests"
         OFF)
 
-find_package(PCL 1.3 REQUIRED)
+# find_package(PCL 1.3 REQUIRED)
 # Recommended to use Ceres 1.14
 # find_package(Ceres 1.14 REQUIRED)
 find_package(Ceres REQUIRED)
@@ -74,7 +74,8 @@ set(LIBS
         ${OpenCV_LIBS}
         ${PCL_LIBRARIES}
         ${Pangolin_LIBRARIES}
-        ${Boost_FILESYSTEM_LIBRARY})
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${SUITESPARSEQR_LIBRARY})
 
 include_directories(src/shared)
 add_subdirectory(src/shared)
