@@ -28,8 +28,8 @@ TODO
 - Explain how to run given these files
 
 
-## Results from ROS bag
-TODO
+## Results from ROS bag sequence
+TODO (Taijing, start here)
 - Explain how to preprocess rosbag to get the data needed for minimal execution above
 
 ## Configuration File Guide
