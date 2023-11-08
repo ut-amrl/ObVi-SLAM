@@ -32,9 +32,11 @@ TODO
 - Explain how to modify configuration file -- which parameters will someone need to modify for different environment, (lower priority): explain each of the parameters in the config file
 
 ## Evaluation
-For our experiments, we used [[YOLOv5](https://github.com/ut-amrl/yolov5-ros)](based on [[this repo](https://github.com/ultralytics/yolov5)]) with [[this model](https://drive.google.com/file/d/15xv-Se991Pzes7R3KfyPBkuSQ7TeCb1T/view?usp=sharing)]. 
+For our experiments, we used [YOLOv5](https://github.com/ut-amrl/yolov5-ros) (based on [this repo](https://github.com/ultralytics/yolov5)) with [this model](https://drive.google.com/file/d/15xv-Se991Pzes7R3KfyPBkuSQ7TeCb1T/view?usp=sharing). 
 
-We used detections with labels 'lamppost', 'treetrunk', 'bench', and 'trashcan' with [[this configuration file](https://github.com/ut-amrl/ObVi-SLAM/blob/main/config/base7a_1_fallback_a_2.json)]. 
+We used detections with labels 'lamppost', 'treetrunk', 'bench', and 'trashcan' with [this configuration file](https://github.com/ut-amrl/ObVi-SLAM/blob/main/config/base7a_1_fallback_a_2.json). 
+
+Please contact us if you would like to obtain the videos on which we performed the evaluation. 
 
 ## TODOs
 - Add installation instructions
