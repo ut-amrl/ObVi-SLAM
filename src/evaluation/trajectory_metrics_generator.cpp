@@ -174,6 +174,7 @@ FullSequenceMetrics computeMetrics(
       comparison_pose_only.emplace_back(comparison_entry.second);
     }
 
+    LOG(INFO) << "Aligning trajectory " << traj_num;
     std::vector<std::optional<Pose3D<double>>> aligned_comparison_pose;
     alignWithGroundTruth(
         gt_pose_only, comparison_pose_only, aligned_comparison_pose);
@@ -623,5 +624,5 @@ int main(int argc, char **argv) {
                      full_paths_for_wp_annotated_trajectories,
                      vis_manager);
 
-  writeFullSequenceMetrics(FLAGS_metrics_out_file, full_metrics);
+//  writeFullSequenceMetrics(FLAGS_metrics_out_file, full_metrics);
 }

@@ -72,9 +72,9 @@ def checkForExistingResults(top_level_orb_slam_results_dir, generate_map_file, r
 
 
 def startORBSLAM3(launchInfo):
-    useSimTimeBefore = rospy.get_param('/use_sim_time', False)
-    if (not useSimTimeBefore):
-        rospy.set_param('/use_sim_time', True)
+    # useSimTimeBefore = rospy.get_param('/use_sim_time', False)
+    # if (not useSimTimeBefore):
+    #     rospy.set_param('/use_sim_time', True)
 
     orbSLAMRunCmdArgs = []
     orbSLAMRunCmdArgs.append('rosrun')
@@ -90,13 +90,14 @@ def startORBSLAM3(launchInfo):
     # Sleep while orbslam starts up
     # time.sleep(15) # don't think we need this since we have a service wait
 
-    return (processReturn, useSimTimeBefore)
+    # return (processReturn, useSimTimeBefore)
+    return (processReturn, False)
 
 
 def cleanupORBSLAM3(processReturn, useSimTimeBefore):
     # Sleep to make sure the files were saved
-    if (not useSimTimeBefore):
-        rospy.set_param('/use_sim_time', useSimTimeBefore)
+    # if (not useSimTimeBefore):
+    #     rospy.set_param('/use_sim_time', useSimTimeBefore)
 
     os.killpg(os.getpgid(processReturn.pid), signal.SIGTERM)
 
@@ -105,7 +106,7 @@ def runOrbSLAMSingleSeqAfterSetup(orbSlamSessionConfig, saveTrajService):
     fullBagName = FileStructureUtils.ensureDirectoryEndsWithSlash(orbSlamSessionConfig.rosbagDirectory) + \
                   orbSlamSessionConfig.rosbagBaseName + FileStructureConstants.bagSuffix
 
-    bagPlayCmd = "rosbag play --clock -r 0.5 " + fullBagName
+    bagPlayCmd = "rosbag play --clock -r 1.2 " + fullBagName
     os.system(bagPlayCmd)
     time.sleep(2)
 
@@ -148,7 +149,8 @@ def runOrbSLAM3Sequence(orbSlamLaunchConfig, orbSlamSequenceConfig):
             bagIdxInSequence=idx,
             rosbagBaseName=bagName,
             generate_map_file=orbSlamSequenceConfig.generate_map_file)
-        runOrbSLAMSingleSeqAfterSetup(sessionConfig, orbSaveService)
+        if (idx >= 0):
+            runOrbSLAMSingleSeqAfterSetup(sessionConfig, orbSaveService)
 
     cleanupORBSLAM3(processReturn, beforeStartUseSimTime)
 

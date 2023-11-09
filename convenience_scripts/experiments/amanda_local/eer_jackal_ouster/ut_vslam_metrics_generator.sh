@@ -69,7 +69,7 @@ config_file_base_name=base7a_1_fallback_a_2
 
 #config_file_base_name="no_shape_prior_base7a_1_fallback_a_2"
 #config_file_base_name="no_vis_feats_base7a_1_fallback_a_2"
-config_file_base_name="no_ltm_base7a_1_fallback_a_2"
+#config_file_base_name="no_ltm_base7a_1_fallback_a_2"
 
 sequence_file_base_name="evaluation_2023_07_v1"
 

@@ -36,7 +36,9 @@ class RosVisualization {
         topic_prefix_(topic_prefix),
         frame_prefix_(frame_prefix) {
     ground_truth_bounding_box_color_.a = 1;
-    ground_truth_bounding_box_color_.g = 1;
+//    ground_truth_bounding_box_color_.g = 1;
+    ground_truth_bounding_box_color_.g = 217.0 / 255.0;
+    ground_truth_bounding_box_color_.b = 250.0 / 255.0;
 
     observed_bounding_box_color_.a = 1;
     observed_bounding_box_color_.b = 1;
@@ -66,9 +68,9 @@ class RosVisualization {
     pending_obj_color_.b = 224.0 / 255;
 
     ltm_obj_color_.a = 1.0;
-    ltm_obj_color_.r = 0;
-    ltm_obj_color_.g = 0;
-    ltm_obj_color_.b = 0;
+    ltm_obj_color_.r = 0.5;
+    ltm_obj_color_.g = 0.5;
+    ltm_obj_color_.b = 0.5;
 
     color_for_plot_type_[GROUND_TRUTH] = ground_truth_bounding_box_color_;
     color_for_plot_type_[ESTIMATED] =
@@ -1367,23 +1369,23 @@ class RosVisualization {
       FeatureId feat_id = obs_pix.first;
       PixelCoord<double> observed_feat = obs_pix.second;
       drawTinyCircleOnImage(observed_feat,
-                            brightenColor(color_for_plot_type_[INITIAL], 0.4),
-                            cv_ptr);
-
-      if (projected_pixels.find(feat_id) == projected_pixels.end()) {
-        continue;
-      }
-
-      PixelCoord<double> projected_feat = projected_pixels.at(feat_id);
-      drawTinyCircleOnImage(projected_feat,
                             brightenColor(color_for_plot_type_[ESTIMATED], 0.4),
-                            cv_ptr);
-      drawLineOnImage(
-          observed_feat, projected_feat, residual_feature_color_, cv_ptr);
+                            cv_ptr, 6, 4);
+
+//      if (projected_pixels.find(feat_id) == projected_pixels.end()) {
+//        continue;
+//      }
+//
+//      PixelCoord<double> projected_feat = projected_pixels.at(feat_id);
+//      drawTinyCircleOnImage(projected_feat,
+//                            brightenColor(color_for_plot_type_[ESTIMATED], 0.4),
+//                            cv_ptr);
+//      drawLineOnImage(
+//          observed_feat, projected_feat, residual_feature_color_, cv_ptr);
     }
 
-    optionallyDisplayLeftCornerTextOnImage(
-        img_disp_text, img_height_and_width, cv_ptr);
+//    optionallyDisplayLeftCornerTextOnImage(
+//        img_disp_text, img_height_and_width, cv_ptr);
 
     LOG(INFO) << "Publishing image for frame " << camera_frame_id
               << " to topic " << image_pub.getTopic();
@@ -1499,13 +1501,14 @@ class RosVisualization {
     std::string topic =
         createTopicForPlotTypeAndBase(INITIAL, kEllipsoidTopicSuffix);
     LOG(INFO) << "Publishing ellipsoids for plot type " << topic;
-    visualizeEllipsoids(ltm_ellipsoids, topic, ltm_obj_color_, false);
+//    visualizeEllipsoids(ltm_ellipsoids, topic, ltm_obj_color_, false);
+    visualizeEllipsoids(ltm_ellipsoids, topic, brightenColor(color_for_plot_type_[ESTIMATED], 0.50), false);
+//    brightenColor(getColorForClass(ellipsoid.first), .25);
 
-    //    int next_marker = ltm_ellipsoids.size();
-    //    for (const auto &obj_info : initial_ests_and_cov) {
-    //      next_marker = visualizeCovForObj(obj_info.second.second,
-    //      next_marker);
-    //    }
+    int next_marker = ltm_ellipsoids.size();
+    for (const auto &obj_info : initial_ests_and_cov) {
+      next_marker = visualizeCovForObj(obj_info.second.second, next_marker);
+    }
   }
 
  private:
@@ -1664,8 +1667,8 @@ class RosVisualization {
     Eigen::Vector2d unscaled_axis_lengths =
         eigen_solver.eigenvalues().array().sqrt().matrix();
     Eigen::Vector2d capped_axis_lengths = unscaled_axis_lengths;
-    capped_axis_lengths.x() = std::min(4.0, capped_axis_lengths.x());
-    capped_axis_lengths.y() = std::min(4.0, capped_axis_lengths.y());
+    capped_axis_lengths.x() = std::min(2.0, capped_axis_lengths.x());
+    capped_axis_lengths.y() = std::min(2.0, capped_axis_lengths.y());
     Eigen::Matrix2d eigVecs = eigen_solver.eigenvectors();
     double eigvec21 = eigVecs(1, 0);
     double eigvec11 = eigVecs(0, 0);
@@ -1673,13 +1676,17 @@ class RosVisualization {
     Position3d<double> center =
         ellipsoid_cov_info.first.pose_.transl_ -
         Eigen::Vector3d(0, 0, ellipsoid_cov_info.first.dimensions_.z() / 2);
+    double brighten_rate = 0.2;
+    double brighten_inc = 0.3;
     for (int i = 3; i >= 1; i--) {
+
       std_msgs::ColorRGBA color;
       color.a = 1;
-      color.r = color.b = color.g = (50.0 + i * 60) / 255.0;
-
+//      color.r = color.b = color.g = (50.0 + i * 60) / 255.0;
+      color = brightenColor(color_for_plot_type_[ESTIMATED], brighten_rate);
+      brighten_rate += brighten_inc;
       visualizeCovCircleForObj(
-          center, capped_axis_lengths, yaw, i, color, next_marker - 1 + i);
+          center, 5*capped_axis_lengths, yaw, i, color, next_marker - 1 + i);
     }
     return next_marker + 3;
   }

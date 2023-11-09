@@ -9,7 +9,12 @@ calibration_file_directory=${root_data_dir}calibration/
 odometry_topic="/jackal_velocity_controller/odom"
 
 #sequence_file_base_name="20230218_1a_4a"
-sequence_file_base_name="end_of_may_demo_v1"
+#sequence_file_base_name="evaluation_2023_07_v1_backup_2023_07_28_21_18"
+#sequence_file_base_name="evaluation_2023_07_v1_2023_08_12_14_21"
+#sequence_file_base_name="evaluation_2023_07_v1_2023_08_12_15_44"
+sequence_file_base_name="orb_final_probably"
+
+cp sequences/evaluation_2023_07_v1.json sequences/${sequence_file_base_name}.json
 
 make && python3 src/evaluation/compute_metrics_for_orbslam3.py \
     --rosbag_file_directory=${rosbag_file_directory} \

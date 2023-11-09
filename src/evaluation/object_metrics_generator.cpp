@@ -156,7 +156,7 @@ FullSequenceObjectMetrics computeMetrics(
   for (size_t traj_num = 0; traj_num < est_objs_by_traj.size(); traj_num++) {
     LOG(INFO) << "Starting Trajectory " << traj_num
               << " ------------------------------------------";
-    //    getchar();
+        getchar();
     SingleTrajectoryObjectMetrics metrics_for_traj;
     FullDOFEllipsoidResults est_objs_for_traj = est_objs_by_traj.at(traj_num);
 
@@ -177,8 +177,16 @@ FullSequenceObjectMetrics computeMetrics(
         est_objs_for_traj, est_obj_transformation, aligned_est_objs);
 
     if (vis_manager != nullptr) {
+      LOG(INFO) << "Visualizing ellipsoids " << aligned_est_objs.size();
       vis_manager->visualizeEllipsoids(
           aligned_est_objs, PlotType::ESTIMATED, false);
+
+      if (traj_num == 0) {
+        sleep(2);
+        vis_manager->visualizeEllipsoids(
+            aligned_est_objs, PlotType::ESTIMATED, false);
+
+      }
 
       vis_manager->visualizeEllipsoids(
           est_objs_for_traj, PlotType::INITIAL, false);
@@ -250,6 +258,7 @@ FullSequenceObjectMetrics computeMetrics(
 
     full_metrics.indiv_trajectory_object_metrics_.emplace_back(
         metrics_for_traj);
+    getchar();
   }
   return full_metrics;
 }
@@ -394,7 +403,7 @@ int main(int argc, char **argv) {
           results_for_comparison_alg.at(traj_num);
       vis_manager->visualizeEllipsoids(
           results_for_traj_comparison, PlotType::INITIAL, false);
-      //      sleep(2);
+            sleep(2);
     }
 
     vis_manager->visualizeEllipsoids(
@@ -406,5 +415,5 @@ int main(int argc, char **argv) {
   LOG(INFO) << "Done computing metrics; writing to file "
             << FLAGS_metrics_out_file;
 
-  writeFullSequenceObjectMetrics(FLAGS_metrics_out_file, full_metrics);
+//  writeFullSequenceObjectMetrics(FLAGS_metrics_out_file, full_metrics);
 }

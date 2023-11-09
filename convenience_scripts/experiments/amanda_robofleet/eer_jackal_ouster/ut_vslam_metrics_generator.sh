@@ -12,8 +12,8 @@ lego_loam_out_root_dir=${root_data_dir}lego_loam_out/
 
 odometry_topic="/jackal_velocity_controller/odom"
 
-config_file_base_name="base4"
-sequence_file_base_name="amazon_0523_v0"
+config_file_base_name="base7a_2"
+sequence_file_base_name="evaluation_2023_07_v1"
 
 make && python3 src/evaluation/compute_metrics_for_ut_vslam.py \
     --rosbag_file_directory=${rosbag_file_directory} \

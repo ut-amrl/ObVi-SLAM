@@ -15,9 +15,9 @@ namespace {
 const static int kObjectAlignmentMaxIters = 20;
 const static double kRotationChangeForConvergence = 0.01;
 const static double kTranslationChangeForConvergence = 0.05;
-const static double kIoUSamplingPointsPerMeter = 100;
+const static double kIoUSamplingPointsPerMeter = 40;
 const static double kMaxDistanceForInliers = 5.0;
-const static int kMaxPointsPerDirection = 1000;
+const static int kMaxPointsPerDirection = 400;
 }  // namespace
 
 void associateObjects(const FullDOFEllipsoidResults &estimated_objects,
@@ -839,6 +839,12 @@ double getIoUForObjectSet(
     }
 
     considered_ellipsoids.insert(ellipsoid_idx);
+  }
+  if (points_in_either == 0) {
+    LOG(WARNING) << "Points in either is 0; should increase point density.";
+  }
+  if (points_in_both == 0) {
+    return 0;
   }
 
   double iou = ((double)points_in_both) / (points_in_either);

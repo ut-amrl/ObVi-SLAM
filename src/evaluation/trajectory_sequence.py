@@ -28,9 +28,9 @@ def readTrajectorySequenceAndWaypoints(sequenceFilesDirectory, sequenceFileBaseN
         if SequenceFileConstants.sequenceIdentifierKey not in secondLevelSeqInfo:
             raise ValueError(
                 "entry for " + SequenceFileConstants.sequenceInfoKey + " was not in the sequence file second level")
-        if (secondLevelSeqInfo[SequenceFileConstants.sequenceIdentifierKey] != sequenceFileBaseName):
-            raise ValueError(
-                "entry for " + SequenceFileConstants.sequenceIdentifierKey + " did not match the sequence file base name")
+        # if (secondLevelSeqInfo[SequenceFileConstants.sequenceIdentifierKey] != sequenceFileBaseName):
+        #     raise ValueError(
+        #         "entry for " + SequenceFileConstants.sequenceIdentifierKey + " did not match the sequence file base name")
         if (SequenceFileConstants.sequenceKey not in secondLevelSeqInfo):
             raise ValueError(
                 "Sequence entry with key " + SequenceFileConstants.sequenceKey + " was missing from the sequence file")

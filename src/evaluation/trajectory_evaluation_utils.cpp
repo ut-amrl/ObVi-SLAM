@@ -130,6 +130,28 @@ void alignWithGroundTruth(
     const bool &adjust_translation) {
   Pose3D<double> aligning_transform = findAlignmentTransformation(
       unaligned_est_traj, gt_traj, adjust_translation);
+  Pose3D<double> inverted_aligning_transform = poseInverse(aligning_transform);
+  Eigen::Quaterniond inverted_aligning_transform_quat(
+      inverted_aligning_transform.orientation_);
+  LOG(INFO) << "Aligning transform with translation: "
+            << inverted_aligning_transform.transl_ << "; "
+            << inverted_aligning_transform_quat.x() << ", "
+            << inverted_aligning_transform_quat.y() << ", "
+            << inverted_aligning_transform_quat.z() << ", "
+            << inverted_aligning_transform_quat.w();
+
+  Pose3D<double> aligning_transform_no_transl = findAlignmentTransformation(
+      unaligned_est_traj, gt_traj, false);
+  Pose3D<double> inverted_aligning_transform_no_transl = poseInverse(aligning_transform_no_transl);
+  Eigen::Quaterniond inverted_aligning_transform_quat_no_transl(
+      inverted_aligning_transform_no_transl.orientation_);
+  LOG(INFO) << "Aligning transform with translation: "
+            << inverted_aligning_transform_no_transl.transl_ << "; "
+            << inverted_aligning_transform_quat_no_transl.x() << ", "
+            << inverted_aligning_transform_quat_no_transl.y() << ", "
+            << inverted_aligning_transform_quat_no_transl.z() << ", "
+            << inverted_aligning_transform_quat_no_transl.w();
+
 
   for (const std::optional<Pose3D<double>> &unaligned_entry :
        unaligned_est_traj) {

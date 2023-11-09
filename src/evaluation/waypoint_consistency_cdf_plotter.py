@@ -169,11 +169,15 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
     # # transl_y_lims = [(0, 3), (3.5, 8), (20, 22.5)]
     # # transl_height_ratios = [1, 1, 2]
     #
-    # # ablations
-    # # transl_y_lims = [(0, 4.5), (8, 45), (22500, 24900)]
-    # # transl_height_ratios = [1, 2, 2.5]
-    # # transl_legend_ncol = 2
-    # # transl_legend_loc = "upper right"
+    # ablations
+    transl_y_lims = [(0, 4.5), (8, 45), (22500, 24900)]
+    transl_height_ratios = [1, 2, 2.5]
+    transl_legend_ncol = 2
+    transl_legend_loc = "upper right"
+
+    plotRMSEs(metricsFilesInfo.primaryApproachName, translAtesByTrajectory, kATETranslErrorType, ylims=transl_y_lims,
+              legend_loc=transl_legend_loc, savepath=errorTypesAndSavepaths.get(kATETranslErrorType),
+              height_ratios=transl_height_ratios, legend_ncol=transl_legend_ncol, scatter=True)
     #
     # # New comparison results
     # # transl_legend_ncol=1
@@ -187,9 +191,23 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
     # transl_height_ratios = [1, 2]
     # transl_legend_loc = "upper left"
     #
+
+    # Line plot comparisons
+    transl_legend_ncol = 1
+    transl_y_lims = [(0, 5.8), (6, 17.5)]
+    transl_height_ratios = [1, 2]
+    transl_legend_loc = "upper left"
+    posAteErrorBounds = {}
+    for approachName, stdDevForApproach in translStdDevsByTrajectory.items():
+        ateForApproach = np.array(translAtesByTrajectory[approachName])
+        stdDevArray = np.array(stdDevForApproach)
+        lowerBounds = ateForApproach - stdDevArray
+        upperBounds = ateForApproach + stdDevArray
+        posAteErrorBounds[approachName] = (lowerBounds, upperBounds)
+
     # plotRMSEs(metricsFilesInfo.primaryApproachName, translAtesByTrajectory, kATETranslErrorType, ylims=transl_y_lims,
     #           legend_loc=transl_legend_loc, savepath=errorTypesAndSavepaths.get(kATETranslErrorType),
-    #           height_ratios=transl_height_ratios, legend_ncol=transl_legend_ncol, scatter=False)
+    #           height_ratios=transl_height_ratios, legend_ncol=transl_legend_ncol, scatter=False, errorBounds=posAteErrorBounds)
     # # orient_y_lims=[(0, 10)]
     # # orient_y_lims=[(0, 30), (64, 71)]
     #
@@ -201,10 +219,15 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
     #
     # # orient_y_lims=[(0, 10), (10, 24), (41.5, 250)]
     # # orient_height_ratios=[1.5, 1, 3]
-    # orient_y_lims = [(0, 13), (18, 25), (40, 130), (150, 180)]
-    # orient_height_ratios = [1, 1, 1, 4]
-    # orient_legend_ncol = 2
-    # orient_legend_loc = "center left"
+    orient_y_lims = [(0, 13), (18, 25), (40, 130), (150, 180)]
+    orient_height_ratios = [1, 1, 1, 4]
+    orient_legend_ncol = 2
+    orient_legend_loc = "center left"
+
+    plotRMSEs(metricsFilesInfo.primaryApproachName, rotAtesByTrajectory, kATEOrientErrorType, ylims=orient_y_lims,
+              legend_loc=orient_legend_loc, savepath=errorTypesAndSavepaths.get(kATEOrientErrorType),
+              height_ratios=orient_height_ratios, legend_ncol=orient_legend_ncol, scatter=True)
+
     #
     # # orient_y_lims = [(0, 15), (40, 73), (83, 185)]
     # # orient_height_ratios = [1, 1, 4]
@@ -224,11 +247,25 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
     # # orient_legend_ncol=1
     #
     # print(rotAtesByTrajectory)
+
+    # Std dev version
+    rotAteErrorBounds = {}
+    for approachName, stdDevForApproach in rotStdDevsByTrajectory.items():
+        ateForApproach = np.array(rotAtesByTrajectory[approachName])
+        stdDevArray = np.array(stdDevForApproach)
+        lowerBounds = ateForApproach - stdDevArray
+        upperBounds = ateForApproach + stdDevArray
+        rotAteErrorBounds[approachName] = (lowerBounds, upperBounds)
+    orient_y_lims = [(0, 9), (10, 24), (40, 80)]
+    orient_height_ratios = [1, 1, 2]
+    orient_legend_loc = "upper left"
+    orient_legend_ncol = 1
+    #
     # plotRMSEs(metricsFilesInfo.primaryApproachName, rotAtesByTrajectory, kATEOrientErrorType, ylims=orient_y_lims,
     #           legend_loc=orient_legend_loc, savepath=errorTypesAndSavepaths.get(kATEOrientErrorType),
-    #           height_ratios=orient_height_ratios, legend_ncol=orient_legend_ncol, scatter=False)
-    #
-    # plt.show()
+    #           height_ratios=orient_height_ratios, legend_ncol=orient_legend_ncol, scatter=False, errorBounds=rotAteErrorBounds)
+
+    plt.show()
 
 
 def parseArgs():
