@@ -50,18 +50,48 @@ If you want to install them outside the container, refer to their README page fo
 <!-- TODO
 - Explain files needed and their structure (intrinsics, extrinsics, visual features, bounding box (opt), images?,
 - Explain how to run given these files -->
+This is a quick start guide to run ObVi-SLAM from ROS Bagfiles. By default, we assume to have a following data root directory structures:
+```
+root_data_dir
+|- calibration (stores calibration files)
+|-- base_link_to_os1.txt
+|-- base_link_to_zed_left_camera_optical_frame.txt
+|-- base_link_to_zed_right_camera_optical_frame.txt
+|-- camera_matrix.txt
+|-- extrinsics.txt
+|-- lego_loam_bl.txt
+|-- ov_slam_bl.txt
+|-- odom_bl.txt
+|- original_data (stores raw bagfiles)
+|-- <baganme1.bag>
+|-- <baganme2.bag>
+|-- <...>
+|- orb_out (stores feature and pose initialization from ORB-SLAM2 Frontend)
+|- orb_post_process (processed ORB-SLAM2 Frontend results)
+|- ut_vslam_results (ObVi-SLAM results)
+|- lego_loam_out (Optional; stores pose estimations for LeGOLOAM)
+```
 
-This is a quick start guide to run ObVi-SLAM from ROS Bagfiles. To start, we require the following calibration files under a directory named "calibration" under the root data directory:
-- base_link_to_os1.txt - Transformation from base link to the LIDAR frame in the form of "transl_x, transl_y, transl_z, quat_x, quat_y, quat_z, quat_w". (The following transformation files share the same format.)
+### Calibration Files
+To start, we require the following calibration files under a directory named "calibration" under the root data directory:
+- base_link_to_os1.txt - Transformation from base link to the LIDAR frame in the form of "transl_x, transl_y, transl_z, quat_x, quat_y, quat_z, quat_w". The first line is the header, and raw data starts from the second line. (The following transformation files share the same format.)
 - base_link_to_zed_left_camera_optical_frame.txt - Transformation from base link to the left camera frame
 - base_link_to_zed_right_camera_optical_frame.txt - Transformation from base link to the right camera frame
-- camera_matrix.txt - Camera instrinsics file in the form of "camera_id, img_width, img_height, mat_00, mat_01, mat_02, mat_10, mat_11, mat_12, mat_20, mat_21, mat_22". In our calibration file, left camera is referred by camera id 1, and the right one has camera id 2.
-- extrinsics.txt - Camera extrinsics file. It transform the map frame to the camera frame (world coordinate --> camera coordinate)
-- lego_loam_bl.txt - Transformation from base link to the base frame of LeGO-LOAM. By default it symlinks to base_link_to_os1.txt.
-- ov_slam_bl.txt - Transformation from base link to the base frame of ObVi-SLAM. By default it is an identity transform.
-- odom_bl.txt - Transformation from base link to the odometry frame. By default it is an identity transform too.
+- camera_matrix.txt - Camera instrinsics file in the form of "camera_id, img_width, img_height, mat_00, mat_01, mat_02, mat_10, mat_11, mat_12, mat_20, mat_21, mat_22". The first line is the header, and raw data starts from the second line. In our calibration file, left camera is referred by camera id 1, and the right one has camera id 2.
+- extrinsics.txt - Camera extrinsics file. It transform the map frame to the camera frame (world coordinate --> camera coordinate). Order and ids of cameras should match camera_matrix.txt file.
+- lego_loam_bl.txt (Optional) - Transformation from base link to the base frame of LeGO-LOAM. By default it symlinks to base_link_to_os1.txt. This file is only required for evaluation.
+- ov_slam_bl.txt (Optional) - Transformation from base link to the base frame of ObVi-SLAM. By default it is an identity transform. This file is only required for evaluation.
+- odom_bl.txt (Optional) - Transformation from base link to the odometry frame. By default it is an identity transform too. This file is only required for evaluation.
 
 If you have different namings for those files, you can either softlink or change the calibration filenames inside the evaluation scripts later.
+
+### Feature Frontend
+Open two terminals and run the following commands to uncompress image topics:
+```
+rosrun image_transport republish compressed in:=/zed/zed_node/left/image_rect_color raw  out:=/camera/left/image_raw
+rosrun image_transport republish compressed in:=/zed/zed_node/right/image_rect_color raw out:=/camera/right/image_raw
+```
+TODO
 
 ## Results from ROS bag sequence
 TODO (Taijing, start here)
