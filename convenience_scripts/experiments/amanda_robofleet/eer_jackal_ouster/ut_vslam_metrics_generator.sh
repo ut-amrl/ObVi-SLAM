@@ -12,19 +12,27 @@ lego_loam_out_root_dir=${root_data_dir}lego_loam_out/
 
 odometry_topic="/jackal_velocity_controller/odom"
 
-config_file_base_name="base4"
-sequence_file_base_name="amazon_0523_v0"
+#config_file_base_name="base7_fallback_enabled_v2"
+sequence_file_base_name="evaluation_2023_07_v1"
 
-make && python3 src/evaluation/compute_metrics_for_ut_vslam.py \
-    --rosbag_file_directory=${rosbag_file_directory} \
-    --trajectory_sequence_file_directory=${trajectory_sequence_file_directory} \
-    --sequence_file_base_name=${sequence_file_base_name} \
-    --lego_loam_out_root_dir=${lego_loam_out_root_dir} \
-    --calibration_file_directory=${calibration_file_directory} \
-    --orb_post_process_base_directory=${orb_post_process_base_directory} \
-    --config_file_base_name=${config_file_base_name} \
-    --results_root_directory=${results_root_directory} \
-    --odometry_topic ${odometry_topic} \
-#    --force_rerun_interpolator \
-#    --force_rerun_metrics_generator \
-#    --force_rerun_trajectory_formatter
+#config_file_strings=("base7a_1_fallback_a_2_v2" "base7a_1_fallback_b_2_v2" "base7a_1_fallback_c_2_v2" "base7a_2_fallback_a_2" "base7a_2_fallback_b_1" "base7a_2_fallback_b_2_v2" "base7a_2_fallback_b_3" "base7a_2_fallback_c_2_v2")
+
+config_file_strings=("no_ltm_base7a_1_fallback_a_2" "no_ltm_base7a_2_fallback_b_2" "no_ltm_base7a_2_fallback_c_2" "no_shape_prior_base7a_1_fallback_a_2" "no_shape_prior_base7a_2_fallback_b_2" "no_shape_prior_base7a_2_fallback_c_2" "no_vis_feats_base7a_1_fallback_a_2" "no_vis_feats_base7a_2_fallback_b_2" "no_vis_feats_base7a_2_fallback_c_2")
+
+for config_file_base_name in ${config_file_strings[@]}; do
+  echo ${config_file_base_name}
+
+  make && python3 src/evaluation/compute_metrics_for_ut_vslam.py \
+      --rosbag_file_directory=${rosbag_file_directory} \
+      --trajectory_sequence_file_directory=${trajectory_sequence_file_directory} \
+      --sequence_file_base_name=${sequence_file_base_name} \
+      --lego_loam_out_root_dir=${lego_loam_out_root_dir} \
+      --calibration_file_directory=${calibration_file_directory} \
+      --orb_post_process_base_directory=${orb_post_process_base_directory} \
+      --config_file_base_name=${config_file_base_name} \
+      --results_root_directory=${results_root_directory} \
+      --odometry_topic ${odometry_topic} \
+  #    --force_rerun_interpolator \
+  #    --force_rerun_metrics_generator \
+  #    --force_rerun_trajectory_formatter
+ done

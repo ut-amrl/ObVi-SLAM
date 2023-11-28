@@ -18,7 +18,7 @@
 namespace vslam_types_refactor {
 
 const static int kMaxJacobianExtractionRetries = 5;
-const static int kRankDeficiencyColsBuffer = 20;
+const static int kRankDeficiencyColsBuffer = 50;
 
 /**
  * Parameters used in pairwise covariance extraction process.
