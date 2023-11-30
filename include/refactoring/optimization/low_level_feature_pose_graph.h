@@ -273,6 +273,11 @@ class LowLevelFeaturePoseGraph {
     return false;
   }
 
+  virtual std::unordered_map<CameraId, CameraExtrinsics<double>>
+  getAllExtrinsics() {
+    return camera_extrinsics_by_camera_;
+  }
+
   virtual bool getIntrinsicsForCamera(
       const CameraId &camera_id,
       CameraIntrinsicsMat<double> &intrinsics_return) {
@@ -282,6 +287,11 @@ class LowLevelFeaturePoseGraph {
       return true;
     }
     return false;
+  }
+
+  virtual std::unordered_map<CameraId, CameraIntrinsicsMat<double>>
+  getAllIntrinsics() {
+    return camera_intrinsics_by_camera_;
   }
 
   virtual bool getFeaturePointers(const FeatureId &feature_id,

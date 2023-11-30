@@ -7,6 +7,7 @@
 
 #include <refactoring/long_term_map/long_term_object_map.h>
 #include <refactoring/types/vslam_obj_opt_types_refactor.h>
+#include <refactoring/types/vslam_types_math_util.h>
 
 namespace vslam_types_refactor {
 
@@ -114,7 +115,12 @@ class AbstractOfflineProblemData {
         robot_poses_(robot_poses),
         mean_and_cov_by_semantic_class_(mean_and_cov_by_semantic_class),
         max_frame_id_(getMaxFrame(robot_poses)),
-        long_term_obj_map_(long_term_obj_map) {}
+        long_term_obj_map_(long_term_obj_map) {
+    for (const auto& robot_pose : robot_poses_) {
+      robot_poses_affine_[robot_pose.first] =
+          convertToAffine(robot_pose.second);
+    }
+  }
 
   virtual ~AbstractOfflineProblemData() = default;
   virtual FrameId getMaxFrameId() const { return max_frame_id_; }
@@ -141,12 +147,26 @@ class AbstractOfflineProblemData {
     return robot_poses_;
   }
 
+  virtual std::unordered_map<FrameId, Eigen::Affine3d>
+  getRobotPoseEstimatesAffine() const {
+    return robot_poses_affine_;
+  }
+
   virtual bool getRobotPoseEstimateForFrame(const FrameId& frame_id,
                                             Pose3D<double>& est_out) const {
     if (robot_poses_.find(frame_id) == robot_poses_.end()) {
       return false;
     }
     est_out = robot_poses_.at(frame_id);
+    return true;
+  }
+
+  virtual bool getRobotPoseEstimateForFrameAffine(
+      const FrameId& frame_id, Eigen::Affine3d& est_out) const {
+    if (robot_poses_affine_.find(frame_id) == robot_poses_affine_.end()) {
+      return false;
+    }
+    est_out = robot_poses_affine_.at(frame_id);
     return true;
   }
 
@@ -173,6 +193,7 @@ class AbstractOfflineProblemData {
       camera_extrinsics_by_camera_;
   std::unordered_map<FeatureId, FeatureTrackType> visual_features_;
   std::unordered_map<FrameId, Pose3D<double>> robot_poses_;
+  std::unordered_map<FrameId, Eigen::Affine3d> robot_poses_affine_;
   std::unordered_map<std::string,
                      std::pair<ObjectDim<double>, Covariance<double, 3>>>
       mean_and_cov_by_semantic_class_;
