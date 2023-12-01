@@ -297,6 +297,8 @@ bool runFullOptimization(
         // Probably need to do something more sophisticated here --
         // ORB-SLAM has a more advanced thing that I haven't looked
         // into
+        // NOTE: if this is changed to use the pose graph, must add locking
+        // around call (b/c of threading in visual feature front end)
         return config.visual_feature_params_.reprojection_error_std_dev_;
       };
   VisualFeatureFrontend<MainProbData> visual_feature_fronted(
