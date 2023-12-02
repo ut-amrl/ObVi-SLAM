@@ -524,6 +524,8 @@ class VisualFeatureFrontend {
       }
       });
     if (gba_checker_(max_frame_id)) {
+      std::unordered_map<FeatureId, StructuredVisionFeatureTrack>
+          full_visual_features = input_problem_data.getVisualFeatures();
       std::unordered_set<FeatureId> feat_ids_to_change;
       // Assuming no concurrency in this section
       for (const auto &feat_id_and_cache : pending_feature_factors_) {
@@ -536,7 +538,7 @@ class VisualFeatureFrontend {
               input_problem_data,
               pose_graph,
               feature_id,
-              visual_features.at(feature_id).feature_pos_,
+              full_visual_features.at(feature_id).feature_pos_,
               initial_position);
           pose_graph->addFeature(feature_id, initial_position);
           for (const auto &frame_id_and_factors :
