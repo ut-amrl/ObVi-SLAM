@@ -260,8 +260,10 @@ class VisualFeatureFrontend {
       const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
       const FrameId &min_frame_id,
       const FrameId &max_frame_id) {
+
     std::unordered_map<FeatureId, StructuredVisionFeatureTrack>
-        visual_features = input_problem_data.getVisualFeatures();
+        visual_features = input_problem_data.getVisualFeaturesForFrame(
+        max_frame_id);
 
     std::unordered_map<CameraId, Eigen::Affine3d> extrinsics_as_affine;
     for (const auto &camera_extrinsics : pose_graph->getAllExtrinsics()) {
@@ -279,12 +281,8 @@ class VisualFeatureFrontend {
         //    for (const auto &feat_id_to_track : visual_features) {
       FeatureId feature_id = feat_id_to_track.first;
       StructuredVisionFeatureTrack feature_track = feat_id_to_track.second;
-      if (feature_track.feature_track.feature_observations_.find(
-              max_frame_id) !=
-          feature_track.feature_track.feature_observations_.end()) {
       VisionFeature feature =
           feature_track.feature_track.feature_observations_.at(max_frame_id);
-      if (feature.frame_id_ == max_frame_id) {
       bool is_feature_added_to_pose_graph = false;
       {
       std::lock_guard<std::mutex> added_feats_lock(
@@ -523,8 +521,6 @@ class VisualFeatureFrontend {
           added_feature_ids_.insert(feature_id);
           }
         }
-      }
-      }
       }
       });
     if (gba_checker_(max_frame_id)) {

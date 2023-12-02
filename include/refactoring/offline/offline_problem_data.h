@@ -66,6 +66,14 @@ struct VisionFeatureTrack {
       const std::unordered_map<FrameId, VisionFeature>& feature_observations =
           std::unordered_map<FrameId, VisionFeature>())
       : feature_id_(feature_id), feature_observations_(feature_observations){};
+
+  std::unordered_set<FrameId> getFramesForFeat() const {
+    std::unordered_set<FrameId> frames_for_feat;
+    for (const auto& feat_obs : feature_observations_) {
+      frames_for_feat.insert(feat_obs.first);
+    }
+    return frames_for_feat;
+  }
 };
 
 /**
@@ -92,6 +100,10 @@ struct StructuredVisionFeatureTrack {
   StructuredVisionFeatureTrack(const Position3d<double>& feature_pos,
                                const VisionFeatureTrack& feature_track)
       : feature_pos_(feature_pos), feature_track(feature_track){};
+
+  std::unordered_set<FrameId> getFramesForFeat() const {
+    return feature_track.getFramesForFeat();
+  }
 };
 
 template <typename FeatureTrackType, typename LongTermObjectMapType>
@@ -119,6 +131,15 @@ class AbstractOfflineProblemData {
     for (const auto& robot_pose : robot_poses_) {
       robot_poses_affine_[robot_pose.first] =
           convertToAffine(robot_pose.second);
+    }
+
+    for (const auto& feat_track : visual_features_) {
+      for (const auto& frame_id : feat_track.second.getFramesForFeat()) {
+        if (features_for_frame_.find(frame_id) == features_for_frame_.end()) {
+          features_for_frame_[frame_id] = std::unordered_set<FeatureId>();
+        }
+        features_for_frame_.at(frame_id).insert(feat_track.first);
+      }
     }
   }
 
@@ -177,6 +198,28 @@ class AbstractOfflineProblemData {
     return visual_features_;
   };
 
+  virtual std::unordered_set<FeatureId> getVisualFeatureIdsForFrame(
+      const FrameId& frame_id) const {
+    if (features_for_frame_.find(frame_id) == features_for_frame_.end()) {
+      return {};
+    }
+    return features_for_frame_.at(frame_id);
+  }
+
+  virtual std::unordered_map<FeatureId, FeatureTrackType>
+  getVisualFeaturesForFrame(const FrameId& frame_id) const {
+    std::unordered_map<FeatureId, FeatureTrackType> tracks;
+
+    for (const auto& feat_id : getVisualFeatureIdsForFrame(frame_id)) {
+      if (visual_features_.find(feat_id) == visual_features_.end()) {
+        LOG(ERROR) << "Couldn't find feature track for feature id " << feat_id;
+      } else {
+        tracks[feat_id] = visual_features_.at(feat_id);
+      }
+    }
+    return tracks;
+  };
+
   virtual std::unordered_map<
       FrameId,
       std::unordered_map<CameraId, std::vector<RawBoundingBox>>>
@@ -192,6 +235,8 @@ class AbstractOfflineProblemData {
   std::unordered_map<CameraId, CameraExtrinsics<double>>
       camera_extrinsics_by_camera_;
   std::unordered_map<FeatureId, FeatureTrackType> visual_features_;
+  std::unordered_map<FrameId, std::unordered_set<FeatureId>>
+      features_for_frame_;
   std::unordered_map<FrameId, Pose3D<double>> robot_poses_;
   std::unordered_map<FrameId, Eigen::Affine3d> robot_poses_affine_;
   std::unordered_map<std::string,
