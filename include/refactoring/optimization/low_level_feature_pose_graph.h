@@ -281,10 +281,6 @@ class LowLevelFeaturePoseGraph {
   virtual bool getIntrinsicsForCamera(
       const CameraId &camera_id,
       CameraIntrinsicsMat<double> &intrinsics_return) {
-    // Threading elsewhere assumes that this function does not use
-    // data structures modified in addVisualFactor or addFeature
-    // If it does for some currently incomprehensible reason, additional locks
-    // will be needed
     if (camera_intrinsics_by_camera_.find(camera_id) !=
         camera_intrinsics_by_camera_.end()) {
       intrinsics_return = camera_intrinsics_by_camera_[camera_id];
@@ -439,10 +435,6 @@ class LowLevelFeaturePoseGraph {
 
   virtual FeatureFactorId addVisualFactor(
       const VisualFeatureFactorType &factor) {
-    // Threading elsewhere assumes that this function does not use
-    // data structures read in getRobotPose or getIntrinsicsForCamera
-    // If it does for some currently incomprehensible reason, additional locks
-    // will be needed
     FeatureFactorId factor_id = max_feature_factor_id_ + 1;
     max_feature_factor_id_ = factor_id;
 
@@ -490,10 +482,6 @@ class LowLevelFeaturePoseGraph {
 
   virtual std::optional<RawPose3d<double>> getRobotPose(
       const FrameId &frame_id) const {
-    // Threading elsewhere assumes that this function does not use
-    // data structures modified in addVisualFactor or addFeature
-    // If it does for some currently incomprehensible reason, additional locks
-    // will be needed
     if (robot_poses_.find(frame_id) == robot_poses_.end()) {
       return {};
     }
@@ -688,10 +676,6 @@ class ReprojectionLowLevelFeaturePoseGraph
   void addFeature(const FeatureId &feature_id,
                   const Position3d<double> &feature_position) {
     // TODO should we check if a feature with this id already exists?
-    // Threading elsewhere assumes that this function does not use
-    // data structures read in getRobotPose or getIntrinsicsForCamera
-    // If it does for some currently incomprehensible reason, additional locks
-    // will be needed
     feature_positions_[feature_id] = VisualFeatureNode(feature_position);
     visual_factors_by_feature_[feature_id] = {};
   }

@@ -273,28 +273,16 @@ class VisualFeatureFrontend {
       extrinsics_as_affine[camera_extrinsics.first] = cam_to_robot_tf;
     }
 
-    std::for_each(
-        std::execution::par,
-        visual_features.begin(),
-        visual_features.end(),
-        [&](auto &&feat_id_to_track) {
-        //    for (const auto &feat_id_to_track : visual_features) {
+    for (const auto &feat_id_to_track : visual_features) {
       FeatureId feature_id = feat_id_to_track.first;
       StructuredVisionFeatureTrack feature_track = feat_id_to_track.second;
       VisionFeature feature =
           feature_track.feature_track.feature_observations_.at(max_frame_id);
       bool is_feature_added_to_pose_graph = false;
-      {
-      std::lock_guard<std::mutex> added_feats_lock(
-          added_features_mutex_);
       if (added_feature_ids_.find(feature_id) != added_feature_ids_.end()) {
         is_feature_added_to_pose_graph = true;
       }
-      }
       bool is_initialized_feature_in_pending_cache = false;
-      {
-      std::lock_guard<std::mutex> pending_feats_init_lock(
-          pending_feature_factors_for_init_mutex_);
       if (pending_feature_factors_for_initialized_features_.find(feature_id) !=
           pending_feature_factors_for_initialized_features_.end()) {
         is_initialized_feature_in_pending_cache = true;
@@ -303,7 +291,6 @@ class VisualFeatureFrontend {
             << "Feature " << feature_id
             << "should already be added to the pose graph!";
       }
-      }
       std::vector<ReprojectionErrorFactor> reprojection_error_factors;
       for (const auto &obs_by_camera : feature.pixel_by_camera_id) {
         ReprojectionErrorFactor vis_factor;
@@ -311,10 +298,6 @@ class VisualFeatureFrontend {
         vis_factor.feature_id_ = feature_id;
         vis_factor.frame_id_ = feature.frame_id_;
         vis_factor.feature_pos_ = obs_by_camera.second;
-
-        // NOTE: if this is changed to use the pose graph, must add
-        // locking around call (b/c of threading in visual feature front
-        // end)
         vis_factor.reprojection_error_std_dev_ =
             reprojection_error_provider_(input_problem_data,
                                          pose_graph,
@@ -333,18 +316,6 @@ class VisualFeatureFrontend {
         init_robot_pose = std::make_optional(init_pose_est);
       }
       if (is_initialized_feature_in_pending_cache) {
-        // Note: This read-updatecopy-write method wouldn't be thread safe if
-        // weren't operating on each feature independently (could overwrite
-        // results of other thread if they were writing to the same feature,
-        // but they're not)
-        VisualFeatureCachedInfo updated_pending_feats_for_initialized;
-        {
-          std::lock_guard<std::mutex> pending_feats_init_lock(
-              pending_feature_factors_for_init_mutex_);
-          updated_pending_feats_for_initialized =
-              pending_feature_factors_for_initialized_features_
-                  [feature_id];
-        }
         addFactorsAndRobotPoseToCache_(
             input_problem_data,
             extrinsics_as_affine,
@@ -352,49 +323,24 @@ class VisualFeatureFrontend {
             max_frame_id,
             reprojection_error_factors,
             init_robot_pose,
-            updated_pending_feats_for_initialized,
+            pending_feature_factors_for_initialized_features_[feature_id],
             enforce_epipolar_error_requirement_);
-        {
-          std::lock_guard<std::mutex> pending_feats_init_lock(
-              pending_feature_factors_for_init_mutex_);
-          pending_feature_factors_for_initialized_features_
-              [feature_id] = updated_pending_feats_for_initialized;
-        }
         // Don't need to check if feature_id is in
         // pending_feature_factors_for_initialized_features_ as it's handled by
         // the is_initialized_feature_in_pending_cache flag
-        std::map<FrameId, std::vector<ReprojectionErrorFactor>>
-            frame_ids_and_reprojection_err_factors_for_feat;
-        bool is_cache_cleaned_for_feat;
-        {
-          std::lock_guard<std::mutex> pending_feats_init_lock(
-              pending_feature_factors_for_init_mutex_);
-          const auto &visual_feature_cache =
-              pending_feature_factors_for_initialized_features_.at(
-                  feature_id);
-          is_cache_cleaned_for_feat =
-              visual_feature_cache.is_cache_cleaned_;
-          frame_ids_and_reprojection_err_factors_for_feat =
-              visual_feature_cache
-                  .frame_ids_and_reprojection_err_factors_;
-        }
-        if (is_cache_cleaned_for_feat) {
+        const auto &visual_feature_cache =
+            pending_feature_factors_for_initialized_features_.at(feature_id);
+        if (visual_feature_cache.is_cache_cleaned_) {
           for (const auto &frame_id_and_factors :
-               frame_ids_and_reprojection_err_factors_for_feat) {
+               visual_feature_cache.frame_ids_and_reprojection_err_factors_) {
             for (const auto &factor : frame_id_and_factors.second) {
-              std::lock_guard<std::mutex> add_vf_lock(
-                  pose_graph_add_visual_factor_feature_mutex_);
               pose_graph->addVisualFactor(factor);
             }
           }
         }
         // This should be safe as we're not iterating through
         // pending_feature_factors_for_initialized_features_ in this loop
-        {
-          std::lock_guard<std::mutex> pending_feats_init_lock(
-              pending_feature_factors_for_init_mutex_);
         pending_feature_factors_for_initialized_features_.erase(feature_id);
-        }
       } else if (is_feature_added_to_pose_graph) {
         for (const auto &vis_factor : reprojection_error_factors) {
           std::map<FrameId, std::vector<ReprojectionErrorFactor>>
@@ -405,32 +351,17 @@ class VisualFeatureFrontend {
                   pose_graph,
                   vis_factor,
                   frame_ids_and_factors)) {
-            std::lock_guard<std::mutex> add_vf_lock(
-                pose_graph_add_visual_factor_feature_mutex_);
             pose_graph->addVisualFactor(vis_factor);
           } else if (frame_ids_and_factors.empty()) {
             // If frame_ids_and_factors is empty, that means we cannot find this
             // feature in the past check_pase_n_frames_for_epipolar_err_ frames
             // in the pose graph. Thus, we add this feature to
             // pending_feature_factors_for_initialized_features_
-            {
-              std::lock_guard<std::mutex> pending_feats_init_lock(
-                  pending_feature_factors_for_init_mutex_);
             if (pending_feature_factors_for_initialized_features_.find(
                     feature_id) ==
                 pending_feature_factors_for_initialized_features_.end()) {
               pending_feature_factors_for_initialized_features_[feature_id] =
                   VisualFeatureCachedInfo();
-            }
-            }
-            VisualFeatureCachedInfo
-                updated_pending_feats_for_initialized;
-            {
-              std::lock_guard<std::mutex> pending_feats_init_lock(
-                  pending_feature_factors_for_init_mutex_);
-              updated_pending_feats_for_initialized =
-                  pending_feature_factors_for_initialized_features_
-                      [feature_id];
             }
             addFactorsAndRobotPoseToCache_(
                 input_problem_data,
@@ -439,32 +370,15 @@ class VisualFeatureFrontend {
                 max_frame_id,
                 reprojection_error_factors,
                 init_robot_pose,
-                updated_pending_feats_for_initialized,
+                pending_feature_factors_for_initialized_features_[feature_id],
                 enforce_epipolar_error_requirement_);
-            {
-              std::lock_guard<std::mutex> pending_feats_init_lock(
-                  pending_feature_factors_for_init_mutex_);
-              pending_feature_factors_for_initialized_features_
-                  [feature_id] = updated_pending_feats_for_initialized;
-            }
           }
         }
       } else {
         // add reprojection factors and initial poses to pending list
-        {
-          std::lock_guard<std::mutex> pending_feats_lock(
-              pending_feature_factors_mutex_);
         if (pending_feature_factors_.find(feature_id) ==
             pending_feature_factors_.end()) {
           pending_feature_factors_[feature_id] = VisualFeatureCachedInfo();
-        }
-        }
-        VisualFeatureCachedInfo updated_pending_feats;
-        {
-          std::lock_guard<std::mutex> pending_feats_lock(
-              pending_feature_factors_mutex_);
-          updated_pending_feats =
-              pending_feature_factors_[feature_id];
         }
         addFactorsAndRobotPoseToCache_(input_problem_data,
                                        extrinsics_as_affine,
@@ -472,23 +386,13 @@ class VisualFeatureFrontend {
                                        max_frame_id,
                                        reprojection_error_factors,
                                        init_robot_pose,
-                                       updated_pending_feats,
+                                       pending_feature_factors_[feature_id],
                                        enforce_epipolar_error_requirement_);
-        {
-          std::lock_guard<std::mutex> pending_feats_lock(
-              pending_feature_factors_mutex_);
-              pending_feature_factors_[feature_id] = updated_pending_feats;
-        }
         // pending_feature_factors_[feature_id].addFactorsAndRobotPose(
         //     max_frame_id, reprojection_error_factors, init_robot_pose);
         // handling pending poses
-        VisualFeatureCachedInfo visual_feature_cache;
-        {
-          std::lock_guard<std::mutex> pending_feats_lock(
-              pending_feature_factors_mutex_);
-          visual_feature_cache =
-              pending_feature_factors_.at(feature_id);
-        }
+        const auto &visual_feature_cache =
+            pending_feature_factors_.at(feature_id);
         if (checkMinParallaxRequirements_(
                 min_frame_id, max_frame_id, visual_feature_cache)) {
           Position3d<double> initial_position;
@@ -497,37 +401,22 @@ class VisualFeatureFrontend {
                                      feature_id,
                                      feat_id_to_track.second.feature_pos_,
                                      initial_position);
-          {
-            std::lock_guard<std::mutex> add_vf_lock(
-                pose_graph_add_visual_factor_feature_mutex_);
           pose_graph->addFeature(feature_id, initial_position);
-          }
           for (const auto &frame_id_and_factors :
                visual_feature_cache.frame_ids_and_reprojection_err_factors_) {
             for (const auto &factor : frame_id_and_factors.second) {
-              std::lock_guard<std::mutex> add_vf_lock(
-                  pose_graph_add_visual_factor_feature_mutex_);
               pose_graph->addVisualFactor(factor);
             }
           }
-          {
-            std::lock_guard<std::mutex> pending_feats_lock(
-                pending_feature_factors_mutex_);
           pending_feature_factors_.erase(feature_id);
-          }
-          {
-            std::lock_guard<std::mutex> added_feats_lock(
-                added_features_mutex_);
           added_feature_ids_.insert(feature_id);
-          }
         }
       }
-      });
+    }
     if (gba_checker_(max_frame_id)) {
       std::unordered_map<FeatureId, StructuredVisionFeatureTrack>
           full_visual_features = input_problem_data.getVisualFeatures();
       std::unordered_set<FeatureId> feat_ids_to_change;
-      // Assuming no concurrency in this section
       for (const auto &feat_id_and_cache : pending_feature_factors_) {
         const FeatureId &feature_id = feat_id_and_cache.first;
         const auto &visual_feature_cache = feat_id_and_cache.second;
@@ -551,7 +440,6 @@ class VisualFeatureFrontend {
         }
       }
       for (const auto &feat_id : feat_ids_to_change) {
-        // For both variables, assuming no concurrency in this section
         pending_feature_factors_.erase(feat_id);
         added_feature_ids_.insert(feat_id);
       }
@@ -590,11 +478,6 @@ class VisualFeatureFrontend {
   const double inlier_majority_percentage_ = 0.5;
 
  private:
-  std::mutex pose_graph_add_visual_factor_feature_mutex_;
-  std::mutex pending_feature_factors_mutex_;
-  std::mutex pending_feature_factors_for_init_mutex_;
-  std::mutex added_features_mutex_;
-
   void getFactorsByFeatureIdFromPoseGraph_(
       const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
       const FeatureId feature_id,
@@ -602,11 +485,7 @@ class VisualFeatureFrontend {
       std::map<FrameId, std::vector<ReprojectionErrorFactor>>
           &frame_ids_and_factors) {
     util::BoostHashSet<std::pair<FactorType, FeatureFactorId>> matching_factors;
-    {
-      std::lock_guard<std::mutex> pose_graph_vf_lock(
-          pose_graph_add_visual_factor_feature_mutex_);
-      pose_graph->getFactorsForFeature(feature_id, matching_factors);
-    }
+    pose_graph->getFactorsForFeature(feature_id, matching_factors);
     std::vector<FeatureFactorId> matching_factor_ids;
     for (const auto &matching_factor : matching_factors) {
       if (matching_factor.first == kReprojectionErrorFactorTypeId) {
@@ -617,11 +496,7 @@ class VisualFeatureFrontend {
         candidate_frame_id - check_pase_n_frames_for_epipolar_err_;
     for (const auto factor_id : matching_factor_ids) {
       ReprojectionErrorFactor factor;
-      {
-        std::lock_guard<std::mutex> pose_graph_vf_lock(
-            pose_graph_add_visual_factor_feature_mutex_);
-        pose_graph->getVisualFactor(factor_id, factor);
-      }
+      pose_graph->getVisualFactor(factor_id, factor);
       if (factor.frame_id_ > min_frame_id) {
         frame_ids_and_factors[factor.frame_id_].push_back(factor);
       }
@@ -636,7 +511,7 @@ class VisualFeatureFrontend {
       const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
       const ReprojectionErrorFactor &candidate_factor,
       const std::map<FrameId, std::vector<ReprojectionErrorFactor>>
-          &frame_ids_and_factors) const {
+          &frame_ids_and_factors) {
     uint64_t votes = 0;
     uint64_t n_voters = 0;
 
@@ -746,7 +621,7 @@ class VisualFeatureFrontend {
                                   // for efficiency
       const std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> &pose_graph,
       const ReprojectionErrorFactor &candidate_factor,
-      const VisualFeatureCachedInfo &cache_info) const {
+      const VisualFeatureCachedInfo &cache_info) {
     return isReprojectionErrorFactorInlier(
         input_problem_data,
         extrinsics_as_affine,
@@ -767,7 +642,7 @@ class VisualFeatureFrontend {
       const std::vector<ReprojectionErrorFactor> &reprojection_err_factors,
       const std::optional<Pose3D<double>> &robot_pose,
       VisualFeatureCachedInfo &cache_info,
-      const bool use_epipolar_outlier_rejection = false) const {
+      const bool use_epipolar_outlier_rejection = false) {
     if (!use_epipolar_outlier_rejection) {
       cache_info.addFactorsAndRobotPose(
           frame_id, reprojection_err_factors, robot_pose);
@@ -820,12 +695,8 @@ class VisualFeatureFrontend {
       const FeatureId &feature_id,
       const Position3d<double> &unadjusted_feature_pos,
       Position3d<double> &adjusted_initial_position) {
-    FrameId first_frame_id;
-    {
-      std::lock_guard<std::mutex> pending_feats_lock(
-          pending_feature_factors_mutex_);
-      first_frame_id = pending_feature_factors_.at(feature_id).getMinFrameId();
-    }
+    FrameId first_frame_id =
+        pending_feature_factors_.at(feature_id).getMinFrameId();
     Pose3D<double> init_first_pose;
     std::optional<RawPose3d<double>> optim_first_raw_pose =
         pose_graph->getRobotPose(first_frame_id);
