@@ -164,6 +164,9 @@ int main(int argc, char **argv) {
       5;
   configuration.visual_feature_params_.enforce_epipolar_error_requirement_ =
       true;
+  configuration.visual_feature_params_.early_votes_return_ = true;
+  configuration.visual_feature_params_
+      .visual_feature_inlier_majority_percentage_ = 0.5;
 
   // Set up defaults for the different types of optimization that can be
   // overridden later
@@ -240,7 +243,8 @@ int main(int argc, char **argv) {
   configuration.ltm_tunable_params_.min_col_norm_ = 5e-9;
   configuration.ltm_solver_params_ =
       base_solver_params;  // TODO is this the one we want?
-  configuration.ltm_tunable_params_.fallback_to_prev_for_failed_extraction_ = true;
+  configuration.ltm_tunable_params_.fallback_to_prev_for_failed_extraction_ =
+      true;
   configuration.ltm_solver_params_.max_num_iterations_ = 300;
 
   pose_graph_optimization::ObjectVisualPoseGraphResidualParams residual_params;
