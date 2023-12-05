@@ -21,7 +21,7 @@ namespace vslam_types_refactor {
 
 // NOTE: This should be incremented every time the format of the configuration
 // data changes
-const static int kCurrentConfigSchemaVersion = 12;
+const static int kCurrentConfigSchemaVersion = 13;
 
 struct VisualFeatureParams {
   double reprojection_error_std_dev_;
@@ -34,6 +34,9 @@ struct VisualFeatureParams {
   double inlier_epipolar_err_thresh_;
   size_t check_past_n_frames_for_epipolar_err_;
   bool enforce_epipolar_error_requirement_;
+
+  bool early_votes_return_ = true;
+  double visual_feature_inlier_majority_percentage_ = 0.5;
 
   bool operator==(const VisualFeatureParams &rhs) const {
     return (reprojection_error_std_dev_ == rhs.reprojection_error_std_dev_) &&
@@ -51,7 +54,10 @@ struct VisualFeatureParams {
            (check_past_n_frames_for_epipolar_err_ ==
             rhs.check_past_n_frames_for_epipolar_err_) &&
            (enforce_epipolar_error_requirement_ ==
-            rhs.enforce_epipolar_error_requirement_);
+            rhs.enforce_epipolar_error_requirement_) &&
+           (early_votes_return_ == rhs.early_votes_return_) &&
+           (visual_feature_inlier_majority_percentage_ ==
+            rhs.visual_feature_inlier_majority_percentage_);
   }
 
   bool operator!=(const VisualFeatureParams &rhs) const {

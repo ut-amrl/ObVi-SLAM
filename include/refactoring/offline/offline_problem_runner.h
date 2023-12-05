@@ -199,6 +199,20 @@ class OfflineProblemRunner {
       }
     }
 
+    // Run the final optimization (refinement)
+    if (!runOptimizationIteration(0,
+                                  max_frame_id,
+                                  problem_data,
+                                  optimization_factors_enabled_params,
+                                  optimization_scope_params,
+                                  max_frame_id,
+                                  opt_logger,
+                                  pose_graph,
+                                  problem,
+                                  1)) {
+      return false;
+    }
+
     visualization_callback_(problem_data,
                             pose_graph,
                             0,
@@ -366,7 +380,7 @@ class OfflineProblemRunner {
     bool run_visual_feature_opt = true;
     if (global_ba) {
       bool run_pgo;
-      if (next_frame_id == max_frame_id) {
+      if ((next_frame_id == max_frame_id) && (attempt_num > 0)) {
         run_pgo = optimization_factors_enabled_params
                       .use_pose_graph_on_final_global_ba_;
         if (run_pgo) {
@@ -811,7 +825,7 @@ class OfflineProblemRunner {
 
     // Until there are no more objects to merge, check if a merge should be
     // performed, and then if so, rerun the optimization to update the estimates
-    int post_process_round = 1;
+    int post_process_round = 2;
     while (object_merger_(pose_graph)) {
       ceres::Problem merged_problem;
       optimizer_.clearPastOptimizationData();
