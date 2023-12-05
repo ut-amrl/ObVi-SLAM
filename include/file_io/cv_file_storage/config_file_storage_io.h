@@ -1280,22 +1280,29 @@ class SerializableVisualFeatureParams
 
     int enforce_min_pixel_parallax_requirement =
         data_.enforce_min_pixel_parallax_requirement_ ? 1 : 0;
-    fs << kEnforceMinPixelParallaxRequirement
+    fs << kEnforceMinPixelParallaxRequirementLabel
        << enforce_min_pixel_parallax_requirement;
 
     int enforce_min_robot_pose_parallax_requirement =
         data_.enforce_min_robot_pose_parallax_requirement_ ? 1 : 0;
-    fs << kEnforceMinRobotPoseParallaxRequirement
+    fs << kEnforceMinRobotPoseParallaxRequirementLabel
        << enforce_min_robot_pose_parallax_requirement;
 
-    fs << kInlierEpipolarErrThresh << (double)data_.inlier_epipolar_err_thresh_;
-    fs << kCheckPastNFramesForEpipolarErr
+    fs << kInlierEpipolarErrThreshLabel
+       << (double)data_.inlier_epipolar_err_thresh_;
+    fs << kCheckPastNFramesForEpipolarErrLabel
        << (int)data_.check_past_n_frames_for_epipolar_err_;
 
     int enforce_epipolar_error_requirement =
         data_.enforce_epipolar_error_requirement_ ? 1 : 0;
-    fs << kEnforceEpipolarErrorRequirement
+    fs << kEnforceEpipolarErrorRequirementLabel
        << (int)enforce_epipolar_error_requirement;
+
+    int early_votes_return_int = data_.early_votes_return_ ? 1 : 0;
+    fs << kEarlyVotesReturnLabel << (int)early_votes_return_int;
+
+    fs << kVisualFeatureInlierMajorityPercentageLabel
+       << data_.visual_feature_inlier_majority_percentage_;
     fs << "}";
   }
 
@@ -1309,25 +1316,32 @@ class SerializableVisualFeatureParams
         data_.min_visual_feature_parallax_robot_orient_requirement_;
 
     int enforce_min_pixel_parallax_requirement =
-        node[kEnforceMinPixelParallaxRequirement];
+        node[kEnforceMinPixelParallaxRequirementLabel];
     data_.enforce_min_pixel_parallax_requirement_ =
         enforce_min_pixel_parallax_requirement != 0;
     int enforce_min_robot_pose_parallax_requirement =
-        node[kEnforceMinRobotPoseParallaxRequirement];
+        node[kEnforceMinRobotPoseParallaxRequirementLabel];
     data_.enforce_min_robot_pose_parallax_requirement_ =
         enforce_min_robot_pose_parallax_requirement != 0;
 
-    double inlier_epipolar_err_thresh = (double)node[kInlierEpipolarErrThresh];
+    double inlier_epipolar_err_thresh =
+        (double)node[kInlierEpipolarErrThreshLabel];
     data_.inlier_epipolar_err_thresh_ = inlier_epipolar_err_thresh;
     int check_past_n_frames_for_epipolar_err =
-        (int)node[kCheckPastNFramesForEpipolarErr];
+        (int)node[kCheckPastNFramesForEpipolarErrLabel];
     data_.check_past_n_frames_for_epipolar_err_ =
         check_past_n_frames_for_epipolar_err;
 
     int enforce_epipolar_error_requirement =
-        node[kEnforceEpipolarErrorRequirement];
+        node[kEnforceEpipolarErrorRequirementLabel];
     data_.enforce_epipolar_error_requirement_ =
         enforce_epipolar_error_requirement != 0;
+
+    int early_votes_return_int = node[kEarlyVotesReturnLabel];
+    data_.early_votes_return_ = early_votes_return_int != 0;
+
+    data_.visual_feature_inlier_majority_percentage_ =
+        node[kVisualFeatureInlierMajorityPercentageLabel];
   }
 
  protected:
@@ -1345,16 +1359,19 @@ class SerializableVisualFeatureParams
   inline static const std::string
       kMinVisualFeatureParallaxRobotOrientRequirementLabel =
           "min_visual_feature_parallax_robot_orient_requirement";
-  inline static const std::string kEnforceMinPixelParallaxRequirement =
+  inline static const std::string kEnforceMinPixelParallaxRequirementLabel =
       "enforce_min_pixel_parallax_requirement";
-  inline static const std::string kEnforceMinRobotPoseParallaxRequirement =
+  inline static const std::string kEnforceMinRobotPoseParallaxRequirementLabel =
       "enforce_min_robot_pose_parallax_requirement";
-  inline static const std::string kInlierEpipolarErrThresh =
+  inline static const std::string kInlierEpipolarErrThreshLabel =
       "inlier_epipolar_err_thresh";
-  inline static const std::string kCheckPastNFramesForEpipolarErr =
+  inline static const std::string kCheckPastNFramesForEpipolarErrLabel =
       "check_past_n_frames_for_epipolar_err";
-  inline static const std::string kEnforceEpipolarErrorRequirement =
+  inline static const std::string kEnforceEpipolarErrorRequirementLabel =
       "enforce_epipolar_error_requirement_";
+  inline static const std::string kEarlyVotesReturnLabel = "early_votes_return";
+  inline static const std::string kVisualFeatureInlierMajorityPercentageLabel =
+      "visual_feature_inlier_majority_percentage";
 };
 
 static void write(cv::FileStorage &fs,

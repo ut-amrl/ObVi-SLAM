@@ -38,6 +38,8 @@ TEST(FullOVSLAMConfigIO, ReadWriteFullOBSLAMConfig) {
       1.3;
   visual_feature_params.min_visual_feature_parallax_pixel_requirement_ = 1.4;
   visual_feature_params.reprojection_error_std_dev_ = 1.5;
+  visual_feature_params.early_votes_return_ = false;
+  visual_feature_params.visual_feature_inlier_majority_percentage_ = 0.7;
   orig_config.visual_feature_params_ = visual_feature_params;
 
   pose_graph_optimization::OptimizationSolverParams

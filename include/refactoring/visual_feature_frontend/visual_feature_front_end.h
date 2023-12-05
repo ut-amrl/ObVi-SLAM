@@ -228,7 +228,9 @@ class VisualFeatureFrontend {
       const bool &enforce_min_robot_pose_parallax_requirement,
       const double &inlier_epipolar_err_thresh,
       const size_t &check_pase_n_frames_for_epipolar_err,
-      const bool &enforce_epipolar_error_requirement)
+      const bool &enforce_epipolar_error_requirement,
+      const bool &early_votes_return,
+      const double &inlier_majority_percentage)
       : gba_checker_(gba_checker),
         reprojection_error_provider_(reprojection_error_provider),
         min_visual_feature_parallax_pixel_requirement_(
@@ -245,7 +247,9 @@ class VisualFeatureFrontend {
         check_pase_n_frames_for_epipolar_err_(
             check_pase_n_frames_for_epipolar_err),
         enforce_epipolar_error_requirement_(
-            enforce_epipolar_error_requirement) {}
+            enforce_epipolar_error_requirement),
+        early_votes_return_(early_votes_return),
+        inlier_majority_percentage_(inlier_majority_percentage) {}
 
   /**
    * @brief
@@ -474,8 +478,9 @@ class VisualFeatureFrontend {
   double inlier_epipolar_err_thresh_ = 8.0;
   size_t check_pase_n_frames_for_epipolar_err_ = 5;
   bool enforce_epipolar_error_requirement_ = true;
+  bool early_votes_return_ = true;
 
-  const double inlier_majority_percentage_ = 0.5;
+  double inlier_majority_percentage_ = 0.5;
 
  private:
   void getFactorsByFeatureIdFromPoseGraph_(
@@ -586,9 +591,11 @@ class VisualFeatureFrontend {
         n_voters++;
       }
       // TODO maybe add this to configuration as well
-
-      return (((double)votes) / n_voters) > inlier_majority_percentage_;
+      if (early_votes_return_) {
+        return (((double)votes) / n_voters) > inlier_majority_percentage_;
+      }
     }
+    return (((double)votes) / n_voters) > inlier_majority_percentage_;
   }
 
   bool isReprojectionErrorFactorInlierInPoseGraph_(
