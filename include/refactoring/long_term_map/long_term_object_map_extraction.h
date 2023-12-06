@@ -27,7 +27,7 @@ struct CovarianceExtractorParams {
   /**
    * See Ceres covariance documentation.
    */
-  int num_threads_ = 5;
+  int num_threads_ = 20;
 
   /**
    * See Ceres covariance documentation.
