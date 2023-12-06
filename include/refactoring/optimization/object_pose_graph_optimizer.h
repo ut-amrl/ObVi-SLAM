@@ -660,7 +660,7 @@ class ObjectPoseGraphOptimizer {
       options.update_state_every_iteration = true;
     }
     options.max_num_iterations = solver_params.max_num_iterations_;
-    options.num_threads = 10;
+    options.num_threads = 20;
     options.linear_solver_type = ceres::SPARSE_SCHUR;
     options.use_nonmonotonic_steps = solver_params.allow_non_monotonic_steps_;
     options.function_tolerance = solver_params.function_tolerance_;
@@ -735,7 +735,7 @@ class ObjectPoseGraphOptimizer {
       options.update_state_every_iteration = true;
     }
     options.max_num_iterations = solver_params.max_num_iterations_;
-    options.num_threads = 10;
+    options.num_threads = 20;
     options.linear_solver_type = ceres::SPARSE_SCHUR;
     options.use_nonmonotonic_steps = solver_params.allow_non_monotonic_steps_;
     options.function_tolerance = solver_params.function_tolerance_;
