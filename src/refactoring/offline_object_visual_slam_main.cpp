@@ -369,10 +369,16 @@ void visualizationStub(
     const vtr::FrameId &final_frame_id,
     const std::string &output_checkpoints_dir,
     const int &attempt = 0) {
+  std::string vis_timer_name;
+  if (attempt > 0) {
+    vis_timer_name = vtr::kTimerNameVisFunctionOffline;
+  } else {
+    vis_timer_name = vtr::kTimerNameVisFunctionOnline;
+  }
 #ifdef RUN_TIMERS
   CumulativeFunctionTimer::Invocation invoc(
       vtr::CumulativeTimerFactory::getInstance()
-          .getOrCreateFunctionTimer(vtr::kTimerNameVisFunction)
+          .getOrCreateFunctionTimer(vis_timer_name)
           .get());
 #endif
   bool pgo_opt = false;
