@@ -10,7 +10,10 @@
 namespace vslam_types_refactor {
 const std::string kTimerNameFullTrajectoryExecution =
     "full_trajectory_execution";
-const std::string kTimerNameVisFunction = "visualization_top_level";
+const std::string kTimerNameOfflineProblemRunnerOnlinePortionPlusVis = "online_plus_vis";
+const std::string kTimerNameOfflineProblemRunnerOfflinePortionPlusVis = "offline_plus_vis";
+const std::string kTimerNameVisFunctionOnline = "visualization_top_level_online";
+const std::string kTimerNameVisFunctionOffline = "visualization_top_level_offline";
 const std::string kTimerNameVisualFrontendFunction =
     "visual_frontend_top_level";
 const std::string kTimerNameResidualCreator = "residual_creator_top";
@@ -72,10 +75,15 @@ const std::string kTimerNamePhaseTwoGbaSolveOpt = "phase_two_gba_solve_opt";
 const std::string kTimerNameMapMergePhaseTwoGbaSolveOpt =
     "map_merge_phase_two_gba_solve_opt";
 
-const std::string kTimerNamePostOptResidualCompute =
-    "post_opt_residual_compute";
-const std::string kTimerNameTwoPhaseOptOutlierIdentification =
-    "two_phase_opt_outlier_identification";
+const std::string kTimerNamePostOptResidualComputeOnline =
+    "post_opt_residual_compute_online";
+const std::string kTimerNameTwoPhaseOptOutlierIdentificationOnline =
+    "two_phase_opt_outlier_identification_online";
+
+const std::string kTimerNamePostOptResidualComputeOffline =
+    "post_opt_residual_compute_offline";
+const std::string kTimerNameTwoPhaseOptOutlierIdentificationOffline =
+    "two_phase_opt_outlier_identification_offline";
 
 // Bounding box front-end
 const std::string kTimerNameBbFrontEndAddBbObs = "bb_front_end_add_bb_obs";

@@ -112,17 +112,6 @@ class OfflineProblemRunner {
     }
     ceres::Problem problem;
     LOG(INFO) << "Running pose graph creator";
-    pose_graph_creator_(problem_data, pose_graph);
-
-    if ((start_at_frame == 0) && (add_data_for_starting_frame)) {
-      frame_data_adder_(problem_data, pose_graph, 0, 0);
-    }
-    FrameId max_frame_id = problem_data.getMaxFrameId();
-
-    if (limit_trajectory_eval_params_.should_limit_trajectory_evaluation_) {
-      max_frame_id =
-          std::min(limit_trajectory_eval_params_.max_frame_id_, max_frame_id);
-    }
 
     pose_graph_optimizer::OptimizationScopeParams optimization_scope_params;
     optimization_scope_params.min_low_level_feature_observations_per_frame_ =
@@ -149,6 +138,28 @@ class OfflineProblemRunner {
         optimization_factors_enabled_params.min_low_level_feature_observations_;
     optimization_scope_params.min_object_observations_ =
         optimization_factors_enabled_params.min_object_observations_;
+
+    FrameId max_frame_id = problem_data.getMaxFrameId();
+
+    if (limit_trajectory_eval_params_.should_limit_trajectory_evaluation_) {
+      max_frame_id =
+          std::min(limit_trajectory_eval_params_.max_frame_id_, max_frame_id);
+    }
+
+    {
+#ifdef RUN_TIMERS
+    CumulativeFunctionTimer::Invocation invoc(
+        CumulativeTimerFactory::getInstance()
+            .getOrCreateFunctionTimer(
+                kTimerNameOfflineProblemRunnerOnlinePortionPlusVis)
+            .get());
+#endif
+
+    pose_graph_creator_(problem_data, pose_graph);
+
+    if ((start_at_frame == 0) && (add_data_for_starting_frame)) {
+      frame_data_adder_(problem_data, pose_graph, 0, 0);
+    }
 
     visualization_callback_(problem_data,
                             pose_graph,
@@ -198,6 +209,15 @@ class OfflineProblemRunner {
         return false;
       }
     }
+    }
+
+#ifdef RUN_TIMERS
+    CumulativeFunctionTimer::Invocation invoc(
+        CumulativeTimerFactory::getInstance()
+            .getOrCreateFunctionTimer(
+                kTimerNameOfflineProblemRunnerOfflinePortionPlusVis)
+            .get());
+#endif
 
     // Run the final optimization (refinement)
     if (!runOptimizationIteration(0,
@@ -218,7 +238,7 @@ class OfflineProblemRunner {
                             0,
                             max_frame_id,
                             VisualizationTypeEnum::AFTER_ALL_OPTIMIZATION,
-                            0);
+                            1);
 
     // Until there are no more objects to merge, check if a merge should be
     // performed, and then if so, rerun the optimization to update the estimates
@@ -236,7 +256,7 @@ class OfflineProblemRunner {
                             0,
                             max_frame_id,
                             VisualizationTypeEnum::AFTER_ALL_POSTPROCESSING,
-                            0);
+                            1);
     output_data_extractor_(problem_data,
                            pose_graph,
                            optimization_factors_enabled_params,
@@ -595,10 +615,18 @@ class OfflineProblemRunner {
                            std::unordered_map<ceres::ResidualBlockId, double>>
             factor_types_and_residual_info;
         if (visual_feature_opt_enable_two_phase) {
+          std::string post_opt_residual_compute_timer;
+          if (attempt_num == 0) {
+            post_opt_residual_compute_timer =
+                kTimerNamePostOptResidualComputeOnline;
+          } else {
+            post_opt_residual_compute_timer =
+                kTimerNamePostOptResidualComputeOffline;
+          }
 #ifdef RUN_TIMERS
           CumulativeFunctionTimer::Invocation post_opt_residual_invoc(
               CumulativeTimerFactory::getInstance()
-                  .getOrCreateFunctionTimer(kTimerNamePostOptResidualCompute)
+                  .getOrCreateFunctionTimer(post_opt_residual_compute_timer)
                   .get());
 #endif
           size_t residual_idx = 0;
@@ -668,10 +696,17 @@ class OfflineProblemRunner {
             excluded_feature_factor_types_and_ids;
         if (visual_feature_opt_enable_two_phase) {
 #ifdef RUN_TIMERS
+          std::string two_phase_opt_outlier_timer;
+          if (attempt_num == 0) {
+            two_phase_opt_outlier_timer =
+                kTimerNameTwoPhaseOptOutlierIdentificationOnline;
+          } else {
+            two_phase_opt_outlier_timer =
+                kTimerNameTwoPhaseOptOutlierIdentificationOffline;
+          }
           CumulativeFunctionTimer::Invocation two_phase_opt_outlier_invoc(
               CumulativeTimerFactory::getInstance()
-                  .getOrCreateFunctionTimer(
-                      kTimerNameTwoPhaseOptOutlierIdentification)
+                  .getOrCreateFunctionTimer(two_phase_opt_outlier_timer)
                   .get());
 #endif
           std::unordered_map<
@@ -794,7 +829,7 @@ class OfflineProblemRunner {
             pose_graph->setValuesFromAnotherPoseGraph(pose_graph_copy);
           }
         }
-      }
+      }  // End of BA timer?
 
       visualization_callback_(problem_data,
                               pose_graph,
