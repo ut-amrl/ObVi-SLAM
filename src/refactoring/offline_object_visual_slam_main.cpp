@@ -386,6 +386,7 @@ void visualizationStub(
       sleep(3);
       break;
     case vtr::BEFORE_EACH_OPTIMIZATION:
+      // TODO comment this out when close to final config so we have data other than rosbag
       if ((max_frame_optimized == final_frame_id) &&
           (!output_checkpoints_dir.empty())) {
         LOG(INFO) << "Dumping pose graph before final opt";

@@ -47,7 +47,7 @@ def copyResultsFromServer(executionConfig):
             serverResultsForConfigName + "metrics.json") + " " + copyDirForSequenceAndConfig
     os.system(metricsCopyCmd)
 
-    copySubdirs = ["ut_vslam_out", "postprocessing"]
+    copySubdirs = ["ut_vslam_out", "postprocessing", "logs"]
 
     for idx, bagName in enumerate(rosbagsSequence):
         bagIdentifier = str(idx) + "_" + bagName
