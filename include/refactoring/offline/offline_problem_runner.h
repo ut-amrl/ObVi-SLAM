@@ -551,8 +551,27 @@ class OfflineProblemRunner {
                                                     &problem,
                                                     opt_logger);
         }
-        std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> pose_graph_copy =
-            pose_graph->makeDeepCopy();
+        std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> pose_graph_copy;
+        {
+#ifdef RUN_TIMERS
+        std::string pg_copy_timer_name;
+        if (global_ba) {
+          if (attempt_num == 0) {
+            pg_copy_timer_name = kTimerNameGbaPoseGraphCopy;
+          } else {
+            pg_copy_timer_name = kTimerNameMapMergeGbaPoseGraphCopy;
+          }
+        } else {
+          pg_copy_timer_name = kTimerNameLbaPoseGraphCopy;
+        }
+
+        CumulativeFunctionTimer::Invocation invoc_pg_copy(
+            CumulativeTimerFactory::getInstance()
+                .getOrCreateFunctionTimer(pg_copy_timer_name)
+                .get());
+#endif
+        pose_graph_copy = pose_graph->makeDeepCopy();
+        }
         LOG(INFO) << "Solving optimization";
         bool phase1_optim_success;
         std::vector<ceres::ResidualBlockId> residual_block_ids;
@@ -607,6 +626,23 @@ class OfflineProblemRunner {
           return false;
         }
         if (opt_logger.has_value()) {
+#ifdef RUN_TIMERS
+          std::string opt_logger_timer_name;
+          if (global_ba) {
+            if (attempt_num == 0) {
+              opt_logger_timer_name = kTimerNameGbaOptLoggerWrite;
+            } else {
+              opt_logger_timer_name = kTimerNameMapMergeGbaOptLoggerWrite;
+            }
+          } else {
+            opt_logger_timer_name = kTimerNameLbaOptLoggerWrite;
+          }
+
+          CumulativeFunctionTimer::Invocation opt_logger_timer(
+              CumulativeTimerFactory::getInstance()
+                  .getOrCreateFunctionTimer(opt_logger_timer_name)
+                  .get());
+#endif
           opt_logger->writeCurrentOptInfo();
         }
 
@@ -815,6 +851,23 @@ class OfflineProblemRunner {
             }
           }
           if (opt_logger.has_value()) {
+#ifdef RUN_TIMERS
+            std::string opt_logger_timer_name;
+            if (global_ba) {
+              if (attempt_num == 0) {
+                opt_logger_timer_name = kTimerNameGbaOptLoggerWrite;
+              } else {
+                opt_logger_timer_name = kTimerNameMapMergeGbaOptLoggerWrite;
+              }
+            } else {
+              opt_logger_timer_name = kTimerNameLbaOptLoggerWrite;
+            }
+
+            CumulativeFunctionTimer::Invocation opt_logger_timer(
+                CumulativeTimerFactory::getInstance()
+                    .getOrCreateFunctionTimer(opt_logger_timer_name)
+                    .get());
+#endif
             opt_logger->writeCurrentOptInfo();
           }
         }

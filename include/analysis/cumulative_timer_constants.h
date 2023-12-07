@@ -55,6 +55,15 @@ const std::string kTimerNameObjOnlyPgoOptFeatAdjustSolve =
 const std::string kTimerNameMapMergeObjOnlyPgoOptFeatAdjustSolve =
     "map_merge_obj_only_pgo_opt_feat_adjust_solve";
 
+const std::string kTimerNameLbaPoseGraphCopy = "lba_pose_graph_copy";
+const std::string kTimerNameGbaPoseGraphCopy = "gba_pose_graph_copy";
+const std::string kTimerNameMapMergeGbaPoseGraphCopy = "map_merge_gba_pose_graph_copy";
+
+
+const std::string kTimerNameLbaOptLoggerWrite = "lba_opt_logger_write";
+const std::string kTimerNameGbaOptLoggerWrite = "gba_opt_logger_write";
+const std::string kTimerNameMapMergeGbaOptLoggerWrite = "map_merge_gba_opt_logger_write";
+
 const std::string kTimerNameLocalBundleAdjustment = "local_bundle_adjustment";
 const std::string kTimerNameConsecutivePosesStable = "consecutive_pose_stable";
 const std::string kTimerNamePhaseOneLbaBuildOpt = "phase_one_lba_build_opt";
