@@ -32,8 +32,7 @@ struct RobotPoseNode {
       : pose_(std::make_shared<RawPose3d<double>>(pose)) {}
 
   RobotPoseNode makeDeepCopy() const {
-    RawPose3d<double> pose_copy(*pose_);
-    return RobotPoseNode(pose_copy);
+    return RobotPoseNode(*pose_);
   }
 
   void updateRobotPoseParams(const RawPose3d<double> &pose) {
@@ -55,8 +54,7 @@ struct VisualFeatureNode {
       : position_(std::make_shared<Position3d<double>>(position)) {}
 
   VisualFeatureNode makeDeepCopy() const {
-    Position3d<double> position_copy(*position_);
-    return VisualFeatureNode(position_copy);
+    return VisualFeatureNode(*position_);
   }
 
   void updateVisualPositionParams(const Position3d<double> &position) {

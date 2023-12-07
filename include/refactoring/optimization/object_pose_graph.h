@@ -80,8 +80,7 @@ void updateEllipsoidParams(const RawEllipsoidPtr<double> &ellipsoid_ptr) {
 }
 
 EllipsoidEstimateNode makeDeepCopy() const {
-  RawEllipsoid<double> ellipsoid_copy(*ellipsoid_);
-  return EllipsoidEstimateNode(ellipsoid_copy);
+  return EllipsoidEstimateNode(*ellipsoid_);
 }
 };  // namespace vslam_types_refactor
 
