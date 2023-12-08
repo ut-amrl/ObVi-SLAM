@@ -425,8 +425,9 @@ class RoshanBbFrontEnd
   }
 
   virtual void setupInitialEstimateGeneration(
-      const std::vector<AssociatedObjectIdentifier> &bounding_box_assignments)
-      override {}
+      const std::vector<AssociatedObjectIdentifier> &bounding_box_assignments,
+      const FrameId &frame_id,
+      const CameraId &camera_id) override {}
 
   virtual ObjectInitializationStatus tryInitializeEllipsoid(
       const RoshanImageSummaryInfo &refined_bb_context,

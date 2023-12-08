@@ -638,7 +638,8 @@ class ObjectPoseGraphOptimizer {
       std::optional<vslam_types_refactor::OptimizationLogger> &opt_logger,
       // This is a hack for Ceres < 2+
       std::vector<ceres::ResidualBlockId> *residual_block_id_ptrs = nullptr,
-      std::vector<double> *residual_ptrs = nullptr) {
+      std::vector<double> *residual_ptrs = nullptr,
+      std::shared_ptr<ceres::Solver::Summary> solver_summary = nullptr) {
 #ifdef RUN_TIMERS
     CumulativeFunctionTimer::Invocation invoc(
         vslam_types_refactor::CumulativeTimerFactory::getInstance()
@@ -690,6 +691,9 @@ class ObjectPoseGraphOptimizer {
       }
       problem->Evaluate(eval_options, nullptr, residual_ptrs, nullptr, nullptr);
     }
+    if (solver_summary != nullptr) {
+      *solver_summary = summary;
+    }
 
     if ((summary.termination_type == ceres::TerminationType::FAILURE) ||
         (summary.termination_type == ceres::TerminationType::USER_FAILURE)) {
@@ -710,10 +714,11 @@ class ObjectPoseGraphOptimizer {
   bool solveOptimization(
       ceres::Problem *problem,
       const pose_graph_optimization::OptimizationSolverParams &solver_params,
-      const std::vector<std::shared_ptr<ceres::IterationCallback>> callbacks,
+      const std::vector<std::shared_ptr<ceres::IterationCallback>> &callbacks,
       std::optional<vslam_types_refactor::OptimizationLogger> &opt_logger,
       std::shared_ptr<std::unordered_map<ceres::ResidualBlockId, double>>
-          block_ids_and_residuals_ptr = nullptr) {
+          block_ids_and_residuals_ptr = nullptr,
+      std::shared_ptr<ceres::Solver::Summary> solver_summary = nullptr) {
 #ifdef RUN_TIMERS
     CumulativeFunctionTimer::Invocation invoc(
         vslam_types_refactor::CumulativeTimerFactory::getInstance()
@@ -763,6 +768,9 @@ class ObjectPoseGraphOptimizer {
         const double &residual = residuals[i];
         block_ids_and_residuals_ptr->insert({block_id, residual});
       }
+    }
+    if (solver_summary != nullptr) {
+      *solver_summary = summary;
     }
 
     if ((summary.termination_type == ceres::TerminationType::FAILURE) ||

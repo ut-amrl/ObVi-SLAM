@@ -592,8 +592,9 @@ class FeatureBasedBoundingBoxFrontEnd
   }
 
   virtual void setupInitialEstimateGeneration(
-      const std::vector<AssociatedObjectIdentifier> &bounding_box_assignments)
-      override {
+      const std::vector<AssociatedObjectIdentifier> &bounding_box_assignments,
+      const FrameId &frame_id,
+      const CameraId &camera_id) override {
     std::unordered_map<ObjectId, EllipsoidState<double>>
         rough_initial_estimates;
     std::unordered_map<
@@ -648,7 +649,9 @@ class FeatureBasedBoundingBoxFrontEnd
             rough_initial_estimates,
             uninitialized_obj_info_for_pending_objs,
             FeatureBasedBoundingBoxFrontEnd::pose_graph_,
-            association_params_.pending_obj_estimator_params_);
+            association_params_.pending_obj_estimator_params_,
+            frame_id,
+            camera_id);
     for (const auto &pending_obj_initial_est : refined_initial_estimates) {
       FeatureBasedBoundingBoxFrontEnd::uninitialized_object_info_
           [pending_obj_initial_est.first]

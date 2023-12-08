@@ -4,6 +4,7 @@
 
 #include <ceres/ceres.h>
 #include <ceres/problem.h>
+#include <debugging/optimization_logger.h>
 #include <refactoring/bounding_box_frontend/feature_based_bounding_box_front_end.h>
 #include <refactoring/bounding_box_frontend/pending_object_estimator.h>
 #include <refactoring/factors/bounding_box_factor.h>
@@ -24,7 +25,16 @@ refineInitialEstimateForPendingObjects(
         &uninitialized_obj_info,
     const std::shared_ptr<vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
         VisualFeatureFactorType>> &pose_graph,
-    const PendingObjectEstimatorParams &estimator_params) {
+    const PendingObjectEstimatorParams &estimator_params,
+    const FrameId &frame_id,
+    const CameraId &camera_id) {
+#ifdef RUN_TIMERS
+  CumulativeFunctionTimer::Invocation pending_est_refinement_invoc(
+      CumulativeTimerFactory::getInstance()
+          .getOrCreateFunctionTimer(
+              kTimerNameRefineInitialEstimateForPendingObjects)
+          .get());
+#endif
   ceres::Problem problem;
   std::unordered_map<ObjectId, EllipsoidEstimateNode> raw_ests;
   std::unordered_map<FrameId, RobotPoseNode> robot_pose_nodes;
@@ -122,6 +132,15 @@ refineInitialEstimateForPendingObjects(
     LOG(ERROR) << "Ceres optimization failed for pending  object estimation";
     exit(1);
   }
+  std::string opt_identifier =
+      std::to_string(frame_id) + "_" + std::to_string(camera_id);
+  std::shared_ptr<IterationLogger> pending_obj_iter_loggger =
+      IterationLoggerFactory::getInstance()
+      .getOrCreateLoggerOfType(
+          IterationLoggerFactory::kPendingEstimatorOptimizationType);
+  if (pending_obj_iter_loggger != nullptr) {
+    pending_obj_iter_loggger->logIterations(opt_identifier, summary);
+  }
   LOG(INFO) << "Optimization complete";
   std::unordered_map<ObjectId, EllipsoidState<double>> updated_estimates;
   for (const auto &ellipsoid_node : raw_ests) {
@@ -142,5 +161,7 @@ refineInitialEstimateForPendingObjects(
         &uninitialized_obj_info,
     const std::shared_ptr<vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
         ReprojectionErrorFactor>> &pose_graph,
-    const PendingObjectEstimatorParams &estimator_params);
+    const PendingObjectEstimatorParams &estimator_params,
+    const FrameId &frame_id,
+    const CameraId &camera_id);
 }  // namespace vslam_types_refactor
