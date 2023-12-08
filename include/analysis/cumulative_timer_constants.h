@@ -10,10 +10,14 @@
 namespace vslam_types_refactor {
 const std::string kTimerNameFullTrajectoryExecution =
     "full_trajectory_execution";
-const std::string kTimerNameOfflineProblemRunnerOnlinePortionPlusVis = "online_plus_vis";
-const std::string kTimerNameOfflineProblemRunnerOfflinePortionPlusVis = "offline_plus_vis";
-const std::string kTimerNameVisFunctionOnline = "visualization_top_level_online";
-const std::string kTimerNameVisFunctionOffline = "visualization_top_level_offline";
+const std::string kTimerNameOfflineProblemRunnerOnlinePortionPlusVis =
+    "online_plus_vis";
+const std::string kTimerNameOfflineProblemRunnerOfflinePortionPlusVis =
+    "offline_plus_vis";
+const std::string kTimerNameVisFunctionOnline =
+    "visualization_top_level_online";
+const std::string kTimerNameVisFunctionOffline =
+    "visualization_top_level_offline";
 const std::string kTimerNameVisualFrontendFunction =
     "visual_frontend_top_level";
 const std::string kTimerNameResidualCreator = "residual_creator_top";
@@ -57,12 +61,14 @@ const std::string kTimerNameMapMergeObjOnlyPgoOptFeatAdjustSolve =
 
 const std::string kTimerNameLbaPoseGraphCopy = "lba_pose_graph_copy";
 const std::string kTimerNameGbaPoseGraphCopy = "gba_pose_graph_copy";
-const std::string kTimerNameMapMergeGbaPoseGraphCopy = "map_merge_gba_pose_graph_copy";
+const std::string kTimerNameMapMergeGbaPoseGraphCopy =
+    "map_merge_gba_pose_graph_copy";
 
-
+const std::string kTimerNameIterationLoggerWrite = "iteration_logger_write";
 const std::string kTimerNameLbaOptLoggerWrite = "lba_opt_logger_write";
 const std::string kTimerNameGbaOptLoggerWrite = "gba_opt_logger_write";
-const std::string kTimerNameMapMergeGbaOptLoggerWrite = "map_merge_gba_opt_logger_write";
+const std::string kTimerNameMapMergeGbaOptLoggerWrite =
+    "map_merge_gba_opt_logger_write";
 
 const std::string kTimerNameLocalBundleAdjustment = "local_bundle_adjustment";
 const std::string kTimerNameConsecutivePosesStable = "consecutive_pose_stable";
@@ -130,6 +136,8 @@ const std::string kTimerNameFeatBasedBbFrontEndCleanUpBbAssocRound =
     "feat_based_bb_front_end_clean_up_bb_assoc_round";
 const std::string kTimerNameFeatBasedBbFrontEndSetupInitialEstimateGeneration =
     "feat_based_bb_front_end_setup_initial_estimate_generation";
+const std::string kTimerNameRefineInitialEstimateForPendingObjects =
+    "bb_front_end_refine_initial_estimate";
 const std::string kTimerNameFeatBasedBbFrontEndTryInitializeEllipsoid =
     "feat_based_bb_front_end_try_initialize_ellipsoid";
 const std::string kTimerNameFeatBasedBbFrontEndMergeExistingPendingObjects =

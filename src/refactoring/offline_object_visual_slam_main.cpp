@@ -392,7 +392,8 @@ void visualizationStub(
       sleep(3);
       break;
     case vtr::BEFORE_EACH_OPTIMIZATION:
-      // TODO comment this out when close to final config so we have data other than rosbag
+      // TODO comment this out when close to final config so we have data other
+      // than rosbag
       if ((max_frame_optimized == final_frame_id) &&
           (!output_checkpoints_dir.empty())) {
         LOG(INFO) << "Dumping pose graph before final opt";
@@ -672,6 +673,8 @@ int main(int argc, char **argv) {
     opt_logger = vtr::OptimizationLogger(
         file_io::ensureDirectoryPathEndsWithSlash(FLAGS_logs_directory) +
         kCeresOptInfoLogFile);
+    vtr::IterationLoggerFactory::getInstance().setLoggingDirectory(
+        FLAGS_logs_directory);
   }
   FLAGS_colorlogtostderr = true;
 
@@ -1101,6 +1104,8 @@ int main(int argc, char **argv) {
     vtr::writeRobotPoseResults(FLAGS_robot_poses_results_file,
                                output_results.robot_pose_results_);
   }
+
+  vtr::IterationLoggerFactory::getInstance().writeAllIterationLoggerStates();
 
   return 0;
 }

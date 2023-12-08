@@ -201,7 +201,7 @@ class AbstractBoundingBoxFrontEnd {
       }
     }
 
-    setupInitialEstimateGeneration(bounding_box_assignments);
+    setupInitialEstimateGeneration(bounding_box_assignments, frame_id, camera_id);
     // Initialize or refine estimates
     // For each object, add information and either initialize, delay
     // initialization (until we have more information, or refine estimate (if
@@ -539,7 +539,9 @@ class AbstractBoundingBoxFrontEnd {
 
   virtual void setupInitialEstimateGeneration(
       const std::vector<AssociatedObjectIdentifier>
-          &bounding_box_assignments) = 0;
+          &bounding_box_assignments,
+      const FrameId &frame_id,
+      const CameraId &camera_id) = 0;
 
   virtual ObjectInitializationStatus tryInitializeEllipsoid(
       const RefinedBoundingBoxContextInfo &refined_bb_context,
@@ -798,7 +800,9 @@ class KnownAssociationsOptionalEllipsoidEstBoundingBoxFrontEnd
   }
 
   virtual void setupInitialEstimateGeneration(
-      const std::vector<AssociatedObjectIdentifier> &bounding_box_assignments)
+      const std::vector<AssociatedObjectIdentifier> &bounding_box_assignments,
+      const FrameId &frame_id,
+      const CameraId &camera_id)
       override {}
 
   virtual ObjectInitializationStatus tryInitializeEllipsoid(
@@ -1025,7 +1029,9 @@ class AbstractUnknownDataAssociationBbFrontEnd
 
   virtual void setupInitialEstimateGeneration(
       const std::vector<AssociatedObjectIdentifier>
-          &bounding_box_assignments) = 0;
+          &bounding_box_assignments,
+      const FrameId &frame_id,
+      const CameraId &camera_id) = 0;
 
   virtual ObjectInitializationStatus tryInitializeEllipsoid(
       const RefinedBoundingBoxContextInfo &refined_bb_context,

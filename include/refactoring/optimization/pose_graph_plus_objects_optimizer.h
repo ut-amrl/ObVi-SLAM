@@ -44,7 +44,8 @@ bool runPgoPlusEllipsoids(
     const bool &final_run,
     std::optional<vslam_types_refactor::OptimizationLogger> &opt_logger,
     std::shared_ptr<PoseGraphType> &pose_graph,
-    const bool &for_map_merge = false) {
+    const int &attempt_num = 0) {
+  bool for_map_merge = attempt_num != 0;
   // Construct set of relative pose factors
   std::vector<RelativePoseFactorInfoWithFrames> relative_pose_factors;
   relative_pose_factors.insert(relative_pose_factors.end(),
@@ -197,7 +198,8 @@ bool runPgoPlusEllipsoids(
     }
 
     if (opt_logger.has_value()) {
-      opt_logger->setOptimizationTypeParams(max_frame_id, false, true, true);
+      opt_logger->setOptimizationTypeParams(
+          max_frame_id, false, true, true, attempt_num);
     }
     optimizer.buildPoseGraphOptimization(optimization_scope_params_for_pgo,
                                          residual_params,
@@ -243,9 +245,9 @@ bool runPgoPlusEllipsoids(
             .getOrCreateFunctionTimer(non_opt_vf_adjust_timer_name)
             .get());
 #endif
-    if (opt_logger.has_value()) {
-      opt_logger->setOptimizationTypeParams(max_frame_id, true, true, false);
-    }
+//    if (opt_logger.has_value()) {
+//      opt_logger->setOptimizationTypeParams(max_frame_id, true, true, false);
+//    }
 
     std::unordered_map<FeatureId, VisualFeatureNode> feature_nodes;
     pose_graph->getFeaturePositionPtrs(feature_nodes);
@@ -280,6 +282,7 @@ bool runPgoPlusEllipsoids(
     }
   }
   if (pgo_solver_params.enable_visual_feats_only_opt_post_pgo_) {
+    std::optional<OptimizationLogger> null_logger;
     pose_graph_optimizer::OptimizationScopeParams
         optimization_scope_params_for_vf_adjustment = optimization_scope_params;
     optimization_scope_params_for_vf_adjustment.fix_poses_ = true;
@@ -300,7 +303,7 @@ bool runPgoPlusEllipsoids(
           residual_params,
           pose_graph,
           &problem,
-          opt_logger);
+          null_logger);
     }
     {
 #ifdef RUN_TIMERS
@@ -313,24 +316,37 @@ bool runPgoPlusEllipsoids(
               .get());
 #endif
       // Run optimization
+      std::shared_ptr<ceres::Solver::Summary> vf_adjust_solver_summary =
+          std::make_shared<ceres::Solver::Summary>();
       if (!optimizer.solveOptimization(
               &problem,
               final_run
                   ? pgo_solver_params.final_pgo_optimization_solver_params_
                   : pgo_solver_params.pgo_optimization_solver_params_,
               ceres_callbacks,
-              opt_logger,
-              nullptr)) {
+              null_logger,
+              nullptr,
+              vf_adjust_solver_summary)) {
         // TODO do we want to quit or just silently let this iteration fail?
         LOG(ERROR) << "Visual feature adjustment after pose-graph optimization "
                       "failed at max frame id "
                    << max_frame_id;
         return false;
       }
+
+      std::string opt_identifier = std::to_string(max_frame_id);
+      std::shared_ptr<IterationLogger> vf_adjust_logger =
+          IterationLoggerFactory::getInstance()
+              .getOrCreateLoggerOfType(
+                  IterationLoggerFactory::kVfAdjustOptimizationType);
+      if (vf_adjust_logger != nullptr) {
+        vf_adjust_logger->logIterations(
+            opt_identifier, *vf_adjust_solver_summary);
+      }
     }
-    if (opt_logger.has_value()) {
-      opt_logger->writeCurrentOptInfo();
-    }
+    //    if (opt_logger.has_value()) {
+    //      opt_logger->writeCurrentOptInfo();
+    //    }
   }
 
   return true;

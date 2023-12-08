@@ -40,7 +40,9 @@ refineInitialEstimateForPendingObjects(
         &uninitialized_obj_info,
     const std::shared_ptr<vslam_types_refactor::ObjAndLowLevelFeaturePoseGraph<
         VisualFeatureFactorType>> &pose_graph,
-    const PendingObjectEstimatorParams &estimator_params);
+    const PendingObjectEstimatorParams &estimator_params,
+    const FrameId &frame_id,
+    const CameraId &camera_id);
 
 }  // namespace vslam_types_refactor
 

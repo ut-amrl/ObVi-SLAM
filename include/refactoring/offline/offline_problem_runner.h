@@ -173,6 +173,7 @@ class OfflineProblemRunner {
 
     for (FrameId next_frame_id = first_frame; next_frame_id <= max_frame_id;
          next_frame_id++) {
+      {
 #ifdef RUN_TIMERS
       CumulativeFunctionTimer::Invocation invoc(
           CumulativeTimerFactory::getInstance()
@@ -208,6 +209,14 @@ class OfflineProblemRunner {
                                     problem)) {
         return false;
       }
+      }
+#ifdef RUN_TIMERS
+      CumulativeFunctionTimer::Invocation invoc(
+          CumulativeTimerFactory::getInstance()
+              .getOrCreateFunctionTimer(kTimerNameIterationLoggerWrite)
+              .get());
+#endif
+      IterationLoggerFactory::getInstance().writeAllIterationLoggerStates();
     }
     }
 
@@ -392,7 +401,7 @@ class OfflineProblemRunner {
 
     if (opt_logger.has_value()) {
       opt_logger->setOptimizationTypeParams(
-          next_frame_id, start_opt_with_frame == 0, false, false);
+          next_frame_id, start_opt_with_frame == 0, false, false, attempt_num);
     }
 
     bool global_ba = gba_checker_(next_frame_id);
@@ -464,13 +473,25 @@ class OfflineProblemRunner {
                       .getOrCreateFunctionTimer(local_track_solve_timer_name)
                       .get());
 #endif
+              std::shared_ptr<ceres::Solver::Summary> track_solver_summary =
+                  std::make_shared<ceres::Solver::Summary>();
               if (!optimizer_.solveOptimization(
                       &problem,
                       iteration_params.phase_one_opt_params_,
                       ceres_callbacks,
                       null_logger,
-                      nullptr)) {
+                      nullptr,
+                      track_solver_summary)) {
                 LOG(INFO) << "Tracking failed";
+              }
+              std::string opt_identifier =
+                  std::to_string(next_frame_id);
+              std::shared_ptr<IterationLogger> tracking_logger =
+                  IterationLoggerFactory::getInstance().getOrCreateLoggerOfType(
+                      IterationLoggerFactory::kPrePgoTrackOptimizationType);
+              if (tracking_logger != nullptr) {
+                tracking_logger->logIterations(
+                    opt_identifier, *track_solver_summary);
               }
             }
           }
@@ -486,7 +507,7 @@ class OfflineProblemRunner {
                                next_frame_id == max_frame_id,
                                opt_logger,
                                pose_graph,
-                               attempt_num != 0);
+                               attempt_num);
         }
         visualization_callback_(
             problem_data,
@@ -785,7 +806,7 @@ class OfflineProblemRunner {
 
           if (opt_logger.has_value()) {
             opt_logger->setOptimizationTypeParams(
-                next_frame_id, start_opt_with_frame == 0, false, true);
+                next_frame_id, start_opt_with_frame == 0, false, true, attempt_num);
           }
           pose_graph->setValuesFromAnotherPoseGraph(pose_graph_copy);
           {
