@@ -303,6 +303,24 @@ class ObjAndLowLevelFeaturePoseGraph
         max_object_id_(0),
         max_object_observation_factor_(0),
         max_obj_specific_factor_(0),
+        object_observation_factors_(
+            std::make_shared<std::unordered_map<FeatureFactorId,
+                                                ObjectObservationFactor>>()),
+        shape_dim_prior_factors_(
+            std::make_shared<
+                std::unordered_map<FeatureFactorId, ShapeDimPriorFactor>>()),
+        observation_factors_by_frame_(
+            std::make_shared<std::unordered_map<
+                FrameId,
+                util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>>()),
+        observation_factors_by_object_(
+            std::make_shared<std::unordered_map<
+                ObjectId,
+                util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>>()),
+        object_only_factors_by_object_(
+            std::make_shared<std::unordered_map<
+                ObjectId,
+                util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>>()),
         long_term_map_factor_provider_(long_term_map_factor_provider) {
     for (const auto &ltm_object : long_term_map_objects_with_semantic_class) {
       long_term_map_object_ids_.insert(ltm_object.first);
@@ -350,8 +368,8 @@ class ObjAndLowLevelFeaturePoseGraph
 
     ellipsoid_estimates_[obj_id] = new_node;
     semantic_class_for_object_[obj_id] = semantic_class;
-    object_only_factors_by_object_[obj_id] = {};
-    observation_factors_by_object_[obj_id] = {};
+    (*object_only_factors_by_object_)[obj_id] = {};
+    (*observation_factors_by_object_)[obj_id] = {};
 
     addShapeDimPriorBasedOnSemanticClass(obj_id);
   }
@@ -372,8 +390,8 @@ class ObjAndLowLevelFeaturePoseGraph
         object_id, shape_prior_params.first, shape_prior_params.second);
     FeatureFactorId new_shape_prior_factor_id = max_obj_specific_factor_ + 1;
     max_obj_specific_factor_ = new_shape_prior_factor_id;
-    shape_dim_prior_factors_[new_shape_prior_factor_id] = shape_dim_prior;
-    object_only_factors_by_object_[object_id].insert(
+    (*shape_dim_prior_factors_)[new_shape_prior_factor_id] = shape_dim_prior;
+    (*object_only_factors_by_object_)[object_id].insert(
         std::make_pair(kShapeDimPriorFactorTypeId, new_shape_prior_factor_id));
     return new_shape_prior_factor_id;
   }
@@ -402,9 +420,9 @@ class ObjAndLowLevelFeaturePoseGraph
     max_object_observation_factor_ = new_feature_factor_id;
     std::pair<FactorType, FeatureFactorId> factor_type_id_pair =
         std::make_pair(kObjectObservationFactorTypeId, new_feature_factor_id);
-    observation_factors_by_object_[object_id].insert(factor_type_id_pair);
-    object_observation_factors_[new_feature_factor_id] = observation_factor;
-    observation_factors_by_frame_[frame_id].insert(factor_type_id_pair);
+    (*observation_factors_by_object_)[object_id].insert(factor_type_id_pair);
+    (*object_observation_factors_)[new_feature_factor_id] = observation_factor;
+    (*observation_factors_by_frame_)[frame_id].insert(factor_type_id_pair);
 
     return new_feature_factor_id;
   }
@@ -416,8 +434,11 @@ class ObjAndLowLevelFeaturePoseGraph
     // note in documentation that this needs to be done
     std::vector<std::pair<FactorType, FeatureFactorId>> removed_factor_ids;
     // TODO finish filling in
+    if (observation_factors_by_frame_->find(frame_id) !=
+        observation_factors_by_frame_->end()) {
     util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
-        observation_factors_to_remove = observation_factors_by_frame_[frame_id];
+        observation_factors_to_remove =
+            observation_factors_by_frame_->at(frame_id);
     std::unordered_map<std::pair<FactorType, FeatureFactorId>,
                        ObjectObservationFactor,
                        boost::hash<std::pair<FactorType, FeatureFactorId>>>
@@ -426,8 +447,8 @@ class ObjAndLowLevelFeaturePoseGraph
          observation_factors_to_remove) {
       if (kObjectObservationFactorTypeId == feature_factor_id.first) {
         removed_factors[feature_factor_id] =
-            object_observation_factors_[feature_factor_id.second];
-        object_observation_factors_.erase(feature_factor_id.second);
+            object_observation_factors_->at(feature_factor_id.second);
+        object_observation_factors_->erase(feature_factor_id.second);
       } else {
         LOG(WARNING) << "Unexpected factor type in observation factors list";
       }
@@ -435,13 +456,15 @@ class ObjAndLowLevelFeaturePoseGraph
     }
     // TODO if we're resetting the mins/maxes for factors, need to make sure
     // that the optimizer's state is cleaned up before reusing factor ids
-    if (observation_factors_to_remove.find(std::make_pair(
-            kObjectObservationFactorTypeId, min_object_observation_factor_)) !=
+    if (observation_factors_to_remove.find(
+            std::make_pair(kObjectObservationFactorTypeId,
+                           min_object_observation_factor_)) !=
         observation_factors_to_remove.end()) {
       // TODO reset min_ellipsoid_observation_factor_ maybe?
     }
-    if (observation_factors_to_remove.find(std::make_pair(
-            kObjectObservationFactorTypeId, max_object_observation_factor_)) !=
+    if (observation_factors_to_remove.find(
+            std::make_pair(kObjectObservationFactorTypeId,
+                           max_object_observation_factor_)) !=
         observation_factors_to_remove.end()) {
       // TODO reset max_ellipsoid_observation_factor_
     }
@@ -451,20 +474,20 @@ class ObjAndLowLevelFeaturePoseGraph
           feature_factor_and_obs.first;
       ObjectObservationFactor factor = feature_factor_and_obs.second;
 
-      observation_factors_by_object_[factor.object_id_].erase(
+      (*observation_factors_by_object_)[factor.object_id_].erase(
           removed_factor_id);
       // TODO consider deleting shape prior and ellipsoid if there are no
       // observations of the ellipsoid left
       // Would need to check for emptiness, find ellispoid, remove it, find
-      // shape prior, remove it, update the min/maxes and pass the removal info
-      // up
-      // Could also add it to a queue or something to indicate that it should be
-      // removed if no observations are seen in X frames
+      // shape prior, remove it, update the min/maxes and pass the removal
+      // info up Could also add it to a queue or something to indicate that it
+      // should be removed if no observations are seen in X frames
     }
 
-    observation_factors_by_frame_.erase(frame_id);
+    observation_factors_by_frame_->erase(frame_id);
 
-    // TODO call super class function (which should also change min frame id)
+      // TODO call super class function (which should also change min frame id)
+    }
 
     return removed_factor_ids;
   }
@@ -523,7 +546,7 @@ class ObjAndLowLevelFeaturePoseGraph
       const FrameId &max_frame_id,
       util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
           &matching_observation_factor_ids) {
-    for (const auto &frame_id_and_factors : observation_factors_by_frame_) {
+    for (const auto &frame_id_and_factors : (*observation_factors_by_frame_)) {
       if ((frame_id_and_factors.first >= min_frame_id) &&
           (frame_id_and_factors.first <= max_frame_id)) {
         matching_observation_factor_ids.insert(
@@ -542,12 +565,12 @@ class ObjAndLowLevelFeaturePoseGraph
           util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>
           &matching_factors) {
     for (const ObjectId &object_id : objects) {
-      if (object_only_factors_by_object_.find(object_id) !=
-          object_only_factors_by_object_.end()) {
+      if (object_only_factors_by_object_->find(object_id) !=
+          object_only_factors_by_object_->end()) {
         // This assumes that all non-LTM object only factors are for a single
         // object. If this changes, this will have to be revised
         util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
-            factors_for_obj = object_only_factors_by_object_[object_id];
+            factors_for_obj = object_only_factors_by_object_->at(object_id);
         matching_factors[object_id].insert(factors_for_obj.begin(),
                                            factors_for_obj.end());
       }
@@ -582,22 +605,22 @@ class ObjAndLowLevelFeaturePoseGraph
   virtual bool getObjectObservationFactor(
       const FeatureFactorId &factor_id,
       ObjectObservationFactor &obs_factor) const {
-    if (object_observation_factors_.find(factor_id) ==
-        object_observation_factors_.end()) {
+    if (object_observation_factors_->find(factor_id) ==
+        object_observation_factors_->end()) {
       return false;
     }
-    obs_factor = object_observation_factors_.at(factor_id);
+    obs_factor = object_observation_factors_->at(factor_id);
     return true;
   }
 
   virtual bool getShapeDimPriorFactor(
       const FeatureFactorId &factor_id,
       ShapeDimPriorFactor &shape_dim_factor) const {
-    if (shape_dim_prior_factors_.find(factor_id) ==
-        shape_dim_prior_factors_.end()) {
+    if (shape_dim_prior_factors_->find(factor_id) ==
+        shape_dim_prior_factors_->end()) {
       return false;
     }
-    shape_dim_factor = shape_dim_prior_factors_.at(factor_id);
+    shape_dim_factor = shape_dim_prior_factors_->at(factor_id);
     return true;
   }
 
@@ -605,9 +628,9 @@ class ObjAndLowLevelFeaturePoseGraph
                         const Pose3D<double> &initial_pose_estimate) override {
     LowLevelFeaturePoseGraph<VisualFeatureFactorType>::addFrame(
         frame_id, initial_pose_estimate);
-    if (observation_factors_by_frame_.find(frame_id) ==
-        observation_factors_by_frame_.end()) {
-      observation_factors_by_frame_[frame_id] = {};
+    if (observation_factors_by_frame_->find(frame_id) ==
+        observation_factors_by_frame_->end()) {
+      (*observation_factors_by_frame_)[frame_id] = {};
     }
   }
 
@@ -650,20 +673,20 @@ class ObjAndLowLevelFeaturePoseGraph
   bool getObservationFactorsForObjId(
       const ObjectId &obj_id,
       std::vector<ObjectObservationFactor> &observation_factors) {
-    if (observation_factors_by_object_.find(obj_id) ==
-        observation_factors_by_object_.end()) {
+    if (observation_factors_by_object_->find(obj_id) ==
+        observation_factors_by_object_->end()) {
       return false;
     }
 
     util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
         observation_factor_infos_for_obj =
-            observation_factors_by_object_.at(obj_id);
+            observation_factors_by_object_->at(obj_id);
     for (const std::pair<FactorType, FeatureFactorId> &obs_factor_info :
          observation_factor_infos_for_obj) {
       ObjectObservationFactor obs_factor;
       if (getObjectObservationFactor(obs_factor_info.second, obs_factor)) {
         observation_factors.emplace_back(
-            object_observation_factors_.at(obs_factor_info.second));
+            object_observation_factors_->at(obs_factor_info.second));
       } else {
         LOG(WARNING) << "Found id " << obs_factor_info.second
                      << " for object observation factor, but there was "
@@ -683,11 +706,11 @@ class ObjAndLowLevelFeaturePoseGraph
                    << factor_info.first;
       return false;
     }
-    if (object_observation_factors_.find(factor_info.second) ==
-        object_observation_factors_.end()) {
+    if (object_observation_factors_->find(factor_info.second) ==
+        object_observation_factors_->end()) {
       return false;
     }
-    object_id = object_observation_factors_.at(factor_info.second).object_id_;
+    object_id = object_observation_factors_->at(factor_info.second).object_id_;
     return true;
   }
 
@@ -719,7 +742,7 @@ class ObjAndLowLevelFeaturePoseGraph
     std::unordered_set<ObjectId> objects_to_remove;
     for (const auto &merge_group : objects_to_merge) {
       LOG(INFO) << "Object being merged into originally has "
-                << observation_factors_by_object_.at(merge_group.first).size()
+                << observation_factors_by_object_->at(merge_group.first).size()
                 << " factors.";
       for (const ObjectId &merge_obj : merge_group.second) {
         if (objects_to_remove.find(merge_obj) != objects_to_remove.end()) {
@@ -737,31 +760,31 @@ class ObjAndLowLevelFeaturePoseGraph
         }
         util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
             observation_factors_for_merge_target =
-                observation_factors_by_object_.at(merge_obj);
+                observation_factors_by_object_->at(merge_obj);
         LOG(INFO) << "Merging " << observation_factors_for_merge_target.size()
                   << " factors from object " << merge_obj << " into "
                   << merge_group.first;
         for (const std::pair<FactorType, FeatureFactorId> &
                  observation_factor_id : observation_factors_for_merge_target) {
           if (observation_factor_id.first == kObjectObservationFactorTypeId) {
-            if (object_observation_factors_.find(
+            if (object_observation_factors_->find(
                     observation_factor_id.second) ==
-                object_observation_factors_.end()) {
+                object_observation_factors_->end()) {
               LOG(WARNING)
                   << "Could not find object observation factor with id "
                   << observation_factor_id.second << " skipping";
             } else {
-              object_observation_factors_[observation_factor_id.second]
+              (*object_observation_factors_)[observation_factor_id.second]
                   .object_id_ = merge_group.first;
               last_observed_frame_by_object_[merge_group.first] = std::max(
                   last_observed_frame_by_object_[merge_group.first],
-                  object_observation_factors_[observation_factor_id.second]
+                  (*object_observation_factors_)[observation_factor_id.second]
                       .frame_id_);
               first_observed_frame_by_object_[merge_group.first] = std::max(
                   first_observed_frame_by_object_[merge_group.first],
-                  object_observation_factors_[observation_factor_id.second]
+                  (*object_observation_factors_)[observation_factor_id.second]
                       .frame_id_);
-              observation_factors_by_object_[merge_group.first].insert(
+              (*observation_factors_by_object_)[merge_group.first].insert(
                   observation_factor_id);
             }
           } else {
@@ -773,7 +796,7 @@ class ObjAndLowLevelFeaturePoseGraph
       objects_to_remove.insert(merge_group.second.begin(),
                                merge_group.second.end());
       LOG(INFO) << "Object " << merge_group.first << " now has "
-                << observation_factors_by_object_.at(merge_group.first).size()
+                << observation_factors_by_object_->at(merge_group.first).size()
                 << " factors";
     }
 
@@ -791,18 +814,18 @@ class ObjAndLowLevelFeaturePoseGraph
       // TODO do we need to do anything else to clean these up?
       util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
           object_only_factors_for_obj =
-              object_only_factors_by_object_.at(object_to_remove);
+              object_only_factors_by_object_->at(object_to_remove);
       for (const std::pair<FactorType, FeatureFactorId> &obj_only_factor :
            object_only_factors_for_obj) {
         if (obj_only_factor.first == kShapeDimPriorFactorTypeId) {
-          shape_dim_prior_factors_.erase(obj_only_factor.second);
+          shape_dim_prior_factors_->erase(obj_only_factor.second);
         } else {
           LOG(WARNING) << "Unexpected factor type for object only factor "
                        << obj_only_factor.first << "Ignoring";
         }
       }
-      object_only_factors_by_object_.erase(object_to_remove);
-      observation_factors_by_object_.erase(object_to_remove);
+      object_only_factors_by_object_->erase(object_to_remove);
+      observation_factors_by_object_->erase(object_to_remove);
     }
 
     ObjectId tmp_min = std::numeric_limits<ObjectId>::max();
@@ -833,14 +856,24 @@ class ObjAndLowLevelFeaturePoseGraph
     min_obj_specific_factor_ = pose_graph_state.min_obj_specific_factor_;
     max_obj_specific_factor_ = pose_graph_state.max_obj_specific_factor_;
     long_term_map_object_ids_ = pose_graph_state.long_term_map_object_ids_;
-    object_observation_factors_ = pose_graph_state.object_observation_factors_;
-    shape_dim_prior_factors_ = pose_graph_state.shape_dim_prior_factors_;
-    observation_factors_by_frame_ =
-        pose_graph_state.observation_factors_by_frame_;
-    observation_factors_by_object_ =
-        pose_graph_state.observation_factors_by_object_;
-    object_only_factors_by_object_ =
-        pose_graph_state.object_only_factors_by_object_;
+    object_observation_factors_ = std::make_shared<
+        std::unordered_map<FeatureFactorId, ObjectObservationFactor>>(
+        pose_graph_state.object_observation_factors_);
+    shape_dim_prior_factors_ = std::make_shared<
+        std::unordered_map<FeatureFactorId, ShapeDimPriorFactor>>(
+        pose_graph_state.shape_dim_prior_factors_);
+    observation_factors_by_frame_ = std::make_shared<std::unordered_map<
+        FrameId,
+        util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>>(
+        pose_graph_state.observation_factors_by_frame_);
+    observation_factors_by_object_ = std::make_shared<std::unordered_map<
+        ObjectId,
+        util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>>(
+        pose_graph_state.observation_factors_by_object_);
+    object_only_factors_by_object_ = std::make_shared<std::unordered_map<
+        ObjectId,
+        util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>>(
+        pose_graph_state.object_only_factors_by_object_);
 
     for (const auto &ellipsoid_est : pose_graph_state.ellipsoid_estimates_) {
       ellipsoid_estimates_[ellipsoid_est.first] =
@@ -868,14 +901,14 @@ class ObjAndLowLevelFeaturePoseGraph
     pose_graph_state.min_obj_specific_factor_ = min_obj_specific_factor_;
     pose_graph_state.max_obj_specific_factor_ = max_obj_specific_factor_;
     pose_graph_state.long_term_map_object_ids_ = long_term_map_object_ids_;
-    pose_graph_state.object_observation_factors_ = object_observation_factors_;
-    pose_graph_state.shape_dim_prior_factors_ = shape_dim_prior_factors_;
+    pose_graph_state.object_observation_factors_ = *object_observation_factors_;
+    pose_graph_state.shape_dim_prior_factors_ = *shape_dim_prior_factors_;
     pose_graph_state.observation_factors_by_frame_ =
-        observation_factors_by_frame_;
+        *observation_factors_by_frame_;
     pose_graph_state.observation_factors_by_object_ =
-        observation_factors_by_object_;
+        *observation_factors_by_object_;
     pose_graph_state.object_only_factors_by_object_ =
-        object_only_factors_by_object_;
+        *object_only_factors_by_object_;
 
     for (const auto &ellipsoid_est : ellipsoid_estimates_) {
       pose_graph_state.ellipsoid_estimates_[ellipsoid_est.first] =
@@ -915,20 +948,23 @@ class ObjAndLowLevelFeaturePoseGraph
 
   std::unordered_set<ObjectId> long_term_map_object_ids_;
 
-  std::unordered_map<FeatureFactorId, ObjectObservationFactor>
+  std::shared_ptr<std::unordered_map<FeatureFactorId, ObjectObservationFactor>>
       object_observation_factors_;
-  std::unordered_map<FeatureFactorId, ShapeDimPriorFactor>
+  std::shared_ptr<std::unordered_map<FeatureFactorId, ShapeDimPriorFactor>>
       shape_dim_prior_factors_;
 
-  std::unordered_map<FrameId,
-                     util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>
+  std::shared_ptr<std::unordered_map<
+      FrameId,
+      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>>
       observation_factors_by_frame_;
 
-  std::unordered_map<ObjectId,
-                     util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>
+  std::shared_ptr<std::unordered_map<
+      ObjectId,
+      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>>
       observation_factors_by_object_;
-  std::unordered_map<ObjectId,
-                     util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>
+  std::shared_ptr<std::unordered_map<
+      ObjectId,
+      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>>
       object_only_factors_by_object_;
 
   std::function<bool(const std::unordered_set<ObjectId> &,
@@ -979,7 +1015,8 @@ class ObjectAndReprojectionFeaturePoseGraph
   /**
    * WARNING: This only makes a shallow copy, so make sure that's what you want.
    * If you want a deep(er) copy (some things are assumed to be unchanging even
-   * if there is a reference), call makeDeepCopy instead.
+   * if there is a reference), call makeDeepCopy or makeCopyDeepCopyValues
+   * instead.
    * @param other
    */
   ObjectAndReprojectionFeaturePoseGraph(
@@ -1003,12 +1040,13 @@ class ObjectAndReprojectionFeaturePoseGraph
     std::unordered_map<FeatureId, VisualFeatureNode> feature_positions;
     pose_graph->getFeaturePositionPtrs(feature_positions);
     for (const auto &feature_position : feature_positions) {
-      this->feature_positions_[feature_position.first]
+      (*(this->feature_positions_))[feature_position.first]
           .updateVisualPositionParams(feature_position.second.position_);
     }
   }
 
-  std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> makeDeepCopy() const {
+  std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph>
+  makeCopyDeepCopyValues() const {
     std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> copy;
     {
 #ifdef RUN_TIMERS
@@ -1029,13 +1067,13 @@ class ObjectAndReprojectionFeaturePoseGraph
               .getOrCreateFunctionTimer(kTimerNamePoseGraphCopyObjs)
               .get());
 #endif
-    for (const auto &ellipsoid_est : this->ellipsoid_estimates_) {
-      ellipsoid_estimates_copy[ellipsoid_est.first] =
-          ellipsoid_est.second.makeDeepCopy();
-    }
+      for (const auto &ellipsoid_est : this->ellipsoid_estimates_) {
+        ellipsoid_estimates_copy[ellipsoid_est.first] =
+            ellipsoid_est.second.makeDeepCopy();
+      }
 
-    // ObjectAndReprojectionFeaturePoseGraph::ellipsoid_estimates_ =
-    //     ellipsoid_estimates_copy;
+      // ObjectAndReprojectionFeaturePoseGraph::ellipsoid_estimates_ =
+      //     ellipsoid_estimates_copy;
     }
 
     std::unordered_map<FrameId, RobotPoseNode> robot_poses_copy;
@@ -1046,11 +1084,11 @@ class ObjectAndReprojectionFeaturePoseGraph
               .getOrCreateFunctionTimer(kTimerNamePoseGraphCopyPoses)
               .get());
 #endif
-    for (const auto &robot_pose_est : this->robot_poses_) {
-      robot_poses_copy[robot_pose_est.first] =
-          robot_pose_est.second.makeDeepCopy();
-    }
-    // ObjectAndReprojectionFeaturePoseGraph::robot_poses_ = robot_poses_copy;
+      for (const auto &robot_pose_est : this->robot_poses_) {
+        robot_poses_copy[robot_pose_est.first] =
+            robot_pose_est.second.makeDeepCopy();
+      }
+      // ObjectAndReprojectionFeaturePoseGraph::robot_poses_ = robot_poses_copy;
     }
 
     std::unordered_map<FeatureId, VisualFeatureNode> feature_positions_copy;
@@ -1061,11 +1099,10 @@ class ObjectAndReprojectionFeaturePoseGraph
               .getOrCreateFunctionTimer(kTimerNamePoseGraphCopyVfs)
               .get());
 #endif
-    for (const auto &feature_pos_est : this->feature_positions_) {
-      feature_positions_copy[feature_pos_est.first] =
-          feature_pos_est.second.makeDeepCopy();
-    }
-
+      for (const auto &feature_pos_est : *(this->feature_positions_)) {
+        feature_positions_copy[feature_pos_est.first] =
+            feature_pos_est.second.makeDeepCopy();
+      }
     }
     // ObjectAndReprojectionFeaturePoseGraph::feature_positions_ =
     //     feature_positions_copy;
@@ -1076,10 +1113,70 @@ class ObjectAndReprojectionFeaturePoseGraph
               .getOrCreateFunctionTimer(kTimerNamePoseGraphCopySetUpdatedVals)
               .get());
 #endif
-    copy->setEllipsoidEstimatePtrs(ellipsoid_estimates_copy);
-    copy->setRobotPosePtrs(robot_poses_copy);
-    copy->setFeaturePositionPtrs(feature_positions_copy);
+      copy->setEllipsoidEstimatePtrs(ellipsoid_estimates_copy);
+      copy->setRobotPosePtrs(robot_poses_copy);
+      copy->setFeaturePositionPtrs(feature_positions_copy);
     }
+    return copy;
+  }
+
+  std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> makeDeepCopy() const {
+    std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> copy;
+    {
+#ifdef RUN_TIMERS
+      CumulativeFunctionTimer::Invocation invoc(
+          CumulativeTimerFactory::getInstance()
+              .getOrCreateFunctionTimer(kTimerNamePoseGraphCopyNewPointer)
+              .get());
+#endif
+      copy = makeCopyDeepCopyValues();
+    }
+
+    // Visual & pose factor deep copies
+    copy->pose_factors_by_frame_ = std::make_shared<std::unordered_map<
+        FrameId,
+        util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>>(
+        *pose_factors_by_frame_);
+    copy->visual_feature_factors_by_frame_ =
+        std::make_shared<std::unordered_map<
+            FrameId,
+            std::vector<std::pair<FactorType, FeatureFactorId>>>>(
+            *visual_feature_factors_by_frame_);
+    copy->visual_factors_by_feature_ = std::make_shared<std::unordered_map<
+        FeatureId,
+        util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>>(
+        *visual_factors_by_feature_);
+    copy->pose_factors_ =
+        std::make_shared<std::unordered_map<FeatureFactorId, RelPoseFactor>>(
+            *pose_factors_);
+    copy->factors_ = std::make_shared<
+        std::unordered_map<FeatureFactorId, ReprojectionErrorFactor>>(
+        *factors_);
+
+    // Object factor deep copies
+    copy->object_observation_factors_ = std::make_shared<
+        std::unordered_map<FeatureFactorId, ObjectObservationFactor>>(
+        *object_observation_factors_);
+
+    copy->shape_dim_prior_factors_ = std::make_shared<
+        std::unordered_map<FeatureFactorId, ShapeDimPriorFactor>>(
+        *shape_dim_prior_factors_);
+
+    copy->observation_factors_by_frame_ = std::make_shared<std::unordered_map<
+        FrameId,
+        util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>>(
+        *observation_factors_by_frame_);
+
+    copy->observation_factors_by_object_ = std::make_shared<std::unordered_map<
+        ObjectId,
+        util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>>(
+        *observation_factors_by_object_);
+
+    copy->object_only_factors_by_object_ = std::make_shared<std::unordered_map<
+        ObjectId,
+        util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>>(
+        *object_only_factors_by_object_);
+
     return copy;
   }
 
