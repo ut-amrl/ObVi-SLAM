@@ -5,6 +5,8 @@
 #ifndef UT_VSLAM_OBJECT_POSE_GRAPH_H
 #define UT_VSLAM_OBJECT_POSE_GRAPH_H
 
+#include <analysis/cumulative_timer_constants.h>
+#include <analysis/cumulative_timer_factory.h>
 #include <base_lib/basic_utils.h>
 #include <glog/logging.h>
 #include <refactoring/optimization/low_level_feature_pose_graph.h>
@@ -1012,30 +1014,64 @@ class ObjectAndReprojectionFeaturePoseGraph
     // Reset the fields that we don't just want a shallow copy of
     std::unordered_map<ObjectId, EllipsoidEstimateNode>
         ellipsoid_estimates_copy;
+    {
+#ifdef RUN_TIMERS
+      CumulativeFunctionTimer::Invocation invoc(
+          CumulativeTimerFactory::getInstance()
+              .getOrCreateFunctionTimer(kTimerNamePoseGraphCopyObjs)
+              .get());
+#endif
     for (const auto &ellipsoid_est : this->ellipsoid_estimates_) {
       ellipsoid_estimates_copy[ellipsoid_est.first] =
           ellipsoid_est.second.makeDeepCopy();
     }
-    copy->setEllipsoidEstimatePtrs(ellipsoid_estimates_copy);
+
     // ObjectAndReprojectionFeaturePoseGraph::ellipsoid_estimates_ =
     //     ellipsoid_estimates_copy;
+    }
 
     std::unordered_map<FrameId, RobotPoseNode> robot_poses_copy;
+    {
+#ifdef RUN_TIMERS
+      CumulativeFunctionTimer::Invocation invoc(
+          CumulativeTimerFactory::getInstance()
+              .getOrCreateFunctionTimer(kTimerNamePoseGraphCopyPoses)
+              .get());
+#endif
     for (const auto &robot_pose_est : this->robot_poses_) {
       robot_poses_copy[robot_pose_est.first] =
           robot_pose_est.second.makeDeepCopy();
     }
-    copy->setRobotPosePtrs(robot_poses_copy);
     // ObjectAndReprojectionFeaturePoseGraph::robot_poses_ = robot_poses_copy;
+    }
 
     std::unordered_map<FeatureId, VisualFeatureNode> feature_positions_copy;
+    {
+#ifdef RUN_TIMERS
+      CumulativeFunctionTimer::Invocation invoc(
+          CumulativeTimerFactory::getInstance()
+              .getOrCreateFunctionTimer(kTimerNamePoseGraphCopyVfs)
+              .get());
+#endif
     for (const auto &feature_pos_est : this->feature_positions_) {
       feature_positions_copy[feature_pos_est.first] =
           feature_pos_est.second.makeDeepCopy();
     }
-    copy->setFeaturePositionPtrs(feature_positions_copy);
+
+    }
     // ObjectAndReprojectionFeaturePoseGraph::feature_positions_ =
     //     feature_positions_copy;
+    {
+#ifdef RUN_TIMERS
+      CumulativeFunctionTimer::Invocation invoc(
+          CumulativeTimerFactory::getInstance()
+              .getOrCreateFunctionTimer(kTimerNamePoseGraphCopySetUpdatedVals)
+              .get());
+#endif
+    copy->setEllipsoidEstimatePtrs(ellipsoid_estimates_copy);
+    copy->setRobotPosePtrs(robot_poses_copy);
+    copy->setFeaturePositionPtrs(feature_positions_copy);
+    }
     return copy;
   }
 
