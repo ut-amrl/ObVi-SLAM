@@ -591,7 +591,7 @@ class OfflineProblemRunner {
                 .getOrCreateFunctionTimer(pg_copy_timer_name)
                 .get());
 #endif
-        pose_graph_copy = pose_graph->makeDeepCopy();
+        pose_graph_copy = pose_graph->makeCopyDeepCopyValues();
         }
         LOG(INFO) << "Solving optimization";
         bool phase1_optim_success;

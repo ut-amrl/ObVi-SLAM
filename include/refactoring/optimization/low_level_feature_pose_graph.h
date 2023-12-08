@@ -31,9 +31,7 @@ struct RobotPoseNode {
   RobotPoseNode(RawPose3d<double> &pose)
       : pose_(std::make_shared<RawPose3d<double>>(pose)) {}
 
-  RobotPoseNode makeDeepCopy() const {
-    return RobotPoseNode(*pose_);
-  }
+  RobotPoseNode makeDeepCopy() const { return RobotPoseNode(*pose_); }
 
   void updateRobotPoseParams(const RawPose3d<double> &pose) {
     pose_->topRows(6) = pose;
@@ -258,7 +256,24 @@ class LowLevelFeaturePoseGraph {
         min_frame_id_(std::numeric_limits<FrameId>::max()),
         max_frame_id_(std::numeric_limits<FrameId>::min()),
         max_feature_factor_id_(0),
-        max_pose_factor_id_(0) {}
+        max_pose_factor_id_(0),
+        pose_factors_by_frame_(
+            std::make_shared<std::unordered_map<
+                FrameId,
+                util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>>()),
+        visual_feature_factors_by_frame_(
+            std::make_shared<std::unordered_map<
+                FrameId,
+                std::vector<std::pair<FactorType, FeatureFactorId>>>>()),
+        visual_factors_by_feature_(
+            std::make_shared<std::unordered_map<
+                FeatureId,
+                util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>>()),
+        pose_factors_(std::make_shared<
+                      std::unordered_map<FeatureFactorId, RelPoseFactor>>()),
+        factors_(
+            std::make_shared<std::unordered_map<FeatureFactorId,
+                                                VisualFeatureFactorType>>()) {}
 
   virtual ~LowLevelFeaturePoseGraph() = default;
   virtual bool getExtrinsicsForCamera(
@@ -358,7 +373,7 @@ class LowLevelFeaturePoseGraph {
       util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
           &matching_factors) {
     for (const auto &frame_and_matching_factors :
-         visual_feature_factors_by_frame_) {
+         *visual_feature_factors_by_frame_) {
       if ((frame_and_matching_factors.first >= min_frame_id) &&
           (frame_and_matching_factors.first <= max_frame_id)) {
         matching_factors.insert(frame_and_matching_factors.second.begin(),
@@ -381,8 +396,9 @@ class LowLevelFeaturePoseGraph {
       const FrameId &max_frame_id,
       util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>
           &matching_factors) {
-    for (const auto &factor_type_and_id : pose_factors_by_frame_.at(frame_id)) {
-      RelPoseFactor factor = pose_factors_.at(factor_type_and_id.second);
+    for (const auto &factor_type_and_id :
+         pose_factors_by_frame_->at(frame_id)) {
+      RelPoseFactor factor = pose_factors_->at(factor_type_and_id.second);
       if (factor.frame_id_1_ >= min_frame_id &&
           factor.frame_id_2_ <= max_frame_id) {
         matching_factors.insert(factor_type_and_id);
@@ -401,19 +417,19 @@ class LowLevelFeaturePoseGraph {
   virtual bool getVisualFactor(
       const FeatureFactorId &factor_id,
       VisualFeatureFactorType &visual_feature_factor) const {
-    if (factors_.find(factor_id) == factors_.end()) {
+    if (factors_->find(factor_id) == factors_->end()) {
       return false;
     }
-    visual_feature_factor = factors_.at(factor_id);
+    visual_feature_factor = factors_->at(factor_id);
     return true;
   }
 
   virtual bool getPoseFactor(const FeatureFactorId &factor_id,
                              RelPoseFactor &pose_factor) const {
-    if (pose_factors_.find(factor_id) == pose_factors_.end()) {
+    if (pose_factors_->find(factor_id) == pose_factors_->end()) {
       return false;
     }
-    pose_factor = pose_factors_.at(factor_id);
+    pose_factor = pose_factors_->at(factor_id);
     return true;
   }
 
@@ -426,7 +442,7 @@ class LowLevelFeaturePoseGraph {
       max_frame_id_ = frame_id;
     }
 
-    visual_feature_factors_by_frame_[frame_id] = {};
+    (*visual_feature_factors_by_frame_)[frame_id] = {};
     RawPose3d<double> raw_pose = convertPoseToArray(initial_pose_estimate);
     robot_poses_[frame_id] = RobotPoseNode(raw_pose);
   }
@@ -441,13 +457,14 @@ class LowLevelFeaturePoseGraph {
     std::pair<FactorType, FeatureFactorId> factor_id_pair =
         std::make_pair(factor.getFactorType(), factor_id);
     for (const FrameId &frame_id : ordered_frame_ids) {
-      visual_feature_factors_by_frame_[frame_id].emplace_back(factor_id_pair);
+      (*visual_feature_factors_by_frame_)[frame_id].emplace_back(
+          factor_id_pair);
     }
 
     FeatureId feature_id = factor.feature_id_;
-    visual_factors_by_feature_[feature_id].insert(factor_id_pair);
+    (*visual_factors_by_feature_)[feature_id].insert(factor_id_pair);
 
-    factors_[factor_id] = factor;
+    (*factors_)[factor_id] = factor;
 
     FrameId smallest_frame_id = ordered_frame_ids.front();
     FrameId largest_frame_id = ordered_frame_ids.back();
@@ -472,9 +489,9 @@ class LowLevelFeaturePoseGraph {
     std::pair<FactorType, FeatureFactorId> factor_id_pair =
         std::make_pair(factor.getFactorType(), factor_id);
     for (const FrameId &frame_id : ordered_frame_ids) {
-      pose_factors_by_frame_[frame_id].insert(factor_id_pair);
+      (*pose_factors_by_frame_)[frame_id].insert(factor_id_pair);
     }
-    pose_factors_[factor_id] = factor;
+    (*pose_factors_)[factor_id] = factor;
     return factor_id;
   }
 
@@ -498,12 +515,12 @@ class LowLevelFeaturePoseGraph {
   bool getFactorsForFeature(
       const FeatureId &feat_id,
       util::BoostHashSet<std::pair<FactorType, FeatureFactorId>> &factors) {
-    if (visual_factors_by_feature_.find(feat_id) ==
-        visual_factors_by_feature_.end()) {
+    if (visual_factors_by_feature_->find(feat_id) ==
+        visual_factors_by_feature_->end()) {
       return false;
     }
 
-    factors = visual_factors_by_feature_.at(feat_id);
+    factors = visual_factors_by_feature_->at(feat_id);
     return true;
   }
 
@@ -517,10 +534,10 @@ class LowLevelFeaturePoseGraph {
                    << factor_info.first;
       return false;
     }
-    if (factors_.find(factor_info.second) == factors_.end()) {
+    if (factors_->find(factor_info.second) == factors_->end()) {
       return false;
     }
-    feature_id = factors_.at(factor_info.second).feature_id_;
+    feature_id = factors_->at(factor_info.second).feature_id_;
     return true;
   };
 
@@ -546,12 +563,24 @@ class LowLevelFeaturePoseGraph {
     max_frame_id_ = pose_graph_state.max_frame_id_;
     max_feature_factor_id_ = pose_graph_state.max_feature_factor_id_;
     max_pose_factor_id_ = pose_graph_state.max_pose_factor_id_;
-    pose_factors_by_frame_ = pose_graph_state.pose_factors_by_frame_;
-    visual_feature_factors_by_frame_ =
-        pose_graph_state.visual_feature_factors_by_frame_;
-    visual_factors_by_feature_ = pose_graph_state.visual_factors_by_feature_;
-    pose_factors_ = pose_graph_state.pose_factors_;
-    factors_ = pose_graph_state.factors_;
+    pose_factors_by_frame_ = std::make_shared<std::unordered_map<
+        FrameId,
+        util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>>(
+        pose_graph_state.pose_factors_by_frame_);
+    visual_feature_factors_by_frame_ = std::make_shared<std::unordered_map<
+        FrameId,
+        std::vector<std::pair<FactorType, FeatureFactorId>>>>(
+        pose_graph_state.visual_feature_factors_by_frame_);
+    visual_factors_by_feature_ = std::make_shared<std::unordered_map<
+        FeatureId,
+        util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>>(
+        pose_graph_state.visual_factors_by_feature_);
+    pose_factors_ =
+        std::make_shared<std::unordered_map<FeatureFactorId, RelPoseFactor>>(
+            pose_graph_state.pose_factors_);
+    factors_ = std::make_shared<
+        std::unordered_map<FeatureFactorId, VisualFeatureFactorType>>(
+        pose_graph_state.factors_);
     last_observed_frame_by_feature_ =
         pose_graph_state.last_observed_frame_by_feature_;
     first_observed_frame_by_feature_ =
@@ -574,12 +603,12 @@ class LowLevelFeaturePoseGraph {
     pose_graph_state.max_frame_id_ = max_frame_id_;
     pose_graph_state.max_feature_factor_id_ = max_feature_factor_id_;
     pose_graph_state.max_pose_factor_id_ = max_pose_factor_id_;
-    pose_graph_state.pose_factors_by_frame_ = pose_factors_by_frame_;
+    pose_graph_state.pose_factors_by_frame_ = *pose_factors_by_frame_;
     pose_graph_state.visual_feature_factors_by_frame_ =
-        visual_feature_factors_by_frame_;
-    pose_graph_state.visual_factors_by_feature_ = visual_factors_by_feature_;
-    pose_graph_state.pose_factors_ = pose_factors_;
-    pose_graph_state.factors_ = factors_;
+        *visual_feature_factors_by_frame_;
+    pose_graph_state.visual_factors_by_feature_ = *visual_factors_by_feature_;
+    pose_graph_state.pose_factors_ = *pose_factors_;
+    pose_graph_state.factors_ = *factors_;
     pose_graph_state.last_observed_frame_by_feature_ =
         last_observed_frame_by_feature_;
     pose_graph_state.first_observed_frame_by_feature_ =
@@ -615,24 +644,29 @@ class LowLevelFeaturePoseGraph {
 
   std::unordered_map<FrameId, RobotPoseNode> robot_poses_;
 
-  std::unordered_map<FrameId,
-                     util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>
+  std::shared_ptr<std::unordered_map<
+      FrameId,
+      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>>
       pose_factors_by_frame_;
 
   // For factors involving multiple frames, the value will be stored for each
   // associated frame id
-  std::unordered_map<FrameId,
-                     std::vector<std::pair<FactorType, FeatureFactorId>>>
+  std::shared_ptr<
+      std::unordered_map<FrameId,
+                         std::vector<std::pair<FactorType, FeatureFactorId>>>>
       visual_feature_factors_by_frame_;
 
-  std::unordered_map<FeatureId,
-                     util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>
+  std::shared_ptr<std::unordered_map<
+      FeatureId,
+      util::BoostHashSet<std::pair<FactorType, FeatureFactorId>>>>
       visual_factors_by_feature_;
 
   // TODO takes in generic pose factors
-  std::unordered_map<FeatureFactorId, RelPoseFactor> pose_factors_;
+  std::shared_ptr<std::unordered_map<FeatureFactorId, RelPoseFactor>>
+      pose_factors_;
 
-  std::unordered_map<FeatureFactorId, VisualFeatureFactorType> factors_;
+  std::shared_ptr<std::unordered_map<FeatureFactorId, VisualFeatureFactorType>>
+      factors_;
 
   std::unordered_map<FeatureId, FrameId> last_observed_frame_by_feature_;
 
@@ -650,22 +684,25 @@ class ReprojectionLowLevelFeaturePoseGraph
       : LowLevelFeaturePoseGraph<ReprojectionErrorFactor>(
             camera_extrinsics_by_camera,
             camera_intrinsics_by_camera,
-            kReprojectionErrorFactorTypeId) {}
+            kReprojectionErrorFactorTypeId),
+        feature_positions_(
+            std::make_shared<
+                std::unordered_map<FeatureId, VisualFeatureNode>>()) {}
   virtual ~ReprojectionLowLevelFeaturePoseGraph() = default;
   virtual bool getFeaturePointers(const FeatureId &feature_id,
                                   double **feature_ptr) override {
-    if (feature_positions_.find(feature_id) == feature_positions_.end()) {
+    if (feature_positions_->find(feature_id) == feature_positions_->end()) {
       return false;
     }
 
-    *feature_ptr = feature_positions_[feature_id].position_->data();
+    *feature_ptr = feature_positions_->at(feature_id).position_->data();
     return true;
   }
 
   virtual void getVisualFeatureEstimates(
       std::unordered_map<FeatureId, Position3d<double>>
           &visual_feature_estimates) const override {
-    for (const auto &pg_feat_est : feature_positions_) {
+    for (const auto &pg_feat_est : *feature_positions_) {
       visual_feature_estimates[pg_feat_est.first] =
           *(pg_feat_est.second.position_);
     }
@@ -674,19 +711,21 @@ class ReprojectionLowLevelFeaturePoseGraph
   void addFeature(const FeatureId &feature_id,
                   const Position3d<double> &feature_position) {
     // TODO should we check if a feature with this id already exists?
-    feature_positions_[feature_id] = VisualFeatureNode(feature_position);
-    visual_factors_by_feature_[feature_id] = {};
+    (*feature_positions_)[feature_id] = VisualFeatureNode(feature_position);
+    (*visual_factors_by_feature_)[feature_id] = {};
   }
 
   void setFeaturePositionPtrs(
       const std::unordered_map<FeatureId, VisualFeatureNode>
           &feature_positions) {
-    feature_positions_ = feature_positions;
+    feature_positions_ =
+        std::make_shared<std::unordered_map<FeatureId, VisualFeatureNode>>(
+            feature_positions);
   }
 
   void getFeaturePositionPtrs(std::unordered_map<FeatureId, VisualFeatureNode>
                                   &feature_positions) const {
-    feature_positions = feature_positions_;
+    feature_positions = *feature_positions_;
   }
 
   void getState(ReprojectionLowLevelFeaturePoseGraphState &pose_graph_state) {
@@ -694,7 +733,7 @@ class ReprojectionLowLevelFeaturePoseGraph
         pose_graph_state.low_level_pg_state_);
     pose_graph_state.min_feature_id_ = min_feature_id_;
     pose_graph_state.max_feature_id_ = max_feature_id_;
-    for (const auto &feature_pos : feature_positions_) {
+    for (const auto &feature_pos : *feature_positions_) {
       pose_graph_state.feature_positions_[feature_pos.first] =
           Position3d<double>(*(feature_pos.second.position_));
     }
@@ -707,7 +746,7 @@ class ReprojectionLowLevelFeaturePoseGraph
     min_feature_id_ = pose_graph_state.min_feature_id_;
     max_feature_id_ = pose_graph_state.max_feature_id_;
     for (const auto &feature_pos : pose_graph_state.feature_positions_) {
-      feature_positions_[feature_pos.first] =
+      (*feature_positions_)[feature_pos.first] =
           VisualFeatureNode(feature_pos.second);
     }
   }
@@ -718,7 +757,8 @@ class ReprojectionLowLevelFeaturePoseGraph
 
   FeatureId min_feature_id_;
   FeatureId max_feature_id_;
-  std::unordered_map<FeatureId, VisualFeatureNode> feature_positions_;
+  std::shared_ptr<std::unordered_map<FeatureId, VisualFeatureNode>>
+      feature_positions_;
 };
 
 }  // namespace vslam_types_refactor
