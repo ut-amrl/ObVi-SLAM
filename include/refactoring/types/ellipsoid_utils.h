@@ -183,17 +183,17 @@ bool getCornerLocationsVectorRectified(
   Eigen::Matrix<T, 3, 3> q_mat = combined_tf_compact.matrix() * dim_mat *
                                  combined_tf_compact.matrix().transpose();
 
-  // Check if behind camera
-  T t_z = combined_tf_compact.translation().z();
-  T q33_adjusted_sqrt = sqrt(q_mat(2, 2) + pow(t_z, 2));
+//  // Check if behind camera
+//  T t_z = combined_tf_compact.translation().z();
+//  T q33_adjusted_sqrt = sqrt(q_mat(2, 2) + pow(t_z, 2));
 
-  T plus_tan_z_plane = t_z + q33_adjusted_sqrt;
-  T min_tan_z_plane = t_z - q33_adjusted_sqrt;
-  if ((plus_tan_z_plane < T(0)) && (min_tan_z_plane < T(0))) {
-    LOG(WARNING)
-        << "Ellipsoid fully behind camera plane. Not physically possible.";
-    // TODO should we sleep or exit here to make this error more evident?
-  }
+//  T plus_tan_z_plane = t_z + q33_adjusted_sqrt;
+//  T min_tan_z_plane = t_z - q33_adjusted_sqrt;
+//  if ((plus_tan_z_plane < T(0)) && (min_tan_z_plane < T(0))) {
+//    LOG(WARNING)
+//        << "Ellipsoid fully behind camera plane. Not physically possible.";
+//    // TODO should we sleep or exit here to make this error more evident?
+//  }
 
   T q1_1 = q_mat(0, 0);
   T q1_3 = q_mat(0, 2);
@@ -201,14 +201,13 @@ bool getCornerLocationsVectorRectified(
   T q2_3 = q_mat(1, 2);
   T q3_3 = q_mat(2, 2);
 
-  if ((pow(q1_3, 2) - (q1_1 * q3_3)) <= T(0)) {
+  T x_inner_sqrt = pow(q1_3, 2) - (q1_1 * q3_3);
+  T y_inner_sqrt = pow(q2_3, 2) - (q2_2 * q3_3);
+  if ((x_inner_sqrt <= T(0)) || (y_inner_sqrt <= T(0))) {
     return false;
   }
-  if ((pow(q2_3, 2) - (q2_2 * q3_3)) <= T(0)) {
-    return false;
-  }
-  T x_sqrt_component = sqrt(pow(q1_3, 2) - (q1_1 * q3_3));
-  T y_sqrt_component = sqrt(pow(q2_3, 2) - (q2_2 * q3_3));
+  T x_sqrt_component = sqrt(x_inner_sqrt);
+  T y_sqrt_component = sqrt(y_inner_sqrt);
 
   // TODO Verify once we have real data that these are in the right order?
   //  is min and max actually the min and max?
