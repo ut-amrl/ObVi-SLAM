@@ -1009,8 +1009,16 @@ class ObjectAndReprojectionFeaturePoseGraph
   }
 
   std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> makeDeepCopy() const {
-    std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> copy =
-        std::make_shared<ObjectAndReprojectionFeaturePoseGraph>(*this);
+    std::shared_ptr<ObjectAndReprojectionFeaturePoseGraph> copy;
+    {
+#ifdef RUN_TIMERS
+      CumulativeFunctionTimer::Invocation invoc(
+          CumulativeTimerFactory::getInstance()
+              .getOrCreateFunctionTimer(kTimerNamePoseGraphCopyNewPointer)
+              .get());
+#endif
+      copy = std::make_shared<ObjectAndReprojectionFeaturePoseGraph>(*this);
+    }
     // Reset the fields that we don't just want a shallow copy of
     std::unordered_map<ObjectId, EllipsoidEstimateNode>
         ellipsoid_estimates_copy;

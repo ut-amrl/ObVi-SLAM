@@ -64,6 +64,8 @@ const std::string kTimerNameGbaPoseGraphCopy = "gba_pose_graph_copy";
 const std::string kTimerNameMapMergeGbaPoseGraphCopy =
     "map_merge_gba_pose_graph_copy";
 
+
+const std::string kTimerNamePoseGraphCopyNewPointer = "pose_graph_copy_new_pointer";
 const std::string kTimerNamePoseGraphCopyVfs = "pose_graph_copy_vfs";
 const std::string kTimerNamePoseGraphCopyPoses = "pose_graph_copy_poses";
 const std::string kTimerNamePoseGraphCopyObjs = "pose_graph_copy_objs";
