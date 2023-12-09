@@ -12,35 +12,6 @@ Please email amanda.adkins4242@gmail.com with any questions!
 ## Evaluation
 For information on how to set up and run the comparison algorithms, see our [evaluation repo](https://github.com/ut-amrl/ObVi-SLAM-Evaluation).
 
-## Installation Instructions
-<!-- TODO
-- dockerfile version (recommended)
-- native version -->
-
-We rely on [ORB-SLAM2](https://github.com/raulmur/ORB_SLAM2) to extract visual features from image observations and motion tracking, [YOLO](https://github.com/ultralytics/yolov5) to detect objects, and [amrl_msgs](https://github.com/ut-amrl/amrl_msgs.git) to publish and subscribe to SLAM-related ROS messages. We provide our own customized versions of these libraries to facilitate your use: [ORB-SLAM2](https://github.com/ut-amrl/ORB_SLAM2), [YOLO](https://github.com/ut-amrl/yolov5), and [amrl_msgs](https://github.com/ut-amrl/amrl_msgs.git). To install them inside the container:
-```
-# compile ORB-SLAM2
-git clone https://github.com/ut-amrl/ORB_SLAM2 ORB_SLAM2
-git checkout writeTimestamps
-cd ORB_SLAM2
-chmod +x build.sh
-./build.sh
-
-# install amrl_msgs
-git clone https://github.com/ut-amrl/amrl_msgs.git
-cd amrl_msgs
-git checkout orbSlamSwitchTraj
-echo "export ROS_PACKAGE_PATH="`pwd`":$ROS_PACKAGE_PATH" >> ~/.bashrc
-source ~/.bashrc
-make
-
-# install yolo
-git clone https://github.com/ut-amrl/yolov5
-cd yolov5
-git checkout ROS
-```
-If you want to install them outside the container, refer to their README page for further instruction. Our [YOLO](https://github.com/ut-amrl/yolov5) package depends on [amrl_msgs](https://github.com/ut-amrl/amrl_msgs.git). You will need to install [amrl_msgs](https://github.com/ut-amrl/amrl_msgs.git) first to use our YOLO detector for ROS.
-
 ## Minimal Execution Instructions
 <!-- TODO
 - Explain files needed and their structure (intrinsics, extrinsics, visual features, bounding box (opt), images?,
@@ -127,5 +98,31 @@ Please contact us if you would like to obtain the videos on which we performed t
 
 ## TODOs
 - Add installation instructions
-- Add offline execution instructions
+- Add offline execution instructions -->
 
+
+## Installation Instructions
+
+We rely on [ORB-SLAM2](https://github.com/raulmur/ORB_SLAM2) to extract visual features from image observations and motion tracking, [YOLO](https://github.com/ultralytics/yolov5) to detect objects, and [amrl_msgs](https://github.com/ut-amrl/amrl_msgs.git) to publish and subscribe to SLAM-related ROS messages. We provide our own customized versions of these libraries to facilitate your use: [ORB-SLAM2](https://github.com/ut-amrl/ORB_SLAM2), [YOLO](https://github.com/ut-amrl/yolov5), and [amrl_msgs](https://github.com/ut-amrl/amrl_msgs.git). To install them inside the container:
+```
+# compile ORB-SLAM2
+git clone https://github.com/ut-amrl/ORB_SLAM2 ORB_SLAM2
+git checkout writeTimestamps
+cd ORB_SLAM2
+chmod +x build.sh
+./build.sh
+
+# install amrl_msgs
+git clone https://github.com/ut-amrl/amrl_msgs.git
+cd amrl_msgs
+git checkout orbSlamSwitchTraj
+echo "export ROS_PACKAGE_PATH="`pwd`":$ROS_PACKAGE_PATH" >> ~/.bashrc
+source ~/.bashrc
+make
+
+# install yolo
+git clone https://github.com/ut-amrl/yolov5
+cd yolov5
+git checkout ROS
+```
+If you want to install them outside the container, refer to their README page for further instruction. Our [YOLO](https://github.com/ut-amrl/yolov5) package depends on [amrl_msgs](https://github.com/ut-amrl/amrl_msgs.git). You will need to install [amrl_msgs](https://github.com/ut-amrl/amrl_msgs.git) first to use our YOLO detector for ROS.
