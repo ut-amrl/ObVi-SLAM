@@ -46,6 +46,7 @@ find_package(Boost COMPONENTS filesystem REQUIRED)
 find_package(pcl_conversions)
 find_package(pcl_ros)
 find_package(SuiteSparse)
+find_package(TBB REQUIRED)
 
 #find_package(darknet_ros_msgs)
 #find_package(catkin REQUIRED COMPONENTS darknet_ros_msgs)
@@ -70,6 +71,7 @@ set(LIBS
         gflags
         cv_bridge
         amrl_shared_lib
+        TBB::tbb
         ${CERES_LIBRARIES}
         ${OpenCV_LIBS}
         ${PCL_LIBRARIES}

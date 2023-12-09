@@ -7,6 +7,7 @@
 
 #include <refactoring/long_term_map/long_term_object_map.h>
 #include <refactoring/types/vslam_obj_opt_types_refactor.h>
+#include <refactoring/types/vslam_types_math_util.h>
 
 namespace vslam_types_refactor {
 
@@ -65,6 +66,14 @@ struct VisionFeatureTrack {
       const std::unordered_map<FrameId, VisionFeature>& feature_observations =
           std::unordered_map<FrameId, VisionFeature>())
       : feature_id_(feature_id), feature_observations_(feature_observations){};
+
+  std::unordered_set<FrameId> getFramesForFeat() const {
+    std::unordered_set<FrameId> frames_for_feat;
+    for (const auto& feat_obs : feature_observations_) {
+      frames_for_feat.insert(feat_obs.first);
+    }
+    return frames_for_feat;
+  }
 };
 
 /**
@@ -91,6 +100,10 @@ struct StructuredVisionFeatureTrack {
   StructuredVisionFeatureTrack(const Position3d<double>& feature_pos,
                                const VisionFeatureTrack& feature_track)
       : feature_pos_(feature_pos), feature_track(feature_track){};
+
+  std::unordered_set<FrameId> getFramesForFeat() const {
+    return feature_track.getFramesForFeat();
+  }
 };
 
 template <typename FeatureTrackType, typename LongTermObjectMapType>
@@ -114,7 +127,21 @@ class AbstractOfflineProblemData {
         robot_poses_(robot_poses),
         mean_and_cov_by_semantic_class_(mean_and_cov_by_semantic_class),
         max_frame_id_(getMaxFrame(robot_poses)),
-        long_term_obj_map_(long_term_obj_map) {}
+        long_term_obj_map_(long_term_obj_map) {
+    for (const auto& robot_pose : robot_poses_) {
+      robot_poses_affine_[robot_pose.first] =
+          convertToAffine(robot_pose.second);
+    }
+
+    for (const auto& feat_track : visual_features_) {
+      for (const auto& frame_id : feat_track.second.getFramesForFeat()) {
+        if (features_for_frame_.find(frame_id) == features_for_frame_.end()) {
+          features_for_frame_[frame_id] = std::unordered_set<FeatureId>();
+        }
+        features_for_frame_.at(frame_id).insert(feat_track.first);
+      }
+    }
+  }
 
   virtual ~AbstractOfflineProblemData() = default;
   virtual FrameId getMaxFrameId() const { return max_frame_id_; }
@@ -141,6 +168,11 @@ class AbstractOfflineProblemData {
     return robot_poses_;
   }
 
+  virtual std::unordered_map<FrameId, Eigen::Affine3d>
+  getRobotPoseEstimatesAffine() const {
+    return robot_poses_affine_;
+  }
+
   virtual bool getRobotPoseEstimateForFrame(const FrameId& frame_id,
                                             Pose3D<double>& est_out) const {
     if (robot_poses_.find(frame_id) == robot_poses_.end()) {
@@ -150,11 +182,42 @@ class AbstractOfflineProblemData {
     return true;
   }
 
+  virtual bool getRobotPoseEstimateForFrameAffine(
+      const FrameId& frame_id, Eigen::Affine3d& est_out) const {
+    if (robot_poses_affine_.find(frame_id) == robot_poses_affine_.end()) {
+      return false;
+    }
+    est_out = robot_poses_affine_.at(frame_id);
+    return true;
+  }
+
   // TODO figure out some intermediate storage so that we can store this at
   // least sort of by frame id
   virtual std::unordered_map<FeatureId, FeatureTrackType> getVisualFeatures()
       const {
     return visual_features_;
+  };
+
+  virtual std::unordered_set<FeatureId> getVisualFeatureIdsForFrame(
+      const FrameId& frame_id) const {
+    if (features_for_frame_.find(frame_id) == features_for_frame_.end()) {
+      return {};
+    }
+    return features_for_frame_.at(frame_id);
+  }
+
+  virtual std::unordered_map<FeatureId, FeatureTrackType>
+  getVisualFeaturesForFrame(const FrameId& frame_id) const {
+    std::unordered_map<FeatureId, FeatureTrackType> tracks;
+
+    for (const auto& feat_id : getVisualFeatureIdsForFrame(frame_id)) {
+      if (visual_features_.find(feat_id) == visual_features_.end()) {
+        LOG(ERROR) << "Couldn't find feature track for feature id " << feat_id;
+      } else {
+        tracks[feat_id] = visual_features_.at(feat_id);
+      }
+    }
+    return tracks;
   };
 
   virtual std::unordered_map<
@@ -172,7 +235,10 @@ class AbstractOfflineProblemData {
   std::unordered_map<CameraId, CameraExtrinsics<double>>
       camera_extrinsics_by_camera_;
   std::unordered_map<FeatureId, FeatureTrackType> visual_features_;
+  std::unordered_map<FrameId, std::unordered_set<FeatureId>>
+      features_for_frame_;
   std::unordered_map<FrameId, Pose3D<double>> robot_poses_;
+  std::unordered_map<FrameId, Eigen::Affine3d> robot_poses_affine_;
   std::unordered_map<std::string,
                      std::pair<ObjectDim<double>, Covariance<double, 3>>>
       mean_and_cov_by_semantic_class_;
