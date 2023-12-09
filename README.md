@@ -18,9 +18,9 @@ See the [version of our paper](https://drive.google.com/file/d/1Cf6QfheKa09mJO8o
 
 
 ## Installation Instructions
-TODO
+<!-- TODO
 - dockerfile version (recommended)
-- native version
+- native version -->
 
 We rely on [ORB-SLAM2](https://github.com/raulmur/ORB_SLAM2) to extract visual features from image observations and motion tracking, [YOLO](https://github.com/ultralytics/yolov5) to detect objects, and [amrl_msgs](https://github.com/ut-amrl/amrl_msgs.git) to publish and subscribe to SLAM-related ROS messages. We provide our own customized versions of these libraries to facilitate your use: [ORB-SLAM2](https://github.com/ut-amrl/ORB_SLAM2), [YOLO](https://github.com/ut-amrl/yolov5), and [amrl_msgs](https://github.com/ut-amrl/amrl_msgs.git). To install them inside the container:
 ```
@@ -50,7 +50,10 @@ If you want to install them outside the container, refer to their README page fo
 <!-- TODO
 - Explain files needed and their structure (intrinsics, extrinsics, visual features, bounding box (opt), images?,
 - Explain how to run given these files -->
-This is a quick start guide to run ObVi-SLAM from ROS Bagfiles. By default, we assume to have a following data root directory structures:
+This is a quick start guide to run ObVi-SLAM from ROS Bagfiles inside the docker container. First, refer to [this page](https://github.com/ut-amrl/ros-noetic-docker/tree/ObViSLAMEvaluation) for Docker setup.
+
+### File structures
+By default, we assume to have a following data root directory structures:
 ```
 root_data_dir
 |- calibration (stores calibration files)
@@ -85,19 +88,38 @@ To start, we require the following calibration files under a directory named "ca
 
 If you have different namings for those files, you can either softlink or change the calibration filenames inside the evaluation scripts later.
 
+<!-- ## Results from ROS bag sequence
+TODO (Taijing, start here)
+- Explain how to preprocess rosbag to get the data needed for minimal execution above -->
 ### Feature Frontend
 Open two terminals and run the following commands to uncompress image topics:
 ```
 rosrun image_transport republish compressed in:=/zed/zed_node/left/image_rect_color raw  out:=/camera/left/image_raw
 rosrun image_transport republish compressed in:=/zed/zed_node/right/image_rect_color raw out:=/camera/right/image_raw
 ```
-TODO
+In a third terminal, run:
+```
+bash ./convenience_scripts/docker/high_res_orbslam2_multibags_executor.sh
+```
+This script will preprocess all the bagfiles in sequence files specified by `sequence_file_base_names`. It reads camera calibarations from the file indicated by `orb_slam_configuration_file`. You may want to change it to point to your own camera calibration file. If you want to run for your own bagfiles, you can create your own sequence file and replace `sequence_file_base_names` with the one you created.
 
-## Results from ROS bag sequence
-TODO (Taijing, start here)
-- Explain how to preprocess rosbag to get the data needed for minimal execution above
+### Object Detection
+We used YOLOv5 for object detection. To run the object detector, in a new terminal run:
+```
+cd <path to yolov5 project root directory>
+python3 detect_ros.py --weights <path to model weight> --img <image width in pixels> --conf <detection confidence threshold>
+```
+This script will start a ROS service named `yolov5_detect_objs` that allows users to query bounding boxes by image observations. 
 
-## Configuration File Guide
+### Run ObVi-SLAM
+Run:
+```
+bash ./convenience_scripts/docker/high_res_ut_vslam_sequence_executor.sh
+```
+In the script, `sequence_file_base_name` is the filename of the sequence file (without suffix ".json"), and `config_file_base_name` is the filename of the configuration file (withouth suffix ".yaml"). You can change them to match with your sequence file and configuration file setups.
+
+
+<!-- ## Configuration File Guide
 TODO 
 - Explain how to modify configuration file -- which parameters will someone need to modify for different environment, (lower priority): explain each of the parameters in the config file
 
@@ -107,5 +129,5 @@ Our YOLO model: TODO
 ## TODOs
 - Add installation instructions
 - Add offline execution instructions
-- Add YOLO model
+- Add YOLO model -->
 
