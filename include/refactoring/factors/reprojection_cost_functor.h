@@ -82,8 +82,6 @@ class ReprojectionCostFunctor {
     Eigen::Matrix<T, 2, 1> projected_pixel;
     getProjectedPixelLocationRectified<T>(
         pose, point, cam_to_robot_tf_inv_.cast<T>(), projected_pixel);
-    //    LOG(INFO) << "Projected pixel location " << projected_pixel.x() << ",
-    //    " << projected_pixel.y();
 
     // Compute the residual.
     residual[0] = T(rectified_error_multiplier_x_) *

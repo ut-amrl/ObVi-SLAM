@@ -162,38 +162,89 @@ bool getCornerLocationsVectorRectified(
     const T *robot_pose,
     const Eigen::Transform<T, 3, Eigen::Affine> &robot_to_cam_tf,
     Eigen::Matrix<T, 4, 1> &corner_results) {
-  Eigen::Transform<T, 3, Eigen::Affine> robot_to_world_current =
-      PoseArrayToAffine(&(robot_pose[3]), &(robot_pose[0]));
+
+  // Some components of this are taken from other functions
+  // Putting them all inline here because it's slightly faster
+
+  // Get the transform for the world relative to the robot pose --------------
+  // (inverse of robot pose)
+
+  // First get the inverse of the orientation
+  const Eigen::Map<const Eigen::Matrix<T, 3, 1>> rotation_axis(
+      &(robot_pose[3]));
+
+  const T rotation_angle = rotation_axis.norm();
+  Eigen::AngleAxis<T> inv_rotation_aa;
+  if (rotation_angle > T(kSmallAngleThreshold)) {
+    inv_rotation_aa =
+        Eigen::AngleAxis<T>(-rotation_angle, rotation_axis / rotation_angle);
+  } else {
+    inv_rotation_aa =
+        Eigen::AngleAxis<T>(T(0), Eigen::Matrix<T, 3, 1>{T(1), T(0), T(0)});
+  }
+
+  // Construct the inverse of the robot pose (T^-1 = R^T   -R^T t)
+  Eigen::Map<const Eigen::Matrix<T, 3, 1>> translation_vec(&(robot_pose[0]));
+  Eigen::Translation<T, 3> translation_tf(
+      T(-1) * inv_rotation_aa.toRotationMatrix() * translation_vec);
+  const Eigen::Transform<T, 3, Eigen::Affine> robot_to_world_current_inv =
+      translation_tf * inv_rotation_aa;
 
   // Robot to world defines the robot's pose in the world frame
   // Cam to robot defines the camera pose in the robot's frame
   // We want the world's pose in the camera frame
   Eigen::Transform<T, 3, Eigen::Affine> world_to_camera =
-      robot_to_cam_tf * robot_to_world_current.inverse();
+      robot_to_cam_tf * robot_to_world_current_inv;
 
   // Get the ellipsoid's pose in the world frame as a tf
   Eigen::Matrix<T, 4, 4> dim_mat;
   Eigen::Transform<T, 3, Eigen::Affine> ellipsoid_pose;
 
-  getEllipsoidDimMatAndTf(ellipsoid, dim_mat, ellipsoid_pose);
+  // Create the transform for the ellipsoid pose and the matrix that encodes
+  // the dimensions of an origin-centered axis-aligned ellipsoid
+  Eigen::Map<const Eigen::Matrix<T, 3, 1>> ellipsoid_transl_vec(ellipsoid);
+  Eigen::Translation<T, 3> ellipsoid_transl(ellipsoid_transl_vec);
 
+  Eigen::Matrix<T, 4, 1> diag_mat(
+      pow(ellipsoid[kEllipsoidPoseParameterizationSize] / T(2), 2) +
+          T(kDimensionRegularizationConstant),
+      pow(ellipsoid[kEllipsoidPoseParameterizationSize + 1] / T(2), 2) +
+          T(kDimensionRegularizationConstant),
+      pow(ellipsoid[kEllipsoidPoseParameterizationSize + 2] / T(2), 2) +
+          T(kDimensionRegularizationConstant),
+      T(-1));
+  dim_mat = diag_mat.asDiagonal();
+
+#ifdef CONSTRAIN_ELLIPSOID_ORIENTATION
+  Eigen::AngleAxis<T> obj_axis_angle =
+      Eigen::AngleAxis<T>(ellipsoid[3], Eigen::Matrix<T, 3, 1>::UnitZ());
+#else
+  const Eigen::Matrix<T, 3, 1> rotation_axis(
+      ellipsoid_data[3], ellipsoid_data[4], ellipsoid_data[5]);
+  Eigen::AngleAxis<T> axis_angle = VectorToAxisAngle(rotation_axis);
+#endif
+
+  ellipsoid_pose = ellipsoid_transl * Eigen::Quaternion<T>(obj_axis_angle);
+
+  // Get the transform for the ellipsoid relative to the camera
   Eigen::Transform<T, 3, Eigen::AffineCompact> combined_tf_compact =
       world_to_camera * ellipsoid_pose;
 
+  // Get the dual quadric representation of the ellipsoid relative to the camera
   Eigen::Matrix<T, 3, 3> q_mat = combined_tf_compact.matrix() * dim_mat *
                                  combined_tf_compact.matrix().transpose();
 
-//  // Check if behind camera
-//  T t_z = combined_tf_compact.translation().z();
-//  T q33_adjusted_sqrt = sqrt(q_mat(2, 2) + pow(t_z, 2));
+  //  // Check if behind camera
+  //  T t_z = combined_tf_compact.translation().z();
+  //  T q33_adjusted_sqrt = sqrt(q_mat(2, 2) + pow(t_z, 2));
 
-//  T plus_tan_z_plane = t_z + q33_adjusted_sqrt;
-//  T min_tan_z_plane = t_z - q33_adjusted_sqrt;
-//  if ((plus_tan_z_plane < T(0)) && (min_tan_z_plane < T(0))) {
-//    LOG(WARNING)
-//        << "Ellipsoid fully behind camera plane. Not physically possible.";
-//    // TODO should we sleep or exit here to make this error more evident?
-//  }
+  //  T plus_tan_z_plane = t_z + q33_adjusted_sqrt;
+  //  T min_tan_z_plane = t_z - q33_adjusted_sqrt;
+  //  if ((plus_tan_z_plane < T(0)) && (min_tan_z_plane < T(0))) {
+  //    LOG(WARNING)
+  //        << "Ellipsoid fully behind camera plane. Not physically possible.";
+  //    // TODO should we sleep or exit here to make this error more evident?
+  //  }
 
   T q1_1 = q_mat(0, 0);
   T q1_3 = q_mat(0, 2);

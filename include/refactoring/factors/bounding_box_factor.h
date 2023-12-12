@@ -94,14 +94,14 @@ class BoundingBoxFactor {
       }
       return true;
     }
-    if (debug_) {
-      if (obj_id_.has_value() && frame_id_.has_value() &&
-          camera_id_.has_value()) {
-        LOG(INFO) << "Corners for obj id " << obj_id_.value()
-                  << " at frame/cam " << frame_id_.value() << "/"
-                  << camera_id_.value() << ": " << corner_results;
-      }
-    }
+    //    if (debug_) {
+    //          if (obj_id_.has_value() && frame_id_.has_value() &&
+    //              camera_id_.has_value()) {
+    //            LOG(INFO) << "Corners for obj id " << obj_id_.value()
+    //                      << " at frame/cam " << frame_id_.value() << "/"
+    //                      << camera_id_.value() << ": " << corner_results;
+    //          }
+    //    }
 
     Eigen::Matrix<T, 4, 1> deviation =
         corner_results - rectified_corner_locations_.template cast<T>();
@@ -110,26 +110,26 @@ class BoundingBoxFactor {
     //        LOG(INFO) << "Sqrt inf mat bounding box "
     //                  << sqrt_inf_mat_bounding_box_corners_;
 
-    if (debug_) {
-      if (obj_id_.has_value() && frame_id_.has_value() &&
-          camera_id_.has_value()) {
-        LOG(INFO) << "Deviation for obj id " << obj_id_.value()
-                  << " at frame/cam " << frame_id_.value() << "/"
-                  << camera_id_.value() << ": " << deviation;
-      }
-    }
+    //    if (debug_) {
+    //      if (obj_id_.has_value() && frame_id_.has_value() &&
+    //          camera_id_.has_value()) {
+    //        LOG(INFO) << "Deviation for obj id " << obj_id_.value()
+    //                  << " at frame/cam " << frame_id_.value() << "/"
+    //                  << camera_id_.value() << ": " << deviation;
+    //      }
+    //    }
     Eigen::Map<Eigen::Matrix<T, 4, 1>> residuals(residuals_ptr);
     residuals =
         sqrt_inf_mat_bounding_box_corners_rectified_.template cast<T>() *
         deviation;
-    if (debug_) {
-      if (obj_id_.has_value() && frame_id_.has_value() &&
-          camera_id_.has_value()) {
-        LOG(INFO) << "Residuals for obj id " << obj_id_.value()
-                  << " at frame/cam " << frame_id_.value() << "/"
-                  << camera_id_.value() << ": " << residuals;
-      }
-    }
+    //    if (debug_) {
+    //      if (obj_id_.has_value() && frame_id_.has_value() &&
+    //          camera_id_.has_value()) {
+    //        LOG(INFO) << "Residuals for obj id " << obj_id_.value()
+    //                  << " at frame/cam " << frame_id_.value() << "/"
+    //                  << camera_id_.value() << ": " << residuals;
+    //      }
+    //    }
 
     //    LOG(INFO) << "Residuals " << residuals;
     return true;

@@ -32,9 +32,35 @@ template <typename T>
 void VectorToAxisAngle(const Eigen::Matrix<T, 3, 1>& axis_angle_vec,
                        Eigen::AngleAxis<T>& angle_axis) {
   const T rotation_angle = axis_angle_vec.norm();
-  if (rotation_angle > kSmallAngleThreshold) {
+  if (rotation_angle > T(kSmallAngleThreshold)) {
     angle_axis =
         Eigen::AngleAxis<T>(rotation_angle, axis_angle_vec / rotation_angle);
+  } else {
+    angle_axis =
+        Eigen::AngleAxis<T>(T(0), Eigen::Matrix<T, 3, 1>{T(1), T(0), T(0)});
+  }
+}
+
+/**
+ * Convert from a vector that stores the axis-angle representation (with
+ * angle as the magnitude of the vector) to the Eigen AxisAngle
+ * representation of its inverse.
+ *
+ * @tparam T                    Type of each field.
+ * @param axis_angle_vec[in]    Vector encoding the axis of rotation (as the
+ *                              direction) and the angle as the magnitude of the
+ *                              vector.
+ * @param angle_axis[out]       Eigen AxisAngle representation for the
+ * rotation's inverse.
+ */
+template <typename T>
+void VectorToAxisAngleInverse(
+    const Eigen::Map<const Eigen::Matrix<T, 3, 1>>& axis_angle_vec,
+    Eigen::AngleAxis<T>& angle_axis) {
+  const T rotation_angle = axis_angle_vec.norm();
+  if (rotation_angle > T(kSmallAngleThreshold)) {
+    angle_axis =
+        Eigen::AngleAxis<T>(-rotation_angle, axis_angle_vec / rotation_angle);
   } else {
     angle_axis =
         Eigen::AngleAxis<T>(T(0), Eigen::Matrix<T, 3, 1>{T(1), T(0), T(0)});
@@ -58,6 +84,26 @@ Eigen::AngleAxis<T> VectorToAxisAngle(
     const Eigen::Matrix<T, 3, 1> axis_angle_vec) {
   Eigen::AngleAxis<T> angle_axis;
   VectorToAxisAngle(axis_angle_vec, angle_axis);
+  return angle_axis;
+}
+
+/**
+ * Convert from a vector that stores the axis-angle representation (with
+ * angle as the magnitude of the vector) to the Eigen AxisAngle
+ * representation.
+ *
+ * @tparam T                Type of each field.
+ * @param axis_angle_vec    Vector encoding the axis of rotation (as the
+ *                          direction) and the angle as the magnitude of the
+ *                          vector.
+ *
+ * @return Eigen AxisAngle representation for the rotation.
+ */
+template <typename T>
+Eigen::AngleAxis<T> VectorToAxisAngleInverse(
+    const Eigen::Map<const Eigen::Matrix<T, 3, 1>>& axis_angle_vec) {
+  Eigen::AngleAxis<T> angle_axis;
+  VectorToAxisAngleInverse(axis_angle_vec, angle_axis);
   return angle_axis;
 }
 
@@ -91,6 +137,21 @@ Eigen::Transform<T, 3, Eigen::Affine> PoseArrayToAffine(const T* rotation,
       translation[0], translation[1], translation[2]);
   const Eigen::Transform<T, 3, Eigen::Affine> transform =
       translation_tf * rotation_aa;
+  return transform;
+}
+
+template <typename T>
+Eigen::Transform<T, 3, Eigen::Affine> InversePoseArrayToAffine(
+    const T* rotation, const T* translation) {
+  const Eigen::Map<const Eigen::Matrix<T, 3, 1>> rotation_axis(rotation);
+
+  Eigen::AngleAxis<T> inv_rotation_aa = VectorToAxisAngleInverse(rotation_axis);
+
+  Eigen::Map<const Eigen::Matrix<T, 3, 1>> translation_vec(translation);
+  Eigen::Translation<T, 3> translation_tf(
+      T(-1) * inv_rotation_aa.toRotationMatrix() * translation_vec);
+  const Eigen::Transform<T, 3, Eigen::Affine> transform =
+      translation_tf * inv_rotation_aa;
   return transform;
 }
 
@@ -289,19 +350,37 @@ void getProjectedPixelLocationRectified(
     const T* point,
     const Eigen::Transform<T, 3, Eigen::Affine>& cam_to_robot_tf_inv,
     Eigen::Matrix<T, 2, 1>& pixel_results) {
-  // Transform from world to current robot pose
-  Eigen::Transform<T, 3, Eigen::Affine> world_to_robot_current =
-      vslam_types_refactor::PoseArrayToAffine(&(pose[3]), &(pose[0])).inverse();
-  //  LOG(INFO) << "World to robot current " << world_to_robot_current.matrix();
+
+  // Some components of this are taken from other functions
+  // Putting them all inline here because it's slightly faster
+
+  // Transform from world to current robot pose (inverse of robot's pose)
+  // Start with the inverse of the rotation
+  const Eigen::Map<const Eigen::Matrix<T, 3, 1>> rotation_axis(&(pose[3]));
+
+  Eigen::AngleAxis<T> inv_rotation_aa;
+  const T rotation_angle = rotation_axis.norm();
+  if (rotation_angle > T(kSmallAngleThreshold)) {
+    inv_rotation_aa =
+        Eigen::AngleAxis<T>(-rotation_angle, rotation_axis / rotation_angle);
+  } else {
+    inv_rotation_aa =
+        Eigen::AngleAxis<T>(T(0), Eigen::Matrix<T, 3, 1>{T(1), T(0), T(0)});
+  }
+
+  // // Construct the inverse of the robot pose (T^-1 = R^T   -R^T t)
+  Eigen::Map<const Eigen::Matrix<T, 3, 1>> translation_vec(&(pose[0]));
+  Eigen::Translation<T, 3> translation_tf(
+      T(-1) * inv_rotation_aa.toRotationMatrix() * translation_vec);
+  const Eigen::Transform<T, 3, Eigen::Affine> world_to_robot_current =
+      translation_tf * inv_rotation_aa;
 
   // Point in world frame
-  Eigen::Matrix<T, 3, 1> point_world(point[0], point[1], point[2]);
-  //  LOG(INFO) << "Point world " << point_world;
+  Eigen::Map<const Eigen::Matrix<T, 3, 1>> point_world(point);
 
   // Transform the point from global coordinates to frame of current pose.
   Eigen::Matrix<T, 3, 1> point_current =
       cam_to_robot_tf_inv * world_to_robot_current * point_world;
-  //  LOG(INFO) << "Point " << point_current;
 
   // Project the 3  D point into the current image.
   //  if (point_current.z() < T(0)) {
@@ -311,8 +390,7 @@ void getProjectedPixelLocationRectified(
   // TODO should we sleep or exit here to make this error more evident?
   //  }
 
-  pixel_results.x() = point_current.x() / point_current.z();
-  pixel_results.y() = point_current.y() / point_current.z();
+  pixel_results = point_current.topRows(2) / point_current.z();
 }
 
 template <typename T>
