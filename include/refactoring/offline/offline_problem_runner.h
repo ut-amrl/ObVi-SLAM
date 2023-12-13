@@ -477,7 +477,7 @@ class OfflineProblemRunner {
                   std::make_shared<ceres::Solver::Summary>();
               if (!optimizer_.solveOptimization(
                       &problem,
-                      iteration_params.phase_one_opt_params_,
+                      pgo_solver_params_.pre_pgo_tracking_solver_params_,
                       ceres_callbacks,
                       null_logger,
                       nullptr,

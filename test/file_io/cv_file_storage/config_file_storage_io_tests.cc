@@ -131,6 +131,20 @@ TEST(FullOVSLAMConfigIO, ReadWriteFullOBSLAMConfig) {
   orig_config.pgo_solver_params_.enable_visual_feats_only_opt_post_pgo_ = true;
   orig_config.pgo_solver_params_
       .enable_visual_non_opt_feature_adjustment_post_pgo_ = false;
+  orig_config.pgo_solver_params_.final_post_pgo_vf_adjustment_solver_params_ =
+      orig_config.final_ba_iteration_params_.phase_two_opt_params_;
+  orig_config.pgo_solver_params_.final_post_pgo_vf_adjustment_solver_params_
+      .max_num_iterations_ = 567;
+
+  orig_config.pgo_solver_params_.post_pgo_vf_adjustment_solver_params_ =
+      orig_config.local_ba_iteration_params_.phase_two_opt_params_;
+  orig_config.pgo_solver_params_.post_pgo_vf_adjustment_solver_params_
+      .max_num_iterations_ = 523;
+
+  orig_config.pgo_solver_params_.pre_pgo_tracking_solver_params_ =
+      orig_config.local_ba_iteration_params_.phase_two_opt_params_;
+  orig_config.pgo_solver_params_.pre_pgo_tracking_solver_params_
+      .function_tolerance_ = 1.2857;
 
   LongTermMapExtractionTunableParams ltm_tunable_params;
   ltm_tunable_params.far_feature_threshold_ = 2.4;

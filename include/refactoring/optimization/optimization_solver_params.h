@@ -177,6 +177,9 @@ struct PoseGraphPlusObjectsOptimizationParams {
   RelativePoseCovarianceOdomModelParams relative_pose_cov_params_;
   OptimizationSolverParams pgo_optimization_solver_params_;
   OptimizationSolverParams final_pgo_optimization_solver_params_;
+  OptimizationSolverParams post_pgo_vf_adjustment_solver_params_;
+  OptimizationSolverParams final_post_pgo_vf_adjustment_solver_params_;
+  OptimizationSolverParams pre_pgo_tracking_solver_params_;
 
   bool operator==(const PoseGraphPlusObjectsOptimizationParams &rhs) const {
     return (relative_pose_factor_huber_loss_ ==
@@ -189,7 +192,13 @@ struct PoseGraphPlusObjectsOptimizationParams {
            (pgo_optimization_solver_params_ ==
             rhs.pgo_optimization_solver_params_) &&
            (final_pgo_optimization_solver_params_ ==
-            rhs.final_pgo_optimization_solver_params_);
+            rhs.final_pgo_optimization_solver_params_) &&
+           (post_pgo_vf_adjustment_solver_params_ ==
+            rhs.post_pgo_vf_adjustment_solver_params_) &&
+           (final_post_pgo_vf_adjustment_solver_params_ ==
+            rhs.final_post_pgo_vf_adjustment_solver_params_) &&
+           (pre_pgo_tracking_solver_params_ ==
+            rhs.pre_pgo_tracking_solver_params_);
   }
 
   bool operator!=(const PoseGraphPlusObjectsOptimizationParams &rhs) const {

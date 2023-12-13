@@ -226,6 +226,13 @@ int main(int argc, char **argv) {
       global_ba_solver_params;
   configuration.pgo_solver_params_.final_pgo_optimization_solver_params_ =
       final_opt_solver_params;
+  configuration.pgo_solver_params_.final_post_pgo_vf_adjustment_solver_params_ =
+      final_ba_iteration_params.phase_two_opt_params_;
+  configuration.pgo_solver_params_.post_pgo_vf_adjustment_solver_params_ =
+      local_ba_iteration_params.phase_two_opt_params_;
+  configuration.pgo_solver_params_.pre_pgo_tracking_solver_params_ =
+      local_ba_iteration_params.phase_two_opt_params_;
+
   pose_graph_optimization::RelativePoseCovarianceOdomModelParams
       relative_pose_cov_params;
   relative_pose_cov_params.transl_error_mult_for_transl_error_ = 0.1;

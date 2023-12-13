@@ -678,6 +678,17 @@ class SerializablePoseGraphPlusObjectsOptimizationParams
     fs << kFinalPgoOptimizationSolverParamsLabel
        << SerializableOptimizationSolverParams(
               data_.final_pgo_optimization_solver_params_);
+
+    fs << kPostPgoVfAdjustmentSolverParamsLabel
+       << SerializableOptimizationSolverParams(
+              data_.post_pgo_vf_adjustment_solver_params_);
+    fs << kFinalPostPgoVfAdjustmentSolverParamsLabel
+       << SerializableOptimizationSolverParams(
+              data_.final_post_pgo_vf_adjustment_solver_params_);
+    fs << kPrePgoTrackingSolverParamsLabel
+       << SerializableOptimizationSolverParams(
+              data_.pre_pgo_tracking_solver_params_);
+
     fs << "}";
   }
 
@@ -711,6 +722,24 @@ class SerializablePoseGraphPlusObjectsOptimizationParams
         ser_final_pgo_optimization_solver_params_;
     data_.final_pgo_optimization_solver_params_ =
         ser_final_pgo_optimization_solver_params_.getEntry();
+
+    SerializableOptimizationSolverParams
+        ser_post_pgo_vf_adjustment_solver_params;
+    node[kPostPgoVfAdjustmentSolverParamsLabel] >>
+        ser_post_pgo_vf_adjustment_solver_params;
+    data_.post_pgo_vf_adjustment_solver_params_ =
+        ser_post_pgo_vf_adjustment_solver_params.getEntry();
+    SerializableOptimizationSolverParams
+        ser_final_post_pgo_vf_adjustment_solver_params;
+    node[kFinalPostPgoVfAdjustmentSolverParamsLabel] >>
+        ser_final_post_pgo_vf_adjustment_solver_params;
+    data_.final_post_pgo_vf_adjustment_solver_params_ =
+        ser_final_post_pgo_vf_adjustment_solver_params.getEntry();
+    SerializableOptimizationSolverParams ser_pre_pgo_tracking_solver_params;
+    node[kPrePgoTrackingSolverParamsLabel] >>
+        ser_pre_pgo_tracking_solver_params;
+    data_.pre_pgo_tracking_solver_params_ =
+        ser_pre_pgo_tracking_solver_params.getEntry();
   }
 
  protected:
@@ -731,6 +760,12 @@ class SerializablePoseGraphPlusObjectsOptimizationParams
       "pgo_optimization_solver_params";
   inline static const std::string kFinalPgoOptimizationSolverParamsLabel =
       "final_pgo_optimization_solver_params";
+  inline static const std::string kPostPgoVfAdjustmentSolverParamsLabel =
+      "post_pgo_vf_adjustment_solver_params";
+  inline static const std::string kFinalPostPgoVfAdjustmentSolverParamsLabel =
+      "final_post_pgo_vf_adjustment_solver_params";
+  inline static const std::string kPrePgoTrackingSolverParamsLabel =
+      "pre_pgo_tracking_solver_params";
 };
 
 static void write(
