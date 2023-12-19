@@ -25,8 +25,60 @@ ShapeDimensionPriors constructShapeDimPriorConfiguration() {
   std::unordered_map<std::string,
                      std::pair<ObjectDim<double>, ObjectDim<double>>>
       shape_mean_and_std_devs_by_semantic_class;
-  Eigen::Vector3d chair_mean(0.62, 0.62, 0.975);
-  Eigen::Vector3d chair_std_dev(0.05, 0.05, 0.05);
+  
+  Eigen::Vector3d bottle_mean(0.05, 0.05, 0.12);
+  Eigen::Vector3d bottle_std_dev(0.05, 0.05, 0.05);
+  std::string bottle_class = "bottle";
+  shape_mean_and_std_devs_by_semantic_class[bottle_class] =
+      std::make_pair(bottle_mean, bottle_std_dev);
+
+  Eigen::Vector3d cup_mean(0.09, 0.09, 0.11);
+  Eigen::Vector3d cup_std_dev(0.1, 0.1, 0.1);
+  std::string cup_class = "cup";
+  shape_mean_and_std_devs_by_semantic_class[cup_class] =
+      std::make_pair(cup_mean, cup_std_dev);
+
+  Eigen::Vector3d teddy_bear_mean(0.5, 0.3, 1.0);
+  Eigen::Vector3d teddy_bear_std_dev(0.8, 0.8, 0.8);
+  std::string teddy_bear_class = "teddy_bear";
+  shape_mean_and_std_devs_by_semantic_class[teddy_bear_class] =
+      std::make_pair(teddy_bear_mean, teddy_bear_std_dev);
+
+  // This is actually for monitors
+  Eigen::Vector3d tv_mean(0.2, 0.15, 0.3);
+  Eigen::Vector3d tv_std_dev(0.1, 0.1, 0.1);
+  std::string tv_class = "tv";
+  shape_mean_and_std_devs_by_semantic_class[tv_class] =
+      std::make_pair(tv_mean, tv_std_dev);
+
+  // mouse for computer, not rat
+  Eigen::Vector3d mouse_mean(0.05, 0.1, 0.02);
+  Eigen::Vector3d mouse_std_dev(0.5, 0.5, 0.5);
+  std::string mouse_class = "mouse";
+  shape_mean_and_std_devs_by_semantic_class[mouse_class] =
+      std::make_pair(mouse_mean, mouse_std_dev);
+
+  Eigen::Vector3d keyboard_mean(.43, .13, 0.025);
+  Eigen::Vector3d keyboard_std_dev(0.05, 0.05, 0.05);
+  std::string keyboard_class = "keyboard";
+  shape_mean_and_std_devs_by_semantic_class[keyboard_class] =
+      std::make_pair(keyboard_mean, keyboard_std_dev);
+
+  // This may be a very bad estimate
+  Eigen::Vector3d book_mean(0.2, 0.2, 0.05);
+  Eigen::Vector3d book_std_dev(1, 1, 1);
+  std::string book_class = "book";
+  shape_mean_and_std_devs_by_semantic_class[book_class] =
+      std::make_pair(book_mean, book_std_dev);
+
+  Eigen::Vector3d potted_plant_mean(0.15, 0.15, 1);
+  Eigen::Vector3d potted_plant_std_dev(1, 1, 3);
+  std::string potted_plant_class = "potted_plant";
+  shape_mean_and_std_devs_by_semantic_class[potted_plant_class] =
+      std::make_pair(potted_plant_mean, potted_plant_std_dev);
+
+  Eigen::Vector3d chair_mean(0.47, 0.47, 0.8);
+  Eigen::Vector3d chair_std_dev(0.25, 0.25, 0.25);
   std::string chair_class = "chair";
   shape_mean_and_std_devs_by_semantic_class[chair_class] =
       std::make_pair(chair_mean, chair_std_dev);

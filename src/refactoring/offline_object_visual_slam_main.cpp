@@ -120,6 +120,44 @@ DEFINE_bool(disable_log_to_stderr,
             false,
             "Set to true if the logging to standard error should be disabled");
 
+void loadImages(const std::string &imgdir, 
+                const std::string &nodes_by_timestamp_file,
+                std::unordered_map<vslam_types_refactor::FrameId,
+                   std::unordered_map<vslam_types_refactor::CameraId,
+                                      sensor_msgs::Image::ConstPtr>> &images) {
+  std::vector<file_io::NodeIdAndTimestamp> nodes_by_timestamps_vec;
+  util::BoostHashMap<pose::Timestamp, vslam_types_refactor::FrameId>
+      nodes_for_timestamps_map;
+  file_io::readNodeIdsAndTimestampsFromFile(nodes_by_timestamp_file,
+                                            nodes_by_timestamps_vec);
+
+  for (const file_io::NodeIdAndTimestamp &raw_node_id_and_timestamp :
+       nodes_by_timestamps_vec) {
+    nodes_for_timestamps_map[std::make_pair(
+        raw_node_id_and_timestamp.seconds_,
+        raw_node_id_and_timestamp.nano_seconds_)] =
+        raw_node_id_and_timestamp.node_id_;
+  }
+
+  for (const auto &timestamp_and_node : nodes_for_timestamps_map) {
+    auto sec  = timestamp_and_node.first.first;
+    auto nsec = timestamp_and_node.first.second;
+    auto frame_id = timestamp_and_node.second;
+    double timestamp = sec + nsec/1e9;
+    const std::string imgpath = 
+        imgdir + "/rgb/" + std::to_string(timestamp) + ".png";
+    cv::Mat img = cv::imread(imgpath);
+    cv_bridge::CvImage cvImg;
+    cvImg.header.stamp.sec = sec;
+    cvImg.header.stamp.nsec = sec;
+    cvImg.header.frame_id = frame_id;
+    cvImg.encoding = sensor_msgs::image_encodings::BGR8;
+    cvImg.image = img;
+    images[frame_id][1] = cvImg.toImageMsg();
+    images[frame_id][2] = cvImg.toImageMsg();
+  }
+}
+
 std::unordered_map<
     vtr::FrameId,
     std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>>
@@ -129,6 +167,17 @@ readBoundingBoxesByTimestampFromFile(
   std::vector<file_io::BoundingBoxWithTimestamp> bounding_boxes_by_timestamp;
   file_io::readBoundingBoxWithTimestampsFromFile(bounding_boxes_file_name,
                                                  bounding_boxes_by_timestamp);
+  // TODO (Taijing): Currently I hacked it to only take in some object classes
+  const std::unordered_set<std::string> classes = {
+    "bottle", "cup", "teddy_bear", "tv", "mouse", 
+    "keyboard", "book", "potted_plant", "chair"};
+  std::vector<file_io::BoundingBoxWithTimestamp> bounding_boxes_by_timestamp_tmp;
+  for (const auto &detection : bounding_boxes_by_timestamp) {
+    if (classes.find(detection.semantic_class) != classes.end()) {
+      bounding_boxes_by_timestamp_tmp.emplace_back(detection);
+    }
+  }
+  bounding_boxes_by_timestamp = bounding_boxes_by_timestamp_tmp;
   LOG(INFO) << bounding_boxes_by_timestamp.size() << " bounding boxes read";
 
   std::vector<file_io::NodeIdAndTimestamp> nodes_by_timestamps_vec;
@@ -779,10 +828,10 @@ int main(int argc, char **argv) {
   std::unordered_map<
       vtr::FrameId,
       std::unordered_map<vtr::CameraId, sensor_msgs::Image::ConstPtr>>
-      images = image_utils::getImagesFromRosbag(
-          FLAGS_rosbag_file,
-          FLAGS_nodes_by_timestamp_file,
-          config.camera_info_.camera_topic_to_camera_id_);
+      images;
+  std::string rosbag_file = FLAGS_rosbag_file.substr(0, FLAGS_rosbag_file.size()-4);
+  loadImages(rosbag_file, FLAGS_nodes_by_timestamp_file, images);
+  
   LOG(INFO) << "Done reading images from rosbag";
 
   MainLtmPtr long_term_map;

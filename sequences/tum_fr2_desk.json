@@ -1,0 +1,14 @@
+{
+    "sequence_info": {
+      "seq_id": "tum_fr2_desk",
+      "sequence": [
+        {
+          "bag_base_name": "freiburg2_desk",
+          "waypoint_file_base_name": {
+            "has_v": 0
+          }
+        }
+      ]
+    }
+  }
+  

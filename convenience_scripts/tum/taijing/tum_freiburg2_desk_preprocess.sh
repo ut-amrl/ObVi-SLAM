@@ -7,7 +7,7 @@ bagname=freiburg2_desk
 configname=base7a_2_fallback_a_2
 
 configfile=$SLAMDIR/config/${base7a_2_fallback_a_2}.json
-calibration_dir=$DARADIR/calibration/
+calibration_dir=$DARADIR/calibration_tum/
 orb_out_dir=$ORB_OUT/$bagname/
 unsparsified_orb_out=$ORB_POST_PROCESS/unsparsified_ut_vslam_in/$bagname/
 sparsified_orb_out=$ORB_POST_PROCESS/sparsified_ut_vslam_in/$configname/$bagname/
