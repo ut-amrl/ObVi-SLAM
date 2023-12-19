@@ -24,7 +24,7 @@ def add_to_features(features_dict, line):
             return
         measurement_x2 = float(tokens[4])
         measurement_y2 = float(tokens[5])
-    except ValueError as e:
+    except:
         return
     features_dict[feature_id] = (
         depth, measurement_x1, measurement_y1, measurement_x2, measurement_y2)
