@@ -142,7 +142,8 @@ FullDOFEllipsoidResults readEllipsoidResults(
   } else if (std::filesystem::exists(unlabeled_obj_full_path)) {
     return readEllipsoidResultsWithoutId(unlabeled_obj_full_path);
   } else {
-    LOG(WARNING) << "No ellipsoid results for " << indiv_bag_dir_name;
+    LOG(ERROR) << "No ellipsoid results for " << indiv_bag_dir_name;
+    exit(1);
     return {};
   }
 }
@@ -236,8 +237,13 @@ FullSequenceObjectMetrics computeMetrics(
         ((double)(metrics_for_traj.num_gt_objs_ - missed_gt_objs_)) /
         metrics_for_traj.num_gt_objs_;
     metrics_for_traj.missed_gt_objs_ = missed_gt_objs_;
-    metrics_for_traj.objects_per_gt_obj_ =
-        ((double)assignments_to_gt_objs) / (gt_objs.size() - missed_gt_objs_);
+    if (missed_gt_objs_ == gt_objs.size()) {
+      LOG(WARNING) << "No objects estimated?";
+      metrics_for_traj.objects_per_gt_obj_ = 0;
+    } else {
+      metrics_for_traj.objects_per_gt_obj_ =
+          ((double)assignments_to_gt_objs) / (gt_objs.size() - missed_gt_objs_);
+    }
     metrics_for_traj.opt_gt_obj_for_est_obj_ = opt_gt_obj_for_est_obj;
     metrics_for_traj.iou_for_gt_obj_ = iou_per_gt_obj;
     metrics_for_traj.pos_diff_for_est_obj_ = dist_from_gt_by_obj;

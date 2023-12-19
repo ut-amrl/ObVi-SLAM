@@ -6,13 +6,15 @@ from trajectory_sequence import *
 import csv
 from math import sqrt
 import matplotlib.pyplot as plt
-
+import numpy as np
 
 
 class IterationPlotterConstants:
     iterationLogFilePrefix = "ceres_iterations_"
 
-    iterationFileTypes = ["gba_phase_1", "vf_adjust", "gba_phase_2", "lba_phase_1",
+    iterationFileTypes = ["gba_phase_1",
+                          # "vf_adjust",
+                          "gba_phase_2", "lba_phase_1",
                           "lba_phase_2", "pending_obj_est", "pgo", "pre_pgo_track"]
 
     iterationFileTypesToMerge = {"gba_phase_1": "lba_phase_1", "gba_phase_2": "lba_phase_2"}
@@ -36,6 +38,7 @@ def readOptimizationIterationInfosFromFile(logFile):
     extraNormalizedCostInfosInLogFile = []
     paramChangeInLogFile = []
     iterValsInLogFile = []
+    numIters = []
     with open(logFile) as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=',')
         lastIdentifier = None
@@ -67,7 +70,8 @@ def readOptimizationIterationInfosFromFile(logFile):
                 averageStepChange = 0
             if ((lastIdentifier is not None) and (iterationNum == 0)):
 
-                maxCost = max(costDataForCurrIdentifier)
+                numIters.append(len(costDataForCurrIdentifier))
+                maxCost = costDataForCurrIdentifier[0]
                 minCost = min(costDataForCurrIdentifier)
                 if (maxCost != 0):
                     # print(logFile)
@@ -130,7 +134,7 @@ def readOptimizationIterationInfosFromFile(logFile):
                 exit(1)
 
 
-    return (costInfosInLogFile, paramChangeInLogFile, iterValsInLogFile, extraNormalizedCostInfosInLogFile)
+    return (costInfosInLogFile, paramChangeInLogFile, iterValsInLogFile, extraNormalizedCostInfosInLogFile, numIters)
 
 
 def plotCostIterationData(fileType, itersInOptimization, costInfos, prefix=""):
@@ -162,23 +166,35 @@ def plotParamChangeIterationData(fileType, itersInOptimization, paramChangeInfos
     plt.title("Param change for " + fileType)
     plt.show(block=False)
 
+def plotNumIterData(fileType, numIters):
+    plt.figure()
+    plt.hist(numIters)
+    plt.title("Num iters histogram for " + fileType)
+    counts, bins = np.histogram(numIters)
+    print("Histogram counts " + str(counts))
+    print("Histogram bins ", str(bins))
+    plt.show(block=False)
+
 
 def plotIterationInfoForFileType(fileType, logFilesForType):
     costInfosForOptimizations = []
     extraNormalizedCostInfosForOptimizations = []
     normalizedParamChangeByNumParamsForOptimizations = []
     itersInOptimization = []
+    numItersForAll = []
 
     for logFile in logFilesForType:
-        costInfosInLogFile, paramChangeInLogFile, iterValsInLogFile, extraNormalizedCostInfosInLogFile = readOptimizationIterationInfosFromFile(logFile)
+        costInfosInLogFile, paramChangeInLogFile, iterValsInLogFile, extraNormalizedCostInfosInLogFile, numIters = readOptimizationIterationInfosFromFile(logFile)
         costInfosForOptimizations.extend(costInfosInLogFile)
         normalizedParamChangeByNumParamsForOptimizations.extend(paramChangeInLogFile)
         itersInOptimization.extend(iterValsInLogFile)
         extraNormalizedCostInfosForOptimizations.extend(extraNormalizedCostInfosInLogFile)
+        numItersForAll.extend(numIters)
 
     plotCostIterationData(fileType, itersInOptimization, costInfosForOptimizations)
     plotCostIterationData(fileType, itersInOptimization, extraNormalizedCostInfosForOptimizations, "Extra ")
     plotParamChangeIterationData(fileType, itersInOptimization, normalizedParamChangeByNumParamsForOptimizations)
+    plotNumIterData(fileType, numItersForAll)
 
 
 def plotIterationInfo(iterationInfoConfig):
@@ -211,7 +227,8 @@ def plotIterationInfo(iterationInfoConfig):
     for fileType, logFiles in logFilesForType.items():
         # print(fileType)
         plotIterationInfoForFileType(fileType, logFiles)
-    plt.show()
+        plt.show()
+        # input("Press for next file type")
     input("Here!")
 
 

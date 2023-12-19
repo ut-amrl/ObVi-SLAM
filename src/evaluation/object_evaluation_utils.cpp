@@ -587,9 +587,9 @@ double getIoUForObjectSet(
                               (int)ceil(y_range * kIoUSamplingPointsPerMeter));
   int num_z_points = std::min(kMaxPointsPerDirection,
                               (int)ceil(z_range * kIoUSamplingPointsPerMeter));
-  LOG(INFO) << "Num x points " << num_x_points;
-  LOG(INFO) << "Num y points " << num_y_points;
-  LOG(INFO) << "Num z points " << num_z_points;
+//  LOG(INFO) << "Num x points " << num_x_points;
+//  LOG(INFO) << "Num y points " << num_y_points;
+//  LOG(INFO) << "Num z points " << num_z_points;
   double x_point_interval = x_range / (num_x_points - 1);
   double y_point_interval = y_range / (num_y_points - 1);
   double z_point_interval = z_range / (num_z_points - 1);
@@ -695,9 +695,9 @@ double getIoUForObjectSet(
     }
   }
 
-  LOG(INFO) << "Number of other objects to consider: "
-            << (covering_ellipsoids.size() -
-                potentially_overlapping_ellipsoids.size());
+//  LOG(INFO) << "Number of other objects to consider: "
+//            << (covering_ellipsoids.size() -
+//                potentially_overlapping_ellipsoids.size());
   for (size_t ellipsoid_idx = 0; ellipsoid_idx < covering_ellipsoids.size();
        ellipsoid_idx++) {
     if (considered_ellipsoids.find(ellipsoid_idx) !=
@@ -774,9 +774,9 @@ double getIoUForObjectSet(
     size_t num_y_points_el = y_range / y_inc;
     size_t num_z_points_el = z_range / z_inc;
 
-    LOG(INFO) << "Num points el x " << num_x_points_el;
-    LOG(INFO) << "Num points el y " << num_y_points_el;
-    LOG(INFO) << "Num points el z " << num_z_points_el;
+//    LOG(INFO) << "Num points el x " << num_x_points_el;
+//    LOG(INFO) << "Num points el y " << num_y_points_el;
+//    LOG(INFO) << "Num points el z " << num_z_points_el;
 
     size_t inc_for_bb = 1;
     while (num_x_points_el > kMaxPointsPerDirection) {
@@ -795,9 +795,9 @@ double getIoUForObjectSet(
       z_inc *= 2;
     }
 
-    LOG(INFO) << "Num points el x after adjusting " << num_x_points_el;
-    LOG(INFO) << "Num points el y after adjusting " << num_y_points_el;
-    LOG(INFO) << "Num points el z after adjusting " << num_z_points_el;
+//    LOG(INFO) << "Num points el x after adjusting " << num_x_points_el;
+//    LOG(INFO) << "Num points el y after adjusting " << num_y_points_el;
+//    LOG(INFO) << "Num points el z after adjusting " << num_z_points_el;
 
 
 //    for (double curr_x_el = bb_for_ellipsoid.first.x();
@@ -805,13 +805,13 @@ double getIoUForObjectSet(
 //         curr_x_el += x_inc) {
     for (size_t x_idx = 0; x_idx <= num_x_points_el; x_idx++) {
       double curr_x_el = bb_for_ellipsoid.first.x() + (x_inc * x_idx);
-      LOG_IF(INFO, (x_idx % 100) == 0) << "x idx: " << x_idx;
+//      LOG_IF(INFO, (x_idx % 100) == 0) << "x idx: " << x_idx;
       for (size_t y_idx = 0; y_idx <= num_y_points_el; y_idx++) {
 //      for (double curr_y_el = bb_for_ellipsoid.first.y();
 //           curr_y_el < bb_for_ellipsoid.second.y();
 //           curr_y_el += y_inc) {
         double curr_y_el = bb_for_ellipsoid.first.y() + (y_inc * y_idx);
-        LOG_IF(INFO, (((x_idx % 100) == 0) && ((y_idx % 100) == 0))) << "y idx: " << y_idx;
+//        LOG_IF(INFO, (((x_idx % 100) == 0) && ((y_idx % 100) == 0))) << "y idx: " << y_idx;
 //        for (double curr_z_el = bb_for_ellipsoid.first.z();
 //             curr_z_el < bb_for_ellipsoid.second.z();
 //             curr_z_el += z_inc) {
@@ -865,10 +865,10 @@ void getIoUsForObjects(
       est_objs_assoc_with_gt[gt_obj_id].insert(pairing_by_est.first);
     }
   }
-  LOG(INFO) << "Num objects " << gt_objects.size();
+//  LOG(INFO) << "Num objects " << gt_objects.size();
   for (const auto &gt_obj : gt_objects) {
     ObjectId gt_obj_id = gt_obj.first;
-    LOG(INFO) << "Gt obj " << gt_obj_id;
+//    LOG(INFO) << "Gt obj " << gt_obj_id;
     FullDOFEllipsoidState<double> gt_obj_geometry = gt_obj.second.second;
     double iou = 0;
     if (est_objs_assoc_with_gt.find(gt_obj_id) !=
