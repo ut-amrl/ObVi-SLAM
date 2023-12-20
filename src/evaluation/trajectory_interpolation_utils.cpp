@@ -15,6 +15,42 @@
 
 namespace vslam_types_refactor {
 
+void getOdomPoseEstsFromFile(
+    const std::string &rosbag_file_name, 
+    std::vector<std::pair<pose::Timestamp, pose::Pose2d>> &odom_poses) {
+
+  std::map<double, Pose3D<double>> poses;
+  std::string filepath = 
+      rosbag_file_name.substr(0, rosbag_file_name.size()-4) + "/groundtruth.txt";
+  std::ifstream infile;
+  infile.open(filepath, std::ios::in);
+  if (!infile.is_open()) {
+    LOG(FATAL) << "Failed to open file " << filepath;
+  }
+  std::string line;
+  double timestamp, tx, ty, tz, qx, qy, qz, qw;
+  while (std::getline(infile, line)) {
+    if (line.at(0) == '#') { continue; }
+    std::stringstream ss(line);
+    ss >> timestamp >> tx >> ty >> tz >> qx >> qy >> qz >> qw;
+    poses[timestamp] = 
+        Pose3D<double>(Eigen::Vector3d(tx, ty, tz), 
+            Orientation3D<double>(Eigen::Quaterniond(qw, qx, qy, qz)));
+  }
+  infile.close();
+
+  for (const auto &stamped_pose : poses) {
+    uint32_t sec = std::floor(stamped_pose.first);
+    uint32_t nsec = (stamped_pose.first-sec) * 1e9;
+    pose::Timestamp timestamp = std::make_pair(sec, nsec);
+    auto pose_3d = std::make_pair(
+        stamped_pose.second.transl_, 
+        Eigen::Quaterniond(stamped_pose.second.orientation_));
+    auto pose_2d = pose::toPose2d(pose_3d);
+    odom_poses.emplace_back(timestamp, pose_2d);
+  }
+}
+
 void getOdomPoseEsts(
     const std::string &rosbag_file_name,
     const std::string &odom_topic_name,
@@ -459,6 +495,10 @@ void interpolate3dPosesUsingOdom(
                                    required_timestamps,
                                    approx_odom_adjustment,
                                    closest_odom_stamps);
+  LOG(INFO) << "pose_factor_infos size: " << pose_factor_infos.size();
+  for (const auto &factor : pose_factor_infos) {
+    LOG(INFO) << factor.pose_deviation_cov_.transpose();
+  }
 
   LOG(INFO) << "Adjusting odom poses to approximately match lidar frame";
   for (const auto &odom_pose : odom_poses) {

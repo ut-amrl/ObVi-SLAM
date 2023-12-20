@@ -183,8 +183,8 @@ int main(int argc, char **argv) {
 
   LOG(INFO) << "Done reading extrinsics";
   std::vector<std::pair<Timestamp, Pose2d>> odom_poses;
-  getOdomPoseEsts(FLAGS_rosbag_file, FLAGS_odometry_topic, odom_poses);
-  LOG(INFO) << "Done reading odometry poses";
+  // getOdomPoseEsts(FLAGS_rosbag_file, FLAGS_odometry_topic, odom_poses);
+  getOdomPoseEstsFromFile(FLAGS_rosbag_file, odom_poses);
 
   std::vector<file_io::Pose3DWithDoubleTimestamp> coarse_fixed_poses_raw;
   readPose3DWithDoubleTimestampFromFile(FLAGS_coarse_trajectory_file,

@@ -176,6 +176,9 @@ target_link_libraries(write_bounding_boxes_for_rosbag_to_file ut_vslam ${LIBS})
 ROSBUILD_ADD_EXECUTABLE(convert_object_detections_from_yaml src/evaluation/objects/convert_object_detections_from_yaml.cpp)
 target_link_libraries(convert_object_detections_from_yaml ut_vslam ${LIBS} yaml-cpp)
 
+ROSBUILD_ADD_EXECUTABLE(format_tum_gt src/evaluation/tum/format_tum_gt.cpp)
+target_link_libraries(format_tum_gt ut_vslam ${LIBS})
+
 IF (GENERATE_UNITTESTS)
     MESSAGE("Adding test executable")
     SET(UT_VSLAM_UNITTEST_NAME "ut_vslam_tests"

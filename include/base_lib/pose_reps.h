@@ -125,9 +125,9 @@ inline Pose2d toPose2d(const Pose3d &pose_3d) {
   Eigen::Vector3d euler_angles = toEulerAngles(pose_3d.second);
   double yaw = euler_angles[2];
   if ((abs(euler_angles[0]) > 0.2) || (abs(euler_angles[1]) > 0.2)) {
-    LOG(INFO) << "Roll " << euler_angles[0];
-    LOG(INFO) << "Pitch " << euler_angles[1];
-    LOG(INFO) << "Yaw " << euler_angles[2];
+  //   LOG(INFO) << "Roll " << euler_angles[0];
+  //   LOG(INFO) << "Pitch " << euler_angles[1];
+  //   LOG(INFO) << "Yaw " << euler_angles[2];
   }
   pose::Pose2d pose =
       pose::createPose2d(pose_3d.first.x(), pose_3d.first.y(), yaw);

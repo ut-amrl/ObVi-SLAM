@@ -39,6 +39,7 @@ rosbag_file_directory=${root_data_dir}TUM/
 orb_slam_out_directory=${root_data_dir}orb_out/
 orb_post_process_base_directory=${root_data_dir}orb_post_process/
 results_root_directory=${root_data_dir}ut_vslam_results/
+lego_loam_out_root_dir=${root_data_dir}lego_loam_out/
 bounding_box_post_process_base_directory=$root_data_dir/bounding_box_data/
 
 sequence_file_base_name="tum_fr2_desk"
@@ -57,5 +58,8 @@ python3 src/evaluation/ltm_trajectory_sequence_executor.py \
     --results_root_directory ${results_root_directory} \
     --config_file_base_name ${config_file_base_name} \
     --sequence_file_base_name ${sequence_file_base_name} \
-    --output_bb_assoc --record_viz_rosbag --log_to_file 
+    --output_bb_assoc --record_viz_rosbag --log_to_file --run_rviz 
+    # --lego_loam_out_root_dir ${lego_loam_out_root_dir} \
+
+
 
