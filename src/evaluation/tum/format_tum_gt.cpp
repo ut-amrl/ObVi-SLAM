@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
         << timestamped_poses.size();
   }
   size_t poseIdx = 0;
-  for (auto timestamped_pose : timestamped_poses) {
+  for (auto &timestamped_pose : timestamped_poses) {
     timestamped_pose.second = poses.at(poseIdx);
     ++poseIdx;
   }
