@@ -58,8 +58,8 @@ python3 src/evaluation/ltm_trajectory_sequence_executor.py \
     --results_root_directory ${results_root_directory} \
     --config_file_base_name ${config_file_base_name} \
     --sequence_file_base_name ${sequence_file_base_name} \
+    --lego_loam_out_root_dir ${lego_loam_out_root_dir} \
     --output_bb_assoc --record_viz_rosbag --log_to_file --run_rviz 
-    # --lego_loam_out_root_dir ${lego_loam_out_root_dir} \
 
 
 

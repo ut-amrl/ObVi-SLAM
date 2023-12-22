@@ -15,7 +15,11 @@
 #include <file_io/cv_file_storage/vslam_basic_types_file_storage_io.h>
 #include <file_io/node_id_and_timestamp_io.h>
 #include <file_io/pose_3d_with_timestamp_io.h>
+#include <file_io/pose_3d_with_double_timestamp_io.h>
 #include <file_io/pose_io_utils.h>
+#include <evaluation/trajectory_interpolation_utils.h>
+#include <file_io/pose_3d_io.h>
+#include <file_io/timestamp_io.h>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 #include <refactoring/bounding_box_frontend/bounding_box_retriever.h>
@@ -35,10 +39,15 @@
 #include <run_optimization_utils/optimization_runner.h>
 #include <sensor_msgs/Image.h>
 
+using namespace pose;
+using namespace vslam_types_refactor;
 namespace vtr = vslam_types_refactor;
 
 DEFINE_string(gt_filepath_in,  "", "input groundtruth filepath (in TUM format)");
 DEFINE_string(gt_filepath_out, "", "output groundtruth filepath (in ObVi-SLAM format)");
+DEFINE_string(time_filepath, "", "path to timestamps_only.txt");
+DEFINE_string(gt_postprocessed_filepath_out, "", 
+    "output groundtruth filepath for required timestamps (in ObVi-SLAM format)");
 
 void LoadPoses(const std::string &filepath, std::map<double, vtr::Pose3D<double>> &poses) {
   std::ifstream infile;
@@ -93,6 +102,10 @@ int main(int argc, char **argv) {
     LOG(FATAL) << "gt_filepath_out cannot be empty!";
   }
 
+  if (FLAGS_time_filepath.empty()) {
+    LOG(FATAL) << "time_filepath cannot be empty!";
+  }
+
   std::map<double, vtr::Pose3D<double>> timestamped_poses;  
   LoadPoses(FLAGS_gt_filepath_in, timestamped_poses);
   LOG(INFO) << "timestamped_poses size: " << timestamped_poses.size();
@@ -113,6 +126,42 @@ int main(int argc, char **argv) {
   }
   LOG(INFO) << "timestamped_poses size: " << timestamped_poses.size();
   SavePoses(FLAGS_gt_filepath_out, timestamped_poses);
+
+  std::vector<Timestamp> required_timestamps;
+  file_io::readTimestampsFromFile(FLAGS_time_filepath,
+                                  required_timestamps);
+
+  std::vector<double> all_timestamps_d;
+  for (const auto &stamped_pose : timestamped_poses) {
+    all_timestamps_d.push_back(stamped_pose.first);
+  }
+
+  std::vector<std::pair<Timestamp, vtr::Pose3D<double>>> required_stamped_poses;
+  for (const auto &timestamp : required_timestamps) {
+    double timestamp_d = timestamp.first + timestamp.second * 1e-9;
+    std::vector<double> tdiffs;
+    for (const auto &stamp_d : all_timestamps_d) {
+      tdiffs.emplace_back(std::fabs(stamp_d-timestamp_d));
+    }
+    size_t idx = std::min_element(tdiffs.begin(), tdiffs.end()) - tdiffs.begin();
+    required_stamped_poses.emplace_back(timestamp, 
+        timestamped_poses.at(all_timestamps_d.at(idx)));
+  }
+
+  poses.clear();
+  for (const auto& stamped_pose : required_stamped_poses) {
+    poses.emplace_back(stamped_pose.second);
+  }
+  poses = adjustTrajectoryToStartAtOrigin(poses);
+  LOG(INFO) << "poses size: " << poses.size();
+
+  poseIdx = 0;
+  for (auto &stamped_pose : required_stamped_poses) {
+    stamped_pose.second = poses.at(poseIdx);
+    ++poseIdx;
+  }
+  file_io::writePose3dsWithTimestampToFile(
+      FLAGS_gt_postprocessed_filepath_out, required_stamped_poses);
 
   return 0;
 }
