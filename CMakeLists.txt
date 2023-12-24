@@ -179,6 +179,10 @@ target_link_libraries(convert_object_detections_from_yaml ut_vslam ${LIBS} yaml-
 ROSBUILD_ADD_EXECUTABLE(format_tum_gt src/evaluation/tum/format_tum_gt.cpp)
 target_link_libraries(format_tum_gt ut_vslam ${LIBS})
 
+ROSBUILD_ADD_EXECUTABLE(get_visualized_gt_trajectory src/evaluation/videos/get_visualized_gt_trajectory.cpp)
+target_link_libraries(get_visualized_gt_trajectory ut_vslam ${LIBS})
+
+
 IF (GENERATE_UNITTESTS)
     MESSAGE("Adding test executable")
     SET(UT_VSLAM_UNITTEST_NAME "ut_vslam_tests"

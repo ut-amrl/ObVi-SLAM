@@ -1,0 +1,6 @@
+image: /home/tiejean/Desktop/EER0.png
+resolution: .055
+origin: [-21.5, -21.5, 0.0]
+occupied_thresh: 0.65
+free_thresh: 0
+negate: 0
