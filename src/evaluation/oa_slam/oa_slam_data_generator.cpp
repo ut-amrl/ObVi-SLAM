@@ -128,7 +128,7 @@ int main(int argc, char **argv) {
   }
   std::sort(ordered_frame_ids.begin(), ordered_frame_ids.end());
 
-  vtr::YoloBoundingBoxQuerier bb_querier(node_handle);
+  // vtr::YoloBoundingBoxQuerier bb_querier(node_handle);
   for (const auto frame_id : ordered_frame_ids) {
     const auto &cam_ids_and_images = images[frame_id];
     const auto &node_and_timestamp = nodes_by_timestamps_vec.at(frame_id);
@@ -152,43 +152,43 @@ int main(int argc, char **argv) {
           << rel_image_path.string() << std::endl;
     }
 
-    std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>
-        cam_ids_and_bboxes;
-    bb_querier.retrieveBoundingBoxesFromCamIdsAndImages(
-        frame_id, cam_ids_and_images, cam_ids_and_bboxes);
-    for (const auto &cam_id_and_bboxes : cam_ids_and_bboxes) {
-      fs::path rel_image_path =
-          fs::path(std::to_string(cam_id_and_bboxes.first)) /
-          (std::to_string(frame_id) + ".png");
-      std::ofstream &ofile =
-          cam_ids_and_detection_ofiles.at(cam_id_and_bboxes.first);
-      if (node_and_timestamp.node_id_ != frame_id) {
-        LOG(ERROR) << "Something went wrong with node id and frame id! "
-                   << "node id = " << node_and_timestamp.node_id_
-                   << "; frame id = " << frame_id;
-        exit(1);
-      }
-      ofile << "file_name" << std::endl;
-      // ofile << node_and_timestamp.seconds_ << "_" <<
-      // node_and_timestamp.nano_seconds_ << ".png" << std::endl; ofile <<
-      // std::to_string(frame_id) << ".png" << std::endl;
-      ofile << rel_image_path.string() << std::endl;
-      ofile << "detections" << std::endl;
-      for (const auto &bbox : cam_id_and_bboxes.second) {
-        ofile << "category_id" << std::endl;
-        ofile << class_names_and_class_ids.at(bbox.semantic_class_)
-              << std::endl;
-        ofile << "detection_score" << std::endl;
-        ofile << bbox.detection_confidence_ << std::endl;
-        ofile << "bbox" << std::endl;
-        // min_x, min_y, max_x, max_y
-        ofile << bbox.pixel_corner_locations_.first.x() << ","
-              << bbox.pixel_corner_locations_.first.y() << ","
-              << bbox.pixel_corner_locations_.second.x() << ","
-              << bbox.pixel_corner_locations_.second.y() << std::endl;
-      }
-      ofile << std::endl;
-    }
+    // std::unordered_map<vtr::CameraId, std::vector<vtr::RawBoundingBox>>
+    //     cam_ids_and_bboxes;
+    // bb_querier.retrieveBoundingBoxesFromCamIdsAndImages(
+    //     frame_id, cam_ids_and_images, cam_ids_and_bboxes);
+    // for (const auto &cam_id_and_bboxes : cam_ids_and_bboxes) {
+    //   fs::path rel_image_path =
+    //       fs::path(std::to_string(cam_id_and_bboxes.first)) /
+    //       (std::to_string(frame_id) + ".png");
+    //   std::ofstream &ofile =
+    //       cam_ids_and_detection_ofiles.at(cam_id_and_bboxes.first);
+    //   if (node_and_timestamp.node_id_ != frame_id) {
+    //     LOG(ERROR) << "Something went wrong with node id and frame id! "
+    //                << "node id = " << node_and_timestamp.node_id_
+    //                << "; frame id = " << frame_id;
+    //     exit(1);
+    //   }
+    //   ofile << "file_name" << std::endl;
+    //   // ofile << node_and_timestamp.seconds_ << "_" <<
+    //   // node_and_timestamp.nano_seconds_ << ".png" << std::endl; ofile <<
+    //   // std::to_string(frame_id) << ".png" << std::endl;
+    //   ofile << rel_image_path.string() << std::endl;
+    //   ofile << "detections" << std::endl;
+    //   for (const auto &bbox : cam_id_and_bboxes.second) {
+    //     ofile << "category_id" << std::endl;
+    //     ofile << class_names_and_class_ids.at(bbox.semantic_class_)
+    //           << std::endl;
+    //     ofile << "detection_score" << std::endl;
+    //     ofile << bbox.detection_confidence_ << std::endl;
+    //     ofile << "bbox" << std::endl;
+    //     // min_x, min_y, max_x, max_y
+    //     ofile << bbox.pixel_corner_locations_.first.x() << ","
+    //           << bbox.pixel_corner_locations_.first.y() << ","
+    //           << bbox.pixel_corner_locations_.second.x() << ","
+    //           << bbox.pixel_corner_locations_.second.y() << std::endl;
+    //   }
+    //   ofile << std::endl;
+    // }
   }
 
   for (auto &cam_id_and_ofile : cam_ids_and_ofiles) {

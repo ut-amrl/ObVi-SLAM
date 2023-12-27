@@ -168,9 +168,12 @@ readBoundingBoxesByTimestampFromFile(
   file_io::readBoundingBoxWithTimestampsFromFile(bounding_boxes_file_name,
                                                  bounding_boxes_by_timestamp);
   // TODO (Taijing): Currently I hacked it to only take in some object classes
+  // const std::unordered_set<std::string> classes = {
+  //   "bottle", "cup", "teddy_bear", "tv", "mouse", 
+  //   "keyboard", "book", "potted_plant", "chair"};
   const std::unordered_set<std::string> classes = {
     "bottle", "cup", "teddy_bear", "tv", "mouse", 
-    "keyboard", "book", "potted_plant", "chair"};
+    "keyboard", "chair"};
   std::vector<file_io::BoundingBoxWithTimestamp> bounding_boxes_by_timestamp_tmp;
   for (const auto &detection : bounding_boxes_by_timestamp) {
     if (classes.find(detection.semantic_class) != classes.end()) {

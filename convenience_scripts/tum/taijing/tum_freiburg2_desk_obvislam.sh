@@ -46,7 +46,7 @@ sequence_file_base_name="tum_fr2_desk"
 
 cd $SLAM_DIR
 
-config_file_base_name="tum_fr2_desk"
+config_file_base_name="tum_fr2_desk_obj_fast"
 python3 src/evaluation/ltm_trajectory_sequence_executor.py \
     --bounding_box_post_process_base_directory ${bounding_box_post_process_base_directory} \
     --config_file_directory ${config_file_directory} \

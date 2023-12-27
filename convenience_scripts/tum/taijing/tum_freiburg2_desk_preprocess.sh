@@ -4,9 +4,9 @@ ORB_OUT=$DARADIR/orb_out
 ORB_POST_PROCESS=$DARADIR/orb_post_process
 
 bagname=freiburg2_desk
-configname=base7a_2_fallback_a_2
+configname=tum_fr2_desk_obj_fast
 
-configfile=$SLAMDIR/config/${base7a_2_fallback_a_2}.json
+configfile=$SLAMDIR/config/${configname}.json
 calibration_dir=$DARADIR/calibration_tum/
 orb_out_dir=$ORB_OUT/$bagname/
 unsparsified_orb_out=$ORB_POST_PROCESS/unsparsified_ut_vslam_in/$bagname/
