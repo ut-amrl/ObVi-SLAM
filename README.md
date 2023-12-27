@@ -1,9 +1,14 @@
 # ObVi-SLAM
 ObVi-SLAM is a joint object-visual SLAM approach aimed at long-term multi-session robot deployments. 
 
-[[Paper with added appendix](https://arxiv.org/abs/2309.15268)] [[Video](https://youtu.be/quJOgnEdaZ0)]
+[[Paper with added appendix](https://drive.google.com/file/d/1gmp8ez2eVEASr0NoptJtauk3ewzhh4jA/view?usp=sharing)] [[Video](https://youtu.be/quJOgnEdaZ0)]
+Appendix includes:
+- Computation time details
+- Full ablation results
+- Relative pose error
+- Bounding box projection math
+- Implementation details not discussed in the main paper
 
-Offline execution instructions coming soon. 
 ROS implementation coming late 2023/early 2024. 
 
 Please email amanda.adkins4242@gmail.com with any questions! 
