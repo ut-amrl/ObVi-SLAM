@@ -58,6 +58,11 @@ ATEResults generateATEforRotAndTranslForSyncedAlignedTrajectories(
     const std::vector<std::optional<Pose3D<double>>> &est_traj,
     const std::vector<Pose3D<double>> &gt_traj);
 
+
+ATEResults generateRPEforRotAndTranslForSyncedAlignedTrajectories(
+    const std::vector<std::optional<Pose3D<double>>> &est_traj,
+    const std::vector<Pose3D<double>> &gt_traj);
+
 RawWaypointConsistencyResults computeWaypointConsistencyResults(
     const std::vector<std::vector<WaypointInfo>> &waypoints_by_trajectory,
     const std::vector<

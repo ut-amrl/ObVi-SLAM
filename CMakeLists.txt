@@ -109,72 +109,79 @@ target_compile_features(ut_vslam PRIVATE cxx_std_17)
 ROSBUILD_ADD_EXECUTABLE(offline_object_visual_slam_main src/refactoring/offline_object_visual_slam_main.cpp)
 target_link_libraries(offline_object_visual_slam_main ut_vslam ${LIBS})
 
-ROSBUILD_ADD_EXECUTABLE(initialize_traj_and_feats_from_orb_out src/data_preprocessing_utils/unproject_main.cpp)
-target_link_libraries(initialize_traj_and_feats_from_orb_out ut_vslam ${LIBS})
-
-ROSBUILD_ADD_EXECUTABLE(orb_trajectory_sparsifier src/data_preprocessing_utils/orb_trajectory_sparsifier.cpp)
-target_link_libraries(orb_trajectory_sparsifier ut_vslam ${LIBS})
-
+#ROSBUILD_ADD_EXECUTABLE(initialize_traj_and_feats_from_orb_out src/data_preprocessing_utils/unproject_main.cpp)
+#target_link_libraries(initialize_traj_and_feats_from_orb_out ut_vslam ${LIBS})
 #
-#ROSBUILD_ADD_EXECUTABLE(approx_depth_bounding_box_extractor src/data_preprocessing_utils/approx_depth_bounding_box_extractor.cpp)
-#target_link_libraries(approx_depth_bounding_box_extractor ut_vslam ${LIBS})
-
-ROSBUILD_ADD_EXECUTABLE(localization_rosbag_extraction_and_interpolation_for_bounding_boxes src/data_preprocessing_utils/localization_rosbag_extraction_and_interpolation_for_bounding_boxes.cpp)
-target_link_libraries(localization_rosbag_extraction_and_interpolation_for_bounding_boxes ut_vslam ${LIBS})
-
-
-ROSBUILD_ADD_EXECUTABLE(test_det_call src/testing/test_obj_det_service.cpp)
-target_link_libraries(test_det_call ut_vslam ${LIBS})
-
-ROSBUILD_ADD_EXECUTABLE(visualize_jacobian_problem_feats src/refactoring/visualize_jacobian_problem_feats.cpp)
-target_link_libraries(visualize_jacobian_problem_feats ut_vslam ${LIBS})
-
-ROSBUILD_ADD_EXECUTABLE(write_configuration src/refactoring/configuration/write_configuration.cpp)
-target_link_libraries(write_configuration ut_vslam ${LIBS})
-
-ROSBUILD_ADD_EXECUTABLE(interpolate_poses_with_required_nodes src/evaluation/interpolate_poses_with_required_nodes.cpp)
-target_link_libraries(interpolate_poses_with_required_nodes ut_vslam ${LIBS})
-
-ROSBUILD_ADD_EXECUTABLE(oa_slam_data_generator src/evaluation/oa_slam/oa_slam_data_generator.cpp)
-target_link_libraries(oa_slam_data_generator ut_vslam ${LIBS})
+#ROSBUILD_ADD_EXECUTABLE(orb_trajectory_sparsifier src/data_preprocessing_utils/orb_trajectory_sparsifier.cpp)
+#target_link_libraries(orb_trajectory_sparsifier ut_vslam ${LIBS})
+#
+##
+##ROSBUILD_ADD_EXECUTABLE(approx_depth_bounding_box_extractor src/data_preprocessing_utils/approx_depth_bounding_box_extractor.cpp)
+##target_link_libraries(approx_depth_bounding_box_extractor ut_vslam ${LIBS})
+#
+#ROSBUILD_ADD_EXECUTABLE(localization_rosbag_extraction_and_interpolation_for_bounding_boxes src/data_preprocessing_utils/localization_rosbag_extraction_and_interpolation_for_bounding_boxes.cpp)
+#target_link_libraries(localization_rosbag_extraction_and_interpolation_for_bounding_boxes ut_vslam ${LIBS})
+#
+#
+#ROSBUILD_ADD_EXECUTABLE(test_det_call src/testing/test_obj_det_service.cpp)
+#target_link_libraries(test_det_call ut_vslam ${LIBS})
+#
+#ROSBUILD_ADD_EXECUTABLE(visualize_jacobian_problem_feats src/refactoring/visualize_jacobian_problem_feats.cpp)
+#target_link_libraries(visualize_jacobian_problem_feats ut_vslam ${LIBS})
+#
+#ROSBUILD_ADD_EXECUTABLE(write_configuration src/refactoring/configuration/write_configuration.cpp)
+#target_link_libraries(write_configuration ut_vslam ${LIBS})
+#
+#ROSBUILD_ADD_EXECUTABLE(interpolate_poses_with_required_nodes src/evaluation/interpolate_poses_with_required_nodes.cpp)
+#target_link_libraries(interpolate_poses_with_required_nodes ut_vslam ${LIBS})
+#
+#ROSBUILD_ADD_EXECUTABLE(oa_slam_data_generator src/evaluation/oa_slam/oa_slam_data_generator.cpp)
+#target_link_libraries(oa_slam_data_generator ut_vslam ${LIBS})
 
 ROSBUILD_ADD_EXECUTABLE(trajectory_metrics_generator src/evaluation/trajectory_metrics_generator.cpp)
 target_link_libraries(trajectory_metrics_generator ut_vslam ${LIBS})
 
 ROSBUILD_ADD_EXECUTABLE(object_metrics_generator src/evaluation/object_metrics_generator.cpp)
 target_link_libraries(object_metrics_generator ut_vslam ${LIBS})
+#
+#ROSBUILD_ADD_EXECUTABLE(utvslam_out_to_poses_by_timestamp src/evaluation/trajectory_formatting/utvslam_out_to_poses_by_timestamp.cpp)
+#target_link_libraries(utvslam_out_to_poses_by_timestamp ut_vslam ${LIBS})
+#
+#ROSBUILD_ADD_EXECUTABLE(debug_jacobian_hessian_diagonal src/debugging_utils/debug_jacobian_hessian_diagonal.cpp)
+#target_link_libraries(debug_jacobian_hessian_diagonal ut_vslam ${LIBS})
+#
+#ROSBUILD_ADD_EXECUTABLE(ltm_extraction_only src/refactoring/ltm_extraction_only.cpp)
+#target_link_libraries(ltm_extraction_only ut_vslam ${LIBS})
+#
+#ROSBUILD_ADD_EXECUTABLE(display_ltm src/refactoring/display_ltm.cpp)
+#target_link_libraries(display_ltm ut_vslam ${LIBS})
+#
+#
+#ROSBUILD_ADD_EXECUTABLE(run_opt_from_pg_state src/refactoring/run_opt_from_pg_state.cpp)
+#target_link_libraries(run_opt_from_pg_state ut_vslam ${LIBS})
+#
+#ROSBUILD_ADD_EXECUTABLE(waypoint_timestamp_extractor src/data_preprocessing_utils/waypoint_timestamp_extractor.cpp)
+#target_link_libraries(waypoint_timestamp_extractor ut_vslam ${LIBS})
+#
+#ROSBUILD_ADD_EXECUTABLE(lego_loam_overlay_generator src/evaluation/lego_loam_overlay_generator.cpp)
+#target_link_libraries(lego_loam_overlay_generator ut_vslam ${LIBS})
 
-ROSBUILD_ADD_EXECUTABLE(utvslam_out_to_poses_by_timestamp src/evaluation/trajectory_formatting/utvslam_out_to_poses_by_timestamp.cpp)
-target_link_libraries(utvslam_out_to_poses_by_timestamp ut_vslam ${LIBS})
 
-ROSBUILD_ADD_EXECUTABLE(debug_jacobian_hessian_diagonal src/debugging_utils/debug_jacobian_hessian_diagonal.cpp)
-target_link_libraries(debug_jacobian_hessian_diagonal ut_vslam ${LIBS})
+ROSBUILD_ADD_EXECUTABLE(lego_loam_traj_length_evaluator src/evaluation/lego_loam_traj_length_evaluator.cpp)
+target_link_libraries(lego_loam_traj_length_evaluator ut_vslam ${LIBS})
 
-ROSBUILD_ADD_EXECUTABLE(ltm_extraction_only src/refactoring/ltm_extraction_only.cpp)
-target_link_libraries(ltm_extraction_only ut_vslam ${LIBS})
-
-ROSBUILD_ADD_EXECUTABLE(display_ltm src/refactoring/display_ltm.cpp)
-target_link_libraries(display_ltm ut_vslam ${LIBS})
-
-
-ROSBUILD_ADD_EXECUTABLE(run_opt_from_pg_state src/refactoring/run_opt_from_pg_state.cpp)
-target_link_libraries(run_opt_from_pg_state ut_vslam ${LIBS})
-
-ROSBUILD_ADD_EXECUTABLE(waypoint_timestamp_extractor src/data_preprocessing_utils/waypoint_timestamp_extractor.cpp)
-target_link_libraries(waypoint_timestamp_extractor ut_vslam ${LIBS})
-
-ROSBUILD_ADD_EXECUTABLE(lego_loam_overlay_generator src/evaluation/lego_loam_overlay_generator.cpp)
-target_link_libraries(lego_loam_overlay_generator ut_vslam ${LIBS})
-
-
-ROSBUILD_ADD_EXECUTABLE(sequence_file_writer src/data_preprocessing_utils/sequence_file_writer.cpp)
-target_link_libraries(sequence_file_writer ut_vslam ${LIBS})
-
-ROSBUILD_ADD_EXECUTABLE(write_bounding_boxes_for_rosbag_to_file src/data_preprocessing_utils/write_bounding_boxes_for_rosbag_to_file.cpp)
-target_link_libraries(write_bounding_boxes_for_rosbag_to_file ut_vslam ${LIBS})
-
-ROSBUILD_ADD_EXECUTABLE(convert_object_detections_from_yaml src/evaluation/objects/convert_object_detections_from_yaml.cpp)
-target_link_libraries(convert_object_detections_from_yaml ut_vslam ${LIBS} yaml-cpp)
+ROSBUILD_ADD_EXECUTABLE(gt_transformer src/evaluation/gt_transformer.cpp)
+target_link_libraries(gt_transformer ut_vslam ${LIBS})
+#
+#
+#ROSBUILD_ADD_EXECUTABLE(sequence_file_writer src/data_preprocessing_utils/sequence_file_writer.cpp)
+#target_link_libraries(sequence_file_writer ut_vslam ${LIBS})
+#
+#ROSBUILD_ADD_EXECUTABLE(write_bounding_boxes_for_rosbag_to_file src/data_preprocessing_utils/write_bounding_boxes_for_rosbag_to_file.cpp)
+#target_link_libraries(write_bounding_boxes_for_rosbag_to_file ut_vslam ${LIBS})
+#
+#ROSBUILD_ADD_EXECUTABLE(convert_object_detections_from_yaml src/evaluation/objects/convert_object_detections_from_yaml.cpp)
+#target_link_libraries(convert_object_detections_from_yaml ut_vslam ${LIBS} yaml-cpp)
 
 IF (GENERATE_UNITTESTS)
     MESSAGE("Adding test executable")

@@ -20,7 +20,7 @@ import numpy as np
 import pandas as pd
 from matplotlib.ticker import MultipleLocator
 
-kFigSize = (6.5, 3.5)
+kFigSize = (6.5, 4)
 kCDFFigSize = (6.5, 4)
 kFigBottomSpacing = 0.15
 
@@ -298,7 +298,7 @@ def getCDFData(dataset, num_bins):
 
 def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="upper left", savepath=None,
               errorBounds=None,
-              height_ratios=None, legend_ncol=1, yscaleType=None, scatter=True):
+              height_ratios=None, legend_ncol=1, yscaleType=None, scatter=True, subcapLabel=None):
     fig = plt.figure(figsize=kFigSize)
     # fig = plt.figure(figsize=set_size(505, 0.2))
 
@@ -391,7 +391,15 @@ def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="up
     # bax.axs[lastBaxIdx].set_xticks(np.arange(1, 16))
 
     fig.subplots_adjust(bottom=kFigBottomSpacing)
-    bax.set_xlabel("Trajectory Number", labelpad=30, fontsize=kAxisFontsize)
+    xLabelText = "Trajectory Number"
+    if (subcapLabel is not None):
+        # plt.rc('text', usetex=True)
+        plt.text(-0.1,-0.22,'(' + subcapLabel + ')',fontsize=30)
+        # bax.set_xlabel(r'{\fontsize{50pt}{3em}\selectfont{}a}{\fontsize{20pt}{3em}\selectfont{}N')
+        # xLabelText = r'\fontsize{30pt}\selectfont{}{(a)\r}{\fontsize{15pt}\selectfont{}}                               Trajectory Number                               '
+        # xLabelText = "(" + subcapLabel + ")" + "                               " + xLabelText + "                               " + "    "
+
+    bax.set_xlabel(xLabelText, labelpad=30, fontsize=kAxisFontsize)
     bax.set_ylabel(kATEErrorYLabelDict[err_type], fontsize=kAxisFontsize)
 
     plt.tight_layout(rect=(-0.05, -0.06, 1, 1))
@@ -575,6 +583,7 @@ class MetricsFileConstants:
     allTranslationDeviationsLabel = "all_translation_deviations"
     allRotationDeviationsLabel = "all_rotation_deviations"
     ateResultsLabel = "trajectory_sequence_ate_results"
+    rpeResultsLabel = "trajectory_sequence_rpe_results"
     indivTrajectoryMetricsLabel = "indiv_trajectory_metrics"
     sequenceMetricsLabel = "sequence_metrics"
 
@@ -648,11 +657,12 @@ class ATEResults:
 
 
 class TrajectoryMetrics:
-    def __init__(self, waypoint_deviations, all_translation_deviations, all_rotation_deviations, ate_results):
+    def __init__(self, waypoint_deviations, all_translation_deviations, all_rotation_deviations, ate_results, rpe_results=None):
         self.waypoint_deviations = waypoint_deviations
         self.all_translation_deviations = all_translation_deviations
         self.all_rotation_deviations = all_rotation_deviations
         self.ate_results = ate_results
+        self.rpe_results = rpe_results
 
 
 class FullSequenceMetrics:
@@ -720,9 +730,12 @@ def readTrajectoryMetricsFromJsonObj(metricsJsonObj):
         raise ValueError(
             "entry for " + MetricsFileConstants.ateResultsLabel + " was not in the metrics file")
     ateResults = readATEResultsFromJsonObj(metricsJsonObj[MetricsFileConstants.ateResultsLabel])
+    rpeResults = None
+    if (MetricsFileConstants.rpeResultsLabel in metricsJsonObj):
+        rpeResults = readATEResultsFromJsonObj(metricsJsonObj[MetricsFileConstants.rpeResultsLabel])
 
     return TrajectoryMetrics(ate_results=ateResults, all_translation_deviations=all_translation_deviations,
-                             all_rotation_deviations=all_rotation_deviations,
+                             all_rotation_deviations=all_rotation_deviations, rpe_results=rpeResults,
                              waypoint_deviations=None)  # TODO fix this one
 
 

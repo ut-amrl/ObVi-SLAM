@@ -158,6 +158,23 @@ class TimerNames:
 
     # OFFLINE STUFF
     kPostSessionMapMerge = "post_session_map_merge"
+
+    # kPostOptResidualComputeOffline = "post_opt_residual_compute_offline"
+    # kMapMergeGbaOptLoggerWrite = "map_merge_gba_opt_logger_write"
+    # kMapMergeGbaPoseGraphCopy = "map_merge_gba_pose_graph_copy"
+    # kMapMergeObjOnlyPgoSolvePgo = "map_merge_obj_only_pgo_solve_pgo"
+    # kMapMergePhaseOneGbaBuildOpt = "map_merge_phase_one_gba_build_opt"
+    # kMapMergeObjOnlyPgoLocalTrackSolve = "map_merge_obj_only_pgo_local_track_solve"
+    # kMapMergeObjOnlyPgoLocalTrackBuild = "map_merge_obj_only_pgo_local_track_build"
+    kMapMergeObjOnlyPgoFullProcess = "map_merge_obj_only_pgo_full_process"
+    # kMapMergePhaseTwoGbaBuildOpt = "map_merge_phase_two_gba_build_opt"
+    # kMapMergePhaseTwoGbaSolveOpt = "map_merge_phase_two_gba_solve_opt"
+    # kMapMergeObjOnlyPgoBuildPgo = "map_merge_obj_only_pgo_build_pgo"
+    # kTwoPhaseOptOutlierIdentificationOffline = "two_phase_opt_outlier_identification_offline"
+    # kMapMergePhaseOneGbaSolveOpt = "map_merge_phase_one_gba_solve_opt"
+    # kMapMergeObjOnlyPgoManualFeatAdjust = "map_merge_obj_only_pgo_manual_feat_adjust"
+    kMapMergeGlobalBundleAdjustment = "map_merge_global_bundle_adjustment"
+
     kLongTermMapExtraction = "long_term_map_extraction"
 
     # All other
@@ -221,18 +238,104 @@ def getCumulativeTimeForEntriesOfInterest(allTimeDataMap):
 
     offlineTimingMap = {}
 
-    offlineTimingMap[TimerPlotName.kMapMergingAndRefinement] = allTimeDataMap.get(TimerNames.kPostSessionMapMerge, 0)
+    # offlineTimingMap[TimerPlotName.kMapMergingAndRefinement] = allTimeDataMap.get(TimerNames.kPostSessionMapMerge, 0)
+
+    offlineTimingMap[TimerPlotName.kMapMergingAndRefinement] = \
+        (
+                # allTimeDataMap.get(TimerNames.kPostOptResidualComputeOffline, 0) +
+         # allTimeDataMap.get(TimerNames.kMapMergeGbaOptLoggerWrite, 0) +
+         # allTimeDataMap.get(TimerNames.kMapMergeGbaPoseGraphCopy, 0) +
+         # allTimeDataMap.get(TimerNames.kMapMergeObjOnlyPgoSolvePgo, 0) +
+         # allTimeDataMap.get(TimerNames.kMapMergePhaseOneGbaBuildOpt, 0) +
+         # allTimeDataMap.get(TimerNames.kMapMergeObjOnlyPgoLocalTrackSolve, 0) +
+         # allTimeDataMap.get(TimerNames.kMapMergeObjOnlyPgoLocalTrackBuild, 0) +
+         allTimeDataMap.get(TimerNames.kMapMergeObjOnlyPgoFullProcess, 0) +
+         # allTimeDataMap.get(TimerNames.kMapMergePhaseTwoGbaBuildOpt, 0) +
+         # allTimeDataMap.get(TimerNames.kMapMergePhaseTwoGbaSolveOpt, 0) +
+         # allTimeDataMap.get(TimerNames.kMapMergeObjOnlyPgoBuildPgo, 0) +
+         # allTimeDataMap.get(TimerNames.kTwoPhaseOptOutlierIdentificationOffline, 0) +
+         # allTimeDataMap.get(TimerNames.kMapMergePhaseOneGbaSolveOpt, 0) +
+         # allTimeDataMap.get(TimerNames.kMapMergeObjOnlyPgoManualFeatAdjust, 0) +
+         allTimeDataMap.get(TimerNames.kMapMergeGlobalBundleAdjustment, 0))
+    # print("Manually computed: " + str(offlineTimingMap[TimerPlotName.kMapMergingAndRefinement] ))
+    # print("summary: " + str(allTimeDataMap.get(TimerNames.kPostSessionMapMerge, 0)))
     offlineTimingMap[TimerPlotName.kLongTermMapExtraction] = allTimeDataMap.get(TimerNames.kLongTermMapExtraction, 0)
 
     totalAccountedForOfflineTime = 0
     for timeEntry in offlineTimingMap.values():
         totalAccountedForOfflineTime += timeEntry
+    print("Total accounted for time " + str(totalAccountedForOfflineTime))
+
+    print("Offline plus vis times " + str(allTimeDataMap.get(TimerNames.kOfflinePlusVis, 0)))
 
     offlineTimingMap[TimerPlotName.kOfflineOther] = allTimeDataMap.get(TimerNames.kOfflinePlusVis, 0) - (
-            totalAccountedForOnlineTime + allTimeDataMap.get(TimerNames.kVisualizationTopLevelOffline, 0)
+            totalAccountedForOfflineTime + allTimeDataMap.get(TimerNames.kVisualizationTopLevelOffline, 0)
     )
 
     return onlineTimingMap, offlineTimingMap
+
+
+def generateStackedBar(trajectoryTimeInfo, timesOfInterest, allTrajectoryInfo, plotTitle, targets=None,
+                       averageTarget=None, divideToSeconds=False):
+    fig = plt.figure(figsize=(7, 3))
+    trajectoryLabels = [str(idx + 1) for idx in range(len(trajectoryTimeInfo))]
+    trajectoryLabels.append("Avg")
+
+    allTargets = []
+    if (targets is not None):
+        allTargets = targets
+    if (averageTarget is not None):
+        allTargets.append(averageTarget)
+
+    barSegments = {}
+    for timeLabel in timesOfInterest:
+        dataForSegment = []
+        for trajectoryInfo in trajectoryTimeInfo:
+            entryForTrajectoryAndLabel = trajectoryInfo.get(timeLabel, 0)
+            dataForSegment.append(entryForTrajectoryAndLabel)
+        dataForSegment.append(allTrajectoryInfo.get(timeLabel, 0))
+        barSegments[timeLabel] = dataForSegment
+        print("Time label: " + str(timeLabel))
+
+    lastTops = np.zeros(len(trajectoryLabels))
+    barsData = None
+    for timeLabel in timesOfInterest:
+        dataForTimeLabel = np.array(barSegments[timeLabel])
+        if (divideToSeconds):
+            dataForTimeLabel = dataForTimeLabel / 1000
+        barsData = plt.bar(trajectoryLabels, dataForTimeLabel, bottom=lastTops, label=timeLabel)
+        lastTops += dataForTimeLabel
+    print("Bar tops")
+    print(lastTops)
+
+    print(allTargets)
+
+    x_start = np.array([plt.getp(item, 'x') for item in barsData])
+    x_end = x_start + [plt.getp(item, 'width') for item in barsData]
+    plt.xlabel("Trajectory")
+    if (divideToSeconds):
+        plt.ylabel("Processing Time (s)")
+    else:
+        plt.ylabel("Processing Time (ms)")
+
+    figOut = '/home/amanda/Downloads/offline_time.svg'
+    if (len(allTargets) > 0):
+        figOut = '/home/amanda/Downloads/online_time.svg'
+        plt.hlines(allTargets, x_start, x_end, linestyles='dotted', label="Max Real-time Processing Time")
+    # plt.bar(trajectoryLabels, allTargets, facecolor=None, fill=False, edgecolor='r')
+
+    ylims = plt.ylim()
+    verticalLineLoc = (x_start[-1] + x_end[-2]) / 2
+    plt.vlines(verticalLineLoc, 0, ylims[-1], linestyles='dashed', color='0.8')
+    plt.ylim(ylims)
+
+    lgd = plt.legend(bbox_to_anchor=(1, 1))
+    plt.title(plotTitle)
+
+    plt.savefig(figOut, bbox_extra_artists=(lgd,), bbox_inches='tight')
+    plt.show()
+
+    pass
 
 
 def runTimerVisualization(vizConfig):
@@ -281,7 +384,7 @@ def runTimerVisualization(vizConfig):
             aggregateOnlineData[timerName] += timerVal
 
         for timerName, timerVal in offlineTimingMap.items():
-            if timerName not in aggregateOnlineData:
+            if timerName not in aggregateOfflineData:
                 aggregateOfflineData[timerName] = 0
             aggregateOfflineData[timerName] += timerVal
 
@@ -289,6 +392,12 @@ def runTimerVisualization(vizConfig):
     # 16 stacked bars with 17th Avg
     aggregateOnlineByFrame = {timerName: (timerVal / aggregateFrameCount) for timerName, timerVal in
                               aggregateOnlineData.items()}
+
+    averageOffline = {timerName: (timerVal / len(rosbagsSequence)) for timerName, timerVal in
+                      aggregateOfflineData.items()}
+
+    print("Len num data " + str(len(rosbagsSequence)))
+
     # line before 17
     averageTargetRT = aggregateBagTimeSec / aggregateFrameCount
     # piece wise function for target RTS
@@ -296,6 +405,20 @@ def runTimerVisualization(vizConfig):
     # TODO plot offline
     # 16 stacked bars with 17th Avg
     # line before 17
+
+    onlineTimesOfInterest = [TimerPlotName.kFrontEndVF, TimerPlotName.kFrontEndObjects, TimerPlotName.kOutlierId,
+                             TimerPlotName.kLocalOptimization, TimerPlotName.kGlobalAdjustmentTracking,
+                             TimerPlotName.kGlobalOptimization, TimerPlotName.kPostGlobalAdjustment,
+                             TimerPlotName.kOnlineOther]
+    offlineTimesOfInterest = [TimerPlotName.kMapMergingAndRefinement, TimerPlotName.kLongTermMapExtraction,
+                              TimerPlotName.kOfflineOther]
+
+    generateStackedBar(onlineTimingMapByTraj, onlineTimesOfInterest, aggregateOnlineByFrame,
+                       "Time Per Frame for Online Operation by Component", targets=targetRTs,
+                       averageTarget=averageTargetRT)
+
+    generateStackedBar(offlineTimingMapByTraj, offlineTimesOfInterest, averageOffline,
+                       "Time for Offline Operation by Component", divideToSeconds=True)
 
 
 def argParse():

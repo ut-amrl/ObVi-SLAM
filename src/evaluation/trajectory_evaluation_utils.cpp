@@ -185,6 +185,44 @@ ATEResults generateATEforRotAndTranslForSyncedAlignedTrajectories(
   return single_traj_ate_results;
 }
 
+ATEResults generateRPEforRotAndTranslForSyncedAlignedTrajectories(
+    const std::vector<std::optional<Pose3D<double>>> &est_traj,
+    const std::vector<Pose3D<double>> &gt_traj) {
+  std::vector<double> transl_errs;
+  std::vector<double> rot_errs;
+  // Formulae from https://arxiv.org/pdf/1910.04755.pdf
+
+  int valid_results_num = 0;
+  for (size_t pose_num = 0; pose_num < est_traj.size() - 1; pose_num++) {
+    if (est_traj.at(pose_num).has_value() &&
+        est_traj.at(pose_num + 1).has_value()) {
+      Pose3D<double> est_pose_separation = getPose2RelativeToPose1(
+          est_traj.at(pose_num + 1).value(), est_traj.at(pose_num).value());
+      Pose3D<double> gt_pose_separation = getPose2RelativeToPose1(
+          gt_traj.at(pose_num + 1), gt_traj.at(pose_num));
+      Pose3D<double> relative_pose_error =
+          getPose2RelativeToPose1(est_pose_separation, gt_pose_separation);
+      transl_errs.emplace_back(relative_pose_error.transl_.norm());
+      rot_errs.emplace_back(abs(relative_pose_error.orientation_.angle()));
+      valid_results_num++;
+    } else {
+      // TODO what do we do with ones that are lost?
+    }
+  }
+
+  MetricsDistributionStatistics transl_stats =
+      computeMetricsDistributionStatistics(transl_errs);
+  MetricsDistributionStatistics rot_stats =
+      computeMetricsDistributionStatistics(rot_errs);
+  ATEResults single_traj_ate_results(transl_stats.rmse_,
+                                     rot_stats.rmse_,
+                                     transl_stats,
+                                     rot_stats,
+                                     valid_results_num,
+                                     (est_traj.size() - 1 - valid_results_num));
+  return single_traj_ate_results;
+}
+
 RawWaypointConsistencyResults computeWaypointConsistencyResults(
     const std::vector<std::vector<WaypointInfo>> &waypoints_by_trajectory,
     const std::vector<

@@ -3,7 +3,6 @@
 root_data_dir=/home/amanda/rosbags/ellipsoid_slam/eer_jackal/
 rosbag_file_directory=${root_data_dir}original_data/
 trajectory_sequence_file_directory=/home/amanda/workspaces/ut_vslam/sequences/
-ut_vslam_out_root_dir=${root_data_dir}orb_slam_3_out/
 orb_post_process_base_directory=${root_data_dir}orb_post_process
 lego_loam_out_root_dir=${root_data_dir}lego_loam_out/
 calibration_file_directory=${root_data_dir}calibration/
@@ -69,9 +68,101 @@ config_file_base_name=base7a_1_fallback_a_2
 
 #config_file_base_name="no_shape_prior_base7a_1_fallback_a_2"
 #config_file_base_name="no_vis_feats_base7a_1_fallback_a_2"
-config_file_base_name="no_ltm_base7a_1_fallback_a_2"
+#config_file_base_name="no_ltm_base7a_1_fallback_a_2"
 
+#config_file_base_name="revision_base"
+#config_file_strings=("revision_single_phase_manual_vf_adjustment" "update_rev_single_lower_adj" "update_rev_single_lower_adj_v2" "update_rev_true_single_phase")
+#config_file_strings=("update_revision_single_phase_manual_vf_adjustment" "update_rev_lower_conv_thresholds_pgo" "update_rev_lower_conv_thresholds_v3" "update_rev_single_phase_manual_vf_reduced_tracking")
+#config_file_base_name="update_rev_single_phase_manual_vf_reduced_tracking"
 sequence_file_base_name="evaluation_2023_07_v1"
+
+#config_file_base_name="revision_base"
+#config_file_base_name="revision_base_ceres_iter_logging"
+#config_file_base_name="revision_base_ceres_iter_logging2"
+#config_file_base_name="revision_base_new_timers"
+#config_file_base_name="revision_base_new_timers2"
+#config_file_base_name="revision_base_pg_pointer"
+#config_file_base_name="revision_single_phase"
+#config_file_base_name="revision_single_phase2"
+#config_file_base_name="revision_single_phase_manual_vf_adjustment"
+#config_file_base_name="revision_speed_up_factors"
+#config_file_base_name="revision_speed_up_factors2"
+#config_file_base_name="update_revision_single_phase_manual_vf_adjustment"
+#config_file_base_name="update_rev_lower_conv_thresholds"
+#config_file_base_name="update_rev_lower_conv_thresholds_pgo"
+#config_file_base_name="update_rev_lower_conv_thresholds_v2"
+#config_file_base_name="update_rev_lower_conv_thresholds_v3"
+#config_file_base_name="update_rev_single_lower_adj"
+#config_file_base_name="update_rev_single_lower_adj_v2"
+#config_file_base_name="update_rev_single_phase_manual_vf_reduced_tracking"
+#config_file_base_name="update_rev_true_single_phase"
+
+#config_file_base_name="update_rev_lower_conv_thresholds_manual_feat_adj"
+#config_file_base_name="update_rev_lower_conv_thresholds_pgo_manual_vf"
+#config_file_base_name="update_rev_lower_conv_thresholds_pgo_v2"
+#config_file_base_name="update_rev_lower_conv_thresholds_v4"
+#config_file_base_name="update_rev_lower_conv_thresholds_manual_feat_mid_pgo"
+#config_file_base_name="update_rev_lower_conv_thresholds_manual_feat_upmid_pgo"
+
+#config_file_base_name="update_rev_lower_conv_thresholds_manual_feat_adj_v2"
+#config_file_base_name="update_rev_lower_conv_thresholds_manual_feat_true_single_phase_v2"
+#config_file_base_name="update_rev_lower_conv_thresholds_manual_feat_true_single_phase"
+
+# 4 very off
+#config_file_base_name="update_rev_lower_conv_thresholds_manual_feat_adj_fewer_gba"
+# 2 very, 1 sort of
+#config_file_base_name="update_rev_lower_conv_thresholds_manual_feat_adj_smaller_lba"
+
+#config_file_base_name="update_rev_lower_conv_thresholds_manual_feat_midupmid_pgo"
+
+#config_file_base_name="update_rev_lower_conv_thresholds_manual_feat_adj_a_little_smaller_lba"
+#config_file_base_name="update_rev_lower_conv_thresholds_manual_feat_adj_threads"
+
+#config_file_base_name="update_rev_lower_conv_thresholds_manual_feat_almostmid_pgo"
+#config_file_base_name="update_rev_lower_conv_thresholds_manual_feat_true_single_phase_v3"
+#config_file_base_name="update_rev_lower_conv_thresholds_pgo_manual_vf_v2"
+
+#config_file_base_name="update_rev_lower_conv_thresh_manual_feat_adj_a_little_smaller_lba_upmidpgo"
+#config_file_base_name="update_rev_lower_conv_thresholds_manual_feat_adj_a_little_smaller_lba_v2"
+#config_file_base_name="update_rev_lowerer_conv_thresholds_manual_feat_adj"
+
+#config_file_base_name="update_rev_lower_conv_thresholds_manual_feat_adj_v3"
+#config_file_base_name="update_rev_lowerer_conv_thresholds_manual_feat_adj_v2"
+
+
+#config_file_base_name="update_rev_lower_conv_thresholds_vf_only"
+#config_file_base_name="update_rev_lowerer_conv_thresholds_manual_feat_adj_tighter_vo"
+
+#config_file_base_name="update_rev_lowerer_conv_thresholds_manual_feat_adj_tiny_pgo"
+#config_file_base_name="update_rev_lowerer_conv_thresholds_manual_feat_adj_tighterer_vo"
+#config_file_base_name="update_rev_lowererer_conv_thresholds_manual_feat_adj"
+
+#config_file_base_name="update_rev_lowererer_conv_thresholds_manual_feat_adj_tiny_pgo"
+#config_file_base_name="update_rev_lowerererish_conv_thresholds_manual_feat_adj_tighterer_vo"
+
+#config_file_base_name="update_rev_lowerer_conv_thresholds_manual_feat_adj_tinyish_pgo"
+#config_file_base_name="update_rev_lowerererish_conv_thresholds_manual_feat_adj_tighterer_vo_v3"
+#config_file_base_name="update_rev_lowerer_conv_thresholds_manual_feat_adj_v3"
+#config_file_base_name="update_rev_lowererer_conv_thresholds_manual_feat_adj_tiny_pgo_v2"
+#config_file_base_name="update_rev_lowererer_conv_thresholds_manual_feat_adj_v2"
+#config_file_base_name="update_rev_lowerererish_conv_thresholds_manual_feat_adj"
+#config_file_base_name="update_rev_lowerererish_conv_thresholds_manual_feat_adj_tighterer_vo_v2"
+
+
+#config_file_base_name="update_rev_lowerer_conv_thresholds_manual_feat_adj_tighterer_vo_v2"
+#config_file_base_name="update_rev_lowerer_conv_thresholds_manual_feat_adj_tiny_pgo_v2"
+config_file_base_name="update_rev_lowerererish_conv_thresholds_manual_feat_adj_tighterer_vo_v4"
+#config_file_base_name="update_rev_lowererer_conv_thresholds_manual_feat_adj_tiny_pgo_v3"
+
+# Pending results analysis:
+#
+
+# Currently running configs:
+#
+
+
+# Not yet run configs:
+#
 
 make && python3 src/evaluation/compute_metrics_for_ut_vslam.py \
     --rosbag_file_directory=${rosbag_file_directory} \

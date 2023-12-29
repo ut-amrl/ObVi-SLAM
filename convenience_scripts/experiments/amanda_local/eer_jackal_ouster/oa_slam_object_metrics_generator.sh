@@ -9,9 +9,9 @@ calibration_file_directory=${root_data_dir}calibration/
 results_root_directory=${root_data_dir}oa_slam_out/
 
 
-gt_ellipsoids_file=${rosbag_file_directory}readable_labeling__2023_05_12_10_40_16.csv
 
-sequence_file_base_name="evaluation_2023_07_v1_0821"
+gt_ellipsoids_file=${rosbag_file_directory}readable_labeling__2023_05_12_10_40_16.csv
+sequence_file_base_name="evaluation_2023_07_v1_0821_ellipsoids_fixed"
 cp sequences/evaluation_2023_07_v1.json sequences/${sequence_file_base_name}.json
 
 make && python3 src/evaluation/compute_object_metrics_for_oa_slam.py \

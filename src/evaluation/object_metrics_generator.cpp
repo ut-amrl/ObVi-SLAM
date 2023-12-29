@@ -157,7 +157,7 @@ FullSequenceObjectMetrics computeMetrics(
   for (size_t traj_num = 0; traj_num < est_objs_by_traj.size(); traj_num++) {
     LOG(INFO) << "Starting Trajectory " << traj_num
               << " ------------------------------------------";
-    //    getchar();
+        getchar();
     SingleTrajectoryObjectMetrics metrics_for_traj;
     FullDOFEllipsoidResults est_objs_for_traj = est_objs_by_traj.at(traj_num);
 
@@ -183,6 +183,8 @@ FullSequenceObjectMetrics computeMetrics(
 
       vis_manager->visualizeEllipsoids(
           est_objs_for_traj, PlotType::INITIAL, false);
+
+      vis_manager->visualizeEllipsoids(gt_objs, PlotType::GROUND_TRUTH, false);
     }
 
     std::unordered_map<ObjectId, std::optional<double>> dist_from_gt_by_obj;
@@ -254,8 +256,10 @@ FullSequenceObjectMetrics computeMetrics(
     metrics_for_traj.median_iou_ = iou_stats.median_;
     metrics_for_traj.iou_stats_ = iou_stats;
 
+
     full_metrics.indiv_trajectory_object_metrics_.emplace_back(
         metrics_for_traj);
+        getchar();
   }
   return full_metrics;
 }
@@ -412,5 +416,5 @@ int main(int argc, char **argv) {
   LOG(INFO) << "Done computing metrics; writing to file "
             << FLAGS_metrics_out_file;
 
-  writeFullSequenceObjectMetrics(FLAGS_metrics_out_file, full_metrics);
+//  writeFullSequenceObjectMetrics(FLAGS_metrics_out_file, full_metrics);
 }

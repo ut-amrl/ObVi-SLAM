@@ -107,6 +107,8 @@ class SerializableTrajectoryMetrics
        << SerializableVector<double, SerializableDouble>(
               data_.all_rotation_deviations_);
     fs << kAteResultsLabel << SerializableATEResults(data_.ate_results_);
+
+    fs << kRpeResultsLabel << SerializableATEResults(data_.rpe_results_);
     fs << "}";
   }
 
@@ -133,6 +135,10 @@ class SerializableTrajectoryMetrics
     SerializableATEResults ser_trajectory_sequence_ate_results;
     node[kAteResultsLabel] >> ser_trajectory_sequence_ate_results;
     data_.ate_results_ = ser_trajectory_sequence_ate_results.getEntry();
+
+    SerializableATEResults ser_trajectory_sequence_rpe_results;
+    node[kRpeResultsLabel] >> ser_trajectory_sequence_rpe_results;
+    data_.rpe_results_ = ser_trajectory_sequence_rpe_results.getEntry();
   }
 
  protected:
@@ -147,6 +153,9 @@ class SerializableTrajectoryMetrics
       "all_rotation_deviations";
   inline static const std::string kAteResultsLabel =
       "trajectory_sequence_ate_results";
+
+  inline static const std::string kRpeResultsLabel =
+      "trajectory_sequence_rpe_results";
 };
 
 static void write(cv::FileStorage &fs,

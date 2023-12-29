@@ -51,8 +51,12 @@ def plotOrientationConsistency(primaryApproachName, orientationConsistency, save
     # xlims = None
     # width_ratios = None
 
-    #update_rev_lower_conv_thresholds_manual_feat_true_single_phase
+    #update_rev_lowerererish_conv_thresholds_manual_feat_adj_tighterer_vo_v4
     xlims = [(0, 7)]
+    width_ratios=[1, 1]
+
+    # update_rev_lowerererish_conv_thresholds_manual_feat_adj_tighterer_vo_v4 ablations
+    xlims = [(0, 11)]
     width_ratios=[1, 1]
 
     plotCDF(primaryApproachName, orientationConsistencyDeg,
@@ -72,11 +76,15 @@ def generateSingleTable(primaryApproachName, perTrajAvgResults, perTrajStdDevs, 
     italicMask = [[False for _ in range(numTrajs + 1)] for row in rowHeaders]
     tableValues = [["-" for _ in range(numTrajs + 1)] for row in rowHeaders]
 
+    worstForObViSLAM = 0
+
     for trajIdx in range(numTrajs):
         minForTraj = float('inf')
         secondMinForTraj = float('inf')
         for approachIdx in range(len(rowHeaders)):
             approachName = rowHeaders[approachIdx]
+            if (approachIdx == 0):
+                worstForObViSLAM = max(worstForObViSLAM, perTrajAvgResults[approachName][trajIdx])
             if (perTrajAvgResults[approachName][trajIdx] < minForTraj):
                 secondMinForTraj = minForTraj
                 minForTraj = perTrajAvgResults[approachName][trajIdx]
@@ -133,24 +141,78 @@ def generateSingleTable(primaryApproachName, perTrajAvgResults, perTrajStdDevs, 
     flippedBoldMask = [[False for _ in rowHeaders] for _ in range(numTrajs + 1)]
     flippedItalicMask = [[False for _ in rowHeaders] for _ in range(numTrajs + 1)]
 
+    obViSLAMMaxCount = 0
+    obViSLAMSecondMAskCount = 0
     for colIdx in range(numTrajs + 1):
         for rowIdx in range(len(rowHeaders)):
             flippedTableValues[colIdx][rowIdx] = tableValues[rowIdx][colIdx]
             flippedBoldMask[colIdx][rowIdx] = boldMask[rowIdx][colIdx]
             flippedItalicMask[colIdx][rowIdx] = italicMask[rowIdx][colIdx]
 
-    return generateLatexTable(rowHeaders, colHeaders, flippedTableValues, flippedBoldMask, flippedItalicMask)
+            if ((rowIdx == 0) and (colIdx != numTrajs)):
+                if (boldMask[rowIdx][colIdx]):
+                    obViSLAMMaxCount += 1
+                if (italicMask[rowIdx][colIdx]):
+                    obViSLAMSecondMAskCount += 1
+
+    print("ObVi-SLAM best count " + str(obViSLAMMaxCount))
+    print("ObVi-SLAM second best count " + str(obViSLAMSecondMAskCount))
+    print("Worst val for ObVi-SLAM " + str(worstForObViSLAM))
+
+    return generateLatexTable(rowHeaders, colHeaders, flippedTableValues, flippedBoldMask, flippedItalicMask), rowHeaders, colHeaders, flippedTableValues, flippedBoldMask, flippedItalicMask
 
 
 def generateATETables(primaryApproachName,
                       averageTranslAtes, averageRotAtes, translAtesByTrajectory, rotAtesByTrajectory,
                       translStdDevsByTrajectory, rotStdDevsByTrajectory, overallTranslStdDevs, overallRotStdDevs):
     print("Translation ATE table")
-    print(generateSingleTable(primaryApproachName, translAtesByTrajectory, translStdDevsByTrajectory, averageTranslAtes,
-                              overallTranslStdDevs, 2))
+    translSingleTableLatex, rowHeadersTransl, colHeadersTransl, flippedTableValuesTransl, flippedBoldMaskTransl, \
+    flippedItalicMaskTransl = generateSingleTable(primaryApproachName, translAtesByTrajectory,
+                                                  translStdDevsByTrajectory, averageTranslAtes, overallTranslStdDevs, 2)
+    print(translSingleTableLatex)
+
+
     print("Rotation ATE table")
-    print(generateSingleTable(primaryApproachName, rotAtesByTrajectory, rotStdDevsByTrajectory, averageRotAtes,
-                              overallRotStdDevs, 1))
+    orientSingleTableLatex, rowHeadersOrient, colHeadersOrient, flippedTableValuesOrient, flippedBoldMaskOrient, \
+    flippedItalicMaskOrient = generateSingleTable(primaryApproachName, rotAtesByTrajectory, rotStdDevsByTrajectory,
+                                                  averageRotAtes, overallRotStdDevs, 1)
+    print(orientSingleTableLatex)
+
+    print(rowHeadersOrient)
+    print(colHeadersOrient)
+    print(flippedTableValuesOrient)
+    print(flippedBoldMaskOrient)
+    print(flippedItalicMaskOrient)
+
+    doubleTableRowHeaders = rowHeadersTransl + rowHeadersOrient
+    doubleTableColHeaders = colHeadersTransl
+
+    doubleTableValues = []
+    doubleTableBoldMask = []
+    doubleTableItalicMask = []
+
+    for rowIdx in range(len(flippedTableValuesTransl)):
+        translRow = flippedTableValuesTransl[rowIdx]
+        orientRow = flippedTableValuesOrient[rowIdx]
+        fullRow = translRow + orientRow
+        doubleTableValues.append(fullRow)
+
+        translBoldMask = flippedBoldMaskTransl[rowIdx]
+        orientBoldMask = flippedBoldMaskOrient[rowIdx]
+        fullBoldMaskRow = translBoldMask + orientBoldMask
+        doubleTableBoldMask.append(fullBoldMaskRow)
+
+        translItalicMask = flippedItalicMaskTransl[rowIdx]
+        orientItalicMask = flippedItalicMaskOrient[rowIdx]
+        fullItalicMaskRow = translItalicMask + orientItalicMask
+        doubleTableItalicMask.append(fullItalicMaskRow)
+
+    print("Row Headers")
+    print(doubleTableRowHeaders)
+
+    doubleTableText = generateLatexTable(doubleTableRowHeaders, doubleTableColHeaders, doubleTableValues,
+                                         doubleTableBoldMask, doubleTableItalicMask)
+    print(doubleTableText)
 
 
 def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_name=None):
@@ -168,6 +230,12 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
     translAtesByTrajectory = {}
     rotAtesByTrajectory = {}
 
+
+    averageTranslRpes = {}
+    averageRotRpes = {}
+    translRpesByTrajectory = {}
+    rotRpesByTrajectory = {}
+
     translStdDevsByTrajectory = {}
     rotStdDevsByTrajectory = {}
 
@@ -183,23 +251,36 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
         translationConsistency[approachName] = translationDeviations
         orientationConsistency[approachName] = rotationDeviations
         averageTranslAtes[approachName] = approachMetrics.sequence_metrics.ate_results.rmse_transl_err
+        print("Results rot errors")
+        print(approachMetrics.sequence_metrics.ate_results.rmse_rot_err)
         averageRotAtes[approachName] = np.degrees(approachMetrics.sequence_metrics.ate_results.rmse_rot_err)
+        print(averageRotAtes[approachName])
         overallTranslStdDevs[approachName] = approachMetrics.sequence_metrics.ate_results.transl_stats.stdDev
         overallRotStdDevs[approachName] = np.degrees(approachMetrics.sequence_metrics.ate_results.rot_stats.stdDev)
+
+        averageTranslRpes[approachName] = approachMetrics.sequence_metrics.rpe_results.rmse_transl_err
+        averageRotRpes[approachName] = np.degrees(approachMetrics.sequence_metrics.rpe_results.rmse_rot_err)
 
         translAtePerTraj = []
         rotAtePerTraj = []
         translStdDevPerTraj = []
         rotStdDevPerTraj = []
+
+        translRpePerTraj = []
+        rotRpePerTraj = []
         for indiv_traj_metric_set in approachMetrics.indiv_trajectory_metrics:
             translAtePerTraj.append(indiv_traj_metric_set.ate_results.rmse_transl_err)
             rotAtePerTraj.append(np.degrees(indiv_traj_metric_set.ate_results.rmse_rot_err))
             translStdDevPerTraj.append(indiv_traj_metric_set.ate_results.transl_stats.stdDev)
             rotStdDevPerTraj.append(np.degrees(indiv_traj_metric_set.ate_results.rot_stats.stdDev))
+            translRpePerTraj.append(indiv_traj_metric_set.rpe_results.rmse_transl_err)
+            rotRpePerTraj.append(np.degrees(indiv_traj_metric_set.rpe_results.rmse_rot_err))
         translAtesByTrajectory[approachName] = translAtePerTraj
         rotAtesByTrajectory[approachName] = rotAtePerTraj
         translStdDevsByTrajectory[approachName] = translStdDevPerTraj
         rotStdDevsByTrajectory[approachName] = rotStdDevPerTraj
+        translRpesByTrajectory[approachName] = translRpePerTraj
+        rotRpesByTrajectory[approachName] = rotRpePerTraj
 
     errorTypesAndSavepaths = readErrTypesAndSavepathsFile(error_types_and_savepaths_file_name)
 
@@ -207,85 +288,93 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
                       averageTranslAtes, averageRotAtes, translAtesByTrajectory, rotAtesByTrajectory,
                       translStdDevsByTrajectory, rotStdDevsByTrajectory, overallTranslStdDevs, overallRotStdDevs)
 
-    plotTranslationConsistency(metricsFilesInfo.primaryApproachName, translationConsistency,
-                               errorTypesAndSavepaths.get(kCDFTranslErrorType))
-    plotOrientationConsistency(metricsFilesInfo.primaryApproachName, orientationConsistency,
-                               errorTypesAndSavepaths.get(kCDFOrientErrorType))
+    print("Average transl rpes " + str(averageTranslRpes))
 
-    # For orb, prev oa and ours
-    # transl_y_lims = [(0, 3), (3.5, 8), (20, 22.5)]
-    # transl_height_ratios = [1, 1, 2]
-
-    # ablations
-    # transl_y_lims = [(0, 4.5), (8, 45), (22500, 24900)]
-    # transl_height_ratios = [1, 2, 2.5]
-    # transl_legend_ncol = 2
-    # transl_legend_loc = "upper right"
-
-    # New comparison results
-    # transl_legend_ncol=1
+    print("Average rot rpes " + str(averageRotRpes))
+    print("RPE metrics")
+    generateATETables(metricsFilesInfo.primaryApproachName,
+                      averageTranslRpes, averageRotRpes, translRpesByTrajectory, rotRpesByTrajectory,
+                      [], [], [], [])
+    #
+    # plotTranslationConsistency(metricsFilesInfo.primaryApproachName, translationConsistency,
+    #                            errorTypesAndSavepaths.get(kCDFTranslErrorType))
+    # plotOrientationConsistency(metricsFilesInfo.primaryApproachName, orientationConsistency,
+    #                            errorTypesAndSavepaths.get(kCDFOrientErrorType))
+    #
+    # # For orb, prev oa and ours
+    # # transl_y_lims = [(0, 3), (3.5, 8), (20, 22.5)]
+    # # transl_height_ratios = [1, 1, 2]
+    #
+    # # ablations
+    # # transl_y_lims = [(0, 4.5), (8, 45), (22500, 24900)]
+    # # transl_height_ratios = [1, 2, 2.5]
+    # # transl_legend_ncol = 2
+    # # transl_legend_loc = "upper right"
+    #
+    # # New comparison results
+    # # transl_legend_ncol=1
+    # # transl_y_lims=None
+    # # transl_height_ratios = None
+    # # transl_legend_loc="upper left"
+    #
+    # # New comparison results v2
+    # # transl_legend_ncol = 1
+    # # transl_y_lims = [(0, 5.8), (6, 12)]
+    # # transl_height_ratios = [1, 2]
+    # transl_legend_loc = "upper left"
+    # transl_height_ratios=None
+    # transl_legend_ncol=2
     # transl_y_lims=None
-    # transl_height_ratios = None
-    # transl_legend_loc="upper left"
-
-    # New comparison results v2
-    # transl_legend_ncol = 1
-    # transl_y_lims = [(0, 5.8), (6, 12)]
-    # transl_height_ratios = [1, 2]
-    transl_legend_loc = "upper left"
-    transl_height_ratios=None
-    transl_legend_ncol=2
-    transl_y_lims=None
-
-    plotRMSEs(metricsFilesInfo.primaryApproachName, translAtesByTrajectory, kATETranslErrorType, ylims=transl_y_lims,
-              legend_loc=transl_legend_loc, savepath=errorTypesAndSavepaths.get(kATETranslErrorType),
-              height_ratios=transl_height_ratios, legend_ncol=transl_legend_ncol, scatter=False)
-    # orient_y_lims=[(0, 10)]
-    # orient_y_lims=[(0, 30), (64, 71)]
-
-    # For orb, prev oa and ours
-    # orient_y_lims = [(0, 10), (10, 30), (43, 72.5)]
-    # orient_height_ratios = [1, 1, 2]
-
-    # ablations
-
-    # orient_y_lims=[(0, 10), (10, 24), (41.5, 250)]
-    # orient_height_ratios=[1.5, 1, 3]
-    # orient_y_lims = [(0, 13), (18, 25), (40, 130), (150, 180)]
-    # orient_height_ratios = [1, 1, 1, 4]
-    # orient_legend_ncol = 2
-    # orient_legend_loc = "center left"
-
-    # orient_y_lims = [(0, 15), (40, 73), (83, 185)]
-    # orient_height_ratios = [1, 1, 4]
-    # orient_legend_ncol=2
-
-    # New comparison results
-
-    # orient_y_lims = [(0, 9), (10, 24), (40, 60)]
-    # orient_height_ratios = [1, 1, 2]
+    #
+    # plotRMSEs(metricsFilesInfo.primaryApproachName, translAtesByTrajectory, kATETranslErrorType, ylims=transl_y_lims,
+    #           legend_loc=transl_legend_loc, savepath=errorTypesAndSavepaths.get(kATETranslErrorType),
+    #           height_ratios=transl_height_ratios, legend_ncol=transl_legend_ncol, scatter=False)
+    # # orient_y_lims=[(0, 10)]
+    # # orient_y_lims=[(0, 30), (64, 71)]
+    #
+    # # For orb, prev oa and ours
+    # # orient_y_lims = [(0, 10), (10, 30), (43, 72.5)]
+    # # orient_height_ratios = [1, 1, 2]
+    #
+    # # ablations
+    #
+    # # orient_y_lims=[(0, 10), (10, 24), (41.5, 250)]
+    # # orient_height_ratios=[1.5, 1, 3]
+    # # orient_y_lims = [(0, 13), (18, 25), (40, 130), (150, 180)]
+    # # orient_height_ratios = [1, 1, 1, 4]
+    # # orient_legend_ncol = 2
+    # # orient_legend_loc = "center left"
+    #
+    # # orient_y_lims = [(0, 15), (40, 73), (83, 185)]
+    # # orient_height_ratios = [1, 1, 4]
+    # # orient_legend_ncol=2
+    #
+    # # New comparison results
+    #
+    # # orient_y_lims = [(0, 9), (10, 24), (40, 60)]
+    # # orient_height_ratios = [1, 1, 2]
+    # # orient_legend_loc = "upper left"
+    # # orient_legend_ncol = 1
+    #
+    # # orient_y_lims = [(0, 9), (10, 24), (40, 60)]
+    # # orient_height_ratios = [1, 1, 2]
+    # orient_y_lims=None
+    # orient_height_ratios=None
     # orient_legend_loc = "upper left"
     # orient_legend_ncol = 1
-
-    # orient_y_lims = [(0, 9), (10, 24), (40, 60)]
-    # orient_height_ratios = [1, 1, 2]
-    orient_y_lims=None
-    orient_height_ratios=None
-    orient_legend_loc = "upper left"
-    orient_legend_ncol = 1
-
-    # # New comparison results v2 (slides version)
-    # orient_y_lims=[(0, 3.7), (4.1, 8),  (9.5, 24), (40, 60)]
-    # orient_height_ratios=[1, 1, 1, 1.5]
-    # orient_legend_loc="upper left"
-    # orient_legend_ncol=1
-
-    print(rotAtesByTrajectory)
-    plotRMSEs(metricsFilesInfo.primaryApproachName, rotAtesByTrajectory, kATEOrientErrorType, ylims=orient_y_lims,
-              legend_loc=orient_legend_loc, savepath=errorTypesAndSavepaths.get(kATEOrientErrorType),
-              height_ratios=orient_height_ratios, legend_ncol=orient_legend_ncol, scatter=False)
-
-    plt.show()
+    #
+    # # # New comparison results v2 (slides version)
+    # # orient_y_lims=[(0, 3.7), (4.1, 8),  (9.5, 24), (40, 60)]
+    # # orient_height_ratios=[1, 1, 1, 1.5]
+    # # orient_legend_loc="upper left"
+    # # orient_legend_ncol=1
+    #
+    # print(rotAtesByTrajectory)
+    # plotRMSEs(metricsFilesInfo.primaryApproachName, rotAtesByTrajectory, kATEOrientErrorType, ylims=orient_y_lims,
+    #           legend_loc=orient_legend_loc, savepath=errorTypesAndSavepaths.get(kATEOrientErrorType),
+    #           height_ratios=orient_height_ratios, legend_ncol=orient_legend_ncol, scatter=False)
+    #
+    # plt.show()
 
 
 def parseArgs():

@@ -70,7 +70,11 @@ class RosVisualization {
     ltm_obj_color_.g = 0;
     ltm_obj_color_.b = 0;
 
+
     color_for_plot_type_[GROUND_TRUTH] = ground_truth_bounding_box_color_;
+    color_for_plot_type_[GROUND_TRUTH].g = 217.0/255.0;
+    color_for_plot_type_[GROUND_TRUTH].b = 250.0/255.0;
+    color_for_plot_type_[GROUND_TRUTH].r = 0;
     color_for_plot_type_[ESTIMATED] =
         predicted_bounding_box_from_optimized_color_;
     color_for_plot_type_[INITIAL] =
