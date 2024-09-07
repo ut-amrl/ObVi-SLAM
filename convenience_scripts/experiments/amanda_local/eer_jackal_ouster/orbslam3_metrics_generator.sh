@@ -9,7 +9,7 @@ calibration_file_directory=${root_data_dir}calibration/
 odometry_topic="/jackal_velocity_controller/odom"
 
 #sequence_file_base_name="20230218_1a_4a"
-sequence_file_base_name="end_of_may_demo_v1"
+sequence_file_base_name="orb_final_probably"
 
 make && python3 src/evaluation/compute_metrics_for_orbslam3.py \
     --rosbag_file_directory=${rosbag_file_directory} \

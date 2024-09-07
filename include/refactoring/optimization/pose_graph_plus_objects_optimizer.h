@@ -321,8 +321,8 @@ bool runPgoPlusEllipsoids(
       if (!optimizer.solveOptimization(
               &problem,
               final_run
-                  ? pgo_solver_params.final_pgo_optimization_solver_params_
-                  : pgo_solver_params.pgo_optimization_solver_params_,
+                  ? pgo_solver_params.final_post_pgo_vf_adjustment_solver_params_
+                  : pgo_solver_params.post_pgo_vf_adjustment_solver_params_,
               ceres_callbacks,
               null_logger,
               nullptr,

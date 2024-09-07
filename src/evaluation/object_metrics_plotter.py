@@ -22,6 +22,12 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
     medianPosDeviations = {}
     medianIous = {}
 
+
+    lowerQuartilesDev = {}
+    upperQuartilesDev = {}
+    lowerQuartilesIou = {}
+    upperQuartilesIou = {}
+
     for approachName, metricsFile in metricsFilesInfo.approachNameAndMetricsFileInfo.items():
         print("Reading results for " + approachName)
         approachMetrics = readObjectsMetricsFile(metricsFile)
@@ -35,6 +41,11 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
         iouStdDevsPerTraj = []
         medianPosDeviationsPerTraj = []
         medianIousPerTraj = []
+        lowerQuartilePerTrajIou = []
+        upperQuartilePerTrajIou = []
+
+        lowerQuartilePerTrajDev = []
+        upperQuartilePerTrajDev = []
 
         for indiv_traj_metric_set in approachMetrics.indiv_trajectory_object_metrics:
             objectRecall = indiv_traj_metric_set.recall
@@ -46,6 +57,12 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
             medianIousPerTraj.append(indiv_traj_metric_set.median_iou)
             posDevStdDevsPerTraj.append(indiv_traj_metric_set.pos_dev_stats.stdDev)
             iouStdDevsPerTraj.append(indiv_traj_metric_set.iou_stats.stdDev)
+            lowerQuartilePerTrajIou.append(indiv_traj_metric_set.iou_stats.lowerQuartile)
+            upperQuartilePerTrajIou.append(indiv_traj_metric_set.iou_stats.upperQuartile)
+
+            lowerQuartilePerTrajDev.append(indiv_traj_metric_set.pos_dev_stats.lowerQuartile)
+            upperQuartilePerTrajDev.append(indiv_traj_metric_set.pos_dev_stats.upperQuartile)
+
 
         missedGtObjs[approachName] = missedGtObjsPerTraj
         objectsPerGtObj[approachName] = objectsPerGtObjPerTraj
@@ -58,6 +75,12 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
         medianPosDeviations[approachName] = medianPosDeviationsPerTraj
         medianIous[approachName] = medianIousPerTraj
         stdDevIou[approachName] = iouStdDevsPerTraj
+        lowerQuartilesIou[approachName] = lowerQuartilePerTrajIou
+        upperQuartilesIou[approachName] = upperQuartilePerTrajIou
+
+        lowerQuartilesDev[approachName] = lowerQuartilePerTrajDev
+        upperQuartilesDev[approachName] = upperQuartilePerTrajDev
+
 
     print("std devs dict")
     print(stdDevPosDev)
@@ -106,24 +129,39 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
     # # devScaleType="log"
     print(stdDevPosDev)
 
+    avgPosDevErrorBounds = {}
+
+    for approachName, stdDevForApproach in stdDevPosDev.items():
+        posDevs = np.array(avgPosDeviations[approachName])
+        stdDevArray = np.array(stdDevForApproach)
+        lowerBound = posDevs - stdDevArray
+        upperBound = posDevs + stdDevArray
+        avgPosDevErrorBounds[approachName] = (lowerBound, upperBound)
+
     plotRMSEs(metricsFilesInfo.primaryApproachName, avgPosDeviations, kAveragePositionDeviationsErrorType,
               ylims=posDev_y_lims, legend_loc=posDevLegendLoc,
               savepath=errorTypesAndSavepaths[kAveragePositionDeviationsErrorType], height_ratios=dev_height_ratios,
-              yscaleType=devScaleType, legend_ncol=avgDevLegendNcol, scatter=False, stdDevsDict=None)
+              yscaleType=devScaleType, legend_ncol=avgDevLegendNcol, scatter=False, errorBounds=avgPosDevErrorBounds)
     #
     # # Comparisions
     medianDevYLims = None
     med_dev_height_ratios = None
     medianDevLegendLoc = "upper left"
+    medianDevNcol = 1
 
-    # # Ablations
-    # medianDevYLims = [(0, 9), (11,52)]
-    # med_dev_height_ratios=[1.5, 1]
-    # medianDevLegendLoc="upper right"
-    #
+    # Ablations
+    # medianDevYLims = [(0, 3), (3, 100)]
+    # med_dev_height_ratios=[1, 1]
+    # medianDevLegendLoc="upper center"
+    # medianDevNcol = 2
+
+    medianDevErrorBounds = {}
+    for approachName, lowerQuartileForApproach in lowerQuartilesDev.items():
+        medianDevErrorBounds[approachName] = (lowerQuartileForApproach, upperQuartilesDev[approachName])
+
     plotRMSEs(metricsFilesInfo.primaryApproachName, medianPosDeviations, kMedianPositionDeviationsErrorType,
-              ylims=medianDevYLims, legend_loc=medianDevLegendLoc,
-              savepath=errorTypesAndSavepaths[kMedianPositionDeviationsErrorType], height_ratios=med_dev_height_ratios, scatter=False)
+              ylims=medianDevYLims, legend_loc=medianDevLegendLoc, errorBounds=medianDevErrorBounds, legend_ncol=medianDevNcol,
+              savepath=errorTypesAndSavepaths[kMedianPositionDeviationsErrorType], height_ratios=med_dev_height_ratios, scatter=False, subcapLabel="a")
 
     # comparison
     # iou_y_lims = [(0, 0.13)]
@@ -132,15 +170,41 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
     avgIouLegendNCol = 2
 
     # ablations
-    # iou_y_lims=[(0, 0.2)]
-    # avgIouLegendLoc="upper right"
-    # avgIouLegendNCol = 2
+    iou_y_lims=[(0, 0.4)]
+    avgIouLegendLoc="upper right"
+    avgIouLegendNCol = 2
+    avgIouErrorBounds = {}
 
+    for approachName, stdDevForApproach in stdDevIou.items():
+        iouForApproach = np.array(avgIous[approachName])
+        stdDevArray = np.array(stdDevForApproach)
+        lowerBound = iouForApproach - stdDevArray
+        upperBound = iouForApproach + stdDevArray
+        avgIouErrorBounds[approachName] = (lowerBound, upperBound)
     print("IOUS")
     print(stdDevIou)
     plotRMSEs(metricsFilesInfo.primaryApproachName, avgIous, kAverageIousErrorType, ylims=iou_y_lims,
               legend_loc=avgIouLegendLoc, savepath=errorTypesAndSavepaths[kAverageIousErrorType],
-              legend_ncol=avgIouLegendNCol, scatter=False, stdDevsDict=None)
+              legend_ncol=avgIouLegendNCol, scatter=False, errorBounds=avgIouErrorBounds)
+
+
+    medianIouErrorBounds = {}
+    for approachName, lowerQuartileForApproach in lowerQuartilesIou.items():
+        medianIouErrorBounds[approachName] = (lowerQuartileForApproach, upperQuartilesIou[approachName])
+
+
+    medianIoUYLims = [(0, .18)]
+    med_iou_height_ratios = None
+    medianiouLegendLoc = "upper left"
+    medianIouNcol = 1
+
+    # medianIoUYLims = [(0, .4)]
+    # med_iou_height_ratios = None
+    # medianiouLegendLoc = "upper center"
+    # medianIouNcol = 2
+    plotRMSEs(metricsFilesInfo.primaryApproachName, medianIous, kMedianIousErrorType,
+              ylims=medianIoUYLims, legend_loc=medianiouLegendLoc, errorBounds=medianIouErrorBounds,
+              savepath=errorTypesAndSavepaths[kMedianIousErrorType], height_ratios=med_iou_height_ratios, scatter=False, legend_ncol=medianIouNcol, subcapLabel="b")
 
     # Comparison
     missedGtsYLims = [(0, 1)]
@@ -152,9 +216,9 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
     missedGtsLegendLoc="lower center"
     missedGtsLegendNcol =2
 
-    # plotRMSEs(metricsFilesInfo.primaryApproachName, missedGtObjs, kMissedGtsErrorType, ylims=missedGtsYLims,
-    #           legend_loc=missedGtsLegendLoc, savepath=errorTypesAndSavepaths[kMissedGtsErrorType],
-    #           legend_ncol=missedGtsLegendNcol, scatter=False)
+    plotRMSEs(metricsFilesInfo.primaryApproachName, missedGtObjs, kMissedGtsErrorType, ylims=missedGtsYLims,
+              legend_loc=missedGtsLegendLoc, savepath=errorTypesAndSavepaths[kMissedGtsErrorType],
+              legend_ncol=missedGtsLegendNcol, scatter=False, subcapLabel="d")
 
     # # Comparison
     # objsPerGTYLims = None
@@ -166,9 +230,9 @@ def runPlotter(approaches_and_metrics_file_name, error_types_and_savepaths_file_
     objsPerGTLegendLoc="lower center"
     objsPerGTLegendNcol =2
 
-    # plotRMSEs(metricsFilesInfo.primaryApproachName, objectsPerGtObj, kObjRatioErrorType, ylims=objsPerGTYLims,
-    #           legend_loc=objsPerGTLegendLoc, savepath=errorTypesAndSavepaths[kObjRatioErrorType],
-    #           legend_ncol=objsPerGTLegendNcol, scatter=False)
+    plotRMSEs(metricsFilesInfo.primaryApproachName, objectsPerGtObj, kObjRatioErrorType, ylims=objsPerGTYLims,
+              legend_loc=objsPerGTLegendLoc, savepath=errorTypesAndSavepaths[kObjRatioErrorType],
+              legend_ncol=objsPerGTLegendNcol, scatter=False, subcapLabel="c")
 
     plt.show()
 

@@ -150,7 +150,9 @@ def generateMetricsForApproach(metrics_for_approach_config):
                         odometry_topic=metrics_for_approach_config.odometry_topic,
                         forceRerunInterpolator=metrics_for_approach_config.force_rerun_interpolator)
 
-    metrics_out_file = dirForSequenceResults + "metrics.json"
+    # TODO can we switch this back to metrics.json?
+    # metrics_out_file = dirForSequenceResults + "metrics.json"
+    metrics_out_file = dirForSequenceResults + "alt_metrics.json"
     needToRerunMetrics = False
     if (metrics_for_approach_config.force_rerun_metrics_generator):
         needToRerunMetrics = True

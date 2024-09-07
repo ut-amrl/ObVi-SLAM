@@ -47,6 +47,10 @@ def copyResultsFromServer(executionConfig):
             serverResultsForConfigName + "metrics.json") + " " + copyDirForSequenceAndConfig
     os.system(metricsCopyCmd)
 
+    objMetricsCopyCmd = "scp " + CopyFromServerConstants.serverName + ":" + (
+            serverResultsForConfigName + "object_metrics.json") + " " + copyDirForSequenceAndConfig
+    os.system(objMetricsCopyCmd)
+
     copySubdirs = ["ut_vslam_out", "postprocessing", "logs"]
 
     for idx, bagName in enumerate(rosbagsSequence):

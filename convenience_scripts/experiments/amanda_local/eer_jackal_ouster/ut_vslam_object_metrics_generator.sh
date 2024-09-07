@@ -23,7 +23,7 @@ sequence_file_base_name="evaluation_2023_07_v1"
 #config_file_strings=("no_vis_feats_base7a_1_fallback_a_2" "no_vis_feats_base7a_2_fallback_b_2" "no_vis_feats_base7a_2_fallback_c_2")
 
 #config_file_strings=("base7a_1_fallback_a_2" "no_vis_feats_base7a_1_fallback_a_2" "no_ltm_base7a_1_fallback_a_2")
-config_file_strings=("no_shape_prior_base7a_1_fallback_a_2")
+config_file_strings=("update_rev_lowerererish_conv_thresholds_manual_feat_adj_tighterer_vo_v4")
 
 for config_file_base_name in ${config_file_strings[@]}; do
   echo ${config_file_base_name}

@@ -31,7 +31,8 @@ kATETranslErrorType = "transl_ate"
 kATEOrientErrorType = "orient_ate"
 kAveragePositionDeviationsErrorType = "pos_dev_avg"
 kMedianPositionDeviationsErrorType = "pos_dev_med"
-kAverageIousErrorType = "avg ious"
+kAverageIousErrorType = "avg_ious"
+kMedianIousErrorType = "median_ious"
 kMissedGtsErrorType = "missed_gts"
 kObjRatioErrorType = "obj_ratio"
 
@@ -40,6 +41,7 @@ kATEOrientErrorYLabel = "RMSE (deg)"
 
 kAveragePositionDeviationsYLabel = "Average Deviation (m)"
 kAverageIousYLabel = "Average IoU"
+kMedianIousYLabel = "Median IoU"
 kMedianDevYLabel = "Median Deviation (m)"
 kMissedGtsYLabel = "Object Recall"
 kObjsPerGtsYLabel = "Estimated Objs Per GT Obj"
@@ -51,7 +53,8 @@ kATEErrorYLabelDict = {
     kAverageIousErrorType: kAverageIousYLabel, \
     kMedianPositionDeviationsErrorType: kMedianDevYLabel, \
     kMissedGtsErrorType: kMissedGtsYLabel, \
-    kObjRatioErrorType: kObjsPerGtsYLabel
+    kObjRatioErrorType: kObjsPerGtsYLabel, \
+    kMedianIousErrorType: kMedianIousYLabel
 }
 
 kObViSLAMApproachName = "ObVi-SLAM"
@@ -163,7 +166,8 @@ kAblationNoShapePriorMarkerSize = 100
 kAblationNoVisFeatMarkerSize = 100
 kAblationNoLtmMarkerSize = 100
 
-kAxisFontsize = 16
+# kAxisFontsize = 16
+kAxisFontsize=15
 kGridAlpha = .4
 
 kApproachMarkerSizeDict = {
@@ -293,12 +297,12 @@ def getCDFData(dataset, num_bins):
 
 
 def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="upper left", savepath=None,
-              stdDevsDict = None,
-              height_ratios=None, legend_ncol=1, yscaleType=None, scatter=True):
+              errorBounds=None,
+              height_ratios=None, legend_ncol=1, yscaleType=None, scatter=True, subcapLabel=None):
     fig = plt.figure(figsize=kFigSize)
     # fig = plt.figure(figsize=set_size(505, 0.2))
 
-    if (ylims == None) or (len(ylims) == 0):
+    if ((ylims == None) or (len(ylims) == 0)) and (errorBounds is None):
         non_inf_max = 0
         for approach_name, errs in errs_dict.items():
             for err_val in errs:
@@ -316,11 +320,7 @@ def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="up
         bax.axvline(x=orb_split_display + 0.5, color='purple', ls='--', lw=0.5)
 
     for approach_name, errs in errs_dict.items():
-        approachYerr = None
-        if (stdDevsDict is not None):
-            print(stdDevsDict)
-            approachYerr = stdDevsDict[approach_name]
-            print(approachYerr)
+
         # if approach_name not in kApproachNames:
         #     warnings.warn("Undefined approach name " + approach_name + ". Skip plotting trajectory...")
         #     continue
@@ -354,18 +354,24 @@ def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="up
                         marker=kApproachMarkerDict[approach_name], \
                         s=kApproachMarkerSizeDict[approach_name])
         else:
-            # bax.plot(xx, errs, linestyle=line_style, zorder=zorder,
-            #          label=approach_name, linewidth=3)
-            bax.errorbar(xx, errs, yerr=approachYerr, linestyle=line_style, zorder=zorder,
-                     label=approach_name, linewidth=3, capsize=8, capthick=2)
+            line = bax.plot(xx, errs, linestyle=line_style, zorder=zorder,
+                            label=approach_name, linewidth=3)
+            if (errorBounds is not None):
+                boundsForApproach = errorBounds[approach_name]
+                lowerBound = boundsForApproach[0]
+                upperBound = boundsForApproach[1]
+                bax.fill_between(xx, lowerBound, upperBound, alpha=0.2, facecolor=line[0][0].get_color(),
+                                 edgecolor=line[0][0].get_color(), zorder=zorder)
+            # bax.errorbar(xx, errs, yerr=approachYerr, linestyle=line_style, zorder=zorder,
+            #          label=approach_name, linewidth=3, capsize=8, capthick=2)
     # bax.set_xlabel("Trajectory Number", fontsize=kAxisFontsize)
     # bax.set_ylabel(kATEErrorYLabelDict[err_type], fontsize=kAxisFontsize)
-    # bax.legend(loc=legend_loc, ncol=legend_ncol, fontsize=kAxisFontsize)
+    bax.legend(loc=legend_loc, ncol=legend_ncol, fontsize=kAxisFontsize)
 
     # Use this one for trajectory ATEs and object position devs?
     # bax.legend(loc="upper center", ncol=2, fontsize=kAxisFontsize, bbox_to_anchor=(0.5, 1.3))
 
-    bax.legend(loc="upper center", ncol=2, fontsize=kAxisFontsize)
+    # bax.legend(loc="upper center", ncol=2, fontsize=kAxisFontsize)
     bax.grid(alpha=0.4)
     if (yscaleType is not None):
         bax.set_yscale(yscaleType)
@@ -385,7 +391,15 @@ def plotRMSEs(primaryApproachName, errs_dict, err_type, ylims=[], legend_loc="up
     # bax.axs[lastBaxIdx].set_xticks(np.arange(1, 16))
 
     fig.subplots_adjust(bottom=kFigBottomSpacing)
-    bax.set_xlabel("Trajectory Number", labelpad=30, fontsize=kAxisFontsize)
+    xLabelText = "Trajectory Number"
+    if (subcapLabel is not None):
+        # plt.rc('text', usetex=True)
+        plt.text(-0.1,-0.22,'(' + subcapLabel + ')',fontsize=30)
+        # bax.set_xlabel(r'{\fontsize{50pt}{3em}\selectfont{}a}{\fontsize{20pt}{3em}\selectfont{}N')
+        # xLabelText = r'\fontsize{30pt}\selectfont{}{(a)\r}{\fontsize{15pt}\selectfont{}}                               Trajectory Number                               '
+        # xLabelText = "(" + subcapLabel + ")" + "                               " + xLabelText + "                               " + "    "
+
+    bax.set_xlabel(xLabelText, labelpad=30, fontsize=kAxisFontsize)
     bax.set_ylabel(kATEErrorYLabelDict[err_type], fontsize=kAxisFontsize)
 
     plt.tight_layout(rect=(-0.05, -0.06, 1, 1))
@@ -569,6 +583,7 @@ class MetricsFileConstants:
     allTranslationDeviationsLabel = "all_translation_deviations"
     allRotationDeviationsLabel = "all_rotation_deviations"
     ateResultsLabel = "trajectory_sequence_ate_results"
+    rpeResultsLabel = "trajectory_sequence_rpe_results"
     indivTrajectoryMetricsLabel = "indiv_trajectory_metrics"
     sequenceMetricsLabel = "sequence_metrics"
 
@@ -642,11 +657,12 @@ class ATEResults:
 
 
 class TrajectoryMetrics:
-    def __init__(self, waypoint_deviations, all_translation_deviations, all_rotation_deviations, ate_results):
+    def __init__(self, waypoint_deviations, all_translation_deviations, all_rotation_deviations, ate_results, rpe_results=None):
         self.waypoint_deviations = waypoint_deviations
         self.all_translation_deviations = all_translation_deviations
         self.all_rotation_deviations = all_rotation_deviations
         self.ate_results = ate_results
+        self.rpe_results = rpe_results
 
 
 class FullSequenceMetrics:
@@ -714,9 +730,12 @@ def readTrajectoryMetricsFromJsonObj(metricsJsonObj):
         raise ValueError(
             "entry for " + MetricsFileConstants.ateResultsLabel + " was not in the metrics file")
     ateResults = readATEResultsFromJsonObj(metricsJsonObj[MetricsFileConstants.ateResultsLabel])
+    rpeResults = None
+    if (MetricsFileConstants.rpeResultsLabel in metricsJsonObj):
+        rpeResults = readATEResultsFromJsonObj(metricsJsonObj[MetricsFileConstants.rpeResultsLabel])
 
     return TrajectoryMetrics(ate_results=ateResults, all_translation_deviations=all_translation_deviations,
-                             all_rotation_deviations=all_rotation_deviations,
+                             all_rotation_deviations=all_rotation_deviations, rpe_results=rpeResults,
                              waypoint_deviations=None)  # TODO fix this one
 
 
@@ -820,8 +839,7 @@ def readObjectsMetricsFile(metricsFile):
         return FullSequenceObjectMetrics(indiv_trajectory_object_metrics=indivTrajectoryMetrics)
 
 
-def generateLatexTable(colHeaders, rowHeaders, data, boldFlags):
-
+def generateLatexTable(colHeaders, rowHeaders, data, boldFlags, italicFlags=None):
     colSeparatorString = "|"
     for _ in range(len(colHeaders) + 1):
         colSeparatorString += "l|"
@@ -841,16 +859,20 @@ def generateLatexTable(colHeaders, rowHeaders, data, boldFlags):
             latexString += " & "
             dataEntry = data[rowIdx][colIdx]
             bold = False
+            italic = False
             if (boldFlags[rowIdx][colIdx]):
                 bold = True
+            elif ((italic is not None) and (italicFlags[rowIdx][colIdx])):
+                italic = True
             if (bold):
                 latexString += "\\textbf{"
+            if (italic):
+                latexString += "\\textit{"
             latexString += dataEntry
-            if (bold):
+            if (bold or italic):
                 latexString += "} "
         latexString += " \\\\ \\hline \n"
     latexString += "\\end{tabular}"
     latexString += "\\end{table}"
 
     return latexString
-

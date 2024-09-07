@@ -157,6 +157,12 @@ ROSBUILD_ADD_EXECUTABLE(display_ltm src/refactoring/display_ltm.cpp)
 target_link_libraries(display_ltm ut_vslam ${LIBS})
 
 
+ROSBUILD_ADD_EXECUTABLE(lego_loam_traj_length_evaluator src/evaluation/lego_loam_traj_length_evaluator.cpp)
+target_link_libraries(lego_loam_traj_length_evaluator ut_vslam ${LIBS})
+
+ROSBUILD_ADD_EXECUTABLE(gt_transformer src/evaluation/gt_transformer.cpp)
+target_link_libraries(gt_transformer ut_vslam ${LIBS})
+
 ROSBUILD_ADD_EXECUTABLE(run_opt_from_pg_state src/refactoring/run_opt_from_pg_state.cpp)
 target_link_libraries(run_opt_from_pg_state ut_vslam ${LIBS})
 

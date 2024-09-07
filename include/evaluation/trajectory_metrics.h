@@ -41,6 +41,7 @@ struct TrajectoryMetrics {
   std::vector<double> all_translation_deviations_;
   std::vector<double> all_rotation_deviations_;
   ATEResults ate_results_;
+  ATEResults rpe_results_;
 };
 
 struct FullSequenceMetrics {

@@ -103,6 +103,7 @@ FullSequenceMetrics computeMetrics(
         nullptr) {
   FullSequenceMetrics full_metrics;
   std::vector<ATEResults> single_traj_ate_results;
+  std::vector<ATEResults> single_traj_rpe_results;
 
   std::vector<
       util::BoostHashMap<pose::Timestamp, std::optional<Pose3D<double>>>>
@@ -181,9 +182,14 @@ FullSequenceMetrics computeMetrics(
     ATEResults traj_ate_results =
         generateATEforRotAndTranslForSyncedAlignedTrajectories(
             aligned_comparison_pose, gt_pose_only);
+    ATEResults traj_rpe_results =
+        generateRPEforRotAndTranslForSyncedAlignedTrajectories(
+            aligned_comparison_pose, gt_pose_only);
     TrajectoryMetrics single_traj_metrics;
     single_traj_metrics.ate_results_ = traj_ate_results;
+    single_traj_metrics.rpe_results_ = traj_rpe_results;
     single_traj_ate_results.emplace_back(traj_ate_results);
+    single_traj_rpe_results.emplace_back(traj_rpe_results);
 
     for (const auto &waypoint_with_centroid_dev_by_trajectory :
          raw_consistency_results
@@ -214,6 +220,8 @@ FullSequenceMetrics computeMetrics(
   TrajectoryMetrics sequence_results;
   sequence_results.ate_results_ =
       combineSingleTrajectoryResults(single_traj_ate_results);
+  sequence_results.rpe_results_ =
+      combineSingleTrajectoryResults(single_traj_rpe_results);
   for (const TrajectoryMetrics &single_traj_metrics :
        full_metrics.indiv_trajectory_metrics_) {
     sequence_results.all_translation_deviations_.insert(
@@ -274,7 +282,8 @@ int main(int argc, char **argv) {
   ros::NodeHandle node_handle;
   std::shared_ptr<RosVisualization> vis_manager =
       std::make_shared<RosVisualization>(
-          node_handle, param_prefix, node_prefix);
+//          node_handle, param_prefix, node_prefix);
+          node_handle, "", node_prefix);
   ros::Duration(2).sleep();
 
   if (FLAGS_sequence_file.empty() ==
@@ -322,6 +331,7 @@ int main(int argc, char **argv) {
   std::vector<std::string> indiv_traj_dir_base_names;
   std::vector<std::string> rosbag_names;
   std::vector<std::optional<std::string>> waypoint_file_base_names;
+  LOG(INFO) << "Getting base file names";
   if (!FLAGS_sequence_file.empty()) {
     SequenceInfo sequence_info;
     readSequenceInfo(FLAGS_sequence_file, sequence_info);
@@ -355,6 +365,7 @@ int main(int argc, char **argv) {
                               file_io::kBagExtension);
   }
 
+  LOG(INFO) << "Getting full file names";
   std::vector<std::string> full_paths_for_comparison_trajectories;
   std::vector<std::string> full_paths_for_gt_trajectories;
   std::vector<std::string> full_paths_for_wp_annotated_trajectories;
@@ -400,6 +411,7 @@ int main(int argc, char **argv) {
     full_paths_for_gt_trajectories.emplace_back(gt_traj_full_path);
   }
 
+  LOG(INFO) << "Getting interpolated trajectories from file";
   std::vector<std::vector<std::pair<pose::Timestamp, Pose3D<double>>>>
       interp_gt_trajectories;
   for (const std::string &interp_gt_file : full_paths_for_gt_trajectories) {
@@ -410,15 +422,19 @@ int main(int argc, char **argv) {
     interp_gt_trajectories.emplace_back(gt_traj);
   }
 
+  LOG(INFO) << "Finding the first pose";
   std::optional<Pose3D<double>> first_pose;
   std::vector<
       std::vector<std::pair<pose::Timestamp, std::optional<Pose3D<double>>>>>
       comparison_trajectories;
+  LOG(INFO) << "Full paths for comparison trajectories " << full_paths_for_comparison_trajectories.size();
   for (const std::string &comparison_traj_file :
        full_paths_for_comparison_trajectories) {
+    LOG(INFO) << "Comparison file " << comparison_traj_file;
     std::vector<std::pair<pose::Timestamp, std::optional<Pose3D<double>>>>
         comparison_traj;
     if (std::filesystem::exists(comparison_traj_file)) {
+      LOG(INFO) << "Reading trajectory from file " << comparison_traj_file;
       file_io::readOptionalPose3dsWithTimestampFromFile(comparison_traj_file,
                                                         comparison_traj);
     }
@@ -433,6 +449,7 @@ int main(int argc, char **argv) {
     }
   }
 
+  LOG(INFO) << "Getting extrinsics";
   Pose3D<double> comparison_traj_frame_rel_base_link;
   std::vector<Pose3D<double>> comparison_traj_extrinsics_contents;
   file_io::readPose3dsFromFile(FLAGS_comparison_alg_to_bl_extrinsics,
@@ -473,13 +490,14 @@ int main(int argc, char **argv) {
       std::vector<std::pair<pose::Timestamp, std::optional<Pose3D<double>>>>>
       comparison_trajectories_rel_baselink;
 
+  LOG(INFO) << "Adjusting comparison trajectories";
   for (const std::vector<
            std::pair<pose::Timestamp, std::optional<Pose3D<double>>>>
            &comparison_traj : comparison_trajectories) {
     std::vector<Pose3D<double>> entries_with_valid_pose;
     std::vector<std::pair<std::optional<size_t>, pose::Timestamp>>
         old_to_new_mapping;
-
+    LOG(INFO) << "Generating mapping info";
     for (const std::pair<pose::Timestamp, std::optional<Pose3D<double>>>
              &pose_info : comparison_traj) {
       if (pose_info.second.has_value()) {
@@ -492,6 +510,8 @@ int main(int argc, char **argv) {
       }
     }
 
+    LOG(INFO) << "Adjusting to tart at origin with extrinsics";
+    LOG(INFO) << "First pose has val? " << first_pose.has_value();
     std::vector<Pose3D<double>> other_sensor_frame_trajectory =
         adjustTrajectoryToStartAtOriginWithExtrinsics<double>(
             entries_with_valid_pose,
@@ -501,6 +521,7 @@ int main(int argc, char **argv) {
     std::vector<std::pair<pose::Timestamp, std::optional<Pose3D<double>>>>
         comparison_traj_rel_bl_origin_start;
 
+    LOG(INFO) << "Updating traj with mapping";
     for (const std::pair<std::optional<size_t>, pose::Timestamp> &mapping :
          old_to_new_mapping) {
       if (mapping.first.has_value()) {
@@ -554,6 +575,7 @@ int main(int argc, char **argv) {
       est.emplace_back(new_traj_valid);
       init.emplace_back(orig_traj_valid);
     }
+    LOG(INFO) << "Visualizing trajectories";
     vis_manager->visualizeTrajectories(est, ESTIMATED);
     vis_manager->visualizeTrajectories(init, INITIAL);
   }
